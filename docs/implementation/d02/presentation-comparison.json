@@ -1,0 +1,44 @@
+{
+  "scope": "Matched real-demo presentation at60 manually scheduled frames; original diagnostic, not a game qualification or real-time performance run",
+  "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+  "input": "ArrowRight held for all60frames,thenPause",
+  "viewport": {
+    "width": 1280,
+    "height": 1100
+  },
+  "runs": [
+    {
+      "phase": "before",
+      "browser": "Chrome",
+      "version": "145.0.7632.75",
+      "errors": [],
+      "frames": 60,
+      "canvas_sha256": "149e441fa713fc4534497a8ebe7f5484e2da82bc10a914a6baa658c5bafcdcbf",
+      "wasm_sha256": "067e8af94b0c85b5b862183bf60d52877f95347e16e9ed209871884387a571cc",
+      "status": "Paused. Resume whenever you\u2019re ready."
+    },
+    {
+      "phase": "after",
+      "browser": "Chrome",
+      "version": "145.0.7632.75",
+      "errors": [],
+      "frames": 60,
+      "canvas_sha256": "426557905a11aa8ebf21d3fcb4d025525395c14277868dffda64f7b54f7e87cd",
+      "wasm_sha256": "d4ae03cd634d78fa9bc0205431cac4ebb954bfa2b9de201bd17e6e56c2c45bb5",
+      "status": "Paused. Resume whenever you\u2019re ready."
+    }
+  ],
+  "inspection": {
+    "screenshot_size": [
+      1280,
+      1174
+    ],
+    "changed_pixel_bounds": [
+      179,
+      390,
+      777,
+      949
+    ],
+    "finding": "Inspected both actual screenshots: same layout and paused controls; changed color and left-edge filter artifact are confined to the diagnostic canvas. This flat-color fixture does not qualify detailed game artwork."
+  }
+}

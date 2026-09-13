@@ -40,6 +40,7 @@ probe.init = async ({ rom64, wasm64, role, identity, seconds = 600 }) => {
   probe.audioSent = 0;
   probe.audioQueued = 0;
   stats.audioBackpressurePolls = 0;
+  stats.voiceMissedSlots = 0;
   probe.finished = false;
   probe.audio = new AudioContext({
     sampleRate: 48000,
@@ -347,7 +348,9 @@ probe.start = async () => {
         for (let i = 1; i < a.length; i++)
           if (a[i - 1] < 0 && a[i] >= 0) crossings++;
         probe.stats.voiceFrequencyHz.push((crossings * 48000) / a.length);
-        lastVoice = elapsed;
+        const slot = Math.floor(elapsed / 1000) * 1000;
+        probe.stats.voiceMissedSlots += Math.max(0, (slot - lastVoice) / 1000 - 1);
+        lastVoice = slot;
       }
       const target = Math.min(
         probe.limit,

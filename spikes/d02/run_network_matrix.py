@@ -32,7 +32,8 @@ try:
             if process.poll() is not None:
                 if process.returncode != 0:
                     raise RuntimeError('Pair failed: '+pair)
-                verify(json.loads(output.read_text()), 600)
+                # A verifier-only rejection must not discard independent peers still finishing.
+                # Verify all completed outputs after every process exits.
         if time.monotonic()-started >= 900:
             raise TimeoutError('Shared matrix deadline exceeded')
         print(json.dumps({'wall_seconds': round(time.monotonic()-started, 1),

@@ -22,5 +22,18 @@ Object.assign(probe,{ready:true,audio:{state:'running'},sink:{port:{postMessage(
   context.tick();
   assert.equal(steps,1);
   assert.equal(probe.stats.errors.length,0);
-  console.log('PASS: full-queue scheduling waits without exceptions, then resumes the same input frame');
+  // A 3 ms timer cadence exposed cumulative drift: the old elapsed-relative timer
+  // recorded only 598 observations during a full 600 seconds.
+  probe.busy=false;probe.audioQueued=8100;probe.frame=0;
+  probe.stats.voiceLevels=[];probe.stats.voiceFrequencyHz=[];probe.stats.voiceMissedSlots=0;
+  probe.analyser={getFloatTimeDomainData(samples){samples.fill(0.02);}};
+  context.performance.now=()=>1000;
+  await probe.start();
+  for(let elapsed=3;elapsed<=600000;elapsed+=3){context.performance.now=()=>1000+elapsed;context.tick();}
+  assert.equal(probe.stats.voiceLevels.length,600);
+  assert.equal(probe.stats.voiceMissedSlots,0);
+  context.performance.now=()=>605000;context.tick();
+  assert.equal(probe.stats.voiceLevels.length,601);
+  assert.equal(probe.stats.voiceMissedSlots,3);
+  console.log('PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples');
 })().catch(error=>{console.error(error);process.exitCode=1;});
