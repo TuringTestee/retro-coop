@@ -36,7 +36,10 @@ jobs:
           cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown
           python original_fixture.py fixture.local.nes
           python -m pip install playwright==1.58.0
-          python -m playwright install chrome firefox
+          # Both selected runner images include branded Chrome. Preserve it:
+          # Playwright's Chrome installer removes it before downloading a replacement.
+          # browser_probe.py launches channel=chrome and records the actual version.
+          python -m playwright install firefox
       - name: Replay and verify both browsers
         working-directory: spikes/d02
         run: |
