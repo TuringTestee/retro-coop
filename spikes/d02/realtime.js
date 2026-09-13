@@ -46,12 +46,22 @@ probe.init = async ({ rom64, wasm64, role, identity, seconds = 600 }) => {
     sampleRate: 48000,
     latencyHint: "interactive",
   });
+  // Mute this page only; keep the measured audio graph running upstream.
+  probe.output = probe.audio.createGain();
+  probe.output.gain.value = 0;
+  probe.outputMeter = probe.audio.createAnalyser();
+  probe.output.connect(probe.outputMeter).connect(probe.audio.destination);
+  const sound = document.querySelector("#sound");
+  sound.checked = false;
+  sound.onchange = () => {
+    probe.output.gain.setValueAtTime(sound.checked ? 1 : 0, probe.audio.currentTime);
+  };
   await probe.audio.audioWorklet.addModule("/realtime-audio.js");
   probe.sink = new AudioWorkletNode(probe.audio, "bounded-audio", {
     numberOfInputs: 0,
     outputChannelCount: [1],
   });
-  probe.sink.connect(probe.audio.destination);
+  probe.sink.connect(probe.output);
   probe.sink.port.onmessage = ({ data: d }) => {
     if (d.kind === "queued" && d.epoch === probe.epoch) {
       // Account for messages still in transit; never assume those samples drained.
@@ -98,7 +108,7 @@ probe.init = async ({ rom64, wasm64, role, identity, seconds = 600 }) => {
     probe.analyser = probe.audio.createAnalyser();
     probe.analyser.fftSize = 1024;
     probe.remoteVoice.connect(probe.analyser);
-    probe.analyser.connect(probe.audio.destination);
+    probe.analyser.connect(probe.output);
     stats.trackAtMs = performance.now() - initial;
     probe.voicePoll = setInterval(() => {
       const a = new Float32Array(1024);
@@ -412,7 +422,14 @@ probe.result = async () => {
     probe.sink.port.postMessage({ kind: "stats" });
   });
   const rtc = [];
-  for (const s of (await probe.pc.getStats()).values()) {
+  const all = await probe.pc.getStats();
+  const selected = new Set(
+    [...all.values()]
+      .filter((s) => s.type === "transport")
+      .map((s) => s.selectedCandidatePairId)
+      .filter(Boolean),
+  );
+  for (const s of all.values()) {
     if (s.type === "media-source" && s.kind === "audio")
       rtc.push({
         type: s.type,
@@ -436,9 +453,12 @@ probe.result = async () => {
         totalAudioEnergy: s.totalAudioEnergy,
         totalSamplesReceived: s.totalSamplesReceived,
       });
-    if (s.type === "candidate-pair" && s.state === "succeeded" && s.nominated) {
-      const all = await probe.pc.getStats(),
-        local = all.get(s.localCandidateId),
+    if (
+      s.type === "candidate-pair" &&
+      s.state === "succeeded" &&
+      (selected.has(s.id) || s.nominated)
+    ) {
+      const local = all.get(s.localCandidateId),
         remote = all.get(s.remoteCandidateId);
       rtc.push({
         type: s.type,
@@ -467,6 +487,8 @@ probe.result = async () => {
     })),
   };
   const stats = probe.stats;
+  const outputSamples = new Float32Array(probe.outputMeter.fftSize);
+  probe.outputMeter.getFloatTimeDomainData(outputSamples);
   const summary = (xs) => ({
     count: xs.length,
     p50: percentile(xs, 0.5),
@@ -479,6 +501,21 @@ probe.result = async () => {
     wallMs: probe.completedAt ?? performance.now() - probe.started,
     rtc,
     voiceTrack,
+    iceSelection: [...all.values()]
+      .filter((s) => s.type === "transport" || s.type === "candidate-pair")
+      .map((s) => ({
+        type: s.type,
+        id: s.id,
+        state: s.state,
+        nominated: s.nominated,
+        selectedCandidatePairId: s.selectedCandidatePairId,
+        bytesSent: s.bytesSent,
+        bytesReceived: s.bytesReceived,
+      })),
+    outputMuted: probe.output.gain.value === 0,
+    outputPeak: outputSamples.reduce(
+      (peak, sample) => Math.max(peak, Math.abs(sample)), 0,
+    ),
     emulateMs: summary(stats.emulateMs),
     copyMs: summary(stats.copyMs),
     paintMs: summary(stats.paintMs),

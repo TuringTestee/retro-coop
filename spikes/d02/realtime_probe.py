@@ -17,6 +17,7 @@ async def run():
     parser.add_argument('--seconds',type=int,choices=[10,600],default=600)
     parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Firefox')
     parser.add_argument('--bundled-chromium',action='store_true')
+    parser.add_argument('--firefox-executable',type=Path,help='Official Firefox executable, driven through WebDriver BiDi')
     parser.add_argument('--output',type=Path,default=Path('realtime.local.json'))
     args=parser.parse_args()
     assert 10<=args.seconds<=600
@@ -24,7 +25,12 @@ async def run():
     adapter=hashlib.sha256()
     for filename in ['realtime.js','realtime-worker.js','realtime-audio.js','realtime.html']:
         adapter.update(filename.encode()+b'\0'+Path(filename).read_bytes())
-    result={'run_id':os.environ.get('D02_RUN_ID'),'platform':platform.platform(),'rom_bytes':len(rom),'wasm_bytes':len(wasm),'rom_sha256':hashlib.sha256(rom).hexdigest(),'wasm_sha256':hashlib.sha256(wasm).hexdigest(),'adapter_sha256':adapter.hexdigest(),'pair':args.pair,'seconds':args.seconds,'impairment':'isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback','route':'isolated private host ICE; no STUN/TURN','voice':'synthetic oscillator, not real microphone/speaker listening','chromium_launch':'headless, default --mute-audio removed','runs':[]}
+    result={'run_id':os.environ.get('D02_RUN_ID'),'platform':platform.platform(),'rom_bytes':len(rom),'wasm_bytes':len(wasm),'rom_sha256':hashlib.sha256(rom).hexdigest(),'wasm_sha256':hashlib.sha256(wasm).hexdigest(),'adapter_sha256':adapter.hexdigest(),'pair':args.pair,'seconds':args.seconds,'impairment':'isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback','route':'isolated private host ICE; no STUN/TURN','voice':'synthetic oscillator, not real microphone/speaker listening','chromium_launch':'headless, default --mute-audio removed','firefox_driver':'official Firefox via WebDriver BiDi' if args.firefox_executable else 'Playwright bundled patched Firefox','runs':[]}
+    if args.firefox_executable:
+        build=json.loads((args.firefox_executable.resolve().parents[1]/'browser-build.json').read_text())
+        result['firefox_build']=build
+        result['firefox_executable_sha256']=hashlib.sha256(args.firefox_executable.read_bytes()).hexdigest()
+        assert result['firefox_executable_sha256']==build['binary_sha256'], 'Prepared Firefox binary changed'
     identity=json.dumps({'adapter':result['adapter_sha256'],'protocol':'D02-RT1','rom':result['rom_sha256'],'wasm':result['wasm_sha256'],'region':'NTSC','input_lead':12},sort_keys=True,separators=(',',':'))
     async with async_playwright() as p:
         browsers=[];pages=[];page_errors=[]
@@ -33,13 +39,22 @@ async def run():
                 if name=='Chrome':
                     options={} if args.bundled_chromium else {'executable_path':'/usr/bin/google-chrome'}
                     browser=await p.chromium.launch(headless=True,ignore_default_args=['--mute-audio'],**options)
+                elif args.firefox_executable:
+                    browser=await p.firefox.launch(channel='moz-firefox',executable_path=str(args.firefox_executable.resolve()),headless=True)
                 else: browser=await p.firefox.launch(headless=True)
-                browsers.append(browser);page=await browser.new_page();pages.append(page)
+                browsers.append(browser)
+                if name=='Firefox' and args.firefox_executable:
+                    assert browser.version==build['version'], 'Prepared Firefox version changed'
+                # Stock Firefox146 BiDi does not implement screen-size emulation.
+                page=await browser.new_page(no_viewport=True) if name=='Firefox' and args.firefox_executable else await browser.new_page()
+                pages.append(page)
                 errors=[];page_errors.append(errors)
                 page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
                 page.on('console',lambda message: print('browser console:',message.type,message.text,flush=True) if message.type in ['error','warning'] else None)
                 await page.goto('http://127.0.0.1:8765/realtime.html')
                 await page.evaluate('args=>probe.init(args)',{'role':role,'identity':identity,'seconds':args.seconds,'rom64':base64.b64encode(rom).decode(),'wasm64':base64.b64encode(wasm).decode()})
+            for page in pages:
+                assert await page.evaluate("!document.querySelector('#sound').checked && probe.output.gain.value===0"), 'Application sound must start muted'
             await asyncio.gather(*(page.click('#enable') for page in pages))
             await asyncio.gather(*(page.wait_for_function("probe.audio.state==='running'",timeout=15000) for page in pages))
             offer=await pages[0].evaluate("probe.description('offer')")
@@ -60,9 +75,13 @@ async def run():
             # Explicit hash-comparison readiness, not a guessed network drain delay.
             await asyncio.gather(*(page.wait_for_function('probe.stats.hashes.every(x=>probe.peerHashes?.has(x.frame))',timeout=10000) for page in pages))
             measurements=await asyncio.gather(*(page.evaluate('probe.result()') for page in pages))
+            if any(run['outputMuted'] is not True or run['outputPeak'] != 0 for run in measurements):
+                raise RuntimeError('Application output mute failed')
             teardowns=await asyncio.gather(*(page.evaluate('probe.close()') for page in pages))
             for name,browser,measurement,teardown in zip(args.pair.split('-'),browsers,measurements,teardowns):
                 result['runs'].append({'browser':'Chromium' if name=='Chrome' and args.bundled_chromium else name,'version':browser.version,**measurement,'teardown':teardown})
+            if args.firefox_executable:
+                assert hashlib.sha256(args.firefox_executable.read_bytes()).hexdigest()==build['binary_sha256'], 'Firefox binary changed during experiment'
             result['canonical_equal']=result['runs'][0]['hashes']==result['runs'][1]['hashes']
             result['page_errors']=page_errors
             if any(page_errors):

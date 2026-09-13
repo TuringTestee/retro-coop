@@ -97,6 +97,21 @@ class EvidenceRegression(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "direct UDP"):
             verify(candidate)
 
+    def test_application_mute_requires_measured_silence_without_hiding_upstream_audio(self):
+        muted = json.loads(FIXTURE.with_name("network-muted-smoke.json").read_text())
+        verify(muted, 10, require_muted=True)
+        with self.assertRaisesRegex(ValueError, "muted"):
+            verify(self.observed, 10, require_muted=True)
+        for key, value in (("outputMuted", False), ("outputPeak", .001), ("outputPeak", float("nan"))):
+            candidate = copy.deepcopy(muted)
+            candidate["runs"][0][key] = value
+            with self.assertRaisesRegex(ValueError, "muted"):
+                verify(candidate, 10, require_muted=True)
+        candidate = copy.deepcopy(muted)
+        candidate["runs"][0]["voiceLevels"]["p50"] = 0
+        with self.assertRaisesRegex(ValueError, "silent"):
+            verify(candidate, 10, require_muted=True)
+
     def test_cli_default_cannot_promote_smoke_to_full_pass(self):
         command = [sys.executable, str(Path(__file__).with_name("verify_realtime.py")), str(FIXTURE)]
         full = subprocess.run(command, capture_output=True, text=True, timeout=5)

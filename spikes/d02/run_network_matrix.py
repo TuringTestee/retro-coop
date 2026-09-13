@@ -10,6 +10,7 @@ from verify_realtime import verify
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('rom', type=Path)
 parser.add_argument('--bundled-chromium', action='store_true')
+parser.add_argument('--firefox-executable', type=Path)
 parser.add_argument('--output', type=Path, default=Path('network-matrix.local.json'))
 args = parser.parse_args()
 started = time.monotonic()
@@ -25,6 +26,8 @@ try:
                    '--pair', pair, '--output', str(output.resolve())]
         if args.bundled_chromium:
             command.append('--bundled-chromium')
+        if args.firefox_executable:
+            command.extend(['--firefox-executable', str(args.firefox_executable.resolve())])
         process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         children.append((pair, process, output, log))
     while any(process.poll() is None for _, process, _, _ in children):
@@ -46,7 +49,7 @@ try:
         result['pairs'].append(entry)
         if process.returncode != 0:
             raise RuntimeError('Pair failed: '+pair)
-        verify(entry['result'], 600)
+        verify(entry['result'], 600, require_muted=True)
     result['all_pairs_verified'] = True
 except Exception as error:
     result['error'] = str(error)

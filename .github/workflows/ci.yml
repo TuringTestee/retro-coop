@@ -36,6 +36,8 @@ jobs:
           python3 -m venv /tmp/d02-browser-venv
           /tmp/d02-browser-venv/bin/pip install playwright==1.58.0
           /tmp/d02-browser-venv/bin/playwright install --with-deps chromium firefox
+          timeout 180s python3 spikes/d02/prepare_stock_firefox.py /tmp/d02-stock-firefox
+          cp /tmp/d02-stock-firefox/browser-build.json spikes/d02/stock-firefox-build.local.json
       - name: Original-fixture browser regression
         run: |
           cd spikes/d02
@@ -61,7 +63,7 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           export PATH="/tmp/d02-browser-venv/bin:$PATH"
           cd spikes/d02
-          timeout 900s python3 run_network_matrix.py fixture.local.nes --bundled-chromium --output network-matrix.local.json
+          timeout 900s python3 run_network_matrix.py fixture.local.nes --bundled-chromium --firefox-executable /tmp/d02-stock-firefox/firefox/firefox --output network-matrix.local.json
       - name: Browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -74,6 +76,7 @@ jobs:
             spikes/d02/demo-after.local.png
             spikes/d02/network-matrix.local.json
             spikes/d02/audio-backend.local.txt
+            spikes/d02/stock-firefox-build.local.json
             spikes/d02/.network-runs/matrix-*/*.json
             spikes/d02/.network-runs/matrix-*/*.log
           if-no-files-found: ignore

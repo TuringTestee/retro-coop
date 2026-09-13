@@ -19,7 +19,7 @@ def digest(value):
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
 
-def verify(result, seconds=600):
+def verify(result, seconds=600, require_muted=False):
     require(seconds in (10, 600), "only explicit 10-second smoke or full 600-second runs")
     require(result.get("seconds") == seconds, "duration differs from requested verification scope")
     require("error" not in result, "probe reported an error")
@@ -49,6 +49,9 @@ def verify(result, seconds=600):
         require(run["pendingInputs"] == 0 and run["remoteInputQueue"] == 0, "undrained final inputs")
         require(0 <= run["maxBuffered"] <= 65536 and 0 <= run["maxRemoteInputs"] <= 121, "unbounded transport queue")
         require(run["audioSampleRate"] == 48000, "unexpected audio sample rate")
+        if require_muted:
+            require(run.get("outputMuted") is True and number(run.get("outputPeak")) and run["outputPeak"] == 0,
+                    "application output is not measured muted")
         audio = run["audio"]
         for key in ("received", "played", "underrun", "overflow", "maxQueued", "stale", "flushes", "flushed", "queued"):
             require(type(audio[key]) is int and audio[key] >= 0, "invalid audio counter: " + key)
@@ -114,6 +117,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("result", type=Path)
     parser.add_argument("--seconds", type=int, choices=(10, 600), default=600)
+    parser.add_argument("--require-muted", action="store_true", help="Require actual post-gain silence; historical runs did not measure this")
     parser.add_argument("--network-dir", type=Path,
                         help="Bundle this run's finished sidecars before another run overwrites them")
     args = parser.parse_args()
@@ -128,7 +132,7 @@ def main():
             require(result["network_evidence"]["run_id"] == result["run_id"], "sidecars belong to another run")
             # Preserve captured failures too; success is decided only by verify().
             args.result.write_text(json.dumps(result, indent=2) + "\n")
-        verify(result, args.seconds)
+        verify(result, args.seconds, require_muted=args.require_muted)
     except (ValueError, KeyError, TypeError, IndexError, OSError) as error:
         parser.exit(1, "FAIL: " + str(error) + "\n")
     scope = "SMOKE ONLY (10 seconds)" if args.seconds == 10 else "FULL 600-second paired experiment"
