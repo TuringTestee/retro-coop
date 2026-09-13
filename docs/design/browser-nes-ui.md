@@ -4,21 +4,23 @@ Visitors see every public game session, drop a local ROM to host, and join a two
 
 ## Scope and reading guide
 
-This companion to [the platform design](browser-nes-platform.md) covers AC-01–AC-12 at the interaction level. It adds no gameplay spectators, accounts, password rooms, cloud saves, recordings, mobile controls, or emulator compatibility promises. The existing browser/network, cost, and rights constraints still apply. Labels such as “Evening puzzle,” player names, counts, and timers are illustrative. “Featured homebrew” is a placeholder for the unspecified special Tetris variant, not an approved title or invented ruleset.
+This companion to [the platform design](browser-nes-platform.md) covers AC-01–AC-16 at the interaction level. It adds no gameplay spectators, accounts, password rooms, cloud saves, recordings, mobile controls, or an unqualified universal emulator compatibility promise. Broad compatibility qualification is now a release workstream. The existing browser/network, cost, and rights constraints still apply. Labels such as “Evening puzzle,” player names, counts, and timers are illustrative. “Featured homebrew” is a placeholder for the unspecified special Tetris variant, not an approved title or invented ruleset.
 
 The candidate is intended for review in [planning PR #3](https://github.com/TuringTestee/retro-coop/pull/3), under [epic #2](https://github.com/TuringTestee/retro-coop/issues/2). ASCII establishes hierarchy, actions, and state changes. Real-browser visuals, accessibility checks, network evidence, and user approval are still required later. UI labels use “game matches” and “waiting for connection”; hash algorithms and protocol epochs stay in the engineering specification.
 
-Square brackets denote controls. A disabled control is explicitly labelled unavailable with nearby explanatory text. Full/Reserved are status text, not misleading clickable buttons. Screens U1–U9 and stories S01–S32 provide stable references for implementation and review.
+Square brackets denote controls. A disabled control is explicitly labelled unavailable with nearby explanatory text. Full/Reserved are status text, not misleading clickable buttons. Screens U1–U9 and stories S01–S37 provide stable references for implementation and review.
 
 ## Direction and layout
 
-Use a restrained arcade theme: dark charcoal page, slightly lighter panels, warm off-white text, and one bright accent for the next action. Reserve amber for attention and red for errors/destructive actions, always paired with words or icons. Body text uses a readable system sans-serif; a pixel-style wordmark is optional. No scanlines on page text, flashing decoration, fabricated cartridge art, or automatic background gameplay.
+The current agent-proposed visual direction remains a restrained arcade theme; the user’s governing product principle is minimal setup, not a mandated aesthetic: dark charcoal page, slightly lighter panels, warm off-white text, and one bright accent for the next action. Reserve amber for attention and red for errors/destructive actions, always paired with words or icons. Body text uses a readable system sans-serif; a pixel-style wordmark is optional. No scanlines on page text, flashing decoration, fabricated cartridge art, or automatic background gameplay.
 
 At a wide desktop viewport, center a content area around 1200 px. Directory rows stay compact so multiple games are immediately visible. Session layout gives roughly three quarters of the width to play and one quarter to players/chat, with the game preserving the emulator's 256:240 source ratio. Do not stretch its pixels to match these schematic boxes. Narrow desktop windows stack the side panel below play and expose a chat tab with an unread marker; they must retain every action without horizontal page scrolling. This responsive treatment does not expand first-release support to mobile play.
 
 Use at least 16 px body text, clear focus outlines, comfortably sized controls, readable contrast, and reduced-motion behavior. Screen-reader labels name the game and host for each Join action. Announce join outcomes and pauses politely; do not announce every heartbeat, game frame, or countdown tick. Dialogs receive focus and return it to their trigger when closed. There is no drag-only, hover-only, color-only, or pointer-only task.
 
 ## Iteration record
+
+The first three passes below are historical; pass 4–6 and U1–U9 describe the current candidate.
 
 ### Pass 1: discovery sketch
 
@@ -50,6 +52,18 @@ Added U4–U9, explicit state/action tables, and the story coverage matrix. A pa
 
 Final self-critique: the permanent homebrew entry is now honest with zero players, and every first-release story below has an entry point, feedback, and completion/recovery path. The game-specific title, image, instructions, two-player behavior, and rights remain unknown; these are explicit content gates rather than visual blanks a builder should guess. ASCII cannot validate actual density, contrast, audio/input interactions, or discoverability; the implementation must supply that evidence. Independent local review is recorded on the PR and is separate from this author's critique.
 
+### Pass 4: remove setup gates
+
+S02/S03/S07 → naming, connect, load, ready and start controls delay the first shared frame → replaced them with generated defaults, inline connection policy and automatic prerequisites/start. A local ROM still needs user selection; microphone access still needs consent. Kept destructive/shared timeline consent instead of erasing it to claim one click.
+
+### Pass 5: find friends and preserve progress
+
+S04/S08/S33 → duplicate names, slot squatting and a late guest can strand or disrupt a host → added unique public codes/search, a bounded initial reservation, and a ready-guest checkpoint join that asks the host before changing their running session. A reservation alone does not pause solo play. S35 → a single-player ROM does not provide P2 gameplay → optional, explicit shared-controller handoff rather than a false co-op claim.
+
+### Pass 6: voice and compatibility boundaries
+
+S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. Content identity and the measured supported-hardware matrix remain open release gates; no additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
+
 ## U1 — Directory
 
 ```text
@@ -62,9 +76,10 @@ RETRO COOP                             Guest Alex [Settings]
 +------------------------------------------------------------+
 
 LIVE SESSIONS (4)                              [Host a game]
+[Find room / host / public code…                         ]
 Game / host                 Status          Players   Action
 ------------------------------------------------------------
-Evening puzzle · Alex        Waiting         1 / 2     [Join]
+Room K7PM4R2X · Alex         Waiting         1 / 2     [Join]
   Bring your own matching ROM
 Featured game · Jo           Playing solo    1 / 2     [Join]
   Game included
@@ -74,8 +89,10 @@ Featured game · Pat          Reconnecting    2 / 2     Reserved
   Game included
 
 +------------------------------------------------------------+
-| Drop a .nes file here to host, or [Choose file]              |
-| Your file stays on this device. Joiners need their own copy.|
+| Drop a .nes file here to play, or [Choose file]             |
+| Creates a public room. [ ] Unlisted                         |
+| Your file stays here. Joiners need their own matching copy. |
+| Connection: Standard [Change] — peers may see your IP.      |
 +------------------------------------------------------------+
 ```
 
@@ -83,72 +100,59 @@ Default listing shows all admitted public sessions, including multiple sessions 
 
 Featured “Browse its sessions” filters the directory with a visible “Featured game” chip and [Show all sessions]. With no sessions, show “No sessions yet” and keep [Start a session] active when the catalog asset is configured. Loading the directory uses row placeholders; a failed connection shows “Can't update sessions” and [Retry], marks old rows stale, and disables joining stale rows until refreshed. An empty directory says “No public sessions yet. Start one and invite a friend.” The featured entry and hosting affordance remain visible. Development without authorized content shows “Featured game not configured,” no playable claim, and a disabled Start action.
 
+Show the Standard/Relay only policy beside Join as well as Drop, before peer contact; changing it is optional. Public search matches host/room names or exact public codes, shows no-match feedback and offers Clear search. Codes distinguish duplicate nicknames and are never credentials. Unlisted rooms cannot be found by search or public code.
+
 Join reserves an available slot on the server before U3 opens; a race shows “That place was just taken” with [Back to sessions]. Full or reserved sessions cannot admit visitors; there is no implied spectating. Browse-filter counts and row states update together. Directory changes retain keyboard focus and do not move the selected row out from under a click.
 
-## U2 — Create session and connection privacy
-
-The file drop and file picker enter the same local validation flow. Opening [Host a game] opens this dialog with a file chooser if none has been selected. Catalog Start uses the same name/visibility choices with the authorized game fixed and local-file controls omitted.
+## U2 — Immediate hosting and connection defaults
 
 ```text
+DROP / CHOOSE ROM
+      ↓
+Checking file… [Cancel]
+      ↓
+Room K7PM4R2X · Guest Alex · Public  [Copy invite] [Settings]
 +------------------------------------------------------------+
-| Host a game                                            [X] |
-| Game file: Ready on this device       [Choose another file] |
-| Session game title  [Evening puzzle                       ] |
-| Other players will see this title, not your filename.       |
-|                                                            |
-| Visibility  (o) Public — listed for everyone                |
-|             ( ) Unlisted — people with the invite can join |
-|                                                            |
-| Joiners need their own matching ROM.                       |
-| [Cancel]                                  [Create session] |
+|                     GAME CANVAS                            |
+| Playing alone · Your friend can join when ready            |
 +------------------------------------------------------------+
+[Enable voice]   Keyboard ready [Controls]
 ```
 
-The title starts blank for user files, with a neutral example placeholder; do not derive it from the filename. During validation, show “Checking your file…” and make Create unavailable. Oversize, archive, malformed, unsupported mapper/region, read failure, and hashing failure each preserve the form and offer [Choose another file]. Show the 8 MiB/.nes constraint by the chooser. A cancelled chooser leaves the previous valid selection intact. A catalog download displays progress; integrity failure does not launch and offers [Retry] or [Back]. Creation rejection due to rate/capacity limits retains local choices and provides a retry path, with a server-provided wait duration where available.
+Drop/picker completion uses the visibility shown at U1, generates a neutral room label/nickname, assigns P1 and opens solo play after successful validation and creation. No mandatory title form, account, connection modal or Practice button. Start included game follows the same flow with a pinned download. Rename, visibility and controller mode live in optional Session settings. Host a game focuses the accessible drop/picker area; it does not introduce a second workflow.
 
-Privacy is decided before any peer connection, not merely before gameplay. Metadata-only lobby entry and chat may proceed first. The first peer-connection attempt opens this panel on each device; it is also reachable from U3/U7:
+Local validation shows cancel and preserves the previous valid selection on chooser cancellation. Oversize, archive, malformed, unsupported mapper/region, read/hash failure each explain the next action and offer Choose another file. Show the current format/size limits by the chooser. Supported hardware with an unknown title is not rejected merely for missing catalog metadata. Unverified support is labelled Experimental with details; unsupported hardware never becomes a misleading playable room. Catalog progress includes retry/back for download or integrity failure. Capacity/rate rejection preserves valid local bytes, offers retry with any wait duration, and does not imply a room was created. A cancelled or stale create response cannot leave an orphan public room.
+
+Connection privacy appears inline at U1 and the invite preview before Join. Standard allows direct connections and explains address exposure; Change offers Relay only. The action uses the visible choice, without a separate Connect action. If either participant requests Relay only, both enforce it before peer candidate exchange. Denial offers Retry or Stay in room, never silent direct fallback. Changing policy during play pauses and reconnects before shared resume. Labels do not promise anonymity from the service/relay operator.
+
+## U3 — Automatic joining and progress-preserving start
 
 ```text
-+------------------------------------------------------------+
-| Connect to the other player                                |
-| Direct connections may share your network address with     |
-| the other player.                                         |
-| (o) Standard connection — direct when available             |
-| ( ) Relay only — hide your address from the other player    |
-| Relay availability is limited.                            |
-| [Stay in lobby]                                  [Connect] |
-+------------------------------------------------------------+
+< All sessions     Room K7PM4R2X · Alex     [Copy invite]
+P1 Alex · Playing alone    P2 You · Preparing
+
+Bring your matching ROM: [Choose file] or drop here
+Your file stays on this device.
+Connection: Connecting…          [Cancel join]
+
+[Chat…                                             ] [Send]
+Voice off [Enable voice]
 ```
 
-Record the choice on that device. If either participant requires relay-only, both ends must use a relay-only connection before peer contact; the stricter choice wins. A denied/unavailable relay offers [Retry] or [Stay in lobby], never an automatic direct fallback. Switching privacy mode while connected pauses and reconnects with the new policy before shared resume. A text status shows Standard or Relay only once connected. Do not promise anonymity from the relay/service operator.
+An invite first shows room identity, availability, content source and inline connection policy with Join. Merely opening an invite does not initiate peer contact. Join reserves P2, opens the room, connects and automatically loads included content. A ROM already loaded in this tab may be reused if its exact hash matches; otherwise ask for the matching file. Do not promise ROM persistence across reload. Chat can work before matching. The initial reservation expires after 120 seconds with Retry join and retained local selection; the displayed state distinguishes this from reconnecting an established player.
 
-## U3 — Waiting room and shared start
+Game matches, Connected and Controller 2 assigned are automatic status rows, not extra checkboxes. A mismatch offers Choose another file; a build mismatch offers a compatible reload if available, warning about reselection, or Back to sessions. Failed network/compatibility checks retain valid local work and allow retry/cancel. Cancel clears play intent and releases the reservation. No Ready or Start together button for fresh eligible sessions; the shared start barrier reports Starting together and failure truthfully.
+
+A host already playing is not interrupted by an unprepared guest. Once both prerequisites are ready, pause at a committed frame and ask the host:
 
 ```text
-< All sessions       Evening puzzle        Public [Copy invite]
-+-------------------------------+----------------------------+
-| PLAYERS                       | YOUR GAME                  |
-| P1  Alex · Host   Ready       | Choose your matching ROM.  |
-| P2  You           Needs game  | [Choose file] or drop here  |
-|                               | File stays on this device. |
-| [Controls]                    |                            |
-| [Connection privacy]          | [Ready — unavailable]      |
-|                               | Load a matching game first.|
-+-------------------------------+----------------------------+
-| CHAT                                                       |
-| Alex: Hello!                                               |
-| [Write a message…                                ] [Send]  |
-| Voice off [Enable push-to-talk]                            |
-+------------------------------------------------------------+
+Alex, your friend is ready.
+[Continue current game] [Restart together] [Keep playing alone]
 ```
 
-The host sees [Practice alone], [Swap controllers], a guest action menu, visibility controls, and [Start together] when eligible. The guest sees [Ready]/[Not ready] and [Leave session]. Each player's readiness is explicit; a nickname never grants host authority. Copy invite confirms “Invite copied” or offers selectable text if clipboard access fails. Unlisted rooms carry “Unlisted · Invite required”; revealing/copying the invite is deliberate. Changing to public confirms “This session will appear in the public directory” before publishing. Changing to unlisted removes its public listing; explain that people with an existing invite can still join.
+Continue current game sends validated dynamic state and resumes after both acknowledge. Restart asks both before replacing progress. Keep playing alone releases the joiner with an explanation. The guest sees Waiting for Alex and Cancel join. Failed transfer preserves the old timeline paused with Retry or Resume solo. A fresh room still at its initial state starts automatically. Assignment changes and later shared timeline changes still require acceptance; they are not initial setup steps.
 
-Game and connection checks are separate short rows: “Game matches,” “Connection ready,” and “Controller 2 assigned.” Their pending/error states explain why Ready is unavailable. File mismatch says “This is a different version of the game. Choose the exact same file as the host” with [Choose another file]; no download suggestion. Build/settings mismatch says “This session uses an incompatible version” and offers [Reload compatible session] if available, otherwise [Back to sessions]. Reload warns that a local ROM may need reselection. This action must not silently reset an active shared timeline. Compatibility details may live in a collapsed Details section, not the primary flow.
-
-When both players are ready, the host sees [Start together] and the guest sees “Waiting for Alex to start.” Show “Starting together…” until both acknowledge. A failed start returns to the waiting state with the failed prerequisite explained. If a guest joins during host practice, pause the host immediately and say “A player joined. Start together from the beginning or load a save.” Both players confirm the selected starting point; do not insert the guest into solo progress. Swapping controllers clears readiness for both and announces the new assignments.
-
-For catalog lobbies, replace the local chooser with “Game included · [Load game]” and progress, then matching status. Loading is a deliberate interaction and can unlock browser audio. Chat works before ROM matching. Voice enables only once a peer connection and microphone permission are available.
+Voice is optional and never blocks play. Enable voice requests microphone permission and defaults to conversational audio; Settings offers push-to-talk and devices. Copy invite gives success or selectable fallback text. Optional rename, visibility, kick, close and controller assignment remain host-only. A change from unlisted to public names the exposure before confirmation; unlisting removes public lookup and code resolution. Existing high-entropy invites remain usable.
 
 ## U4 — Playing and ordinary pause
 
@@ -172,7 +176,7 @@ Both players can request Pause; it pauses the shared timeline and identifies the
 
 Save is local and non-disruptive at a committed frame. It opens U6 and reports success only after persistence succeeds. Rewind is host-only in multiplayer; guests see “Host controls shared rewind” as explanatory text in More, not an actionable button. More exposes [Saves], [Request restart] for the host, [Session settings], and [Leave session]/[Close session] appropriate to role. Solo practice permits immediate local rewind/restore/reset with the same confirmation for replacing progress, without a nonexistent peer approval.
 
-Click/tap [Enable sound] appears if browser audio is suspended; volume preferences are local. Fullscreen keeps an obvious [Exit fullscreen] action and explains Esc; if the browser declines fullscreen, keep play usable in the normal layout. Chat focus releases game buttons and visibly says “Typing in chat”; clicking/focusing the game restores game input. Losing page focus releases held keys and push-to-talk immediately. Settings that only affect display/audio/mapping do not independently rewind or reset either client.
+Click/tap [Enable sound] appears if browser audio is suspended; volume preferences are local. Fullscreen keeps an obvious [Exit fullscreen] action and explains Esc; if the browser declines fullscreen, keep play usable in the normal layout. Chat focus releases game buttons and visibly says “Typing in chat”; clicking/focusing the game restores game input. Losing page focus releases held keys and push-to-talk immediately and mutes open mic. Returning focus never unmutes automatically. Settings that only affect display/audio/mapping do not independently rewind or reset either client.
 
 ## U5 — Shared rewind, load, and restart
 
@@ -233,9 +237,13 @@ Controls cover all NES buttons, keyboard and detected gamepads, with an input-te
 
 Display & sound includes nearest-neighbor/scanlines, local volume, and audio activation state. Connection exposes the U2 privacy choice and current connection status. Local data opens U6 management. A guest nickname is editable outside active play and explains “Temporary name for this browser session”; no login/account UI is implied.
 
-In chat, Enable push-to-talk first explains its binding and requests microphone access on click. Off, permission pending, listening/not transmitting, transmitting, microphone unavailable, and muted states have text. Provide an on-screen hold-to-talk button with keyboard equivalent plus [Mute voice] for incoming audio and [Disable microphone] for local capture; switching away releases transmission. A denied microphone shows “Microphone access was denied. Text chat still works” with [Try again] and browser-settings help, not a blocking modal. No recording/transcription controls are present.
+In chat, Enable voice requests microphone access on click; optional push-to-talk mode explains its binding. Off, permission pending, listening/not transmitting, transmitting, microphone unavailable, and muted states have text. Provide an on-screen hold-to-talk button with keyboard equivalent plus [Mute voice] for incoming audio and [Disable microphone] for local capture; switching away releases transmission. A denied microphone shows “Microphone access was denied. Text chat still works” with [Try again] and browser-settings help, not a blocking modal. No recording/transcription controls are present.
 
 Chat input has a 500-character counter near the limit; oversize cannot send. A rate limit displays the remaining wait without discarding typed text. Disconnected send shows “Not sent” with explicit Retry after reconnect; never imply delivery or automatically duplicate a message. Lobby closure clears chat, and the panel explains “Chat is temporary; messages from before you joined aren't shown.” Messages use plain text with no HTML/link previews or attachments.
+
+Conversational voice settings provide microphone device, local mute, remote mute/volume and optional Push-to-talk mode. Show permission/device/connection failures separately. Enable starts only after user action; reconnect, focus return and device replacement require deliberate unmute. Stop tracks on leave/kick/expiry or peer replacement. Never let a voice retry reset gameplay. Echo cancellation/noise suppression are best-effort browser settings, verified with game audio and speakers as well as headphones.
+
+Session controller mode defaults to Separate P1/P2. Optional Shared P1 explains “Take turns controlling a single-player game.” The host requests Pass controller while paused; the named recipient accepts or declines. Display the sole current owner, release held input on accepted transfer and acknowledge ownership before resume. Decline/cancel leaves the previous owner and timeline intact. Never infer that an arbitrary ROM supports simultaneous co-op.
 
 ## U8 — Recovery and session endings
 
@@ -279,15 +287,15 @@ Each row names a first-release story, its visible path, and the edge case that c
 
 | Story | Outcome and screens | Required alternate state | Platform acceptance |
 |---|---|---|---|
-| S01 | Visitor browses every public session, including duplicate titles — U1 | Empty/loading/stale/filter-reset; full rows remain visible | AC-01 |
-| S02 | Host drops or picks a file and publishes a chosen label/visibility — U1→U2→U3 | Invalid/oversize/unsupported/read/hash failure; no filename publication | AC-02 |
+| S01 | Visitor browses every public session, including duplicate titles, with public room search — U1 | Empty/loading/stale/filter-reset; full rows remain visible | AC-01 |
+| S02 | Host drops or picks a file and starts with generated defaults/visible visibility — U1→U2→U3 | Invalid/oversize/unsupported/read/hash failure; no filename publication | AC-02 |
 | S03 | Visitor starts or discovers the permanent included game — U1→U2/U3, U9 | Zero sessions, missing configuration, download/integrity failure | AC-04 |
 | S04 | Guest joins before loading a file — U1/invite→U3 | Concurrent slot loss, full/reserved, stale/closed invite | AC-03, AC-09 |
 | S05 | Players prove matching local games — U3 | Wrong exact file, incompatible build/settings, reload/reselect | AC-03 |
 | S06 | Host shares an invite and controls visibility — U2/U3/U9 | Clipboard failure; explicit public transition; unlisted omission | AC-01, AC-09–10 |
-| S07 | Both ready, assigned controllers, and shared start — U3→U4 | Start failure, assignment clears ready; role authority | AC-03, AC-05, AC-09 |
-| S08 | Host practices while waiting; newcomer joins deliberately — U3/U4 | Practice pauses; both choose reset or accepted save | AC-05, AC-09 |
-| S09 | Players choose connection privacy before peer contact — U2/U7 | Stricter policy wins; relay unavailable; reconnect on change | AC-10–11 |
+| S07 | Automatic readiness, default controllers, and shared start — U3→U4 | Start failure/cancel, assignment clears intent; role authority | AC-03, AC-05, AC-09 |
+| S08 | Host practices while waiting; newcomer joins deliberately — U3/U4 | Only a prepared guest prompts host; checkpoint join preserves progress | AC-05, AC-09 |
+| S09 | Players see/change inline connection policy before peer contact — U2/U7 | Stricter policy wins; relay unavailable; reconnect on change | AC-10–11 |
 | S10 | Players see play, chat, and connection status together — U4 | Narrow desktop layout, audio/fullscreen denial | AC-05, AC-08 |
 | S11 | Player pauses and both resume deliberately — U4/U8 | Peer absent/not ready; system pause cannot be bypassed | AC-05, AC-09 |
 | S12 | Solo player rewinds within available history — U4/U5 | Short history; no peer prompts | AC-07 |
@@ -310,16 +318,21 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S29 | Visitor understands content source and featured rights — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
 | S30 | Keyboard/screen-reader user completes the core journey — U1–U9 | Focus restore, announced status, picker alternative, no traps | AC-08, AC-12 |
 | S31 | Player loses focus/device without stuck input or live microphone — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
-| S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–12 |
+| S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–16 |
+| S33 | Visitor finds a friend by room/host/code — U1/U9 | Duplicate names, no match, expired code, unlisted non-resolution | AC-14 |
+| S34 | Guest enables conversational voice and manages devices — U3/U4/U7 | Echo, unavailable mic, open-mic blur mute, remote mute, independent retry | AC-16 |
+| S35 | Players use native two-player/alternating turns or pass P1 — U7/U9 | Single-player explanation, declined handoff, atomic ownership and clear held input | AC-15 |
+| S36 | Visitor drops an unknown title on supported hardware — U2/U8 | Experimental label, unsupported hardware, runtime failure, no ROM upload | AC-15 |
+| S37 | Visitor reaches play with minimal actions — U1→U2/U3→U4 | Cold download, local selection, browser prompt, cancellation, measured slow/failure states | AC-13, AC-16 |
 
 AC-05's determinism, AC-06's state codec safety, AC-10's server/privacy enforcement, AC-11's cost/load measurements, and AC-12's CI budgets cannot be proven by a screen. The implementation plan retains those engineering checks. This matrix covers their human-visible consequences without replacing technical acceptance.
 
 ## Interaction acceptance for implementation
 
-For each story, record the trigger, visible feedback, authorized action, resulting state, and recovery path. The builder's real-browser demo must cover directory → local/catalog host → independent guest join → mismatch correction → ready/start → play/chat/voice → save/shared rewind → disconnect/reconnect → leave. Include both roles, zero-player discovery, a full-row race, unlisted non-discovery, denied microphone, failed save, and forced-relay denial. Capture matched before/after UI evidence for actual product changes; do not claim these wireframes are product screenshots.
+For each story, record the trigger, visible feedback, authorized action, resulting state, and recovery path. The builder's real-browser demo must cover directory → local/catalog host → independent guest join → mismatch correction → automatic prepare/start → play/chat/voice → save/shared rewind → disconnect/reconnect → leave. Include both roles, zero-player discovery, a full-row race, unlisted non-discovery, denied microphone, failed save, and forced-relay denial. Capture matched before/after UI evidence for actual product changes; do not claim these wireframes are product screenshots.
 
 Check that every unavailable action has an accessible reason, every pending operation has an honest status and escape where safe, every destructive/shared operation names its effect, and every failure preserves valid local work. Apply keyboard checks and the narrow-desktop layout to the same journey. Contrast, focus ordering, real text wrapping, canvas sizing, performance, voice/input contention, and actual game instructions remain implementation validation tasks.
 
-## Notes for a future skill
+## Reusable workflow reference
 
-This task does not create or install a skill. The reusable process worth extracting later is: read the agreed stories and exclusions; sketch the primary journey in the conversation; criticize concrete missing states; revise the screens; trace each story to a screen and an alternate path; independently review; then store the final design with a short iteration record. Keep product-specific controls and policy out of that future generic skill. Distinguish author critique, user feedback, independent review, and measured usability evidence; none substitutes for the others.
+The reusable workflow is now contributed as Vaseline’s `ui-wireframing` skill. Product-specific decisions remain here. The separate submodule update PR #4 exposes that merged skill; planning PR #3 does not change the tooling pin.
