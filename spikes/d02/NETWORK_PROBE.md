@@ -2,7 +2,7 @@ This Linux experiment runs two real browsers through ten minutes of delayed cont
 
 # Reproduce the bounded experiment
 
-Build the WASM and original fixture using the main README. Install Playwright 1.58.0, its Firefox build and Chrome (or bundled Chromium with the explicit flag). Linux needs `unshare`, `ip`, `tc`, Python 3 and permission to create a user/network namespace. All interface, route and qdisc changes occur inside that namespace; the host network remains untouched. Hosted Ubuntu's AppArmor restriction is disabled only in the ephemeral CI runner before entering the namespace.
+Build the WASM and original fixture using the main README. Install Playwright 1.58.0, its Firefox build and Chrome (or bundled Chromium with the explicit flag). Linux needs a working browser audio output backend, `unshare`, `ip`, `tc`, Python 3 and permission to create a user/network namespace. All interface, route and qdisc changes occur inside that namespace; the host network remains untouched. Hosted Ubuntu's AppArmor restriction is disabled only in the ephemeral CI runner before entering the namespace.
 
 From `spikes/d02`:
 
@@ -30,3 +30,9 @@ WASM runs in a worker. The main thread actually copies and paints 256×240 RGBA 
 Each synthetic voice source uses a different frequency. The receiver must observe nonzero RMS and the other peer's frequency, plus decoded inbound RTP samples. A muted playing HTMLAudioElement starts receiver consumption; a MediaStreamAudioSource/analyser is the sole audible path. Startup records preparation, explicit audio enable, ICE/channel readiness, first game frame and first remote energy separately. No permissions dialog, physical microphone, audible-quality judgment or repeated-attempt latency percentile is claimed. Closing stops tracks, worker and oscillator, detaches the element and closes the peer connection and AudioContext.
 
 Full results and historical failed experiments are in the [D02 report](../../docs/implementation/d02-feasibility.md). Preserve exact versions, hardware and artifact identities when comparing results. Release qualification remains owned by the later networking, audio, content and deployment issues.
+
+# Headless CI audio
+
+The first hosted run passed full emulator replay but Firefox never reached a running AudioContext before the existing 15-second deadline; SDP and UDP traffic had not started. That result does not identify the exact missing backend or permission cause. CI now starts a real PulseAudio server, loads a 48 kHz null sink and verifies it is the default output before launching browsers. [PulseAudio's module documentation](https://wiki.freedesktop.org/www/Software/PulseAudio/Documentation/User/Modules/) describes this sink. The browser still executes its actual AudioContext, worklet and receiver graph; the server discards the final output instead of driving physical speakers. No AudioContext state or PCM counters are stubbed. Backend version/sink readback is uploaded with results. Failures include audio state, enable/running timestamps and unhandled page errors; the original deadline is unchanged.
+
+ICE connectivity checks may discover a peer-reflexive (`prflx`) candidate, as specified in [RFC 8445 section 7.3.1.3](https://www.rfc-editor.org/rfc/rfc8445.html#section-7.3.1.3). The verifier accepts active UDP host/peer-reflexive candidates only alongside the independent namespace route, qdisc and private-address packet evidence. It still rejects relay/server-reflexive/TCP classifications for this specifically isolated direct-route experiment. A valid `prflx` result does not establish a public route or a TURN test.

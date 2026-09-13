@@ -45,6 +45,16 @@ jobs:
           timeout 1200s /tmp/d02-browser-venv/bin/python browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
           python3 verify_results.py browser-ci.local.json
           timeout 60s /tmp/d02-browser-venv/bin/python demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
+      - name: Prepare real headless audio output
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pulseaudio pulseaudio-utils
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=d02 rate=48000 channels=2
+          pactl set-default-sink d02
+          test "$(pactl get-default-sink)" = d02
+          pulseaudio --version > spikes/d02/audio-backend.local.txt
+          pactl list short sinks >> spikes/d02/audio-backend.local.txt
       - name: Full impaired peer matrix
         run: |
           # Hosted Ubuntu's AppArmor policy otherwise blocks the isolated user/net namespace.
@@ -63,6 +73,7 @@ jobs:
             spikes/d02/demo-before.local.png
             spikes/d02/demo-after.local.png
             spikes/d02/network-matrix.local.json
+            spikes/d02/audio-backend.local.txt
             spikes/d02/.network-runs/matrix-*/*.json
             spikes/d02/.network-runs/matrix-*/*.log
           if-no-files-found: ignore

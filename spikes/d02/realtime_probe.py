@@ -27,7 +27,7 @@ async def run():
     result={'run_id':os.environ.get('D02_RUN_ID'),'platform':platform.platform(),'rom_bytes':len(rom),'wasm_bytes':len(wasm),'rom_sha256':hashlib.sha256(rom).hexdigest(),'wasm_sha256':hashlib.sha256(wasm).hexdigest(),'adapter_sha256':adapter.hexdigest(),'pair':args.pair,'seconds':args.seconds,'impairment':'isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback','route':'isolated private host ICE; no STUN/TURN','voice':'synthetic oscillator, not real microphone/speaker listening','chromium_launch':'headless, default --mute-audio removed','runs':[]}
     identity=json.dumps({'adapter':result['adapter_sha256'],'protocol':'D02-RT1','rom':result['rom_sha256'],'wasm':result['wasm_sha256'],'region':'NTSC','input_lead':12},sort_keys=True,separators=(',',':'))
     async with async_playwright() as p:
-        browsers=[];pages=[]
+        browsers=[];pages=[];page_errors=[]
         try:
             for role,name in enumerate(args.pair.split('-')):
                 if name=='Chrome':
@@ -35,6 +35,8 @@ async def run():
                     browser=await p.chromium.launch(headless=True,ignore_default_args=['--mute-audio'],**options)
                 else: browser=await p.firefox.launch(headless=True)
                 browsers.append(browser);page=await browser.new_page();pages.append(page)
+                errors=[];page_errors.append(errors)
+                page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))
                 page.on('console',lambda message: print('browser console:',message.type,message.text,flush=True) if message.type in ['error','warning'] else None)
                 await page.goto('http://127.0.0.1:8765/realtime.html')
                 await page.evaluate('args=>probe.init(args)',{'role':role,'identity':identity,'seconds':args.seconds,'rom64':base64.b64encode(rom).decode(),'wasm64':base64.b64encode(wasm).decode()})
@@ -62,13 +64,17 @@ async def run():
             for name,browser,measurement,teardown in zip(args.pair.split('-'),browsers,measurements,teardowns):
                 result['runs'].append({'browser':'Chromium' if name=='Chrome' and args.bundled_chromium else name,'version':browser.version,**measurement,'teardown':teardown})
             result['canonical_equal']=result['runs'][0]['hashes']==result['runs'][1]['hashes']
+            result['page_errors']=page_errors
+            if any(page_errors):
+                raise RuntimeError('Unhandled browser error: '+str(page_errors))
             if any(run['errors'] for run in result['runs']):
                 raise RuntimeError('Browser runtime errors: '+str([run['errors'] for run in result['runs']]))
         except Exception as error:
             result['error']=str(error)
             result['diagnostics']=[]
+            result['page_errors']=page_errors
             for page in pages:
-                try: result['diagnostics'].append(await page.evaluate("({ready:probe.ready,errors:probe.stats?.errors,identityMatched:probe.stats?.identityMatched,channel:probe.channel?.readyState,connection:probe.pc?.connectionState,ice:probe.pc?.iceConnectionState,localCandidates:probe.pc?.localDescription?.sdp.split('\\r\\n').filter(s=>s.startsWith('a=candidate'))})"))
+                try: result['diagnostics'].append(await page.evaluate("({audioState:probe.audio?.state,audioEnableAtMs:probe.stats?.audioEnableAtMs,audioRunningAtMs:probe.stats?.audioRunningAtMs,frame:probe.frame,ready:probe.ready,errors:probe.stats?.errors,identityMatched:probe.stats?.identityMatched,channel:probe.channel?.readyState,connection:probe.pc?.connectionState,ice:probe.pc?.iceConnectionState,localCandidates:probe.pc?.localDescription?.sdp.split('\\r\\n').filter(s=>s.startsWith('a=candidate'))})"))
                 except Exception: pass
         finally:
             args.output.write_text(json.dumps(result,indent=2)+'\n')

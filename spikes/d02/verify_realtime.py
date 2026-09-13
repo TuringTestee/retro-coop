@@ -73,10 +73,12 @@ def verify(result, seconds=600):
                     and number(s.get("packetsReceived")) and s["packetsReceived"] > 0
                     and number(s.get("totalSamplesReceived")) and s["totalSamplesReceived"] > 0 for s in run["rtc"]),
                 "no decoded inbound RTP audio evidence")
+        # RFC 8445 section 7.3.1.3 permits peer-reflexive candidates learned by checks.
+        # The separate namespace route, qdisc and bidirectional capture remain mandatory.
         require(any(s["type"] == "candidate-pair" and s["local"]["protocol"] == "udp"
-                    and s["remote"]["protocol"] == "udp" and s["local"]["candidateType"] == "host"
-                    and s["remote"]["candidateType"] == "host" and s["bytesSent"] > 0 and s["bytesReceived"] > 0
-                    for s in run["rtc"]), "missing active UDP host candidate pair")
+                    and s["remote"]["protocol"] == "udp" and s["local"]["candidateType"] in ("host", "prflx")
+                    and s["remote"]["candidateType"] in ("host", "prflx") and s["bytesSent"] > 0 and s["bytesReceived"] > 0
+                    for s in run["rtc"]), "missing active direct UDP candidate pair")
         teardown = run["teardown"]
         require(teardown["localTrack"] == "ended" and teardown["connection"] == "closed"
                 and teardown["audio"] == "closed" and teardown["remoteElementPaused"] is True, "incomplete media teardown")

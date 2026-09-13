@@ -1,0 +1,251 @@
+{
+  "scope": "Three full 600-second pairs, concurrent on one host",
+  "pairs": [
+    {
+      "pair": "Chrome-Chrome",
+      "exit_code": 124
+    },
+    {
+      "pair": "Firefox-Firefox",
+      "exit_code": 1,
+      "result": {
+        "run_id": "a2bc375e-b3db-4abe-84e0-f06e547e47d0",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "rom_bytes": 24592,
+        "wasm_bytes": 2891616,
+        "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+        "wasm_sha256": "da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6",
+        "adapter_sha256": "c63f5ab20fa9fe64e9523c325d78259b7f5ce3956f9e1da609af5ce5148d2bcb",
+        "pair": "Firefox-Firefox",
+        "seconds": 600,
+        "impairment": "isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback",
+        "route": "isolated private host ICE; no STUN/TURN",
+        "voice": "synthetic oscillator, not real microphone/speaker listening",
+        "chromium_launch": "headless, default --mute-audio removed",
+        "runs": [],
+        "error": "Page.wait_for_function: Timeout 15000ms exceeded.",
+        "diagnostics": [
+          {
+            "ready": false,
+            "errors": [],
+            "identityMatched": null,
+            "channel": "connecting",
+            "connection": "new",
+            "ice": "new",
+            "localCandidates": null
+          },
+          {
+            "ready": false,
+            "errors": [],
+            "identityMatched": null,
+            "channel": null,
+            "connection": "new",
+            "ice": "new",
+            "localCandidates": null
+          }
+        ],
+        "network_evidence": {
+          "run_id": "a2bc375e-b3db-4abe-84e0-f06e547e47d0",
+          "netem_before": [
+            {
+              "kind": "netem",
+              "handle": "8003:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 0,
+              "packets": 0,
+              "drops": 0,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "netem_after": [
+            {
+              "kind": "netem",
+              "handle": "8003:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 57254,
+              "packets": 102,
+              "drops": 1,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "route": [
+            {
+              "type": "local",
+              "dst": "10.201.0.1",
+              "dev": "lo",
+              "prefsrc": "10.201.0.1",
+              "flags": [],
+              "uid": 0,
+              "cache": [
+                "local"
+              ]
+            }
+          ],
+          "udp_headers": {
+            "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+            "wall_seconds": 31.66681018700001,
+            "flows": {}
+          }
+        }
+      }
+    },
+    {
+      "pair": "Chrome-Firefox",
+      "exit_code": 1,
+      "result": {
+        "run_id": "1b8d5fbe-871d-4e0f-9530-9cd561689bce",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "rom_bytes": 24592,
+        "wasm_bytes": 2891616,
+        "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+        "wasm_sha256": "da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6",
+        "adapter_sha256": "c63f5ab20fa9fe64e9523c325d78259b7f5ce3956f9e1da609af5ce5148d2bcb",
+        "pair": "Chrome-Firefox",
+        "seconds": 600,
+        "impairment": "isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback",
+        "route": "isolated private host ICE; no STUN/TURN",
+        "voice": "synthetic oscillator, not real microphone/speaker listening",
+        "chromium_launch": "headless, default --mute-audio removed",
+        "runs": [],
+        "error": "Page.wait_for_function: Timeout 15000ms exceeded.",
+        "diagnostics": [
+          {
+            "ready": false,
+            "errors": [],
+            "identityMatched": null,
+            "channel": "connecting",
+            "connection": "new",
+            "ice": "new",
+            "localCandidates": null
+          },
+          {
+            "ready": false,
+            "errors": [],
+            "identityMatched": null,
+            "channel": null,
+            "connection": "new",
+            "ice": "new",
+            "localCandidates": null
+          }
+        ],
+        "network_evidence": {
+          "run_id": "1b8d5fbe-871d-4e0f-9530-9cd561689bce",
+          "netem_before": [
+            {
+              "kind": "netem",
+              "handle": "8002:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 0,
+              "packets": 0,
+              "drops": 0,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "netem_after": [
+            {
+              "kind": "netem",
+              "handle": "8002:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 58109,
+              "packets": 110,
+              "drops": 1,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "route": [
+            {
+              "type": "local",
+              "dst": "10.201.0.1",
+              "dev": "lo",
+              "prefsrc": "10.201.0.1",
+              "flags": [],
+              "uid": 0,
+              "cache": [
+                "local"
+              ]
+            }
+          ],
+          "udp_headers": {
+            "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+            "wall_seconds": 29.393188511000062,
+            "flows": {}
+          }
+        }
+      }
+    }
+  ],
+  "error": "Pair failed: Firefox-Firefox",
+  "wall_seconds": 40.12333451400002
+}

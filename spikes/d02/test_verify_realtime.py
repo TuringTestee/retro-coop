@@ -73,6 +73,30 @@ class EvidenceRegression(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inbound RTP"):
             verify(candidate, 10)
 
+    def test_full_matrix_peer_reflexive_candidate_is_still_a_direct_route(self):
+        matrix = json.loads(FIXTURE.with_name("network-matrix.json").read_text())
+        self.assertEqual(matrix["error"], "missing active UDP host candidate pair")
+        # Preserve the original verifier rejection; independently recheck its measured peers.
+        for pair in matrix["pairs"]:
+            verify(pair["result"])
+        pair = matrix["pairs"][1]["result"]
+        rtc = [s for s in pair["runs"][1]["rtc"] if s["type"] == "candidate-pair"]
+        self.assertEqual(rtc[0]["remote"]["candidateType"], "prflx")
+        for field, value in (("candidateType", "relay"), ("candidateType", "srflx"), ("protocol", "tcp")):
+            with self.subTest(field=field, value=value):
+                candidate = copy.deepcopy(pair)
+                for stat in candidate["runs"][1]["rtc"]:
+                    if stat["type"] == "candidate-pair":
+                        stat["remote"][field] = value
+                with self.assertRaisesRegex(ValueError, "direct UDP"):
+                    verify(candidate)
+        candidate = copy.deepcopy(pair)
+        for stat in candidate["runs"][1]["rtc"]:
+            if stat["type"] == "candidate-pair":
+                stat["bytesReceived"] = 0
+        with self.assertRaisesRegex(ValueError, "direct UDP"):
+            verify(candidate)
+
     def test_cli_default_cannot_promote_smoke_to_full_pass(self):
         command = [sys.executable, str(Path(__file__).with_name("verify_realtime.py")), str(FIXTURE)]
         full = subprocess.run(command, capture_output=True, text=True, timeout=5)
