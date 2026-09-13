@@ -3,6 +3,7 @@ import argparse
 import datetime
 import json
 import math
+from pathlib import Path
 import os
 import signal
 import subprocess
@@ -57,6 +58,22 @@ def remaining(deadline):
     return max(0.0, deadline - time.time())
 
 
+def namespace_command(command, ci=True):
+    if ci:
+        if os.environ.get('GITHUB_ACTIONS') != 'true':
+            raise ValueError('Privileged CI namespace is forbidden outside GitHub Actions')
+        prefix = ['sudo', '-n', '-E', 'unshare', '--pid', '--fork',
+                  '--kill-child=KILL', '--mount-proc',
+                  '--setuid', str(os.getuid()), '--setgid', str(os.getgid())]
+    else:
+        # Local regression only: no sudo or host configuration changes.
+        prefix = ['unshare', '--user', '--map-current-user', '--pid', '--fork',
+                  '--kill-child=KILL', '--mount-proc']
+    return prefix + [sys.executable, str(Path(__file__).with_name('ci_namespace.py').resolve()),
+                     str(os.getuid()), str(os.getgid()), os.environ.get('HOME', ''),
+                     os.environ.get('PATH', ''), *command]
+
+
 def run_command(deadline, command):
     reject_retry()
     if not command:
@@ -67,7 +84,8 @@ def run_command(deadline, command):
     try:
         code = process.wait(timeout=remaining(deadline))
     except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        # Kill descendants too: stopping only a launcher leaves browser tests alive.
+        # CI commands have a user-owned namespace PID 1 in this group.
+        # Its death also kills detached/orphan descendants via the kernel.
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -115,6 +133,7 @@ def main():
         child = commands.add_parser(name)
         child.add_argument('--deadline', required=True, type=float)
         if name == 'run':
+            child.add_argument('--namespace', action='store_true')
             child.add_argument('command', nargs=argparse.REMAINDER)
     child = commands.add_parser('watch')
     child.add_argument('--gate', default='preflight')
@@ -128,6 +147,8 @@ def main():
     if args.action == 'watch':
         return watch(args.gate)
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
+    if args.namespace:
+        command = namespace_command(command)
     return run_command(args.deadline, command)
 
 

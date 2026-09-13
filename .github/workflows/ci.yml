@@ -44,7 +44,7 @@ jobs:
         env:
           D02_DEADLINE: ${{ steps.budget.outputs.deadline }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- bash spikes/d02/ci_job.sh build
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         timeout-minutes: 1
         with:
@@ -72,7 +72,7 @@ jobs:
           name: d02-build
           path: spikes/d02
       - name: Full core qualification within the shared deadline
-        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- bash spikes/d02/ci_job.sh core
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh core
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         timeout-minutes: 1
@@ -110,7 +110,7 @@ jobs:
           name: d02-build
           path: spikes/d02
       - name: Full network qualification within the shared deadline
-        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- bash spikes/d02/ci_job.sh network
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh network
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         timeout-minutes: 1
@@ -154,5 +154,5 @@ jobs:
           path: /tmp/d02-pair-evidence
       - name: Require all six peers to agree within the original deadline
         run: |
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 spikes/d02/verify_ci_matrix.py /tmp/d02-pair-evidence
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 spikes/d02/verify_ci_matrix.py /tmp/d02-pair-evidence
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"

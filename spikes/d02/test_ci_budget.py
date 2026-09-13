@@ -57,6 +57,37 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(result, 124)
         self.assertLess(time.monotonic() - started, 2)
 
+    def test_shared_deadline_kills_foreground_timeout_descendant(self):
+        import pathlib
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            marker = pathlib.Path(directory) / 'completed'
+            command = ['bash', '-c',
+                       'timeout --foreground 5s python3 -c "$1"', 'budget-test',
+                       'import time,pathlib; time.sleep(.6); pathlib.Path(' + repr(str(marker)) + ').touch()']
+            self.assertEqual(budget.run_command(time.time() + .15, command), 124)
+            time.sleep(.65)
+            self.assertFalse(marker.exists(), 'workload escaped the shared process group')
+
+    def test_ci_job_refuses_local_execution(self):
+        import pathlib
+        script = pathlib.Path(__file__).with_name('ci_job.sh')
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': ''}):
+            result = subprocess.run(['bash', str(script), 'network'], capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, b'')
+        self.assertEqual(result.stderr, b'')
+
+    def test_namespace_deadline_stops_detached_and_orphan_children(self):
+        from ci_namespace_probe import probe
+        with contextlib.redirect_stdout(io.StringIO()):
+            probe(ci=os.environ.get('GITHUB_ACTIONS') == 'true')
+
+    def test_privileged_namespace_is_ci_only(self):
+        with patch.dict(os.environ, {'GITHUB_ACTIONS': ''}):
+            with self.assertRaises(ValueError):
+                budget.namespace_command(['true'])
+
     def test_late_success_is_failure(self):
         process = Mock()
         process.wait.return_value = 0
