@@ -1,0 +1,3 @@
+[target.wasm32-unknown-unknown]
+# The deterministic probe sets AllZeros. Any accidental OS randomness request fails.
+rustflags = ['--cfg', 'getrandom_backend="unsupported"']

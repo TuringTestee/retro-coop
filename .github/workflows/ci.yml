@@ -21,5 +21,33 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           git diff --check "$BASE_SHA" HEAD
+      - name: Prepare pinned research toolchain
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown
+          cd spikes/d02
+          cargo +1.95.0 fetch --locked
+          python3 original_fixture.py fixture.local.nes
+          cargo +1.95.0 test --locked --release --lib --no-run
+          cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown
       - name: Pre-flight
         run: timeout 60s sh scripts/preflight.sh
+      - name: Prepare pinned browser harness
+        run: |
+          python3 -m venv /tmp/d02-browser-venv
+          /tmp/d02-browser-venv/bin/pip install playwright==1.58.0
+          /tmp/d02-browser-venv/bin/playwright install --with-deps chromium firefox
+      - name: Original-fixture browser regression
+        run: |
+          cd spikes/d02
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
+          D02_HTTP_PID=$!
+          trap 'kill "$D02_HTTP_PID"' EXIT
+          timeout 1200s /tmp/d02-browser-venv/bin/python browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
+          python3 verify_results.py browser-ci.local.json
+      - name: Browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d02-browser-evidence
+          path: spikes/d02/browser-ci.local.json
+          if-no-files-found: ignore

@@ -1,0 +1,14 @@
+[package]
+name = "retro-coop-d02"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+tetanes-core = { git = "https://github.com/lukexor/tetanes.git", rev = "a0a6b17f8ba9c5ee451453fb2409753fd06e5a31" }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+bincode = { version = "2.0.1", default-features = false, features = ["std", "serde"] }
+sha2 = "0.10.9"

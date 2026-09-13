@@ -1,0 +1,12 @@
+{
+  "canonical_restore_equal": true,
+  "final_audio_samples": 799,
+  "frames": 36000,
+  "max_checkpoint_bytes": 49491,
+  "new_epoch_audio_equal": true,
+  "new_epoch_canonical_equal": true,
+  "raw_snapshot_bytes": 21518,
+  "rom_sha256": "1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555",
+  "seconds": 75.775005501,
+  "uninterrupted_pcm_equal": false
+}
