@@ -1,0 +1,843 @@
+{
+  "summary": "Pinned source inventory for D01. No hardware combination has passed local-play or netplay qualification.",
+  "schema_version": 1,
+  "inspected_on": "2026-09-13",
+  "governing_revision": "ecf6bd4c7443526f0a163b721a351c854ee90fd4",
+  "issue": "https://github.com/TuringTestee/retro-coop/issues/5",
+  "recommended_source": "tetanes",
+  "recommendation_gate": "D02 feasibility; no application dependency or release support claim",
+  "sources": [
+    {
+      "id": "tetanes",
+      "repository": "https://github.com/lukexor/tetanes",
+      "revision": "a0a6b17f8ba9c5ee451453fb2409753fd06e5a31",
+      "files": [
+        {
+          "path": "Cargo.toml",
+          "sha256": "f2fc414c74a8fb6986ae8dc1c7c4651ccea0fb73c4c20f272b0dbddb0988d927"
+        },
+        {
+          "path": "Cargo.lock",
+          "sha256": "5bfefd931c4746830e02cc2ebf9da58f458b13a85aafb1d15d5eb632cebf15ee"
+        },
+        {
+          "path": "LICENSE-MIT",
+          "sha256": "31c76124b54c86f20be5871fec6eb34738df92bf1aba2469282fa34f2b2fc6b3"
+        },
+        {
+          "path": "LICENSE-APACHE",
+          "sha256": "aaff376532ea30a0cd5330b9502ad4a4c8bf769c539c87ffe78819d188a18ebf"
+        },
+        {
+          "path": "tetanes-core/Cargo.toml",
+          "sha256": "80cfe2b9a0629ac4698d191a2af929615afccd876bcea475936487fe8ae5ad38"
+        },
+        {
+          "path": "tetanes-core/src/mapper.rs",
+          "sha256": "3258ee5c4ec2577ce5ea5bedb73ed1118291bc8c40b03f2914817ee41603db47"
+        },
+        {
+          "path": "tetanes-core/src/cart.rs",
+          "sha256": "d350aa7aa88662fd352217ce46ba802f2e7566c4e2470a767b05e84c0db74e73"
+        },
+        {
+          "path": "tetanes-core/src/control_deck.rs",
+          "sha256": "8b1bc3f8e9ad7e21fa0f5019e4302c5af4f0553485d41144481fe1076b804b51"
+        },
+        {
+          "path": "tetanes-core/src/memory.rs",
+          "sha256": "dcd1cd99b1dcdd028af47fb2889088014492b5206d5a5da90168ec8ddaba44f7"
+        },
+        {
+          "path": "tetanes-core/src/input.rs",
+          "sha256": "f0dfba1605c4aefe7384c6ff0557af5e9e674811dc988a175e8c337cc24ac7e4"
+        }
+      ]
+    },
+    {
+      "id": "jsnes",
+      "repository": "https://github.com/bfirsh/jsnes",
+      "revision": "b8a45d088e922b6abcd87c4eb1b7237919e9d3d2",
+      "files": [
+        {
+          "path": "package.json",
+          "sha256": "4bf5c4cb65035577db5b6dca2de2d1da135c039978b5e3cf0fcd590cb00d6bd7"
+        },
+        {
+          "path": "LICENSE",
+          "sha256": "530136cec696ac1fcdeb792a77472cb273f9f814ad0ed795dccdc95db7423e0a"
+        },
+        {
+          "path": "src/mappers/index.js",
+          "sha256": "603625a0402eec5a4d649b9bce36638d261893d724b5904f9fd8927df786d389"
+        },
+        {
+          "path": "src/rom.js",
+          "sha256": "b37ac6a53b1152fef9ca82b2e3ea57a165664697d1babb3a14214dc964834866"
+        },
+        {
+          "path": "src/nes.js",
+          "sha256": "08119b28aa390992806a88cb4dc5aa467e6d39fdd3cc2cb11fdb22a5d4f5dc7b"
+        },
+        {
+          "path": "src/cpu.js",
+          "sha256": "efbc3071930c51e2c941f26303aee8d4807733709009d605089b71b380c4211f"
+        }
+      ]
+    },
+    {
+      "id": "binjnes",
+      "repository": "https://github.com/binji/binjnes",
+      "revision": "e2f5871a28ff189daa82b70be9324a42e2aaf9fd",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "85a646746fecd24ea3dcfdfe814a614419826a2119048e69f09b5c62a6b1e420"
+        },
+        {
+          "path": "README.md",
+          "sha256": "e658c74e3c414ced00dfa51828145b23d7ddf9c9354cf75663558055db089d0a"
+        },
+        {
+          "path": "src/emulator.c",
+          "sha256": "7ab92e2104e31f769d7dc86d9c1120082fefaee1d1ee789dbde30b58b84a9a9d"
+        },
+        {
+          "path": "src/emulator.h",
+          "sha256": "5b53df6baa1d52e983a08e5d2c6061ab94077e654ce075a8e38010f064b1af30"
+        }
+      ]
+    },
+    {
+      "id": "accuracycoin",
+      "repository": "https://github.com/100thCoin/AccuracyCoin",
+      "revision": "9bc42d1e3acbeeaea215b1011d58f4ce72a8a49e",
+      "files": [
+        {
+          "path": "LICENSE",
+          "sha256": "8efbc5e47dc6274caf8ef22a176e558140883416221cd5026c3da97ee150e4d7"
+        },
+        {
+          "path": "README.md",
+          "sha256": "3d61ac1904c7e410164b1ec8cfac11aa5e43a9a41bb7b1292304bc4f1be5f931"
+        },
+        {
+          "path": "AccuracyCoin.nes",
+          "sha256": "7e25ac08d2e7ed14c9b1f16bd853148fef09a824452164f8e0d69fd2bd96176c"
+        }
+      ]
+    }
+  ],
+  "candidates": [
+    {
+      "source": "tetanes",
+      "declared_version": "0.17.0",
+      "license": "MIT OR Apache-2.0",
+      "mapper_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10,
+        11,
+        16,
+        18,
+        19,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        33,
+        34,
+        48,
+        66,
+        69,
+        71,
+        76,
+        79,
+        88,
+        95,
+        105,
+        113,
+        144,
+        146,
+        153,
+        154,
+        155,
+        157,
+        159,
+        176,
+        206,
+        210
+      ]
+    },
+    {
+      "source": "jsnes",
+      "declared_version": "2.1.0",
+      "license": "Apache-2.0",
+      "mapper_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        11,
+        34,
+        38,
+        66,
+        71,
+        79,
+        94,
+        118,
+        119,
+        140,
+        180,
+        240,
+        241
+      ]
+    },
+    {
+      "source": "binjnes",
+      "declared_version": null,
+      "license": "MIT",
+      "mapper_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        9,
+        10,
+        11,
+        13,
+        16,
+        18,
+        19,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        28,
+        29,
+        30,
+        32,
+        33,
+        34,
+        38,
+        65,
+        66,
+        67,
+        69,
+        71,
+        75,
+        76,
+        78,
+        79,
+        80,
+        85,
+        87,
+        89,
+        93,
+        111,
+        118,
+        146,
+        163,
+        180,
+        206,
+        210,
+        232
+      ]
+    }
+  ],
+  "selected_hardware": [
+    {
+      "family": "Nrom",
+      "mapper_ids": [
+        0
+      ],
+      "source_path": "tetanes-core/src/mapper/m000_nrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [
+        "accuracycoin"
+      ],
+      "fixture_gap": "Only NTSC CPU/PPU diagnostic available; not complete NROM qualification"
+    },
+    {
+      "family": "Sxrom",
+      "mapper_ids": [
+        1,
+        155
+      ],
+      "source_path": "tetanes-core/src/mapper/m001_sxrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Uxrom",
+      "mapper_ids": [
+        2
+      ],
+      "source_path": "tetanes-core/src/mapper/m002_uxrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Cnrom",
+      "mapper_ids": [
+        3
+      ],
+      "source_path": "tetanes-core/src/mapper/m003_cnrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Txrom",
+      "mapper_ids": [
+        4,
+        76,
+        88,
+        95,
+        154,
+        206
+      ],
+      "source_path": "tetanes-core/src/mapper/m004_txrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Exrom",
+      "mapper_ids": [
+        5
+      ],
+      "source_path": "tetanes-core/src/mapper/m005_exrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Axrom",
+      "mapper_ids": [
+        7
+      ],
+      "source_path": "tetanes-core/src/mapper/m007_axrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Pxrom",
+      "mapper_ids": [
+        9
+      ],
+      "source_path": "tetanes-core/src/mapper/m009_pxrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Fxrom",
+      "mapper_ids": [
+        10
+      ],
+      "source_path": "tetanes-core/src/mapper/m010_fxrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "ColorDreams",
+      "mapper_ids": [
+        11,
+        144
+      ],
+      "source_path": "tetanes-core/src/mapper/m011_color_dreams.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "BandaiFCG",
+      "mapper_ids": [
+        16,
+        153,
+        157,
+        159
+      ],
+      "source_path": "tetanes-core/src/mapper/bandai_fcg.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "JalecoSs88006",
+      "mapper_ids": [
+        18
+      ],
+      "source_path": "tetanes-core/src/mapper/m018_jalecoss88006.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Namco163",
+      "mapper_ids": [
+        19,
+        210
+      ],
+      "source_path": "tetanes-core/src/mapper/m019_namco163.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Vrc24",
+      "mapper_ids": [
+        21,
+        22,
+        23,
+        25
+      ],
+      "source_path": "tetanes-core/src/mapper/m021_vrc24.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Vrc6",
+      "mapper_ids": [
+        24,
+        26
+      ],
+      "source_path": "tetanes-core/src/mapper/m024_m026_vrc6.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "TaitoTc0190",
+      "mapper_ids": [
+        33,
+        48
+      ],
+      "source_path": "tetanes-core/src/mapper/m033_m048_taito_tc0190.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Bnrom",
+      "mapper_ids": [
+        34
+      ],
+      "source_path": "tetanes-core/src/mapper/m034_bnrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Nina001",
+      "mapper_ids": [
+        34
+      ],
+      "source_path": "tetanes-core/src/mapper/m034_nina001.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Gxrom",
+      "mapper_ids": [
+        66
+      ],
+      "source_path": "tetanes-core/src/mapper/m066_gxrom.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "SunsoftFme7",
+      "mapper_ids": [
+        69
+      ],
+      "source_path": "tetanes-core/src/mapper/m069_sunsoft_fme7.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Bf909x",
+      "mapper_ids": [
+        71
+      ],
+      "source_path": "tetanes-core/src/mapper/m071_bf909x.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Nina003006",
+      "mapper_ids": [
+        79,
+        113,
+        146
+      ],
+      "source_path": "tetanes-core/src/mapper/m079_nina003_006.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "NesEvent",
+      "mapper_ids": [
+        105
+      ],
+      "source_path": "tetanes-core/src/mapper/m105_nes_event.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    },
+    {
+      "family": "Fk23C",
+      "mapper_ids": [
+        176
+      ],
+      "source_path": "tetanes-core/src/mapper/m176_fk23c.rs",
+      "source_status": "dispatch-implemented",
+      "regions": [
+        "NTSC",
+        "PAL",
+        "Dendy"
+      ],
+      "region_evidence": "global timing paths; each mapper-region pairing untested",
+      "submapper_status": "not exhaustively qualified; see report",
+      "local_play": "untested",
+      "netplay": "untested",
+      "fixture_ids": [],
+      "fixture_gap": "No authorized representative pinned in D01"
+    }
+  ],
+  "unknown_mapper_policy": {
+    "domain": [
+      0,
+      4095
+    ],
+    "implemented_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      7,
+      9,
+      10,
+      11,
+      16,
+      18,
+      19,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      33,
+      34,
+      48,
+      66,
+      69,
+      71,
+      76,
+      79,
+      88,
+      95,
+      105,
+      113,
+      144,
+      146,
+      153,
+      154,
+      155,
+      157,
+      159,
+      176,
+      206,
+      210
+    ],
+    "all_other_ids": "unsupported in selected source dispatch; includes unassigned IDs, not a claim that every missing ID names hardware"
+  },
+  "qualification_dimensions": [
+    "mapper and board revision/submapper",
+    "NTSC/PAL/Dendy timing",
+    "header/ROM/RAM layout",
+    "mirroring/IRQ/expansion audio",
+    "peripheral",
+    "battery persistence",
+    "boot/input/audio",
+    "state roundtrip",
+    "rewind",
+    "cross-browser replay",
+    "direct and relay netplay"
+  ],
+  "fixtures": [
+    {
+      "id": "accuracycoin",
+      "source": "accuracycoin",
+      "path": "AccuracyCoin.nes",
+      "sha256": "7e25ac08d2e7ed14c9b1f16bd853148fef09a824452164f8e0d69fd2bd96176c",
+      "bytes": 40976,
+      "header_hex": "4e45531a020100000000000000000000",
+      "format": "iNES",
+      "mapper": 0,
+      "region": "NTSC RP2A03G/RP2C02G target",
+      "purpose": "CPU/PPU accuracy and diagnostic input; not a two-player game or mapper-family coverage",
+      "authorization": "Repository MIT license; copyright Chris Siebert 2025; preserve notice and permission text with any future copy",
+      "license_path": "LICENSE",
+      "redistributed": false,
+      "local_play": "untested",
+      "netplay": "untested",
+      "rebuild_status": "Prebuilt bytes hashed; assembler reproducibility not measured; do not execute bundled nesasm.exe"
+    }
+  ],
+  "fixture_gaps": [
+    {
+      "id": "featured",
+      "owner": "D03",
+      "status": "identity, artifact, hash and rights pending"
+    },
+    {
+      "id": "mapper-region-peripheral",
+      "owner": "D20 with content owner",
+      "status": "Each additional advertised combination needs a licensed diagnostic/homebrew fixture; no permission inferred from emulator test folders"
+    },
+    {
+      "id": "negative-inputs",
+      "owner": "D05/D20",
+      "status": "Generate original malformed/oversized/header-variant bytes and unsupported mapper/peripheral cases; no fixture implementation in D01"
+    }
+  ]
+}
