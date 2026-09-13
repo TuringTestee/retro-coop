@@ -1,0 +1,29 @@
+import asyncio,base64,hashlib,json,sys,time
+from pathlib import Path
+from playwright.async_api import async_playwright
+WORKER=r'''onmessage=async({data:a})=>{try{
+const bytes=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const module=await WebAssembly.compile(bytes(a.wasm)),imports={};
+for(const x of WebAssembly.Module.imports(module)){if(x.kind!=='function')throw Error('Unexpected import');(imports[x.module]??={})[x.name]=()=>{throw Error('Forbidden host import')};}
+const e=(await WebAssembly.instantiate(module,imports)).exports,r=bytes(a.rom),ptr=e.input_alloc(r.length);new Uint8Array(e.memory.buffer,ptr,r.length).set(r);e.initialize(ptr,r.length);e.advance(0,600);
+const p=e.output(4),before=await crypto.subtle.digest('SHA-256',new Uint8Array(e.memory.buffer,p,e.output_len()).slice());
+const start=performance.now(),out=e.rewind_probe(600);const result=JSON.parse(new TextDecoder().decode(new Uint8Array(e.memory.buffer,out,e.output_len())));
+postMessage({result,probe_ms:performance.now()-start,wasm_memory_bytes:e.memory.buffer.byteLength,warmup_frames:600,start_canonical:Array.from(new Uint8Array(before),x=>x.toString(16).padStart(2,'0')).join('')});
+}catch(error){postMessage({error:String(error)});}}'''
+async def main():
+ rom=Path(sys.argv[1]).read_bytes();started=time.monotonic();runs=[]
+ async with async_playwright() as p:
+  browser=await p.chromium.launch(executable_path='/usr/bin/google-chrome',headless=True)
+  page=await browser.new_page();await page.goto('http://127.0.0.1:8765/demo/')
+  for f in sys.argv[2:4]:
+   wasm=Path(f).read_bytes()
+   r=await asyncio.wait_for(page.evaluate('''a=>new Promise((resolve,reject)=>{const w=new Worker(URL.createObjectURL(new Blob([a.source],{type:'text/javascript'})));w.onmessage=e=>{w.terminate();resolve(e.data)};w.onerror=e=>{w.terminate();reject(Error(e.message))};w.postMessage(a);})''',{'source':WORKER,'wasm':base64.b64encode(wasm).decode(),'rom':base64.b64encode(rom).decode()}),60)
+   assert 'error' not in r,r
+   r['wasm_sha256']=hashlib.sha256(wasm).hexdigest();runs.append(r)
+  result={'browser':'Chrome','version':browser.version,'rom_sha256':hashlib.sha256(rom).hexdigest(),'audio_context_created':False,'warmup_frames':600,'runs':runs,'wall_seconds':time.monotonic()-started}
+  await browser.close()
+ assert runs[0]['start_canonical']==runs[1]['start_canonical']
+ assert [r['result']['frames_rewound'] for r in runs]==[600,601]
+ assert all(r['result']['canonical_replay_equal'] and r['result']['tracked_allocation_bytes']<=32*1024*1024 for r in runs)
+ Path(sys.argv[4]).write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result))
+asyncio.run(main())
