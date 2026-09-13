@@ -1,0 +1,2742 @@
+{
+  "scope": "Three full 600-second pairs, concurrent on one host",
+  "pairs": [
+    {
+      "pair": "Chrome-Chrome",
+      "exit_code": 0,
+      "result": {
+        "run_id": "ce287256-b345-4f0c-98fc-8b4307b0e167",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "rom_bytes": 24592,
+        "wasm_bytes": 2891616,
+        "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+        "wasm_sha256": "da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6",
+        "adapter_sha256": "ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d",
+        "pair": "Chrome-Chrome",
+        "seconds": 600,
+        "impairment": "isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback",
+        "route": "isolated private host ICE; no STUN/TURN",
+        "voice": "synthetic oscillator, not real microphone/speaker listening",
+        "chromium_launch": "headless, default --mute-audio removed",
+        "firefox_driver": "official Firefox via WebDriver BiDi",
+        "runs": [
+          {
+            "browser": "Chromium",
+            "version": "145.0.7632.6",
+            "role": 0,
+            "seconds": 600,
+            "hashes": [
+              {
+                "frame": 600,
+                "hash": "5b8f5d856dd1385d8693733680eb3187d23d548971d4a0187fbf6f33ecefa982"
+              },
+              {
+                "frame": 1200,
+                "hash": "c63560b72652f4972bc9a4983ae462fdf588210802a60296cfb143580b4718ca"
+              },
+              {
+                "frame": 1800,
+                "hash": "21d56a971f7e7878a27f6acd68c39b8981823166d949b9e1b865a8cea4807707"
+              },
+              {
+                "frame": 2400,
+                "hash": "6b62f332e3c469aa612299e2e8767abbac7cc112728eda1513480ee041ae589b"
+              },
+              {
+                "frame": 3000,
+                "hash": "91bc246afa47792e37c7a494672eb8124dad21976cf61e45069e4d8fa5dd37d7"
+              },
+              {
+                "frame": 3600,
+                "hash": "2ca38d73c0c2428f327e3121b2103dc00cb873cf04bf64466bafad6e4518a362"
+              },
+              {
+                "frame": 4200,
+                "hash": "0c09665ff49d5f32cb5058edb8f56f83ce67f470b8f9f3da6e85cdfad05ff639"
+              },
+              {
+                "frame": 4800,
+                "hash": "e1ea25d1a49e6c40aaa8c6a961725ea1c5a7faf42bf89eb8a17c4b68ea948c2c"
+              },
+              {
+                "frame": 5400,
+                "hash": "566301a0afa637be06c1db924fc42e053f58a79ddec9709f09c32fb1244f68cb"
+              },
+              {
+                "frame": 6000,
+                "hash": "3c406d3fe1359d9f58df3d768d5d95553e2de900510a67913bad460fde7ce444"
+              },
+              {
+                "frame": 6600,
+                "hash": "572aa19822cbbf0ee791bbfa5c65dd6d89f178283792463c8c8c7f22e237edf4"
+              },
+              {
+                "frame": 7200,
+                "hash": "49fb22b418019b1b4030805f15655cfeda0d9380cd2ceae1ff33dce0d16bef4a"
+              },
+              {
+                "frame": 7800,
+                "hash": "ca6322e366f96eafba64a3afc221fdd9520e91fdae3c09a9a509670ca2ec9755"
+              },
+              {
+                "frame": 8400,
+                "hash": "223cf53521230bd92b51765d0f69d3e8d72d5af1a81a7ff616b9890c79b33d9b"
+              },
+              {
+                "frame": 9000,
+                "hash": "ea89bb8482b0d70027c4a9cdc2a27d958e1f5bc2b18bb9784d903d18d137cbd8"
+              },
+              {
+                "frame": 9600,
+                "hash": "16bf9342300cba79670571de2439a68c50ce552026a3e52be1ff1393c92512ce"
+              },
+              {
+                "frame": 10200,
+                "hash": "052946c1b05575895eeff62845050d05b26e834b5c7b4d25866596970aa10afa"
+              },
+              {
+                "frame": 10800,
+                "hash": "19aa5638253d70f133cb3caead6c8868f151307b001ea7840aa39b9d388d3a7c"
+              },
+              {
+                "frame": 11400,
+                "hash": "af0de6bd6ea00172168472d5fa564fe7f59560dae40ee87673e7090659d65e2d"
+              },
+              {
+                "frame": 12000,
+                "hash": "0de7e23710e1d85aa2d1f093d557dbaa577e284bedf97252304b41e6e64f5613"
+              },
+              {
+                "frame": 12600,
+                "hash": "05399ac664a636cfca694e275349b6d584c632b3f4d5ba5d1656239fde3708b3"
+              },
+              {
+                "frame": 13200,
+                "hash": "999145c242f5ad5390b8f4ab7792bfa20430fa1e47426d045f3e1d9a152a7aed"
+              },
+              {
+                "frame": 13800,
+                "hash": "7677a3b033a350efcd41c7595f43328a714db6897361e4272054b09a31eb4b80"
+              },
+              {
+                "frame": 14400,
+                "hash": "fd8e685d291c85ae3af0f73020d209d605e6ba7350daa4f10e81e3d58ae8912f"
+              },
+              {
+                "frame": 15000,
+                "hash": "7df330b189ef701bbd4ad4831653087e1824aedcfea3d988fa4a9f778422aaaa"
+              },
+              {
+                "frame": 15600,
+                "hash": "76e165138e19f523d5f866915e8c235f6835ba376a0760b87c04e231e2f73c4a"
+              },
+              {
+                "frame": 16200,
+                "hash": "c9fb584d33af4b16ffd49a33be45f1fd0ef02b1712937e0fcc18aeb990faf5b1"
+              },
+              {
+                "frame": 16800,
+                "hash": "ca08f7aa2b2595d125cb4351507babf6ecd645e8d6cc5adc0acd2573d275a4dc"
+              },
+              {
+                "frame": 17400,
+                "hash": "47cc0e644bbfc4f9fd56b506f4c5dcc6fa61a61d1dbcf8e69eea780f108bddfa"
+              },
+              {
+                "frame": 18000,
+                "hash": "12de07ebe7ffeaf1c0e2d5b32e6242da31d98f0aeaa231a5340ab604a716fc81"
+              },
+              {
+                "frame": 18600,
+                "hash": "c516933701dc1905433c48527645d46feae1d81ab2434349d284a1a295a1b9eb"
+              },
+              {
+                "frame": 19200,
+                "hash": "88f16d3186abec372f1efb266f738e6bb3e6accde0e7f4b31f7aa1916cb49800"
+              },
+              {
+                "frame": 19800,
+                "hash": "a8ebb6ce4022af3884da411ccf858b7c66a2b3b8407a03f0fb43b5dae9a0364c"
+              },
+              {
+                "frame": 20400,
+                "hash": "0fa16ea13ef9f6a3e35b0fcb92cd07fabacfe60a218e515b9c196910c345b5d0"
+              },
+              {
+                "frame": 21000,
+                "hash": "e5a52cd40cbe732e60a16808deea9ac8476c2f368f931127193a2e29222c4782"
+              },
+              {
+                "frame": 21600,
+                "hash": "dba92bc061ca9f06d89cd870801574b15011c9f1e97eb3fc85a48259152203df"
+              },
+              {
+                "frame": 22200,
+                "hash": "59ce82e24a48024638621a5ce7df58384d04b9932d9b0a7ad0c5707ded423e4d"
+              },
+              {
+                "frame": 22800,
+                "hash": "576c09d3d235be5cdbd8f06d55d9828594133ae6994b0710c8b4a74f73df727a"
+              },
+              {
+                "frame": 23400,
+                "hash": "0208063b35c1913fcf4bfd508ac8833c8bf95a002887fc71b9f7e96e8aa7bb75"
+              },
+              {
+                "frame": 24000,
+                "hash": "6cc6df183b896acc85cb6c699588b8dd348dc2fbacc1f9c505f6e4984d09ae50"
+              },
+              {
+                "frame": 24600,
+                "hash": "6cfbb9c065736c853d45672607d363aedadbcfd15342aa651f686a7e63ea946d"
+              },
+              {
+                "frame": 25200,
+                "hash": "3df0f853429882fd16946ddf87499ca139b74dbcc09c7636b0eedc2f12833a0d"
+              },
+              {
+                "frame": 25800,
+                "hash": "cc6bff94c9f3f946da7f872c1f308fdcea51c9958974b0c2eba21525d156e790"
+              },
+              {
+                "frame": 26400,
+                "hash": "1d40d63929ad5e04c257649c9f55bea2f9cd074c17e6534aff25c846b6ecfb14"
+              },
+              {
+                "frame": 27000,
+                "hash": "0c85009346142ec134cd8e5b195c7e13c1aaa7d75e4c905f1d671bd11e2e4c50"
+              },
+              {
+                "frame": 27600,
+                "hash": "dfd2c547326392d39414421b0dc52d3295f0bda2c03ec34d5a3d8282a4e1b601"
+              },
+              {
+                "frame": 28200,
+                "hash": "ce67beb1ea3bba39a1302f49d48ab960fab6281bd30dfbfbf735b9cd2f4ad25a"
+              },
+              {
+                "frame": 28800,
+                "hash": "8a49436f8b32588603921c996a2f754a8447c5a8e5a7d2ea8a255d5f690e0f9b"
+              },
+              {
+                "frame": 29400,
+                "hash": "b11cdf1b68424ab281f24b5473259309393c1114918988651e2ffbc67b3b90e8"
+              },
+              {
+                "frame": 30000,
+                "hash": "ee373dd0d66f742cddb7ff027394c50dc540e355b05530ee4fb17f2d82d9d00c"
+              },
+              {
+                "frame": 30600,
+                "hash": "7bcaeaf0a3f23ad46e853f8b3d63495a5a0a65c932e0b612389c99bd0e6fcd9a"
+              },
+              {
+                "frame": 31200,
+                "hash": "75999f3e8573ffb18d1b3cd80592f0a21056b883a9389d18d68817d20dabb8de"
+              },
+              {
+                "frame": 31800,
+                "hash": "b9d87167309479289eccbf9f255be79406a359ffa993081be5029753bdc50751"
+              },
+              {
+                "frame": 32400,
+                "hash": "113bd8cda0b7a230a2f1c9057ecc0c68224005def77467f13b339d82672c43b7"
+              },
+              {
+                "frame": 33000,
+                "hash": "0de5801e58cb9af1387ba1d9f6a029596dae9ab1e7f592a6e713cbdb6da25cab"
+              },
+              {
+                "frame": 33600,
+                "hash": "dc5e97496a0ce78beb73a6c5237a8b557e75c11d51e15bbac5e47e755e4d1599"
+              },
+              {
+                "frame": 34200,
+                "hash": "e9da1040cbfda1fb2068210aa7f6103850fad0636962dc853ccb6d80a21eefd1"
+              },
+              {
+                "frame": 34800,
+                "hash": "c9538125b7c98df658e86c29e3ead013a2a96b7cf1f3ccf1fc20de7b0eb8dcf2"
+              },
+              {
+                "frame": 35400,
+                "hash": "8f6560b119cd3e1d54d00a1712726ed8381a97559e27ca85a19cd626c6327a74"
+              },
+              {
+                "frame": 36000,
+                "hash": "28689c5767e3b775c8fd118c60786e87d1eaf236796eec45ac297e6a3a91f379"
+              },
+              {
+                "frame": 36060,
+                "hash": "b87a6790198e86d2bcfa9ab4da00697cafb41b9de98d64bea90ec9f086a6d0fb"
+              }
+            ],
+            "identity": "{\"adapter\":\"ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03\",\"wasm\":\"da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6\"}",
+            "rttMs": {
+              "count": 714,
+              "p50": 110.59999999997672,
+              "p95": 231.19999999995343,
+              "max": 412.5999999999767
+            },
+            "copyMs": {
+              "count": 36060,
+              "p50": 0.40000000002328306,
+              "p95": 7.7999999998137355,
+              "max": 39.90000000002328
+            },
+            "paintMs": {
+              "count": 36060,
+              "p50": 0,
+              "p95": 0.10000000009313226,
+              "max": 10.100000000093132
+            },
+            "emulateMs": {
+              "count": 36060,
+              "p50": 11.400000000139698,
+              "p95": 21.5,
+              "max": 57.9000000001397
+            },
+            "transferMs": {
+              "count": 36060,
+              "p50": 0.300048828125,
+              "p95": 6.2001953125,
+              "max": 70
+            },
+            "voiceLevels": {
+              "count": 713,
+              "p50": 0.035369860413171327,
+              "p95": 0.03559843519470662,
+              "max": 0.03590287103044777
+            },
+            "voiceFrequencyHz": {
+              "count": 713,
+              "p50": 656.25,
+              "p95": 703.125,
+              "max": 703.125
+            },
+            "sent": 37549,
+            "maxBuffered": 458,
+            "maxRemoteInputs": 22,
+            "stalls": 7155,
+            "errors": [],
+            "audioBackpressurePolls": 665,
+            "voiceMissedSlots": 0,
+            "kind": "ready",
+            "compileMs": 1339.8000000000466,
+            "initializeMs": 69.09999999997672,
+            "localReadyMs": 2296.1999999999534,
+            "audioSampleRate": 48000,
+            "audioEnableAtMs": 5529.400000000023,
+            "audioRunningAtMs": 5529.400000000023,
+            "localDescriptionAtMs": 5629,
+            "trackAtMs": 5888.79999999993,
+            "remotePlaybackStartedAtMs": 5896.400000000023,
+            "voiceFirstEnergyAtMs": 6189.199999999953,
+            "voiceEnableToEnergyMs": 659.7999999999302,
+            "channelOpenMs": 6212.099999999977,
+            "identityMatched": true,
+            "startAtMs": 6328.29999999993,
+            "videoBytes": 8862105600,
+            "firstFrameMs": 6535.699999999953,
+            "startToFirstFrameMs": 207.40000000002328,
+            "flush": {
+              "kind": "flushed",
+              "epoch": 1,
+              "queued": 0
+            },
+            "coreQueueEmpty": true,
+            "audio": {
+              "kind": "stats",
+              "received": 28799833,
+              "played": 28798588,
+              "underrun": 5448196,
+              "overflow": 0,
+              "maxQueued": 8782,
+              "stale": 0,
+              "flushes": 1,
+              "flushed": 446,
+              "energy": 33277.030887431414,
+              "queued": 799,
+              "epoch": 1,
+              "capacity": 12000
+            },
+            "frames": 36060,
+            "wallMs": 713262.3,
+            "rtc": [
+              {
+                "type": "candidate-pair",
+                "state": "succeeded",
+                "selected": true,
+                "nominated": true,
+                "currentRoundTripTime": 0.095,
+                "bytesSent": 12183781,
+                "bytesReceived": 11948852,
+                "local": {
+                  "address": "",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                },
+                "remote": {
+                  "address": "",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                }
+              },
+              {
+                "type": "inbound-rtp",
+                "kind": "audio",
+                "packetsReceived": 49428,
+                "packetsLost": 476,
+                "jitter": 0.012,
+                "totalAudioEnergy": 0,
+                "totalSamplesReceived": 34271040
+              },
+              {
+                "type": "outbound-rtp",
+                "packetsSent": 51112,
+                "bytesSent": 2891565
+              },
+              {
+                "type": "media-source",
+                "audioLevel": 0.0499893185216834,
+                "totalAudioEnergy": 1.7850620714619376,
+                "totalSamplesDuration": 714.4299999994953
+              }
+            ],
+            "voiceTrack": {
+              "local": "live",
+              "remote": [
+                {
+                  "enabled": true,
+                  "muted": false,
+                  "readyState": "live"
+                }
+              ]
+            },
+            "iceSelection": [
+              {
+                "type": "candidate-pair",
+                "id": "CPn002gx7I_XV9/lMoX",
+                "state": "succeeded",
+                "nominated": true,
+                "selectedCandidatePairId": null,
+                "bytesSent": 12183781,
+                "bytesReceived": 11948852
+              },
+              {
+                "type": "transport",
+                "id": "T01",
+                "state": null,
+                "nominated": null,
+                "selectedCandidatePairId": "CPn002gx7I_XV9/lMoX",
+                "bytesSent": 12183781,
+                "bytesReceived": 11948852
+              }
+            ],
+            "outputMuted": true,
+            "outputPeak": 0,
+            "peerHashesMatched": true,
+            "pendingInputs": 0,
+            "remoteInputQueue": 0,
+            "teardown": {
+              "localTrack": "ended",
+              "connection": "closed",
+              "audio": "closed",
+              "remoteElementPaused": true
+            }
+          },
+          {
+            "browser": "Chromium",
+            "version": "145.0.7632.6",
+            "role": 1,
+            "seconds": 600,
+            "hashes": [
+              {
+                "frame": 600,
+                "hash": "5b8f5d856dd1385d8693733680eb3187d23d548971d4a0187fbf6f33ecefa982"
+              },
+              {
+                "frame": 1200,
+                "hash": "c63560b72652f4972bc9a4983ae462fdf588210802a60296cfb143580b4718ca"
+              },
+              {
+                "frame": 1800,
+                "hash": "21d56a971f7e7878a27f6acd68c39b8981823166d949b9e1b865a8cea4807707"
+              },
+              {
+                "frame": 2400,
+                "hash": "6b62f332e3c469aa612299e2e8767abbac7cc112728eda1513480ee041ae589b"
+              },
+              {
+                "frame": 3000,
+                "hash": "91bc246afa47792e37c7a494672eb8124dad21976cf61e45069e4d8fa5dd37d7"
+              },
+              {
+                "frame": 3600,
+                "hash": "2ca38d73c0c2428f327e3121b2103dc00cb873cf04bf64466bafad6e4518a362"
+              },
+              {
+                "frame": 4200,
+                "hash": "0c09665ff49d5f32cb5058edb8f56f83ce67f470b8f9f3da6e85cdfad05ff639"
+              },
+              {
+                "frame": 4800,
+                "hash": "e1ea25d1a49e6c40aaa8c6a961725ea1c5a7faf42bf89eb8a17c4b68ea948c2c"
+              },
+              {
+                "frame": 5400,
+                "hash": "566301a0afa637be06c1db924fc42e053f58a79ddec9709f09c32fb1244f68cb"
+              },
+              {
+                "frame": 6000,
+                "hash": "3c406d3fe1359d9f58df3d768d5d95553e2de900510a67913bad460fde7ce444"
+              },
+              {
+                "frame": 6600,
+                "hash": "572aa19822cbbf0ee791bbfa5c65dd6d89f178283792463c8c8c7f22e237edf4"
+              },
+              {
+                "frame": 7200,
+                "hash": "49fb22b418019b1b4030805f15655cfeda0d9380cd2ceae1ff33dce0d16bef4a"
+              },
+              {
+                "frame": 7800,
+                "hash": "ca6322e366f96eafba64a3afc221fdd9520e91fdae3c09a9a509670ca2ec9755"
+              },
+              {
+                "frame": 8400,
+                "hash": "223cf53521230bd92b51765d0f69d3e8d72d5af1a81a7ff616b9890c79b33d9b"
+              },
+              {
+                "frame": 9000,
+                "hash": "ea89bb8482b0d70027c4a9cdc2a27d958e1f5bc2b18bb9784d903d18d137cbd8"
+              },
+              {
+                "frame": 9600,
+                "hash": "16bf9342300cba79670571de2439a68c50ce552026a3e52be1ff1393c92512ce"
+              },
+              {
+                "frame": 10200,
+                "hash": "052946c1b05575895eeff62845050d05b26e834b5c7b4d25866596970aa10afa"
+              },
+              {
+                "frame": 10800,
+                "hash": "19aa5638253d70f133cb3caead6c8868f151307b001ea7840aa39b9d388d3a7c"
+              },
+              {
+                "frame": 11400,
+                "hash": "af0de6bd6ea00172168472d5fa564fe7f59560dae40ee87673e7090659d65e2d"
+              },
+              {
+                "frame": 12000,
+                "hash": "0de7e23710e1d85aa2d1f093d557dbaa577e284bedf97252304b41e6e64f5613"
+              },
+              {
+                "frame": 12600,
+                "hash": "05399ac664a636cfca694e275349b6d584c632b3f4d5ba5d1656239fde3708b3"
+              },
+              {
+                "frame": 13200,
+                "hash": "999145c242f5ad5390b8f4ab7792bfa20430fa1e47426d045f3e1d9a152a7aed"
+              },
+              {
+                "frame": 13800,
+                "hash": "7677a3b033a350efcd41c7595f43328a714db6897361e4272054b09a31eb4b80"
+              },
+              {
+                "frame": 14400,
+                "hash": "fd8e685d291c85ae3af0f73020d209d605e6ba7350daa4f10e81e3d58ae8912f"
+              },
+              {
+                "frame": 15000,
+                "hash": "7df330b189ef701bbd4ad4831653087e1824aedcfea3d988fa4a9f778422aaaa"
+              },
+              {
+                "frame": 15600,
+                "hash": "76e165138e19f523d5f866915e8c235f6835ba376a0760b87c04e231e2f73c4a"
+              },
+              {
+                "frame": 16200,
+                "hash": "c9fb584d33af4b16ffd49a33be45f1fd0ef02b1712937e0fcc18aeb990faf5b1"
+              },
+              {
+                "frame": 16800,
+                "hash": "ca08f7aa2b2595d125cb4351507babf6ecd645e8d6cc5adc0acd2573d275a4dc"
+              },
+              {
+                "frame": 17400,
+                "hash": "47cc0e644bbfc4f9fd56b506f4c5dcc6fa61a61d1dbcf8e69eea780f108bddfa"
+              },
+              {
+                "frame": 18000,
+                "hash": "12de07ebe7ffeaf1c0e2d5b32e6242da31d98f0aeaa231a5340ab604a716fc81"
+              },
+              {
+                "frame": 18600,
+                "hash": "c516933701dc1905433c48527645d46feae1d81ab2434349d284a1a295a1b9eb"
+              },
+              {
+                "frame": 19200,
+                "hash": "88f16d3186abec372f1efb266f738e6bb3e6accde0e7f4b31f7aa1916cb49800"
+              },
+              {
+                "frame": 19800,
+                "hash": "a8ebb6ce4022af3884da411ccf858b7c66a2b3b8407a03f0fb43b5dae9a0364c"
+              },
+              {
+                "frame": 20400,
+                "hash": "0fa16ea13ef9f6a3e35b0fcb92cd07fabacfe60a218e515b9c196910c345b5d0"
+              },
+              {
+                "frame": 21000,
+                "hash": "e5a52cd40cbe732e60a16808deea9ac8476c2f368f931127193a2e29222c4782"
+              },
+              {
+                "frame": 21600,
+                "hash": "dba92bc061ca9f06d89cd870801574b15011c9f1e97eb3fc85a48259152203df"
+              },
+              {
+                "frame": 22200,
+                "hash": "59ce82e24a48024638621a5ce7df58384d04b9932d9b0a7ad0c5707ded423e4d"
+              },
+              {
+                "frame": 22800,
+                "hash": "576c09d3d235be5cdbd8f06d55d9828594133ae6994b0710c8b4a74f73df727a"
+              },
+              {
+                "frame": 23400,
+                "hash": "0208063b35c1913fcf4bfd508ac8833c8bf95a002887fc71b9f7e96e8aa7bb75"
+              },
+              {
+                "frame": 24000,
+                "hash": "6cc6df183b896acc85cb6c699588b8dd348dc2fbacc1f9c505f6e4984d09ae50"
+              },
+              {
+                "frame": 24600,
+                "hash": "6cfbb9c065736c853d45672607d363aedadbcfd15342aa651f686a7e63ea946d"
+              },
+              {
+                "frame": 25200,
+                "hash": "3df0f853429882fd16946ddf87499ca139b74dbcc09c7636b0eedc2f12833a0d"
+              },
+              {
+                "frame": 25800,
+                "hash": "cc6bff94c9f3f946da7f872c1f308fdcea51c9958974b0c2eba21525d156e790"
+              },
+              {
+                "frame": 26400,
+                "hash": "1d40d63929ad5e04c257649c9f55bea2f9cd074c17e6534aff25c846b6ecfb14"
+              },
+              {
+                "frame": 27000,
+                "hash": "0c85009346142ec134cd8e5b195c7e13c1aaa7d75e4c905f1d671bd11e2e4c50"
+              },
+              {
+                "frame": 27600,
+                "hash": "dfd2c547326392d39414421b0dc52d3295f0bda2c03ec34d5a3d8282a4e1b601"
+              },
+              {
+                "frame": 28200,
+                "hash": "ce67beb1ea3bba39a1302f49d48ab960fab6281bd30dfbfbf735b9cd2f4ad25a"
+              },
+              {
+                "frame": 28800,
+                "hash": "8a49436f8b32588603921c996a2f754a8447c5a8e5a7d2ea8a255d5f690e0f9b"
+              },
+              {
+                "frame": 29400,
+                "hash": "b11cdf1b68424ab281f24b5473259309393c1114918988651e2ffbc67b3b90e8"
+              },
+              {
+                "frame": 30000,
+                "hash": "ee373dd0d66f742cddb7ff027394c50dc540e355b05530ee4fb17f2d82d9d00c"
+              },
+              {
+                "frame": 30600,
+                "hash": "7bcaeaf0a3f23ad46e853f8b3d63495a5a0a65c932e0b612389c99bd0e6fcd9a"
+              },
+              {
+                "frame": 31200,
+                "hash": "75999f3e8573ffb18d1b3cd80592f0a21056b883a9389d18d68817d20dabb8de"
+              },
+              {
+                "frame": 31800,
+                "hash": "b9d87167309479289eccbf9f255be79406a359ffa993081be5029753bdc50751"
+              },
+              {
+                "frame": 32400,
+                "hash": "113bd8cda0b7a230a2f1c9057ecc0c68224005def77467f13b339d82672c43b7"
+              },
+              {
+                "frame": 33000,
+                "hash": "0de5801e58cb9af1387ba1d9f6a029596dae9ab1e7f592a6e713cbdb6da25cab"
+              },
+              {
+                "frame": 33600,
+                "hash": "dc5e97496a0ce78beb73a6c5237a8b557e75c11d51e15bbac5e47e755e4d1599"
+              },
+              {
+                "frame": 34200,
+                "hash": "e9da1040cbfda1fb2068210aa7f6103850fad0636962dc853ccb6d80a21eefd1"
+              },
+              {
+                "frame": 34800,
+                "hash": "c9538125b7c98df658e86c29e3ead013a2a96b7cf1f3ccf1fc20de7b0eb8dcf2"
+              },
+              {
+                "frame": 35400,
+                "hash": "8f6560b119cd3e1d54d00a1712726ed8381a97559e27ca85a19cd626c6327a74"
+              },
+              {
+                "frame": 36000,
+                "hash": "28689c5767e3b775c8fd118c60786e87d1eaf236796eec45ac297e6a3a91f379"
+              },
+              {
+                "frame": 36060,
+                "hash": "b87a6790198e86d2bcfa9ab4da00697cafb41b9de98d64bea90ec9f086a6d0fb"
+              }
+            ],
+            "identity": "{\"adapter\":\"ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03\",\"wasm\":\"da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6\"}",
+            "rttMs": {
+              "count": 714,
+              "p50": 110,
+              "p95": 211.40000000002328,
+              "max": 322.5999999999767
+            },
+            "copyMs": {
+              "count": 36060,
+              "p50": 0.40000000002328306,
+              "p95": 7.800000000046566,
+              "max": 51.90000000002328
+            },
+            "paintMs": {
+              "count": 36060,
+              "p50": 0,
+              "p95": 0.10000000009313226,
+              "max": 13.199999999953434
+            },
+            "emulateMs": {
+              "count": 36060,
+              "p50": 11.599999999860302,
+              "p95": 21.5,
+              "max": 49.5999999998603
+            },
+            "transferMs": {
+              "count": 36060,
+              "p50": 0.2001953125,
+              "p95": 6.199951171875,
+              "max": 91.199951171875
+            },
+            "voiceLevels": {
+              "count": 713,
+              "p50": 0.03531095259519918,
+              "p95": 0.03565040971869971,
+              "max": 0.0358143085918008
+            },
+            "voiceFrequencyHz": {
+              "count": 713,
+              "p50": 515.625,
+              "p95": 562.5,
+              "max": 562.5
+            },
+            "sent": 37549,
+            "maxBuffered": 789,
+            "maxRemoteInputs": 23,
+            "stalls": 6000,
+            "errors": [],
+            "audioBackpressurePolls": 793,
+            "voiceMissedSlots": 0,
+            "kind": "ready",
+            "compileMs": 633.4000000000233,
+            "initializeMs": 29.399999999906868,
+            "localReadyMs": 1287,
+            "audioSampleRate": 48000,
+            "audioEnableAtMs": 1544,
+            "audioRunningAtMs": 1544,
+            "trackAtMs": 1786.9000000000233,
+            "localDescriptionAtMs": 1798.5,
+            "remotePlaybackStartedAtMs": 1799.6999999999534,
+            "voiceFirstEnergyAtMs": 2247.0999999999767,
+            "voiceEnableToEnergyMs": 703.0999999999767,
+            "channelOpenMs": 2285.79999999993,
+            "identityMatched": true,
+            "startAtMs": 2348.5,
+            "videoBytes": 8862105600,
+            "firstFrameMs": 2542,
+            "startToFirstFrameMs": 193.59999999997672,
+            "flush": {
+              "kind": "flushed",
+              "epoch": 1,
+              "queued": 0
+            },
+            "coreQueueEmpty": true,
+            "audio": {
+              "kind": "stats",
+              "received": 28799833,
+              "played": 28797216,
+              "underrun": 5443936,
+              "overflow": 0,
+              "maxQueued": 8788,
+              "stale": 0,
+              "flushes": 1,
+              "flushed": 1818,
+              "energy": 33275.44979800065,
+              "queued": 799,
+              "epoch": 1,
+              "capacity": 12000
+            },
+            "frames": 36060,
+            "wallMs": 713116.9999999999,
+            "rtc": [
+              {
+                "type": "candidate-pair",
+                "state": "succeeded",
+                "selected": true,
+                "nominated": true,
+                "currentRoundTripTime": 0.102,
+                "bytesSent": 12064916,
+                "bytesReceived": 12060833,
+                "local": {
+                  "address": "",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                },
+                "remote": {
+                  "address": "",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                }
+              },
+              {
+                "type": "inbound-rtp",
+                "kind": "audio",
+                "packetsReceived": 50599,
+                "packetsLost": 509,
+                "jitter": 0.01,
+                "totalAudioEnergy": 0,
+                "totalSamplesReceived": 34267680
+              },
+              {
+                "type": "outbound-rtp",
+                "packetsSent": 49907,
+                "bytesSent": 2891738
+              },
+              {
+                "type": "media-source",
+                "audioLevel": 0.0499893185216834,
+                "totalAudioEnergy": 1.784812178265311,
+                "totalSamplesDuration": 714.3299999994954
+              }
+            ],
+            "voiceTrack": {
+              "local": "live",
+              "remote": [
+                {
+                  "enabled": true,
+                  "muted": false,
+                  "readyState": "live"
+                }
+              ]
+            },
+            "iceSelection": [
+              {
+                "type": "candidate-pair",
+                "id": "CPIYYXyz/t_DGx+9fbW",
+                "state": "succeeded",
+                "nominated": true,
+                "selectedCandidatePairId": null,
+                "bytesSent": 12064916,
+                "bytesReceived": 12060833
+              },
+              {
+                "type": "transport",
+                "id": "T01",
+                "state": null,
+                "nominated": null,
+                "selectedCandidatePairId": "CPIYYXyz/t_DGx+9fbW",
+                "bytesSent": 12064916,
+                "bytesReceived": 12060833
+              }
+            ],
+            "outputMuted": true,
+            "outputPeak": 0,
+            "peerHashesMatched": true,
+            "pendingInputs": 0,
+            "remoteInputQueue": 0,
+            "teardown": {
+              "localTrack": "ended",
+              "connection": "closed",
+              "audio": "closed",
+              "remoteElementPaused": true
+            }
+          }
+        ],
+        "firefox_build": {
+          "browser": "Mozilla Firefox",
+          "version": "146.0.1",
+          "platform": "linux-x86_64",
+          "source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/linux-x86_64/en-US/firefox-146.0.1.tar.xz",
+          "checksum_source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/SHA256SUMS",
+          "archive_sha256": "36a4dc0e3be8af2d49d8388021abf790976d2398162b9d13a6d758cc8c37f8dd",
+          "archive_bytes": 79925480,
+          "binary_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+          "application_updates": "disabled by installation-local enterprise policy"
+        },
+        "firefox_executable_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+        "canonical_equal": true,
+        "page_errors": [
+          [],
+          []
+        ],
+        "network_evidence": {
+          "run_id": "ce287256-b345-4f0c-98fc-8b4307b0e167",
+          "netem_before": [
+            {
+              "kind": "netem",
+              "handle": "8001:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 0,
+              "packets": 0,
+              "drops": 0,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "netem_after": [
+            {
+              "kind": "netem",
+              "handle": "8001:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 35536986,
+              "packets": 270778,
+              "drops": 2704,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "route": [
+            {
+              "type": "local",
+              "dst": "10.201.0.1",
+              "dev": "lo",
+              "prefsrc": "10.201.0.1",
+              "flags": [],
+              "uid": 0,
+              "cache": [
+                "local"
+              ]
+            }
+          ],
+          "udp_headers": {
+            "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+            "wall_seconds": 724.105507939,
+            "flows": {
+              "10.201.0.1:50532>10.201.0.1:56080": {
+                "observations": 134728,
+                "udp_bytes": 13074623
+              },
+              "10.201.0.1:56080>10.201.0.1:50532": {
+                "observations": 135944,
+                "udp_bytes": 13197764
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "pair": "Firefox-Firefox",
+      "exit_code": 1,
+      "result": {
+        "run_id": "f456458f-7e8a-49e6-9457-629180eef08f",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "rom_bytes": 24592,
+        "wasm_bytes": 2891616,
+        "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+        "wasm_sha256": "da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6",
+        "adapter_sha256": "ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d",
+        "pair": "Firefox-Firefox",
+        "seconds": 600,
+        "impairment": "isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback",
+        "route": "isolated private host ICE; no STUN/TURN",
+        "voice": "synthetic oscillator, not real microphone/speaker listening",
+        "chromium_launch": "headless, default --mute-audio removed",
+        "firefox_driver": "official Firefox via WebDriver BiDi",
+        "runs": [
+          {
+            "browser": "Firefox",
+            "version": "146.0.1",
+            "role": 0,
+            "seconds": 600,
+            "hashes": [
+              {
+                "frame": 600,
+                "hash": "5b8f5d856dd1385d8693733680eb3187d23d548971d4a0187fbf6f33ecefa982"
+              },
+              {
+                "frame": 1200,
+                "hash": "c63560b72652f4972bc9a4983ae462fdf588210802a60296cfb143580b4718ca"
+              },
+              {
+                "frame": 1800,
+                "hash": "21d56a971f7e7878a27f6acd68c39b8981823166d949b9e1b865a8cea4807707"
+              },
+              {
+                "frame": 2400,
+                "hash": "6b62f332e3c469aa612299e2e8767abbac7cc112728eda1513480ee041ae589b"
+              },
+              {
+                "frame": 3000,
+                "hash": "91bc246afa47792e37c7a494672eb8124dad21976cf61e45069e4d8fa5dd37d7"
+              },
+              {
+                "frame": 3600,
+                "hash": "2ca38d73c0c2428f327e3121b2103dc00cb873cf04bf64466bafad6e4518a362"
+              },
+              {
+                "frame": 4200,
+                "hash": "0c09665ff49d5f32cb5058edb8f56f83ce67f470b8f9f3da6e85cdfad05ff639"
+              },
+              {
+                "frame": 4800,
+                "hash": "e1ea25d1a49e6c40aaa8c6a961725ea1c5a7faf42bf89eb8a17c4b68ea948c2c"
+              },
+              {
+                "frame": 5400,
+                "hash": "566301a0afa637be06c1db924fc42e053f58a79ddec9709f09c32fb1244f68cb"
+              },
+              {
+                "frame": 6000,
+                "hash": "3c406d3fe1359d9f58df3d768d5d95553e2de900510a67913bad460fde7ce444"
+              },
+              {
+                "frame": 6600,
+                "hash": "572aa19822cbbf0ee791bbfa5c65dd6d89f178283792463c8c8c7f22e237edf4"
+              },
+              {
+                "frame": 7200,
+                "hash": "49fb22b418019b1b4030805f15655cfeda0d9380cd2ceae1ff33dce0d16bef4a"
+              },
+              {
+                "frame": 7800,
+                "hash": "ca6322e366f96eafba64a3afc221fdd9520e91fdae3c09a9a509670ca2ec9755"
+              },
+              {
+                "frame": 8400,
+                "hash": "223cf53521230bd92b51765d0f69d3e8d72d5af1a81a7ff616b9890c79b33d9b"
+              },
+              {
+                "frame": 9000,
+                "hash": "ea89bb8482b0d70027c4a9cdc2a27d958e1f5bc2b18bb9784d903d18d137cbd8"
+              },
+              {
+                "frame": 9600,
+                "hash": "16bf9342300cba79670571de2439a68c50ce552026a3e52be1ff1393c92512ce"
+              },
+              {
+                "frame": 10200,
+                "hash": "052946c1b05575895eeff62845050d05b26e834b5c7b4d25866596970aa10afa"
+              },
+              {
+                "frame": 10800,
+                "hash": "19aa5638253d70f133cb3caead6c8868f151307b001ea7840aa39b9d388d3a7c"
+              },
+              {
+                "frame": 11400,
+                "hash": "af0de6bd6ea00172168472d5fa564fe7f59560dae40ee87673e7090659d65e2d"
+              },
+              {
+                "frame": 12000,
+                "hash": "0de7e23710e1d85aa2d1f093d557dbaa577e284bedf97252304b41e6e64f5613"
+              },
+              {
+                "frame": 12600,
+                "hash": "05399ac664a636cfca694e275349b6d584c632b3f4d5ba5d1656239fde3708b3"
+              },
+              {
+                "frame": 13200,
+                "hash": "999145c242f5ad5390b8f4ab7792bfa20430fa1e47426d045f3e1d9a152a7aed"
+              },
+              {
+                "frame": 13800,
+                "hash": "7677a3b033a350efcd41c7595f43328a714db6897361e4272054b09a31eb4b80"
+              },
+              {
+                "frame": 14400,
+                "hash": "fd8e685d291c85ae3af0f73020d209d605e6ba7350daa4f10e81e3d58ae8912f"
+              },
+              {
+                "frame": 15000,
+                "hash": "7df330b189ef701bbd4ad4831653087e1824aedcfea3d988fa4a9f778422aaaa"
+              },
+              {
+                "frame": 15600,
+                "hash": "76e165138e19f523d5f866915e8c235f6835ba376a0760b87c04e231e2f73c4a"
+              },
+              {
+                "frame": 16200,
+                "hash": "c9fb584d33af4b16ffd49a33be45f1fd0ef02b1712937e0fcc18aeb990faf5b1"
+              },
+              {
+                "frame": 16800,
+                "hash": "ca08f7aa2b2595d125cb4351507babf6ecd645e8d6cc5adc0acd2573d275a4dc"
+              },
+              {
+                "frame": 17400,
+                "hash": "47cc0e644bbfc4f9fd56b506f4c5dcc6fa61a61d1dbcf8e69eea780f108bddfa"
+              },
+              {
+                "frame": 18000,
+                "hash": "12de07ebe7ffeaf1c0e2d5b32e6242da31d98f0aeaa231a5340ab604a716fc81"
+              },
+              {
+                "frame": 18600,
+                "hash": "c516933701dc1905433c48527645d46feae1d81ab2434349d284a1a295a1b9eb"
+              },
+              {
+                "frame": 19200,
+                "hash": "88f16d3186abec372f1efb266f738e6bb3e6accde0e7f4b31f7aa1916cb49800"
+              },
+              {
+                "frame": 19800,
+                "hash": "a8ebb6ce4022af3884da411ccf858b7c66a2b3b8407a03f0fb43b5dae9a0364c"
+              },
+              {
+                "frame": 20400,
+                "hash": "0fa16ea13ef9f6a3e35b0fcb92cd07fabacfe60a218e515b9c196910c345b5d0"
+              },
+              {
+                "frame": 21000,
+                "hash": "e5a52cd40cbe732e60a16808deea9ac8476c2f368f931127193a2e29222c4782"
+              },
+              {
+                "frame": 21600,
+                "hash": "dba92bc061ca9f06d89cd870801574b15011c9f1e97eb3fc85a48259152203df"
+              },
+              {
+                "frame": 22200,
+                "hash": "59ce82e24a48024638621a5ce7df58384d04b9932d9b0a7ad0c5707ded423e4d"
+              },
+              {
+                "frame": 22800,
+                "hash": "576c09d3d235be5cdbd8f06d55d9828594133ae6994b0710c8b4a74f73df727a"
+              },
+              {
+                "frame": 23400,
+                "hash": "0208063b35c1913fcf4bfd508ac8833c8bf95a002887fc71b9f7e96e8aa7bb75"
+              },
+              {
+                "frame": 24000,
+                "hash": "6cc6df183b896acc85cb6c699588b8dd348dc2fbacc1f9c505f6e4984d09ae50"
+              },
+              {
+                "frame": 24600,
+                "hash": "6cfbb9c065736c853d45672607d363aedadbcfd15342aa651f686a7e63ea946d"
+              },
+              {
+                "frame": 25200,
+                "hash": "3df0f853429882fd16946ddf87499ca139b74dbcc09c7636b0eedc2f12833a0d"
+              },
+              {
+                "frame": 25800,
+                "hash": "cc6bff94c9f3f946da7f872c1f308fdcea51c9958974b0c2eba21525d156e790"
+              },
+              {
+                "frame": 26400,
+                "hash": "1d40d63929ad5e04c257649c9f55bea2f9cd074c17e6534aff25c846b6ecfb14"
+              },
+              {
+                "frame": 27000,
+                "hash": "0c85009346142ec134cd8e5b195c7e13c1aaa7d75e4c905f1d671bd11e2e4c50"
+              },
+              {
+                "frame": 27600,
+                "hash": "dfd2c547326392d39414421b0dc52d3295f0bda2c03ec34d5a3d8282a4e1b601"
+              },
+              {
+                "frame": 28200,
+                "hash": "ce67beb1ea3bba39a1302f49d48ab960fab6281bd30dfbfbf735b9cd2f4ad25a"
+              },
+              {
+                "frame": 28800,
+                "hash": "8a49436f8b32588603921c996a2f754a8447c5a8e5a7d2ea8a255d5f690e0f9b"
+              }
+            ],
+            "identity": "{\"adapter\":\"ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03\",\"wasm\":\"da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6\"}",
+            "rttMs": {
+              "count": 720,
+              "p50": 110,
+              "p95": 231,
+              "max": 347
+            },
+            "copyMs": {
+              "count": 29128,
+              "p50": 1,
+              "p95": 8,
+              "max": 142
+            },
+            "paintMs": {
+              "count": 29128,
+              "p50": 0,
+              "p95": 1,
+              "max": 22
+            },
+            "emulateMs": {
+              "count": 29128,
+              "p50": 16,
+              "p95": 29,
+              "max": 64
+            },
+            "transferMs": {
+              "count": 29128,
+              "p50": 1,
+              "p95": 5,
+              "max": 94
+            },
+            "voiceLevels": {
+              "count": 719,
+              "p50": 0.0353589119847494,
+              "p95": 0.035923800274543984,
+              "max": 0.0364317932497526
+            },
+            "voiceFrequencyHz": {
+              "count": 719,
+              "p50": 656.25,
+              "p95": 656.25,
+              "max": 703.125
+            },
+            "sent": 30629,
+            "maxBuffered": 458,
+            "maxRemoteInputs": 23,
+            "stalls": 3834,
+            "errors": [
+              "Realtime deadline"
+            ],
+            "audioBackpressurePolls": 2649,
+            "voiceMissedSlots": 0,
+            "kind": "ready",
+            "compileMs": 179,
+            "initializeMs": 7,
+            "localReadyMs": 706,
+            "audioSampleRate": 48000,
+            "audioEnableAtMs": 11242,
+            "audioRunningAtMs": 11260,
+            "localDescriptionAtMs": 12212,
+            "trackAtMs": 12786,
+            "remotePlaybackStartedAtMs": 12793,
+            "voiceFirstEnergyAtMs": 13238,
+            "voiceEnableToEnergyMs": 1996,
+            "channelOpenMs": 13291,
+            "identityMatched": true,
+            "startAtMs": 13502,
+            "videoBytes": 7158497280,
+            "firstFrameMs": 13681,
+            "startToFirstFrameMs": 179,
+            "flush": {
+              "kind": "flushed",
+              "epoch": 1,
+              "queued": 0
+            },
+            "coreQueueEmpty": true,
+            "audio": {
+              "kind": "stats",
+              "received": 23263479,
+              "played": 23262680,
+              "underrun": 11212840,
+              "overflow": 0,
+              "maxQueued": 8793,
+              "stale": 0,
+              "flushes": 1,
+              "flushed": 799,
+              "energy": 26880.22297383836,
+              "queued": 0,
+              "epoch": 1,
+              "capacity": 12000
+            },
+            "frames": 29128,
+            "wallMs": 720938,
+            "rtc": [
+              {
+                "type": "inbound-rtp",
+                "kind": "audio",
+                "packetsReceived": 35621,
+                "packetsLost": 334,
+                "jitter": 0.008,
+                "totalAudioEnergy": 1.8645581299599687,
+                "totalSamplesReceived": 34490880
+              },
+              {
+                "type": "outbound-rtp",
+                "packetsSent": 35928,
+                "bytesSent": 5784568
+              },
+              {
+                "type": "media-source",
+                "audioLevel": null,
+                "totalAudioEnergy": null,
+                "totalSamplesDuration": null
+              },
+              {
+                "type": "candidate-pair",
+                "state": "succeeded",
+                "selected": false,
+                "nominated": true,
+                "currentRoundTripTime": 0.099,
+                "bytesSent": 11632087,
+                "bytesReceived": 11525746,
+                "local": {
+                  "address": "a25faeed-3797-4f5a-a89f-d71727bf1fb0.local",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                },
+                "remote": {
+                  "address": "4d9f9c7d-0cdc-449b-9e43-e34bfba35e9d.local",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                }
+              }
+            ],
+            "voiceTrack": {
+              "local": "live",
+              "remote": [
+                {
+                  "enabled": true,
+                  "muted": false,
+                  "readyState": "live"
+                }
+              ]
+            },
+            "iceSelection": [
+              {
+                "type": "candidate-pair",
+                "id": "a203e848",
+                "state": "succeeded",
+                "nominated": true,
+                "selectedCandidatePairId": null,
+                "bytesSent": 11632087,
+                "bytesReceived": 11525746
+              }
+            ],
+            "outputMuted": true,
+            "outputPeak": 0,
+            "peerHashesMatched": true,
+            "pendingInputs": 0,
+            "remoteInputQueue": 16,
+            "teardown": {
+              "localTrack": "ended",
+              "connection": "closed",
+              "audio": "closed",
+              "remoteElementPaused": true
+            }
+          },
+          {
+            "browser": "Firefox",
+            "version": "146.0.1",
+            "role": 1,
+            "seconds": 600,
+            "hashes": [
+              {
+                "frame": 600,
+                "hash": "5b8f5d856dd1385d8693733680eb3187d23d548971d4a0187fbf6f33ecefa982"
+              },
+              {
+                "frame": 1200,
+                "hash": "c63560b72652f4972bc9a4983ae462fdf588210802a60296cfb143580b4718ca"
+              },
+              {
+                "frame": 1800,
+                "hash": "21d56a971f7e7878a27f6acd68c39b8981823166d949b9e1b865a8cea4807707"
+              },
+              {
+                "frame": 2400,
+                "hash": "6b62f332e3c469aa612299e2e8767abbac7cc112728eda1513480ee041ae589b"
+              },
+              {
+                "frame": 3000,
+                "hash": "91bc246afa47792e37c7a494672eb8124dad21976cf61e45069e4d8fa5dd37d7"
+              },
+              {
+                "frame": 3600,
+                "hash": "2ca38d73c0c2428f327e3121b2103dc00cb873cf04bf64466bafad6e4518a362"
+              },
+              {
+                "frame": 4200,
+                "hash": "0c09665ff49d5f32cb5058edb8f56f83ce67f470b8f9f3da6e85cdfad05ff639"
+              },
+              {
+                "frame": 4800,
+                "hash": "e1ea25d1a49e6c40aaa8c6a961725ea1c5a7faf42bf89eb8a17c4b68ea948c2c"
+              },
+              {
+                "frame": 5400,
+                "hash": "566301a0afa637be06c1db924fc42e053f58a79ddec9709f09c32fb1244f68cb"
+              },
+              {
+                "frame": 6000,
+                "hash": "3c406d3fe1359d9f58df3d768d5d95553e2de900510a67913bad460fde7ce444"
+              },
+              {
+                "frame": 6600,
+                "hash": "572aa19822cbbf0ee791bbfa5c65dd6d89f178283792463c8c8c7f22e237edf4"
+              },
+              {
+                "frame": 7200,
+                "hash": "49fb22b418019b1b4030805f15655cfeda0d9380cd2ceae1ff33dce0d16bef4a"
+              },
+              {
+                "frame": 7800,
+                "hash": "ca6322e366f96eafba64a3afc221fdd9520e91fdae3c09a9a509670ca2ec9755"
+              },
+              {
+                "frame": 8400,
+                "hash": "223cf53521230bd92b51765d0f69d3e8d72d5af1a81a7ff616b9890c79b33d9b"
+              },
+              {
+                "frame": 9000,
+                "hash": "ea89bb8482b0d70027c4a9cdc2a27d958e1f5bc2b18bb9784d903d18d137cbd8"
+              },
+              {
+                "frame": 9600,
+                "hash": "16bf9342300cba79670571de2439a68c50ce552026a3e52be1ff1393c92512ce"
+              },
+              {
+                "frame": 10200,
+                "hash": "052946c1b05575895eeff62845050d05b26e834b5c7b4d25866596970aa10afa"
+              },
+              {
+                "frame": 10800,
+                "hash": "19aa5638253d70f133cb3caead6c8868f151307b001ea7840aa39b9d388d3a7c"
+              },
+              {
+                "frame": 11400,
+                "hash": "af0de6bd6ea00172168472d5fa564fe7f59560dae40ee87673e7090659d65e2d"
+              },
+              {
+                "frame": 12000,
+                "hash": "0de7e23710e1d85aa2d1f093d557dbaa577e284bedf97252304b41e6e64f5613"
+              },
+              {
+                "frame": 12600,
+                "hash": "05399ac664a636cfca694e275349b6d584c632b3f4d5ba5d1656239fde3708b3"
+              },
+              {
+                "frame": 13200,
+                "hash": "999145c242f5ad5390b8f4ab7792bfa20430fa1e47426d045f3e1d9a152a7aed"
+              },
+              {
+                "frame": 13800,
+                "hash": "7677a3b033a350efcd41c7595f43328a714db6897361e4272054b09a31eb4b80"
+              },
+              {
+                "frame": 14400,
+                "hash": "fd8e685d291c85ae3af0f73020d209d605e6ba7350daa4f10e81e3d58ae8912f"
+              },
+              {
+                "frame": 15000,
+                "hash": "7df330b189ef701bbd4ad4831653087e1824aedcfea3d988fa4a9f778422aaaa"
+              },
+              {
+                "frame": 15600,
+                "hash": "76e165138e19f523d5f866915e8c235f6835ba376a0760b87c04e231e2f73c4a"
+              },
+              {
+                "frame": 16200,
+                "hash": "c9fb584d33af4b16ffd49a33be45f1fd0ef02b1712937e0fcc18aeb990faf5b1"
+              },
+              {
+                "frame": 16800,
+                "hash": "ca08f7aa2b2595d125cb4351507babf6ecd645e8d6cc5adc0acd2573d275a4dc"
+              },
+              {
+                "frame": 17400,
+                "hash": "47cc0e644bbfc4f9fd56b506f4c5dcc6fa61a61d1dbcf8e69eea780f108bddfa"
+              },
+              {
+                "frame": 18000,
+                "hash": "12de07ebe7ffeaf1c0e2d5b32e6242da31d98f0aeaa231a5340ab604a716fc81"
+              },
+              {
+                "frame": 18600,
+                "hash": "c516933701dc1905433c48527645d46feae1d81ab2434349d284a1a295a1b9eb"
+              },
+              {
+                "frame": 19200,
+                "hash": "88f16d3186abec372f1efb266f738e6bb3e6accde0e7f4b31f7aa1916cb49800"
+              },
+              {
+                "frame": 19800,
+                "hash": "a8ebb6ce4022af3884da411ccf858b7c66a2b3b8407a03f0fb43b5dae9a0364c"
+              },
+              {
+                "frame": 20400,
+                "hash": "0fa16ea13ef9f6a3e35b0fcb92cd07fabacfe60a218e515b9c196910c345b5d0"
+              },
+              {
+                "frame": 21000,
+                "hash": "e5a52cd40cbe732e60a16808deea9ac8476c2f368f931127193a2e29222c4782"
+              },
+              {
+                "frame": 21600,
+                "hash": "dba92bc061ca9f06d89cd870801574b15011c9f1e97eb3fc85a48259152203df"
+              },
+              {
+                "frame": 22200,
+                "hash": "59ce82e24a48024638621a5ce7df58384d04b9932d9b0a7ad0c5707ded423e4d"
+              },
+              {
+                "frame": 22800,
+                "hash": "576c09d3d235be5cdbd8f06d55d9828594133ae6994b0710c8b4a74f73df727a"
+              },
+              {
+                "frame": 23400,
+                "hash": "0208063b35c1913fcf4bfd508ac8833c8bf95a002887fc71b9f7e96e8aa7bb75"
+              },
+              {
+                "frame": 24000,
+                "hash": "6cc6df183b896acc85cb6c699588b8dd348dc2fbacc1f9c505f6e4984d09ae50"
+              },
+              {
+                "frame": 24600,
+                "hash": "6cfbb9c065736c853d45672607d363aedadbcfd15342aa651f686a7e63ea946d"
+              },
+              {
+                "frame": 25200,
+                "hash": "3df0f853429882fd16946ddf87499ca139b74dbcc09c7636b0eedc2f12833a0d"
+              },
+              {
+                "frame": 25800,
+                "hash": "cc6bff94c9f3f946da7f872c1f308fdcea51c9958974b0c2eba21525d156e790"
+              },
+              {
+                "frame": 26400,
+                "hash": "1d40d63929ad5e04c257649c9f55bea2f9cd074c17e6534aff25c846b6ecfb14"
+              },
+              {
+                "frame": 27000,
+                "hash": "0c85009346142ec134cd8e5b195c7e13c1aaa7d75e4c905f1d671bd11e2e4c50"
+              },
+              {
+                "frame": 27600,
+                "hash": "dfd2c547326392d39414421b0dc52d3295f0bda2c03ec34d5a3d8282a4e1b601"
+              },
+              {
+                "frame": 28200,
+                "hash": "ce67beb1ea3bba39a1302f49d48ab960fab6281bd30dfbfbf735b9cd2f4ad25a"
+              },
+              {
+                "frame": 28800,
+                "hash": "8a49436f8b32588603921c996a2f754a8447c5a8e5a7d2ea8a255d5f690e0f9b"
+              }
+            ],
+            "identity": "{\"adapter\":\"ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03\",\"wasm\":\"da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6\"}",
+            "rttMs": {
+              "count": 721,
+              "p50": 111,
+              "p95": 231,
+              "max": 502
+            },
+            "copyMs": {
+              "count": 29132,
+              "p50": 1,
+              "p95": 8,
+              "max": 109
+            },
+            "paintMs": {
+              "count": 29132,
+              "p50": 0,
+              "p95": 1,
+              "max": 24
+            },
+            "emulateMs": {
+              "count": 29132,
+              "p50": 17,
+              "p95": 29,
+              "max": 79
+            },
+            "transferMs": {
+              "count": 29132,
+              "p50": 1,
+              "p95": 4,
+              "max": 83
+            },
+            "voiceLevels": {
+              "count": 720,
+              "p50": 0.035383585722196124,
+              "p95": 0.035972369184497005,
+              "max": 0.03628607033471825
+            },
+            "voiceFrequencyHz": {
+              "count": 720,
+              "p50": 515.625,
+              "p95": 562.5,
+              "max": 562.5
+            },
+            "sent": 30633,
+            "maxBuffered": 459,
+            "maxRemoteInputs": 23,
+            "stalls": 2392,
+            "errors": [
+              "Realtime deadline"
+            ],
+            "audioBackpressurePolls": 2424,
+            "voiceMissedSlots": 0,
+            "kind": "ready",
+            "compileMs": 396,
+            "initializeMs": 33,
+            "localReadyMs": 965,
+            "audioSampleRate": 48000,
+            "audioEnableAtMs": 2782,
+            "audioRunningAtMs": 2799,
+            "trackAtMs": 4205,
+            "remotePlaybackStartedAtMs": 4211,
+            "localDescriptionAtMs": 4315,
+            "voiceFirstEnergyAtMs": 4949,
+            "voiceEnableToEnergyMs": 2167,
+            "channelOpenMs": 5018,
+            "identityMatched": true,
+            "startAtMs": 5200,
+            "videoBytes": 7159480320,
+            "firstFrameMs": 5395,
+            "startToFirstFrameMs": 195,
+            "flush": {
+              "kind": "flushed",
+              "epoch": 1,
+              "queued": 0
+            },
+            "coreQueueEmpty": true,
+            "audio": {
+              "kind": "stats",
+              "received": 23266674,
+              "played": 23265875,
+              "underrun": 11234605,
+              "overflow": 0,
+              "maxQueued": 8792,
+              "stale": 0,
+              "flushes": 1,
+              "flushed": 799,
+              "energy": 26883.914136169198,
+              "queued": 0,
+              "epoch": 1,
+              "capacity": 12000
+            },
+            "frames": 29132,
+            "wallMs": 720924,
+            "rtc": [
+              {
+                "type": "inbound-rtp",
+                "kind": "audio",
+                "packetsReceived": 35547,
+                "packetsLost": 379,
+                "jitter": 0.008,
+                "totalAudioEnergy": 1.8505086717622672,
+                "totalSamplesReceived": 34514880
+              },
+              {
+                "type": "outbound-rtp",
+                "packetsSent": 35958,
+                "bytesSent": 5789398
+              },
+              {
+                "type": "media-source",
+                "audioLevel": null,
+                "totalAudioEnergy": null,
+                "totalSamplesDuration": null
+              },
+              {
+                "type": "candidate-pair",
+                "state": "succeeded",
+                "selected": false,
+                "nominated": true,
+                "currentRoundTripTime": 0.105,
+                "bytesSent": 11636753,
+                "bytesReceived": 11512160,
+                "local": {
+                  "address": "4d9f9c7d-0cdc-449b-9e43-e34bfba35e9d.local",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                },
+                "remote": {
+                  "address": "(redacted)",
+                  "protocol": "udp",
+                  "candidateType": "prflx"
+                }
+              }
+            ],
+            "voiceTrack": {
+              "local": "live",
+              "remote": [
+                {
+                  "enabled": true,
+                  "muted": false,
+                  "readyState": "live"
+                }
+              ]
+            },
+            "iceSelection": [
+              {
+                "type": "candidate-pair",
+                "id": "1db14e60",
+                "state": "succeeded",
+                "nominated": true,
+                "selectedCandidatePairId": null,
+                "bytesSent": 11636753,
+                "bytesReceived": 11512160
+              }
+            ],
+            "outputMuted": true,
+            "outputPeak": 0,
+            "peerHashesMatched": true,
+            "pendingInputs": 0,
+            "remoteInputQueue": 8,
+            "teardown": {
+              "localTrack": "ended",
+              "connection": "closed",
+              "audio": "closed",
+              "remoteElementPaused": true
+            }
+          }
+        ],
+        "firefox_build": {
+          "browser": "Mozilla Firefox",
+          "version": "146.0.1",
+          "platform": "linux-x86_64",
+          "source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/linux-x86_64/en-US/firefox-146.0.1.tar.xz",
+          "checksum_source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/SHA256SUMS",
+          "archive_sha256": "36a4dc0e3be8af2d49d8388021abf790976d2398162b9d13a6d758cc8c37f8dd",
+          "archive_bytes": 79925480,
+          "binary_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+          "application_updates": "disabled by installation-local enterprise policy"
+        },
+        "firefox_executable_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+        "canonical_equal": true,
+        "page_errors": [
+          [],
+          []
+        ],
+        "error": "Browser runtime errors: [['Realtime deadline'], ['Realtime deadline']]",
+        "diagnostics": [],
+        "network_evidence": {
+          "run_id": "f456458f-7e8a-49e6-9457-629180eef08f",
+          "netem_before": [
+            {
+              "kind": "netem",
+              "handle": "8003:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 0,
+              "packets": 0,
+              "drops": 0,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "netem_after": [
+            {
+              "kind": "netem",
+              "handle": "8003:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 44328945,
+              "packets": 205156,
+              "drops": 2038,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "route": [
+            {
+              "type": "local",
+              "dst": "10.201.0.1",
+              "dev": "lo",
+              "prefsrc": "10.201.0.1",
+              "flags": [],
+              "uid": 0,
+              "cache": [
+                "local"
+              ]
+            }
+          ],
+          "udp_headers": {
+            "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+            "wall_seconds": 748.608761145,
+            "flows": {
+              "10.201.0.1:39379>10.201.0.1:54048": {
+                "observations": 97512,
+                "udp_bytes": 12317930
+              },
+              "10.201.0.1:54048>10.201.0.1:39379": {
+                "observations": 97560,
+                "udp_bytes": 12332511
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "pair": "Chrome-Firefox",
+      "exit_code": 1,
+      "result": {
+        "run_id": "8318d4db-b1cb-45fa-a739-a6b67e75efa2",
+        "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+        "rom_bytes": 24592,
+        "wasm_bytes": 2891616,
+        "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+        "wasm_sha256": "da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6",
+        "adapter_sha256": "ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d",
+        "pair": "Chrome-Firefox",
+        "seconds": 600,
+        "impairment": "isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback",
+        "route": "isolated private host ICE; no STUN/TURN",
+        "voice": "synthetic oscillator, not real microphone/speaker listening",
+        "chromium_launch": "headless, default --mute-audio removed",
+        "firefox_driver": "official Firefox via WebDriver BiDi",
+        "runs": [
+          {
+            "browser": "Chromium",
+            "version": "145.0.7632.6",
+            "role": 0,
+            "seconds": 600,
+            "hashes": [
+              {
+                "frame": 600,
+                "hash": "5b8f5d856dd1385d8693733680eb3187d23d548971d4a0187fbf6f33ecefa982"
+              },
+              {
+                "frame": 1200,
+                "hash": "c63560b72652f4972bc9a4983ae462fdf588210802a60296cfb143580b4718ca"
+              },
+              {
+                "frame": 1800,
+                "hash": "21d56a971f7e7878a27f6acd68c39b8981823166d949b9e1b865a8cea4807707"
+              },
+              {
+                "frame": 2400,
+                "hash": "6b62f332e3c469aa612299e2e8767abbac7cc112728eda1513480ee041ae589b"
+              },
+              {
+                "frame": 3000,
+                "hash": "91bc246afa47792e37c7a494672eb8124dad21976cf61e45069e4d8fa5dd37d7"
+              },
+              {
+                "frame": 3600,
+                "hash": "2ca38d73c0c2428f327e3121b2103dc00cb873cf04bf64466bafad6e4518a362"
+              },
+              {
+                "frame": 4200,
+                "hash": "0c09665ff49d5f32cb5058edb8f56f83ce67f470b8f9f3da6e85cdfad05ff639"
+              },
+              {
+                "frame": 4800,
+                "hash": "e1ea25d1a49e6c40aaa8c6a961725ea1c5a7faf42bf89eb8a17c4b68ea948c2c"
+              },
+              {
+                "frame": 5400,
+                "hash": "566301a0afa637be06c1db924fc42e053f58a79ddec9709f09c32fb1244f68cb"
+              },
+              {
+                "frame": 6000,
+                "hash": "3c406d3fe1359d9f58df3d768d5d95553e2de900510a67913bad460fde7ce444"
+              },
+              {
+                "frame": 6600,
+                "hash": "572aa19822cbbf0ee791bbfa5c65dd6d89f178283792463c8c8c7f22e237edf4"
+              },
+              {
+                "frame": 7200,
+                "hash": "49fb22b418019b1b4030805f15655cfeda0d9380cd2ceae1ff33dce0d16bef4a"
+              },
+              {
+                "frame": 7800,
+                "hash": "ca6322e366f96eafba64a3afc221fdd9520e91fdae3c09a9a509670ca2ec9755"
+              },
+              {
+                "frame": 8400,
+                "hash": "223cf53521230bd92b51765d0f69d3e8d72d5af1a81a7ff616b9890c79b33d9b"
+              },
+              {
+                "frame": 9000,
+                "hash": "ea89bb8482b0d70027c4a9cdc2a27d958e1f5bc2b18bb9784d903d18d137cbd8"
+              },
+              {
+                "frame": 9600,
+                "hash": "16bf9342300cba79670571de2439a68c50ce552026a3e52be1ff1393c92512ce"
+              },
+              {
+                "frame": 10200,
+                "hash": "052946c1b05575895eeff62845050d05b26e834b5c7b4d25866596970aa10afa"
+              },
+              {
+                "frame": 10800,
+                "hash": "19aa5638253d70f133cb3caead6c8868f151307b001ea7840aa39b9d388d3a7c"
+              },
+              {
+                "frame": 11400,
+                "hash": "af0de6bd6ea00172168472d5fa564fe7f59560dae40ee87673e7090659d65e2d"
+              },
+              {
+                "frame": 12000,
+                "hash": "0de7e23710e1d85aa2d1f093d557dbaa577e284bedf97252304b41e6e64f5613"
+              },
+              {
+                "frame": 12600,
+                "hash": "05399ac664a636cfca694e275349b6d584c632b3f4d5ba5d1656239fde3708b3"
+              },
+              {
+                "frame": 13200,
+                "hash": "999145c242f5ad5390b8f4ab7792bfa20430fa1e47426d045f3e1d9a152a7aed"
+              },
+              {
+                "frame": 13800,
+                "hash": "7677a3b033a350efcd41c7595f43328a714db6897361e4272054b09a31eb4b80"
+              },
+              {
+                "frame": 14400,
+                "hash": "fd8e685d291c85ae3af0f73020d209d605e6ba7350daa4f10e81e3d58ae8912f"
+              },
+              {
+                "frame": 15000,
+                "hash": "7df330b189ef701bbd4ad4831653087e1824aedcfea3d988fa4a9f778422aaaa"
+              },
+              {
+                "frame": 15600,
+                "hash": "76e165138e19f523d5f866915e8c235f6835ba376a0760b87c04e231e2f73c4a"
+              },
+              {
+                "frame": 16200,
+                "hash": "c9fb584d33af4b16ffd49a33be45f1fd0ef02b1712937e0fcc18aeb990faf5b1"
+              },
+              {
+                "frame": 16800,
+                "hash": "ca08f7aa2b2595d125cb4351507babf6ecd645e8d6cc5adc0acd2573d275a4dc"
+              },
+              {
+                "frame": 17400,
+                "hash": "47cc0e644bbfc4f9fd56b506f4c5dcc6fa61a61d1dbcf8e69eea780f108bddfa"
+              },
+              {
+                "frame": 18000,
+                "hash": "12de07ebe7ffeaf1c0e2d5b32e6242da31d98f0aeaa231a5340ab604a716fc81"
+              },
+              {
+                "frame": 18600,
+                "hash": "c516933701dc1905433c48527645d46feae1d81ab2434349d284a1a295a1b9eb"
+              },
+              {
+                "frame": 19200,
+                "hash": "88f16d3186abec372f1efb266f738e6bb3e6accde0e7f4b31f7aa1916cb49800"
+              },
+              {
+                "frame": 19800,
+                "hash": "a8ebb6ce4022af3884da411ccf858b7c66a2b3b8407a03f0fb43b5dae9a0364c"
+              },
+              {
+                "frame": 20400,
+                "hash": "0fa16ea13ef9f6a3e35b0fcb92cd07fabacfe60a218e515b9c196910c345b5d0"
+              },
+              {
+                "frame": 21000,
+                "hash": "e5a52cd40cbe732e60a16808deea9ac8476c2f368f931127193a2e29222c4782"
+              },
+              {
+                "frame": 21600,
+                "hash": "dba92bc061ca9f06d89cd870801574b15011c9f1e97eb3fc85a48259152203df"
+              },
+              {
+                "frame": 22200,
+                "hash": "59ce82e24a48024638621a5ce7df58384d04b9932d9b0a7ad0c5707ded423e4d"
+              },
+              {
+                "frame": 22800,
+                "hash": "576c09d3d235be5cdbd8f06d55d9828594133ae6994b0710c8b4a74f73df727a"
+              },
+              {
+                "frame": 23400,
+                "hash": "0208063b35c1913fcf4bfd508ac8833c8bf95a002887fc71b9f7e96e8aa7bb75"
+              },
+              {
+                "frame": 24000,
+                "hash": "6cc6df183b896acc85cb6c699588b8dd348dc2fbacc1f9c505f6e4984d09ae50"
+              },
+              {
+                "frame": 24600,
+                "hash": "6cfbb9c065736c853d45672607d363aedadbcfd15342aa651f686a7e63ea946d"
+              },
+              {
+                "frame": 25200,
+                "hash": "3df0f853429882fd16946ddf87499ca139b74dbcc09c7636b0eedc2f12833a0d"
+              },
+              {
+                "frame": 25800,
+                "hash": "cc6bff94c9f3f946da7f872c1f308fdcea51c9958974b0c2eba21525d156e790"
+              },
+              {
+                "frame": 26400,
+                "hash": "1d40d63929ad5e04c257649c9f55bea2f9cd074c17e6534aff25c846b6ecfb14"
+              },
+              {
+                "frame": 27000,
+                "hash": "0c85009346142ec134cd8e5b195c7e13c1aaa7d75e4c905f1d671bd11e2e4c50"
+              },
+              {
+                "frame": 27600,
+                "hash": "dfd2c547326392d39414421b0dc52d3295f0bda2c03ec34d5a3d8282a4e1b601"
+              },
+              {
+                "frame": 28200,
+                "hash": "ce67beb1ea3bba39a1302f49d48ab960fab6281bd30dfbfbf735b9cd2f4ad25a"
+              },
+              {
+                "frame": 28800,
+                "hash": "8a49436f8b32588603921c996a2f754a8447c5a8e5a7d2ea8a255d5f690e0f9b"
+              },
+              {
+                "frame": 29400,
+                "hash": "b11cdf1b68424ab281f24b5473259309393c1114918988651e2ffbc67b3b90e8"
+              }
+            ],
+            "identity": "{\"adapter\":\"ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03\",\"wasm\":\"da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6\"}",
+            "rttMs": {
+              "count": 720,
+              "p50": 111.69999999995343,
+              "p95": 234.60000000009313,
+              "max": 395.60000000009313
+            },
+            "copyMs": {
+              "count": 29995,
+              "p50": 0.30000000004656613,
+              "p95": 7.699999999953434,
+              "max": 57.199999999953434
+            },
+            "paintMs": {
+              "count": 29995,
+              "p50": 0,
+              "p95": 0.10000000009313226,
+              "max": 11.399999999906868
+            },
+            "emulateMs": {
+              "count": 29995,
+              "p50": 15,
+              "p95": 27.5,
+              "max": 58.40000000002328
+            },
+            "transferMs": {
+              "count": 29995,
+              "p50": 0.2001953125,
+              "p95": 4.60009765625,
+              "max": 79.7001953125
+            },
+            "voiceLevels": {
+              "count": 719,
+              "p50": 0.03535590800860293,
+              "p95": 0.03563497239383491,
+              "max": 0.03603992582819224
+            },
+            "voiceFrequencyHz": {
+              "count": 719,
+              "p50": 656.25,
+              "p95": 656.25,
+              "max": 703.125
+            },
+            "sent": 31496,
+            "maxBuffered": 458,
+            "maxRemoteInputs": 23,
+            "stalls": 12773,
+            "errors": [
+              "Realtime deadline"
+            ],
+            "audioBackpressurePolls": 1874,
+            "voiceMissedSlots": 0,
+            "kind": "ready",
+            "compileMs": 952.0999999999767,
+            "initializeMs": 51.199999999953434,
+            "localReadyMs": 1601,
+            "audioSampleRate": 48000,
+            "audioEnableAtMs": 11837.29999999993,
+            "audioRunningAtMs": 11837.399999999907,
+            "localDescriptionAtMs": 14205.899999999907,
+            "trackAtMs": 14615.5,
+            "remotePlaybackStartedAtMs": 14626.79999999993,
+            "voiceFirstEnergyAtMs": 14896.899999999907,
+            "voiceEnableToEnergyMs": 3059.5999999999767,
+            "channelOpenMs": 14949.599999999977,
+            "identityMatched": true,
+            "startAtMs": 15074.899999999907,
+            "videoBytes": 7371571200,
+            "firstFrameMs": 15289.899999999907,
+            "startToFirstFrameMs": 215,
+            "flush": {
+              "kind": "flushed",
+              "epoch": 1,
+              "queued": 0
+            },
+            "coreQueueEmpty": true,
+            "audio": {
+              "kind": "stats",
+              "received": 23955923,
+              "played": 23955764,
+              "underrun": 10645836,
+              "overflow": 0,
+              "maxQueued": 8794,
+              "stale": 0,
+              "flushes": 1,
+              "flushed": 159,
+              "energy": 27681.08763679854,
+              "queued": 0,
+              "epoch": 1,
+              "capacity": 12000
+            },
+            "frames": 29995,
+            "wallMs": 720707.4000000001,
+            "rtc": [
+              {
+                "type": "candidate-pair",
+                "state": "succeeded",
+                "selected": true,
+                "nominated": true,
+                "currentRoundTripTime": 0.089,
+                "bytesSent": 11445223,
+                "bytesReceived": 8470900,
+                "local": {
+                  "address": "",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                },
+                "remote": {
+                  "address": "",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                }
+              },
+              {
+                "type": "inbound-rtp",
+                "kind": "audio",
+                "packetsReceived": 35596,
+                "packetsLost": 338,
+                "jitter": 0.007,
+                "totalAudioEnergy": 0,
+                "totalSamplesReceived": 34615680
+              },
+              {
+                "type": "outbound-rtp",
+                "packetsSent": 36055,
+                "bytesSent": 5805015
+              },
+              {
+                "type": "media-source",
+                "audioLevel": 0.0499893185216834,
+                "totalAudioEnergy": 1.8033042748156798,
+                "totalSamplesDuration": 721.7299999994887
+              }
+            ],
+            "voiceTrack": {
+              "local": "live",
+              "remote": [
+                {
+                  "enabled": true,
+                  "muted": false,
+                  "readyState": "live"
+                }
+              ]
+            },
+            "iceSelection": [
+              {
+                "type": "candidate-pair",
+                "id": "CPN1PHTJQa_ePKpi2aN",
+                "state": "succeeded",
+                "nominated": true,
+                "selectedCandidatePairId": null,
+                "bytesSent": 11445223,
+                "bytesReceived": 8470900
+              },
+              {
+                "type": "transport",
+                "id": "T01",
+                "state": null,
+                "nominated": null,
+                "selectedCandidatePairId": "CPN1PHTJQa_ePKpi2aN",
+                "bytesSent": 11445223,
+                "bytesReceived": 8470900
+              }
+            ],
+            "outputMuted": true,
+            "outputPeak": 0,
+            "peerHashesMatched": true,
+            "pendingInputs": 0,
+            "remoteInputQueue": 13,
+            "teardown": {
+              "localTrack": "ended",
+              "connection": "closed",
+              "audio": "closed",
+              "remoteElementPaused": true
+            }
+          },
+          {
+            "browser": "Firefox",
+            "version": "146.0.1",
+            "role": 1,
+            "seconds": 600,
+            "hashes": [
+              {
+                "frame": 600,
+                "hash": "5b8f5d856dd1385d8693733680eb3187d23d548971d4a0187fbf6f33ecefa982"
+              },
+              {
+                "frame": 1200,
+                "hash": "c63560b72652f4972bc9a4983ae462fdf588210802a60296cfb143580b4718ca"
+              },
+              {
+                "frame": 1800,
+                "hash": "21d56a971f7e7878a27f6acd68c39b8981823166d949b9e1b865a8cea4807707"
+              },
+              {
+                "frame": 2400,
+                "hash": "6b62f332e3c469aa612299e2e8767abbac7cc112728eda1513480ee041ae589b"
+              },
+              {
+                "frame": 3000,
+                "hash": "91bc246afa47792e37c7a494672eb8124dad21976cf61e45069e4d8fa5dd37d7"
+              },
+              {
+                "frame": 3600,
+                "hash": "2ca38d73c0c2428f327e3121b2103dc00cb873cf04bf64466bafad6e4518a362"
+              },
+              {
+                "frame": 4200,
+                "hash": "0c09665ff49d5f32cb5058edb8f56f83ce67f470b8f9f3da6e85cdfad05ff639"
+              },
+              {
+                "frame": 4800,
+                "hash": "e1ea25d1a49e6c40aaa8c6a961725ea1c5a7faf42bf89eb8a17c4b68ea948c2c"
+              },
+              {
+                "frame": 5400,
+                "hash": "566301a0afa637be06c1db924fc42e053f58a79ddec9709f09c32fb1244f68cb"
+              },
+              {
+                "frame": 6000,
+                "hash": "3c406d3fe1359d9f58df3d768d5d95553e2de900510a67913bad460fde7ce444"
+              },
+              {
+                "frame": 6600,
+                "hash": "572aa19822cbbf0ee791bbfa5c65dd6d89f178283792463c8c8c7f22e237edf4"
+              },
+              {
+                "frame": 7200,
+                "hash": "49fb22b418019b1b4030805f15655cfeda0d9380cd2ceae1ff33dce0d16bef4a"
+              },
+              {
+                "frame": 7800,
+                "hash": "ca6322e366f96eafba64a3afc221fdd9520e91fdae3c09a9a509670ca2ec9755"
+              },
+              {
+                "frame": 8400,
+                "hash": "223cf53521230bd92b51765d0f69d3e8d72d5af1a81a7ff616b9890c79b33d9b"
+              },
+              {
+                "frame": 9000,
+                "hash": "ea89bb8482b0d70027c4a9cdc2a27d958e1f5bc2b18bb9784d903d18d137cbd8"
+              },
+              {
+                "frame": 9600,
+                "hash": "16bf9342300cba79670571de2439a68c50ce552026a3e52be1ff1393c92512ce"
+              },
+              {
+                "frame": 10200,
+                "hash": "052946c1b05575895eeff62845050d05b26e834b5c7b4d25866596970aa10afa"
+              },
+              {
+                "frame": 10800,
+                "hash": "19aa5638253d70f133cb3caead6c8868f151307b001ea7840aa39b9d388d3a7c"
+              },
+              {
+                "frame": 11400,
+                "hash": "af0de6bd6ea00172168472d5fa564fe7f59560dae40ee87673e7090659d65e2d"
+              },
+              {
+                "frame": 12000,
+                "hash": "0de7e23710e1d85aa2d1f093d557dbaa577e284bedf97252304b41e6e64f5613"
+              },
+              {
+                "frame": 12600,
+                "hash": "05399ac664a636cfca694e275349b6d584c632b3f4d5ba5d1656239fde3708b3"
+              },
+              {
+                "frame": 13200,
+                "hash": "999145c242f5ad5390b8f4ab7792bfa20430fa1e47426d045f3e1d9a152a7aed"
+              },
+              {
+                "frame": 13800,
+                "hash": "7677a3b033a350efcd41c7595f43328a714db6897361e4272054b09a31eb4b80"
+              },
+              {
+                "frame": 14400,
+                "hash": "fd8e685d291c85ae3af0f73020d209d605e6ba7350daa4f10e81e3d58ae8912f"
+              },
+              {
+                "frame": 15000,
+                "hash": "7df330b189ef701bbd4ad4831653087e1824aedcfea3d988fa4a9f778422aaaa"
+              },
+              {
+                "frame": 15600,
+                "hash": "76e165138e19f523d5f866915e8c235f6835ba376a0760b87c04e231e2f73c4a"
+              },
+              {
+                "frame": 16200,
+                "hash": "c9fb584d33af4b16ffd49a33be45f1fd0ef02b1712937e0fcc18aeb990faf5b1"
+              },
+              {
+                "frame": 16800,
+                "hash": "ca08f7aa2b2595d125cb4351507babf6ecd645e8d6cc5adc0acd2573d275a4dc"
+              },
+              {
+                "frame": 17400,
+                "hash": "47cc0e644bbfc4f9fd56b506f4c5dcc6fa61a61d1dbcf8e69eea780f108bddfa"
+              },
+              {
+                "frame": 18000,
+                "hash": "12de07ebe7ffeaf1c0e2d5b32e6242da31d98f0aeaa231a5340ab604a716fc81"
+              },
+              {
+                "frame": 18600,
+                "hash": "c516933701dc1905433c48527645d46feae1d81ab2434349d284a1a295a1b9eb"
+              },
+              {
+                "frame": 19200,
+                "hash": "88f16d3186abec372f1efb266f738e6bb3e6accde0e7f4b31f7aa1916cb49800"
+              },
+              {
+                "frame": 19800,
+                "hash": "a8ebb6ce4022af3884da411ccf858b7c66a2b3b8407a03f0fb43b5dae9a0364c"
+              },
+              {
+                "frame": 20400,
+                "hash": "0fa16ea13ef9f6a3e35b0fcb92cd07fabacfe60a218e515b9c196910c345b5d0"
+              },
+              {
+                "frame": 21000,
+                "hash": "e5a52cd40cbe732e60a16808deea9ac8476c2f368f931127193a2e29222c4782"
+              },
+              {
+                "frame": 21600,
+                "hash": "dba92bc061ca9f06d89cd870801574b15011c9f1e97eb3fc85a48259152203df"
+              },
+              {
+                "frame": 22200,
+                "hash": "59ce82e24a48024638621a5ce7df58384d04b9932d9b0a7ad0c5707ded423e4d"
+              },
+              {
+                "frame": 22800,
+                "hash": "576c09d3d235be5cdbd8f06d55d9828594133ae6994b0710c8b4a74f73df727a"
+              },
+              {
+                "frame": 23400,
+                "hash": "0208063b35c1913fcf4bfd508ac8833c8bf95a002887fc71b9f7e96e8aa7bb75"
+              },
+              {
+                "frame": 24000,
+                "hash": "6cc6df183b896acc85cb6c699588b8dd348dc2fbacc1f9c505f6e4984d09ae50"
+              },
+              {
+                "frame": 24600,
+                "hash": "6cfbb9c065736c853d45672607d363aedadbcfd15342aa651f686a7e63ea946d"
+              },
+              {
+                "frame": 25200,
+                "hash": "3df0f853429882fd16946ddf87499ca139b74dbcc09c7636b0eedc2f12833a0d"
+              },
+              {
+                "frame": 25800,
+                "hash": "cc6bff94c9f3f946da7f872c1f308fdcea51c9958974b0c2eba21525d156e790"
+              },
+              {
+                "frame": 26400,
+                "hash": "1d40d63929ad5e04c257649c9f55bea2f9cd074c17e6534aff25c846b6ecfb14"
+              },
+              {
+                "frame": 27000,
+                "hash": "0c85009346142ec134cd8e5b195c7e13c1aaa7d75e4c905f1d671bd11e2e4c50"
+              },
+              {
+                "frame": 27600,
+                "hash": "dfd2c547326392d39414421b0dc52d3295f0bda2c03ec34d5a3d8282a4e1b601"
+              },
+              {
+                "frame": 28200,
+                "hash": "ce67beb1ea3bba39a1302f49d48ab960fab6281bd30dfbfbf735b9cd2f4ad25a"
+              },
+              {
+                "frame": 28800,
+                "hash": "8a49436f8b32588603921c996a2f754a8447c5a8e5a7d2ea8a255d5f690e0f9b"
+              },
+              {
+                "frame": 29400,
+                "hash": "b11cdf1b68424ab281f24b5473259309393c1114918988651e2ffbc67b3b90e8"
+              }
+            ],
+            "identity": "{\"adapter\":\"ca93a97664a56b356375282dc2a9a2e867c025aea1bd779d4a8dcc7f75d70a6d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03\",\"wasm\":\"da8727c2e556d6a45bfecfed0d0fe8f850553b82bf791255b1db8a819e05bca6\"}",
+            "rttMs": {
+              "count": 720,
+              "p50": 110,
+              "p95": 231,
+              "max": 418
+            },
+            "copyMs": {
+              "count": 29995,
+              "p50": 1,
+              "p95": 8,
+              "max": 105
+            },
+            "paintMs": {
+              "count": 29995,
+              "p50": 0,
+              "p95": 1,
+              "max": 10
+            },
+            "emulateMs": {
+              "count": 29995,
+              "p50": 16,
+              "p95": 28,
+              "max": 60
+            },
+            "transferMs": {
+              "count": 29995,
+              "p50": 0,
+              "p95": 4,
+              "max": 86
+            },
+            "voiceLevels": {
+              "count": 719,
+              "p50": 0.03521147076243294,
+              "p95": 0.035872236606742165,
+              "max": 0.03627017350720124
+            },
+            "voiceFrequencyHz": {
+              "count": 719,
+              "p50": 515.625,
+              "p95": 562.5,
+              "max": 562.5
+            },
+            "sent": 31497,
+            "maxBuffered": 459,
+            "maxRemoteInputs": 24,
+            "stalls": 1378,
+            "errors": [
+              "Realtime deadline"
+            ],
+            "audioBackpressurePolls": 1923,
+            "voiceMissedSlots": 0,
+            "kind": "ready",
+            "compileMs": 595,
+            "initializeMs": 15,
+            "localReadyMs": 1860,
+            "audioSampleRate": 48000,
+            "audioEnableAtMs": 4130,
+            "audioRunningAtMs": 4155,
+            "trackAtMs": 5187,
+            "remotePlaybackStartedAtMs": 5194,
+            "localDescriptionAtMs": 5277,
+            "voiceFirstEnergyAtMs": 5662,
+            "voiceEnableToEnergyMs": 1532,
+            "channelOpenMs": 5735,
+            "identityMatched": true,
+            "startAtMs": 5863,
+            "videoBytes": 7371571200,
+            "firstFrameMs": 6069,
+            "startToFirstFrameMs": 206,
+            "flush": {
+              "kind": "flushed",
+              "epoch": 1,
+              "queued": 0
+            },
+            "coreQueueEmpty": true,
+            "audio": {
+              "kind": "stats",
+              "received": 23955923,
+              "played": 23955124,
+              "underrun": 10531020,
+              "overflow": 0,
+              "maxQueued": 8768,
+              "stale": 0,
+              "flushes": 1,
+              "flushed": 799,
+              "energy": 27680.35079597807,
+              "queued": 0,
+              "epoch": 1,
+              "capacity": 12000
+            },
+            "frames": 29995,
+            "wallMs": 720713,
+            "rtc": [
+              {
+                "type": "inbound-rtp",
+                "kind": "audio",
+                "packetsReceived": 35687,
+                "packetsLost": 368,
+                "jitter": 0.009,
+                "totalAudioEnergy": 1.853836470947752,
+                "totalSamplesReceived": 34497600
+              },
+              {
+                "type": "outbound-rtp",
+                "packetsSent": 35940,
+                "bytesSent": 2910945
+              },
+              {
+                "type": "media-source",
+                "audioLevel": null,
+                "totalAudioEnergy": null,
+                "totalSamplesDuration": null
+              },
+              {
+                "type": "candidate-pair",
+                "state": "succeeded",
+                "selected": false,
+                "nominated": true,
+                "currentRoundTripTime": 0.097,
+                "bytesSent": 8553015,
+                "bytesReceived": 11327499,
+                "local": {
+                  "address": "c1dca357-e959-41df-87d9-b809253cb6ca.local",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                },
+                "remote": {
+                  "address": "8e8e93f6-c2b2-4e19-9486-be27859828ce.local",
+                  "protocol": "udp",
+                  "candidateType": "host"
+                }
+              }
+            ],
+            "voiceTrack": {
+              "local": "live",
+              "remote": [
+                {
+                  "enabled": true,
+                  "muted": false,
+                  "readyState": "live"
+                }
+              ]
+            },
+            "iceSelection": [
+              {
+                "type": "candidate-pair",
+                "id": "610a2062",
+                "state": "succeeded",
+                "nominated": true,
+                "selectedCandidatePairId": null,
+                "bytesSent": 8553015,
+                "bytesReceived": 11327499
+              }
+            ],
+            "outputMuted": true,
+            "outputPeak": 0,
+            "peerHashesMatched": true,
+            "pendingInputs": 0,
+            "remoteInputQueue": 12,
+            "teardown": {
+              "localTrack": "ended",
+              "connection": "closed",
+              "audio": "closed",
+              "remoteElementPaused": true
+            }
+          }
+        ],
+        "firefox_build": {
+          "browser": "Mozilla Firefox",
+          "version": "146.0.1",
+          "platform": "linux-x86_64",
+          "source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/linux-x86_64/en-US/firefox-146.0.1.tar.xz",
+          "checksum_source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/SHA256SUMS",
+          "archive_sha256": "36a4dc0e3be8af2d49d8388021abf790976d2398162b9d13a6d758cc8c37f8dd",
+          "archive_bytes": 79925480,
+          "binary_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+          "application_updates": "disabled by installation-local enterprise policy"
+        },
+        "firefox_executable_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+        "canonical_equal": true,
+        "page_errors": [
+          [],
+          []
+        ],
+        "error": "Browser runtime errors: [['Realtime deadline'], ['Realtime deadline']]",
+        "diagnostics": [
+          {
+            "audioState": "closed",
+            "audioEnableAtMs": 11837.29999999993,
+            "audioRunningAtMs": 11837.399999999907,
+            "frame": 29995,
+            "ready": true,
+            "errors": [
+              "Realtime deadline"
+            ],
+            "identityMatched": true,
+            "channel": "closed",
+            "connection": "closed",
+            "ice": "closed",
+            "localCandidates": [
+              "a=candidate:3704124266 1 udp 2113937151 8e8e93f6-c2b2-4e19-9486-be27859828ce.local 48593 typ host generation 0 network-cost 999",
+              "a=candidate:3704124266 1 udp 2113937151 8e8e93f6-c2b2-4e19-9486-be27859828ce.local 35587 typ host generation 0 network-cost 999"
+            ]
+          }
+        ],
+        "network_evidence": {
+          "run_id": "8318d4db-b1cb-45fa-a739-a6b67e75efa2",
+          "netem_before": [
+            {
+              "kind": "netem",
+              "handle": "8002:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 0,
+              "packets": 0,
+              "drops": 0,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "netem_after": [
+            {
+              "kind": "netem",
+              "handle": "8002:",
+              "root": true,
+              "refcnt": 2,
+              "options": {
+                "limit": 1000,
+                "delay": {
+                  "delay": 0.05,
+                  "jitter": 0.01,
+                  "correlation": 0
+                },
+                "loss-random": {
+                  "loss": 0.01,
+                  "correlation": 0
+                },
+                "ecn": false,
+                "gap": 0
+              },
+              "bytes": 34763720,
+              "packets": 204077,
+              "drops": 2027,
+              "overlimits": 0,
+              "requeues": 0,
+              "backlog": 0,
+              "qlen": 0
+            }
+          ],
+          "route": [
+            {
+              "type": "local",
+              "dst": "10.201.0.1",
+              "dev": "lo",
+              "prefsrc": "10.201.0.1",
+              "flags": [],
+              "uid": 0,
+              "cache": [
+                "local"
+              ]
+            }
+          ],
+          "udp_headers": {
+            "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+            "wall_seconds": 740.442047662,
+            "flows": {
+              "10.201.0.1:60595>10.201.0.1:48593": {
+                "observations": 99502,
+                "udp_bytes": 9301432
+              },
+              "10.201.0.1:48593>10.201.0.1:60595": {
+                "observations": 99542,
+                "udp_bytes": 12166822
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "error": "Pair failed: Firefox-Firefox",
+  "wall_seconds": 750.0996247159999
+}

@@ -1,0 +1,49 @@
+#!/bin/bash
+# Every invocation is enclosed by ci_budget.py's shared absolute deadline.
+set -euo pipefail
+D02_JOB=$1
+if [ "$D02_JOB" = build ]; then
+  git diff --check "$BASE_SHA" HEAD
+  rustup toolchain install 1.95.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown
+  (cd spikes/d02
+   cargo +1.95.0 fetch --locked
+   python3 original_fixture.py fixture.local.nes
+   cargo +1.95.0 test --locked --release --lib --no-run
+   cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown)
+  timeout 60s sh scripts/preflight.sh
+  exit
+fi
+python3 -m venv /tmp/d02-browser-venv
+/tmp/d02-browser-venv/bin/pip install playwright==1.58.0
+/tmp/d02-browser-venv/bin/playwright install --with-deps chromium firefox
+export PATH="/tmp/d02-browser-venv/bin:$PATH"
+cd spikes/d02
+python3 ci_resources.py resources-before.local.json
+trap 'python3 ci_resources.py resources-after.local.json' EXIT
+if [ "$D02_JOB" = core ]; then
+  python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
+  D02_HTTP_PID=$!
+  trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
+  timeout 1200s python3 browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
+  python3 verify_results.py browser-ci.local.json
+  timeout 60s python3 demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
+elif [ "$D02_JOB" = network ]; then
+  timeout 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
+  cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json
+  # This sink exists only on the ephemeral CI runner, never the user's machine.
+  sudo apt-get update
+  sudo apt-get install -y pulseaudio pulseaudio-utils
+  pulseaudio --start --exit-idle-time=-1
+  pactl load-module module-null-sink sink_name=d02 rate=48000 channels=2
+  pactl set-default-sink d02
+  test "$(pactl get-default-sink)" = d02
+  pulseaudio --version > audio-backend.local.txt
+  pactl list short sinks >> audio-backend.local.txt
+  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+  python3 ci_resources.py resources-before.local.json
+  timeout 900s sh run_network_probe.sh fixture.local.nes --seconds 600 --pair "$D02_PAIR" --bundled-chromium --firefox-executable /tmp/d02-stock-firefox/firefox/firefox --output pair.local.json
+  python3 verify_realtime.py pair.local.json --require-muted
+else
+  echo 'Unknown CI job' >&2
+  exit 1
+fi
