@@ -455,13 +455,15 @@ probe.result = async () => {
       });
     if (
       s.type === "candidate-pair" &&
-      s.state === "succeeded" &&
-      (selected.has(s.id) || s.nominated)
+      (selected.has(s.id) || (s.state === "succeeded" && s.nominated))
     ) {
       const local = all.get(s.localCandidateId),
         remote = all.get(s.remoteCandidateId);
       rtc.push({
         type: s.type,
+        state: s.state,
+        selected: selected.has(s.id),
+        nominated: s.nominated,
         currentRoundTripTime: s.currentRoundTripTime,
         bytesSent: s.bytesSent,
         bytesReceived: s.bytesReceived,

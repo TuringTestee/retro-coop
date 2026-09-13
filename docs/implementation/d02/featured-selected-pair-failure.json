@@ -1,0 +1,470 @@
+{
+  "run_id": "bb684986-7b06-41b4-9abb-aaf62e873e96",
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "rom_bytes": 40976,
+  "wasm_bytes": 2891606,
+  "rom_sha256": "1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555",
+  "wasm_sha256": "d4ae03cd634d78fa9bc0205431cac4ebb954bfa2b9de201bd17e6e56c2c45bb5",
+  "adapter_sha256": "a64b0a568847a6e56f7983a83b12e9c0ab17c5971f26be9618abddeb702ecf8d",
+  "pair": "Chrome-Firefox",
+  "seconds": 10,
+  "impairment": "isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback",
+  "route": "isolated private host ICE; no STUN/TURN",
+  "voice": "synthetic oscillator, not real microphone/speaker listening",
+  "chromium_launch": "headless, default --mute-audio removed",
+  "firefox_driver": "official Firefox via WebDriver BiDi",
+  "runs": [
+    {
+      "browser": "Chrome",
+      "version": "145.0.7632.75",
+      "role": 0,
+      "seconds": 10,
+      "hashes": [
+        {
+          "frame": 600,
+          "hash": "e89e61a9bff73a95e8d3dec631606e562f4e1c83274944bdf4d0e813161646c5"
+        },
+        {
+          "frame": 601,
+          "hash": "0047912b2ca27bf200bdc13f871208771db170cf719bf1dee34d0da353810930"
+        }
+      ],
+      "identity": "{\"adapter\":\"a64b0a568847a6e56f7983a83b12e9c0ab17c5971f26be9618abddeb702ecf8d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555\",\"wasm\":\"d4ae03cd634d78fa9bc0205431cac4ebb954bfa2b9de201bd17e6e56c2c45bb5\"}",
+      "rttMs": {
+        "count": 11,
+        "p50": 101.69999999925494,
+        "p95": 243.19999999925494,
+        "max": 243.19999999925494
+      },
+      "copyMs": {
+        "count": 601,
+        "p50": 0.20000000298023224,
+        "p95": 0.4000000022351742,
+        "max": 2.600000001490116
+      },
+      "paintMs": {
+        "count": 601,
+        "p50": 0.09999999776482582,
+        "p95": 0.19999999925494194,
+        "max": 1.5
+      },
+      "emulateMs": {
+        "count": 601,
+        "p50": 3,
+        "p95": 4.699999999254942,
+        "max": 9.600000001490116
+      },
+      "transferMs": {
+        "count": 601,
+        "p50": 0.099853515625,
+        "p95": 0.199951171875,
+        "max": 1.10009765625
+      },
+      "voiceLevels": {
+        "count": 10,
+        "p50": 0.03559413597749116,
+        "p95": 0.03583397466283563,
+        "max": 0.03583397466283563
+      },
+      "voiceFrequencyHz": {
+        "count": 10,
+        "p50": 656.25,
+        "p95": 656.25,
+        "max": 656.25
+      },
+      "sent": 625,
+      "maxBuffered": 458,
+      "maxRemoteInputs": 13,
+      "stalls": 113,
+      "errors": [],
+      "audioBackpressurePolls": 0,
+      "voiceMissedSlots": 0,
+      "kind": "ready",
+      "compileMs": 284,
+      "initializeMs": 16.699999999254942,
+      "localReadyMs": 770.1000000014901,
+      "audioSampleRate": 48000,
+      "audioEnableAtMs": 10154.10000000149,
+      "audioRunningAtMs": 10154.10000000149,
+      "localDescriptionAtMs": 12345.300000000745,
+      "trackAtMs": 12695.60000000149,
+      "remotePlaybackStartedAtMs": 12700.39999999851,
+      "voiceFirstEnergyAtMs": 12975.89999999851,
+      "voiceEnableToEnergyMs": 2821.7999999970198,
+      "channelOpenMs": 13130.10000000149,
+      "identityMatched": true,
+      "startAtMs": 13238,
+      "videoBytes": 147701760,
+      "firstFrameMs": 13419.800000000745,
+      "startToFirstFrameMs": 181.80000000074506,
+      "flush": {
+        "kind": "flushed",
+        "epoch": 1,
+        "queued": 0
+      },
+      "coreQueueEmpty": true,
+      "audio": {
+        "kind": "stats",
+        "received": 479928,
+        "played": 472739,
+        "underrun": 15197,
+        "overflow": 0,
+        "maxQueued": 4639,
+        "stale": 0,
+        "flushes": 1,
+        "flushed": 3250,
+        "energy": 336.91961224243374,
+        "queued": 3939,
+        "epoch": 1,
+        "capacity": 12000
+      },
+      "frames": 601,
+      "wallMs": 10161.10000000149,
+      "rtc": [
+        {
+          "type": "inbound-rtp",
+          "kind": "audio",
+          "packetsReceived": 551,
+          "packetsLost": 6,
+          "jitter": 0.007,
+          "totalAudioEnergy": 0,
+          "totalSamplesReceived": 534240
+        },
+        {
+          "type": "outbound-rtp",
+          "packetsSent": 557,
+          "bytesSent": 89837
+        },
+        {
+          "type": "media-source",
+          "audioLevel": 0.0499893185216834,
+          "totalAudioEnergy": 0.029037589447967416,
+          "totalSamplesDuration": 11.719999999999795
+        }
+      ],
+      "voiceTrack": {
+        "local": "live",
+        "remote": [
+          {
+            "enabled": true,
+            "muted": false,
+            "readyState": "live"
+          }
+        ]
+      },
+      "iceSelection": [
+        {
+          "type": "candidate-pair",
+          "id": "CPz3K65EgH_P6XHYCrS",
+          "state": "in-progress",
+          "nominated": true,
+          "selectedCandidatePairId": null,
+          "bytesSent": 197935,
+          "bytesReceived": 155602
+        },
+        {
+          "type": "transport",
+          "id": "T01",
+          "state": null,
+          "nominated": null,
+          "selectedCandidatePairId": "CPz3K65EgH_P6XHYCrS",
+          "bytesSent": 197935,
+          "bytesReceived": 155602
+        }
+      ],
+      "outputMuted": true,
+      "outputPeak": 0,
+      "peerHashesMatched": true,
+      "pendingInputs": 0,
+      "remoteInputQueue": 0,
+      "teardown": {
+        "localTrack": "ended",
+        "connection": "closed",
+        "audio": "closed",
+        "remoteElementPaused": true
+      }
+    },
+    {
+      "browser": "Firefox",
+      "version": "146.0.1",
+      "role": 1,
+      "seconds": 10,
+      "hashes": [
+        {
+          "frame": 600,
+          "hash": "e89e61a9bff73a95e8d3dec631606e562f4e1c83274944bdf4d0e813161646c5"
+        },
+        {
+          "frame": 601,
+          "hash": "0047912b2ca27bf200bdc13f871208771db170cf719bf1dee34d0da353810930"
+        }
+      ],
+      "identity": "{\"adapter\":\"a64b0a568847a6e56f7983a83b12e9c0ab17c5971f26be9618abddeb702ecf8d\",\"input_lead\":12,\"protocol\":\"D02-RT1\",\"region\":\"NTSC\",\"rom\":\"1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555\",\"wasm\":\"d4ae03cd634d78fa9bc0205431cac4ebb954bfa2b9de201bd17e6e56c2c45bb5\"}",
+      "rttMs": {
+        "count": 11,
+        "p50": 108,
+        "p95": 284,
+        "max": 284
+      },
+      "copyMs": {
+        "count": 601,
+        "p50": 0,
+        "p95": 1,
+        "max": 2
+      },
+      "paintMs": {
+        "count": 601,
+        "p50": 0,
+        "p95": 1,
+        "max": 1
+      },
+      "emulateMs": {
+        "count": 601,
+        "p50": 3,
+        "p95": 5,
+        "max": 11
+      },
+      "transferMs": {
+        "count": 601,
+        "p50": 0,
+        "p95": 1,
+        "max": 4
+      },
+      "voiceLevels": {
+        "count": 10,
+        "p50": 0.03549729815990081,
+        "p95": 0.035831470588668694,
+        "max": 0.035831470588668694
+      },
+      "voiceFrequencyHz": {
+        "count": 10,
+        "p50": 515.625,
+        "p95": 515.625,
+        "max": 515.625
+      },
+      "sent": 625,
+      "maxBuffered": 459,
+      "maxRemoteInputs": 14,
+      "stalls": 0,
+      "errors": [],
+      "audioBackpressurePolls": 0,
+      "voiceMissedSlots": 0,
+      "kind": "ready",
+      "compileMs": 104,
+      "initializeMs": 7,
+      "localReadyMs": 596,
+      "audioSampleRate": 48000,
+      "audioEnableAtMs": 2182,
+      "audioRunningAtMs": 2194,
+      "trackAtMs": 3267,
+      "remotePlaybackStartedAtMs": 3269,
+      "localDescriptionAtMs": 3366,
+      "voiceFirstEnergyAtMs": 3735,
+      "voiceEnableToEnergyMs": 1553,
+      "channelOpenMs": 3906,
+      "identityMatched": true,
+      "startAtMs": 4019,
+      "videoBytes": 147701760,
+      "firstFrameMs": 4192,
+      "startToFirstFrameMs": 173,
+      "flush": {
+        "kind": "flushed",
+        "epoch": 1,
+        "queued": 0
+      },
+      "coreQueueEmpty": true,
+      "audio": {
+        "kind": "stats",
+        "received": 479928,
+        "played": 477574,
+        "underrun": 9850,
+        "overflow": 0,
+        "maxQueued": 1748,
+        "stale": 0,
+        "flushes": 1,
+        "flushed": 1061,
+        "energy": 341.5064147143473,
+        "queued": 1293,
+        "epoch": 1,
+        "capacity": 12000
+      },
+      "frames": 601,
+      "wallMs": 10160,
+      "rtc": [
+        {
+          "type": "inbound-rtp",
+          "kind": "audio",
+          "packetsReceived": 548,
+          "packetsLost": 9,
+          "jitter": 0.007,
+          "totalAudioEnergy": 0.028541739455326627,
+          "totalSamplesReceived": 534720
+        },
+        {
+          "type": "outbound-rtp",
+          "packetsSent": 563,
+          "bytesSent": 45380
+        },
+        {
+          "type": "media-source",
+          "audioLevel": null,
+          "totalAudioEnergy": null,
+          "totalSamplesDuration": null
+        },
+        {
+          "type": "candidate-pair",
+          "currentRoundTripTime": 0.1,
+          "bytesSent": 158009,
+          "bytesReceived": 195566,
+          "local": {
+            "address": "b144b4c6-611d-4647-89e5-9b18119d7857.local",
+            "protocol": "udp",
+            "candidateType": "host"
+          },
+          "remote": {
+            "address": "b52d296d-908d-4d83-a41c-a49513c789e8.local",
+            "protocol": "udp",
+            "candidateType": "host"
+          }
+        }
+      ],
+      "voiceTrack": {
+        "local": "live",
+        "remote": [
+          {
+            "enabled": true,
+            "muted": false,
+            "readyState": "live"
+          }
+        ]
+      },
+      "iceSelection": [
+        {
+          "type": "candidate-pair",
+          "id": "29ba4101",
+          "state": "succeeded",
+          "nominated": true,
+          "selectedCandidatePairId": null,
+          "bytesSent": 158009,
+          "bytesReceived": 195566
+        }
+      ],
+      "outputMuted": true,
+      "outputPeak": 0,
+      "peerHashesMatched": true,
+      "pendingInputs": 0,
+      "remoteInputQueue": 0,
+      "teardown": {
+        "localTrack": "ended",
+        "connection": "closed",
+        "audio": "closed",
+        "remoteElementPaused": true
+      }
+    }
+  ],
+  "firefox_build": {
+    "browser": "Mozilla Firefox",
+    "version": "146.0.1",
+    "platform": "linux-x86_64",
+    "source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/linux-x86_64/en-US/firefox-146.0.1.tar.xz",
+    "checksum_source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/SHA256SUMS",
+    "archive_sha256": "36a4dc0e3be8af2d49d8388021abf790976d2398162b9d13a6d758cc8c37f8dd",
+    "archive_bytes": 79925480,
+    "binary_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+    "application_updates": "disabled by installation-local enterprise policy"
+  },
+  "firefox_executable_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+  "canonical_equal": true,
+  "page_errors": [
+    [],
+    []
+  ],
+  "network_evidence": {
+    "run_id": "bb684986-7b06-41b4-9abb-aaf62e873e96",
+    "netem_before": [
+      {
+        "kind": "netem",
+        "handle": "801d:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 0,
+        "packets": 0,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "netem_after": [
+      {
+        "kind": "netem",
+        "handle": "801d:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 5348317,
+        "packets": 4733,
+        "drops": 46,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "route": [
+      {
+        "type": "local",
+        "dst": "10.201.0.1",
+        "dev": "lo",
+        "prefsrc": "10.201.0.1",
+        "flags": [],
+        "uid": 0,
+        "cache": [
+          "local"
+        ]
+      }
+    ],
+    "udp_headers": {
+      "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+      "wall_seconds": 28.78383428199959,
+      "flows": {
+        "10.201.0.1:60930>10.201.0.1:50881": {
+          "observations": 1866,
+          "udp_bytes": 173698
+        },
+        "10.201.0.1:50881>10.201.0.1:60930": {
+          "observations": 1851,
+          "udp_bytes": 214301
+        }
+      }
+    }
+  }
+}

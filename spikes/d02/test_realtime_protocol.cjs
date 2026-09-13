@@ -57,7 +57,7 @@ async function setup(){
   const selection=await setup();
   const report=new Map([
     ['transport',{type:'transport',selectedCandidatePairId:'selected'}],
-    ['selected',{id:'selected',type:'candidate-pair',state:'succeeded',nominated:false,localCandidateId:'local',remoteCandidateId:'remote',bytesSent:10,bytesReceived:20}],
+    ['selected',{id:'selected',type:'candidate-pair',state:'in-progress',nominated:true,localCandidateId:'local',remoteCandidateId:'remote',bytesSent:10,bytesReceived:20}],
     ['unused',{id:'unused',type:'candidate-pair',state:'succeeded',nominated:false,localCandidateId:'local',remoteCandidateId:'remote'}],
     ['local',{protocol:'udp',candidateType:'host'}],['remote',{protocol:'udp',candidateType:'prflx'}]
   ]);
@@ -68,6 +68,8 @@ async function setup(){
   assert.equal(snapshots,1);
   assert.equal(measured.rtc.filter(s=>s.type==='candidate-pair').length,1);
   assert.equal(measured.rtc[0].remote.candidateType,'prflx');
+  assert.equal(measured.rtc[0].selected,true);
+  assert.equal(measured.rtc[0].state,'in-progress');
   assert.equal(measured.outputMuted,true);assert.equal(measured.outputPeak,0);
   console.log('PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection');
 })().catch(error=>{console.error(error);process.exitCode=1;});
