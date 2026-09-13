@@ -91,6 +91,39 @@ pub extern "C" fn advance(frame: u32, count: u32) {
         }
     });
 }
+/// Explicit two-controller input for the trusted-local realtime experiment.
+#[unsafe(no_mangle)]
+pub extern "C" fn advance_inputs(one: u8, two: u8) {
+    PROBE.with_borrow_mut(|p| {
+        let p = p.as_mut().unwrap();
+        for (player, mask) in [(Player::One, one), (Player::Two, two)] {
+            for (i, button) in [
+                JoypadBtnState::A,
+                JoypadBtnState::B,
+                JoypadBtnState::SELECT,
+                JoypadBtnState::START,
+                JoypadBtnState::UP,
+                JoypadBtnState::DOWN,
+                JoypadBtnState::LEFT,
+                JoypadBtnState::RIGHT,
+            ]
+            .iter()
+            .enumerate()
+            {
+                p.deck
+                    .bus_mut()
+                    .input
+                    .joypad_mut(player)
+                    .set_button(*button, mask & (1 << i) != 0);
+            }
+        }
+        let _ = p.deck.clock_frame().unwrap();
+    });
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn manual_frame(one: u8, two: u8) {
+    advance_inputs(one, two);
+}
 #[unsafe(no_mangle)]
 pub extern "C" fn save() -> usize {
     PROBE.with_borrow_mut(|p| {
@@ -125,6 +158,7 @@ pub extern "C" fn output(kind: u32) -> *const u8 {
                 .flat_map(|x| x.to_le_bytes())
                 .collect(),
             3 => serde_json::to_vec(p.deck.bus()).unwrap(),
+            5 => p.deck.frame_buffer().to_vec(),
             _ => canonical(&p.deck),
         };
         p.output.as_ptr()
@@ -173,4 +207,54 @@ pub extern "C" fn rewind_probe(start: u32) -> *const u8 {
         .unwrap();
         p.output.as_ptr()
     })
+}
+
+#[cfg(test)]
+mod realtime_tests {
+    use super::*;
+
+    #[test]
+    fn manual_controller_ports_render_and_release() {
+        let rom = std::fs::read("fixture.local.nes").unwrap();
+        let deck = deck(&rom);
+        let codec = checkpoint::Codec::new(&deck, &rom).unwrap();
+        PROBE.with_borrow_mut(|p| {
+            *p = Some(Probe {
+                deck,
+                codec,
+                saved: vec![],
+                output: vec![],
+            });
+        });
+        for _ in 0..4 {
+            manual_frame(1, 2);
+        }
+        PROBE.with_borrow(|p| {
+            let p = p.as_ref().unwrap();
+            assert_eq!(&p.deck.bus().wram[0..2], &[128, 64]);
+            assert!(p.deck.audio_samples().iter().any(|x| x.abs() > 0.001));
+        });
+        output(5);
+        assert_eq!(output_len(), 256 * 240 * 4);
+        PROBE.with_borrow(|p| {
+            assert!(
+                p.as_ref()
+                    .unwrap()
+                    .output
+                    .chunks_exact(4)
+                    .all(|rgba| rgba[3] == 255)
+            );
+        });
+        for _ in 0..3 {
+            manual_frame(0, 0);
+        }
+        PROBE.with_borrow(|p| assert_eq!(&p.as_ref().unwrap().deck.bus().wram[0..2], &[0, 0]));
+        output(5);
+        let released_pixels = PROBE.with_borrow(|p| p.as_ref().unwrap().output.clone());
+        for _ in 0..3 {
+            manual_frame(128, 0);
+        }
+        output(5);
+        PROBE.with_borrow(|p| assert_ne!(p.as_ref().unwrap().output, released_pixels));
+    }
 }

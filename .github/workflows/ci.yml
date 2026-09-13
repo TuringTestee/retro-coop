@@ -44,10 +44,15 @@ jobs:
           trap 'kill "$D02_HTTP_PID"' EXIT
           timeout 1200s /tmp/d02-browser-venv/bin/python browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
           python3 verify_results.py browser-ci.local.json
+          timeout 60s /tmp/d02-browser-venv/bin/python demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
       - name: Browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: d02-browser-evidence
-          path: spikes/d02/browser-ci.local.json
+          path: |
+            spikes/d02/browser-ci.local.json
+            spikes/d02/demo-smoke.local.json
+            spikes/d02/demo-before.local.png
+            spikes/d02/demo-after.local.png
           if-no-files-found: ignore

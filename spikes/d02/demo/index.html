@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retro Coop · Playable demo</title>
+<link rel="stylesheet" href="style.css">
+<header><a class="brand" href="./">RETRO<span>COOP</span></a><span class="badge">PLAYABLE PREVIEW</span><span class="privacy">Your ROM stays in this browser</span></header>
+<main>
+  <section class="intro"><p class="eyebrow">GOOD GAMES. GOOD COMPANY.</p><h1>A little nostalgia.<br>A new game night.</h1><p>Try the local player. Load From Below and hold back the Kraken.</p></section>
+  <div class="layout">
+    <section class="player" aria-label="Game player">
+      <div class="player-top"><span id="title">No game loaded</span><span id="mode">LOCAL DEMO</span></div>
+      <div id="screen" tabindex="0" aria-label="Game screen. Arrow keys move, X is A, Z is B, Enter is Start, right Shift is Select.">
+        <canvas id="canvas" width="256" height="240" aria-label="NES game image"></canvas>
+        <div id="empty"><div class="cartridge" aria-hidden="true">8<br><small>BIT</small></div><h2>Drop a ROM. Start playing.</h2><p>Choose your local From Below ROM.<br>This prototype supports NROM / NTSC games.</p><button id="choose" class="primary">Choose ROM <span aria-hidden="true">↗</span></button><p class="hint">or drag a .nes file onto this screen</p></div>
+      </div>
+      <div class="toolbar"><button id="pause" disabled>Pause</button><button id="sound" disabled>Enable sound</button><button id="fullscreen" disabled>Fullscreen</button><button id="change">Change ROM</button></div>
+      <p id="status" role="status" aria-live="polite">Ready when you are. No account needed.</p>
+      <input id="file" type="file" accept=".nes" hidden>
+    </section>
+    <aside>
+      <section class="card"><p class="eyebrow">FEATURED PLACEHOLDER</p><h2>From Below</h2><p>Clear falling blocks and hold back the Kraken.</p><div class="tags"><span>Puzzle</span><span>Single player</span></div><p class="muted">Game by Matt Hughson<br>Music &amp; SFX: Tui · Art: Haller Zoltan</p></section>
+      <section class="card"><h2>Make yourself at home</h2><dl><dt>Move</dt><dd><kbd>↑</kbd> <kbd>←</kbd> <kbd>↓</kbd> <kbd>→</kbd></dd><dt>A / B</dt><dd><kbd>X</kbd> / <kbd>Z</kbd></dd><dt>Start / Select</dt><dd><kbd>Enter</kbd> / <kbd>Shift ⇧</kbd></dd></dl><p id="gamepad" class="muted">Keyboard ready · Gamepads supported</p></section>
+      <section class="card"><h2>Keep your place</h2><p>One save slot for this tab. Loading a new ROM clears it.</p><div class="save-actions"><button id="save" disabled>Save state</button><button id="restore" disabled>Restore</button></div></section>
+      <p class="footnote">Local prototype · Online rooms and voice are still being built. From Below is single-player; shared-controller turns will follow.</p>
+    </aside>
+  </div>
+</main>
+<script type="module" src="app.js"></script>
+</html>

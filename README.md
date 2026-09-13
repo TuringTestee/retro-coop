@@ -1,6 +1,10 @@
 # Retro Coop
 
-Retro Coop is an approved browser-local NES multiplayer project in feasibility testing. The D02 probe measures deterministic replay and bounded checkpoints; it is not a playable release.
+Retro Coop is a browser-local NES multiplayer project in feasibility testing. A playable local demo now runs your ROM with keyboard/gamepad input, sound and a save slot. Online rooms remain in development.
+
+## Play the local demo
+
+Follow the [demo setup and controls](spikes/d02/demo/README.md) to build the pinned emulator and open **http://127.0.0.1:8765/demo/**. Choose your local From Below `.nes` file, press Enter to start, and use the arrow keys with X/Z. No ROM is bundled or uploaded.
 
 ## Start working
 
