@@ -4,7 +4,7 @@ Build and test the browser's ability to run the same game in sync before buildin
 
 ## Governing design and readiness
 
-Use [the design and AC-01 through AC-12](../../docs/design/browser-nes-platform.md) as the scope reference. This is a planning candidate awaiting careful user review. No builders or child issues are dispatched by this PR. Repository setup PR [#1](https://github.com/TuringTestee/retro-coop/pull/1) must merge first; this planning PR is initially stacked on its branch and must target main after integration, with refreshed checks and review for its actual base/head.
+Use [the design and AC-01 through AC-12](../../docs/design/browser-nes-platform.md) as the scope reference. This is a planning candidate awaiting careful user review. No builders or child issues are dispatched by this PR. Repository setup PR [#1](https://github.com/TuringTestee/retro-coop/pull/1) merged at `57396904d1679b5a87550a0cd89df1fee6ae8ccb`; this planning PR targets main. Checks and local review must identify the actual base/head under review.
 
 Before project breakdown, obtain approval of the exact reviewed planning revision and confirm it has merged. The featured variant's missing specification and rights remain explicit blockers for content-dependent breakdown. If that information is still missing, a reviewed amendment must bound an infrastructure-only iteration before any partial breakdown; do not silently redefine the public release. Later dispatch requires merged breakdown documents and verified live issue ownership/dependencies.
 
