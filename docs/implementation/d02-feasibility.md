@@ -1,4 +1,4 @@
-The pinned core can replay the same inputs in Linux Chrome and Firefox with matching state, picture and audio hashes. A complete experimental NROM checkpoint codec now validates inputs before restoring local cartridge mappings. The feasibility gate remains **incomplete**: Windows/macOS, impaired peer networking, actual speaker playback, and startup/voice measurements are not proved by these local probes. Do not release D04 or claim AC-05–07 complete from this report alone.
+The pinned core now has matching ten-minute replay, restore and rewind results on Windows and macOS Chrome/Firefox, as well as Linux. The local playable demo and bounded audio/network prototype add real rendering and synthetic voice measurements. The full impaired ten-minute peer matrix is still pending in this candidate; D02 remains open until its initial evidence is accepted. Full release acceptance stays with the later implementation issues.
 
 # D02 feasibility experiment
 
@@ -26,7 +26,7 @@ The 600-frame rewind experiment spans about ten seconds at NTSC frame rate; PAL/
 
 ## State and ROM-content audit
 
-`spikes/d02/src/checkpoint.rs` contains the experimental schema `D02NES01`. Its fingerprint hashes the schema, exact core revision, dependency lock, Rust toolchain/target flags, exact local ROM SHA-256, fixed options, and local memory/mapper layout. A future protocol handshake must also compare the deployed adapter/WASM artifact hash; no network handshake is implemented here.
+`spikes/d02/src/checkpoint.rs` contains the experimental schema `D02NES01`. Its fingerprint hashes the schema, exact core revision, dependency lock, Rust toolchain/target flags, exact local ROM SHA-256, fixed options, and local memory/mapper layout. The realtime prototype additionally compares exact adapter and WASM hashes before accepting peer inputs; the original independent replay harness has no network handshake.
 
 Before generic JSON allocation, the decoder checks the 2 MiB envelope, schema/fingerprint, maximum depth 24, 60,000 structural tokens and 256-byte strings. After parsing, exact canonical encoding rejects duplicate fields, trailing bytes and alternate encodings; `serde_json`'s `float_roundtrip` feature preserves the encoded floating values. Exact object keys, fixed array lengths and scalar types are checked against the trusted local shape for this pinned NROM core. Upstream typed decoding only follows these checks and enforces Rust integer widths and enum names.
 
@@ -51,16 +51,39 @@ The decoder's narrow shape/range audit is relevant proof, not a universal securi
 
 The final harness runs WASM in a worker and traps every imported host function, including upstream localStorage functions. A successful run therefore proves that the configured path did not access those host imports. The worker returns hashes and measurements; no game or checkpoint bytes are uploaded. The sample buffer is drained by frame clocking and explicitly cleared on a timeline jump. Unit tests compare all PCM produced across 60 resumed frames and require a bounded sample count.
 
-Hash equality is not audible-quality evidence. The new audio epoch can cause a discontinuity relative to uninterrupted playback; actual Web Audio queue flush/fade, speaker playback, worker-to-main audio/video copying costs, throttling/pause and latency need measured integration before acceptance. Those are not hidden inside a passing hash assertion.
+Hash equality is not audible-quality evidence. The newer realtime prototype exercises actual Web Audio queues, worker/main copying, canvas painting and receiver media energy. Its ten-second smoke passes; full ten-minute peer qualification remains pending below. Physical speaker quality, production pause/recovery and user consent still need later implementation and qualification.
 
-Unmet feasibility proof remains explicit:
+## Browser OS evidence and presentation boundary
 
-- The approved Chrome/Firefox pairs on Windows and macOS are not available on this Linux machine. Linux replay is useful preliminary evidence, not that matrix.
-- These tests replay identical inputs independently; they do not prove a ten-minute two-peer session under 100 ms RTT, 20 ms jitter and 1% loss, input delay, WebRTC backpressure or recovery.
-- Initial startup and voice measurements, real Web Audio output and public-network routes are unverified. AC-05, AC-06 and AC-07 remain open with their full product/network acceptance.
-- Hardware qualification beyond this NROM/NTSC experiment and featured-game gameplay/rights packaging remain D03/D20 work; the broad release goal is retained.
+[Windows results](d02/os-windows-browser.json), [macOS results](d02/os-macos-browser.json) and [Linux reference](d02/os-linux-browser.json) contain exactly 60 complete records per browser, frames 600 through 36,000. All six lists are equal, including raw state, canonical state, raw palette video and PCM hashes. Each OS result passes the complete restore/new-audio-epoch/600-frame rewind verifier. This is original-fixture infrastructure evidence; private From Below bytes were never sent to hosted runners. [Windows build metadata](d02/os-windows-build.json) and [macOS build metadata](d02/os-macos-build.json) preserve actual source and toolchain identities.
 
-The dispatcher must keep D04 blocked until these governing feasibility requirements are either evidenced or a reviewed, approved plan revision explicitly changes the prerequisite. This report does not silently convert an incomplete experiment into an architecture pass.
+| Run | Actual browsers | Whole browser tasks | WASM SHA-256 |
+|---|---|---|---|
+| [Windows 34782405793](https://github.com/TuringTestee/retro-coop/actions/runs/34782405793) | Chrome 153.0.8010.37; Firefox 146.0.1 | 66.156 s; 533.203 s | `d800c2797c847e61d871af1cee27bc88a2dcbbcb50db60362801ff84ee4bb2c4` |
+| [macOS 34782652351](https://github.com/TuringTestee/retro-coop/actions/runs/34782652351) | Chrome 152.0.7977.83; Firefox 146.0.1 | See raw result | `04b374b0a9bcd49813a4e20faa78a5b2434b3c78982a90a3f3fb94f2ca02ef7d` |
+| [Linux CI 34782638571](https://github.com/TuringTestee/retro-coop/actions/runs/34782638571) | Chromium 145.0.7632.6; Firefox 146.0.1 | 33.970 s; 279.988 s | `1b201fa942cd8741cee30c5fc44884e5428a5c057a6b0c54955227fc852cc5ac` |
+
+Different build bytes are recorded, not called a reproducible binary. The first macOS run [34782407269](https://github.com/TuringTestee/retro-coop/actions/runs/34782407269) failed because Playwright's Chrome installer removed the preinstalled app and downloaded an invalid DMG. Reviewed PR #36 retained branded preinstalled Chrome and installed Firefox only; the corrected run passed in 9m38s, and its presubmit passed in 7m11s. These manual runs remain separate from the single-job presubmit deadline.
+
+The new realtime build explicitly selects TetaNES `VideoFilter::Pixellate`, matching the approved nearest-neighbor presentation default. The old adapter used the upstream `Ntsc` default. At the pinned source, `ControlDeck::set_filter` only changes the presentation `video.filter`/stale flag; `frame_buffer_raw()` returns PPU palette pixels, while `frame_buffer()` applies that presentation filter. Canonical hashing and the checkpoint codec operate on the bus, not the presentation Video object. A new native regression runs 120 identical-input frames through both filters and requires equal raw pixels, canonical state and encoded checkpoints at every frame while observing different RGBA output. This supports carrying forward the tested core component evidence, not claiming the new WASM was executed on Windows/macOS. Its exact new WASM and JS asset hashes are in every realtime result and peer fingerprint.
+
+## Initial network, audio and startup experiment
+
+The [reproduction guide](../../spikes/d02/NETWORK_PROBE.md) describes the isolated kernel profile and full verification contract. [Actual ten-second smoke](d02/network-smoke.json) passes strict checks for 601 matching frames, actual RGBA painting, bounded AudioWorklet output, an audio epoch flush, both received peer tones and teardown. The current full 600-second three-pair run is **pending**; a smoke is never counted as that workload.
+
+Historical failures are preserved. [Unpaced output](d02/network-overflow-failure.json) overflowed by 21,901/24,952 samples after stalls produced catch-up bursts. The fixed scheduler uses conservative queued-plus-in-flight accounting and actual drain notifications; it holds the next frame rather than dropping controller input. Worklet tests independently exercise real output samples, capacity, underrun silence, stale epoch rejection, fade and frozen accounting. A full-matrix attempt also exposed an unqualified backpressure statistics variable; an actual-source scheduler regression now exercises that branch and verifies the same input frame resumes after drain. Failed runs are not ten-minute proof.
+
+[Bare receiver stream](d02/voice-stream-failure.json) produced no decoded samples or analyser energy. [Playing-element-only routing](d02/voice-element-failure.json) produced decoded RTP but silent analyser output. The [bridge experiment](d02/voice-bridge-smoke.json) uses a zero-volume playing element to consume the stream and a separate stream source/analyser as the single audible route; both receivers then measured RMS about 0.035 and the other peer's tone. This is an observed result on these browsers, not a universal browser diagnosis. [Earlier sequential startup](d02/voice-sequential-startup.json) retained a 7,715.7 ms Chrome enable-to-energy measurement that included the other browser's cold initialization. The current driver prepares both peers before explicit audio enable and reports initial preparation and enable-to-energy separately.
+
+| Acceptance boundary | Evidence/owner |
+|---|---|
+| D02/P1 initial determinism, bounded codec, rewind | Original-fixture Chrome/Firefox Windows/macOS matrix above; licensed From Below Linux results retained; codec audit and bounded restore tests. Final featured content qualification stays D03/D20. |
+| D02/P1 basic two-peer delay, worker/audio, initial startup/voice | Actual ten-second measurements now; full ten-minute impaired three-pair run pending. Reference hardware, queues, copy/paint and startup phase timings remain explicit. |
+| Production shared timeline, recovery and authorization | D10–D16 implementation; the scripted local checkpoint restore is not the shared barrier protocol. |
+| Conversational voice, startup distributions, independent public routes and deployment | D17/D21/D24, including real microphones, required long voice trials, 30 startup attempts and direct/forced TURN. These retained release criteria do not require the entire product before D04 foundation work. |
+| Broad hardware and actual featured package | D03/D20; this NROM/NTSC feasibility codec does not admit unaudited boards. |
+
+D04 depends on accepted initial D02/P1 evidence. Earlier report wording incorrectly grouped public-network release acceptance with the initial feasibility prerequisite; the distinction above corrects that overbroad blockade without waiving any product acceptance criterion. AC-05–07 as complete release criteria remain open.
 
 ## Time budget and next decision
 
@@ -70,7 +93,7 @@ Continue only within that combined allocation. If the missing OS/network/audio p
 
 ## Reproduce
 
-Prepare tools and run the README preflight. No user ROM is needed for the regression suite. The original 24,592-byte diagnostic generated by `original_fixture.py` has SHA-256 `d4a21ae4b7c1b9601744b799b5cc48824c5c762964571b90d291e559ac1378ba`; it polls both controller ports, records progress, changes the backdrop and drives a pulse channel. It contains no third-party ROM bytes and is not a replacement featured title:
+Prepare tools and run the README preflight. No user ROM is needed for the regression suite. The current 24,592-byte diagnostic generated by `original_fixture.py` has SHA-256 `29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03` (PR #34 corrected its backdrop display; earlier raw results retain the historical `d4a21ae4…` fixture identity); it polls both controller ports, records progress, changes the backdrop and drives a pulse channel. It contains no third-party ROM bytes and is not a replacement featured title:
 
 ```sh
 cd spikes/d02
@@ -90,7 +113,7 @@ timeout 1200s /tmp/d02-browser-venv/bin/python browser_probe.py fixture.local.ne
 python3 verify_results.py browser-ci.local.json
 ```
 
-Bundled Chromium is identified as Chromium, not branded Chrome. To reproduce the licensed local content experiment, supply the local path as the positional ROM argument and omit `--bundled-chromium` on a machine with `/usr/bin/google-chrome`. Do not put that ROM or original private path in Git, CI configuration, logs shared with reviewers, or an HTTP-served directory. The tool reads it locally and passes it directly to the browser's worker; the server only serves the harness. `cargo +1.95.0 run --locked --release --bin probe -- <authorized-local-ROM>` repeats the native codec test.
+Bundled Chromium is identified as Chromium, not branded Chrome. To reproduce the licensed local content experiment, supply the local path as the positional ROM argument and omit `--bundled-chromium` on a machine with branded Chrome installed. Do not put that ROM or original private path in Git, CI configuration, logs shared with reviewers, or an HTTP-served directory. The tool reads it locally and passes it directly to the browser's worker; the server only serves the harness. `cargo +1.95.0 run --locked --release --bin probe -- <authorized-local-ROM>` repeats the native codec test.
 
 The complete preflight has a 60-second outer timeout. CI retains one job with a 30-minute hard deadline, rejects retries that would extend its original run, and caps its browser phase at 1,200 seconds. The worker also terminates an individual browser experiment after 900 seconds. Cold tool installation/build is part of CI's shared deadline, not excluded setup time. Browser evidence is uploaded even on failure; a timeout is a failure, never a passing shortened workload. No post-submit soak is claimed or required for this isolated experiment; the planned staging soak still belongs to later networking integration.
 

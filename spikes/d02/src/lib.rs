@@ -20,6 +20,7 @@ pub fn deck(rom: &[u8]) -> ControlDeck {
         Config::default()
             .with_sram_dir(None)
             .with_ram_state(RamState::AllZeros)
+            .with_filter(tetanes_core::video::VideoFilter::Pixellate)
             .with_region(NesRegion::Ntsc),
     );
     d.load_rom("authorized-fixture", &mut std::io::Cursor::new(rom))
@@ -212,6 +213,29 @@ pub extern "C" fn rewind_probe(start: u32) -> *const u8 {
 #[cfg(test)]
 mod realtime_tests {
     use super::*;
+
+    #[test]
+    fn presentation_filter_preserves_core_checkpoint_and_raw_video() {
+        let rom = std::fs::read("fixture.local.nes").unwrap();
+        let mut pixels = deck(&rom);
+        let mut ntsc = deck(&rom);
+        ntsc.set_filter(tetanes_core::video::VideoFilter::Ntsc);
+        let pixel_codec = checkpoint::Codec::new(&pixels, &rom).unwrap();
+        let ntsc_codec = checkpoint::Codec::new(&ntsc, &rom).unwrap();
+        let mut presentation_differs = false;
+        for frame in 0..120 {
+            step(&mut pixels, frame);
+            step(&mut ntsc, frame);
+            assert_eq!(pixels.frame_buffer_raw(), ntsc.frame_buffer_raw());
+            presentation_differs |= pixels.frame_buffer() != ntsc.frame_buffer();
+            assert_eq!(canonical(&pixels), canonical(&ntsc));
+            assert_eq!(
+                pixel_codec.encode(&pixels).unwrap(),
+                ntsc_codec.encode(&ntsc).unwrap()
+            );
+        }
+        assert!(presentation_differs);
+    }
 
     #[test]
     fn manual_controller_ports_render_and_release() {

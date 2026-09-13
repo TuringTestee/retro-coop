@@ -1,0 +1,10 @@
+{
+  "source_commit": "5c00a07fbdc566427a28f82ba7a2ba9b97ff640f",
+  "run_id": "34782652351",
+  "run_attempt": "1",
+  "platform": "macOS-15.7.9-arm64-arm-64bit",
+  "machine": "arm64",
+  "cpu_count": 3,
+  "python_version": "3.12.10",
+  "scope": "Original-fixture replay/restore/rewind only; no featured-game, network, or audible voice qualification"
+}

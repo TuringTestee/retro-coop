@@ -45,6 +45,13 @@ jobs:
           timeout 1200s /tmp/d02-browser-venv/bin/python browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
           python3 verify_results.py browser-ci.local.json
           timeout 60s /tmp/d02-browser-venv/bin/python demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
+      - name: Full impaired peer matrix
+        run: |
+          # Hosted Ubuntu's AppArmor policy otherwise blocks the isolated user/net namespace.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          export PATH="/tmp/d02-browser-venv/bin:$PATH"
+          cd spikes/d02
+          timeout 900s python3 run_network_matrix.py fixture.local.nes --bundled-chromium --output network-matrix.local.json
       - name: Browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -55,4 +62,7 @@ jobs:
             spikes/d02/demo-smoke.local.json
             spikes/d02/demo-before.local.png
             spikes/d02/demo-after.local.png
+            spikes/d02/network-matrix.local.json
+            spikes/d02/.network-runs/matrix-*/*.json
+            spikes/d02/.network-runs/matrix-*/*.log
           if-no-files-found: ignore
