@@ -4,7 +4,13 @@ Retro Coop is a browser-local NES multiplayer project in feasibility testing. A 
 
 ## Play the local demo
 
-Follow the [demo setup and controls](spikes/d02/demo/README.md) to build the pinned emulator and open **http://127.0.0.1:8765/demo/**. Choose your local From Below `.nes` file, press Enter to start, and use the arrow keys with X/Z. No ROM is bundled or uploaded.
+With Python 3 and Rust 1.95.0 (including the `wasm32-unknown-unknown` target) installed, run this from the repository root:
+
+```sh
+sh scripts/demo.sh
+```
+
+Then open **http://127.0.0.1:8765/demo/**. Choose your local From Below `.nes` file, press Enter to start, and use the arrow keys with X/Z. Sound starts enabled for normal play; the Mute button controls only the game. No ROM is bundled or uploaded. See [setup and controls](spikes/d02/demo/README.md) for prerequisites and testing.
 
 ## Start working
 
