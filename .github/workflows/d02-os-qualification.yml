@@ -1,0 +1,88 @@
+name: D02 OS replay qualification
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Standard runner for original-fixture replay (one OS per run)
+        type: choice
+        required: true
+        options:
+          - windows-2025
+          - macos-15
+permissions:
+  contents: read
+jobs:
+  replay:
+    # A single job bounds the whole qualification run, including setup and uploads.
+    # This manual evidence run is separate from PR CI and never uses a private ROM.
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Keep the original deadline
+        run: test "$GITHUB_RUN_ATTEMPT" = 1
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Prepare the pinned core and original fixture
+        run: |
+          rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+          cd spikes/d02
+          cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown
+          python original_fixture.py fixture.local.nes
+          python -m pip install playwright==1.58.0
+          python -m playwright install chrome firefox
+      - name: Replay and verify both browsers
+        working-directory: spikes/d02
+        run: |
+          python - <<'PY'
+          import functools
+          import http.server
+          import json
+          import os
+          import platform
+          import subprocess
+          import sys
+          import threading
+          from pathlib import Path
+
+          # Binding before launching the probe establishes readiness; no sleep or
+          # OS-specific process command is required. Bind only to runner loopback.
+          handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(Path.cwd()))
+          with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
+              threading.Thread(target=server.serve_forever, daemon=True).start()
+              try:
+                  subprocess.run([
+                      sys.executable, 'browser_probe.py', 'fixture.local.nes',
+                      '--url', f'http://127.0.0.1:{server.server_port}/',
+                      '--output', 'browser-os.local.json',
+                  ], check=True, timeout=1200)
+                  subprocess.run([sys.executable, 'verify_results.py', 'browser-os.local.json'], check=True, timeout=30)
+              finally:
+                  server.shutdown()
+                  Path('qualification-build.local.json').write_text(json.dumps({
+                      'source_commit': os.environ['GITHUB_SHA'],
+                      'run_id': os.environ['GITHUB_RUN_ID'],
+                      'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                      'platform': platform.platform(),
+                      'machine': platform.machine(),
+                      'cpu_count': os.cpu_count(),
+                      'python_version': platform.python_version(),
+                      'scope': 'Original-fixture replay/restore/rewind only; no featured-game, network, or audible voice qualification',
+                  }, indent=2) + '\n')
+          PY
+      - name: Preserve qualification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: d02-os-${{ inputs.runner }}
+          retention-days: 7
+          path: |
+            spikes/d02/browser-os.local.json
+            spikes/d02/qualification-build.local.json
+          if-no-files-found: warn

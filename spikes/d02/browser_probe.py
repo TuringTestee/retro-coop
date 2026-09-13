@@ -16,18 +16,19 @@ async def main():
     parser.add_argument("--output", type=Path, default=Path("results.local.json"))
     parser.add_argument("--bundled-chromium", action="store_true")
     parser.add_argument("--browser", choices=["all","Chrome","Firefox"], default="all")
+    parser.add_argument("--url", default="http://127.0.0.1:8765/")
     args = parser.parse_args()
     rom, wasm = args.rom.read_bytes(), args.wasm.read_bytes()
     results = {"platform": platform.platform(), "rom_sha256": hashlib.sha256(rom).hexdigest(),
                "wasm_sha256": hashlib.sha256(wasm).hexdigest(), "runs": []}
     async with async_playwright() as p:
         for name, browser_type, options in [
-            ("Chrome", p.chromium, {} if args.bundled_chromium else {"executable_path": "/usr/bin/google-chrome"}),
+            ("Chrome", p.chromium, {} if args.bundled_chromium else {"channel": "chrome"}),
             ("Firefox", p.firefox, {})]:
             if args.browser not in ("all",name): continue
             browser = await browser_type.launch(headless=True, **options)
             page = await browser.new_page()
-            await page.goto("http://127.0.0.1:8765/")
+            await page.goto(args.url)
             started = time.monotonic()
             result = await page.evaluate("""args => new Promise(resolve => {
                 const worker = new Worker('/probe-worker.js');
