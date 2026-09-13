@@ -16,7 +16,7 @@ The source checker intentionally fails if a pin, inspected source hash, mapper r
 Expected output at the D01 candidate:
 
 ```text
-PASS: 4 exact source pins; 23 file hashes; 24 dispatch rows; 42/21/49 candidate mapper IDs; 40976-byte fixture header/hash; all qualification statuses untested.
+PASS: 4 exact source pins; 23 file hashes; 24 dispatch rows; 41/21/49 candidate mapper IDs; 40976-byte fixture header/hash; all qualification statuses untested.
 Pre-flight passed (repository hygiene; no product tests yet).
 ```
 

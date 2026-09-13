@@ -174,8 +174,7 @@
         159,
         176,
         206,
-        210,
-        4000
+        210
       ]
     },
     {
@@ -608,7 +607,7 @@
     {
       "family": "Nina001",
       "mapper_ids": [
-        4000
+        34
       ],
       "source_path": "tetanes-core/src/mapper/m034_nina001.rs",
       "source_status": "dispatch-implemented",
@@ -787,8 +786,7 @@
       159,
       176,
       206,
-      210,
-      4000
+      210
     ],
     "all_other_ids": "unsupported in selected source dispatch; includes unassigned IDs, not a claim that every missing ID names hardware"
   },

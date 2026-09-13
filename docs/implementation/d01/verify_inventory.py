@@ -23,17 +23,29 @@ for source in inventory['sources']:
 
 mapper_source = (checkouts['tetanes'] / 'tetanes-core/src/mapper.rs').read_text()
 registration = mapper_source.split('    cart:\n', 1)[1].split('\nimpl Default for Mapper', 1)[0]
+def mapper_ids_from_arms(body):
+    # Anchor to the arm's pattern. Guards may contain >=, == or hex constants.
+    return [int(number)
+            for arm in re.findall(r'^\s*(\d+(?: \| \d+)*)(?: if [^\n]*?)? =>', body, re.M)
+            for number in arm.split(' | ')]
+
+
+# Regression: both mapper-34 board guards must keep the pattern, not 0x4000.
+assert mapper_ids_from_arms('34 if cart.chr_rom_size >= 0x4000 => Nina001::load(cart),') == [34]
+assert mapper_ids_from_arms('34 if cart.chr_rom_size < 0x4000 => Bnrom::load(cart),') == [34]
+assert mapper_ids_from_arms('4 | 76 | 88 => Txrom::load(cart),') == [4, 76, 88]
+
 actual_rows = []
 for match in re.finditer(r'\b(\w+)\([^\n]+?\) = \d+ in (\w+) \{([^}]+)\}', registration):
     family, module, body = match.groups()
-    ids = []
-    for arm in re.finditer(r'(\d+(?: \| \d+)*)(?: if [^=]+)? =>', body):
-        ids.extend(map(int, arm[1].split(' | ')))
+    ids = mapper_ids_from_arms(body)
     actual_rows.append((family, ids, f'tetanes-core/src/mapper/{module}.rs'))
 rows = inventory['selected_hardware']
 assert actual_rows == [(r['family'], r['mapper_ids'], r['source_path']) for r in rows]
 assert all((checkouts['tetanes'] / r['source_path']).is_file() for r in rows)
 selected = sorted({n for r in rows for n in r['mapper_ids']})
+assert next(r for r in rows if r['family'] == 'Nina001')['mapper_ids'] == [34]
+assert 4000 not in selected
 assert selected == inventory['unknown_mapper_policy']['implemented_ids']
 assert all(r['regions'] == ['NTSC', 'PAL', 'Dendy'] for r in rows)
 assert all(r['local_play'] == r['netplay'] == 'untested' for r in rows)
