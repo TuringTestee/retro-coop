@@ -1,0 +1,14 @@
+{
+  "summary": "All three measured 600-second pairs pass corrected direct-ICE verification; original runner rejection is preserved.",
+  "adapter_sha256": "c63f5ab20fa9fe64e9523c325d78259b7f5ce3956f9e1da609af5ce5148d2bcb",
+  "wasm_sha256": "d4ae03cd634d78fa9bc0205431cac4ebb954bfa2b9de201bd17e6e56c2c45bb5",
+  "original_command_status": "failed: host-only candidate classifier rejected legitimate peer-reflexive ICE",
+  "original_wall_seconds": 630.022568872002,
+  "verifier_sha256": "c18745eea4d08ce2db38d3d63e123e2dd4b7a42955afb7d2235c07f6b38b2b8c",
+  "pairs_verified": [
+    "Chrome-Chrome",
+    "Firefox-Firefox",
+    "Chrome-Firefox"
+  ],
+  "runtime_measurements_modified": false
+}

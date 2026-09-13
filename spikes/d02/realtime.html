@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8" /><title>
+  D02 realtime integration probe
+</title>
+<p>
+  Local developer probe for input transport, audio queues and startup
+  measurements.
+</p>
+<button id="enable">Start audio checks</button>
+<label><input id="sound" type="checkbox" /> Play sound</label>
+<p>Sound is off by default. Audio checks continue while muted.</p>
+<pre id="status">Waiting for the local test driver.</pre>
+<canvas width="256" height="240"></canvas>
+<link rel="icon" href="data:," />
+<script src="realtime.js"></script>

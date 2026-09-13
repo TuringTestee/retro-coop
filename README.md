@@ -28,7 +28,7 @@ To update deliberately, fetch Vaseline, check out a reviewed commit inside `tool
 
 ## Verification
 
-The research probe needs Git, a POSIX shell, `timeout`, Python 3 and Rust 1.95.0. Prepare the pinned tools and compile once before the fast gate:
+The research probe needs Git, a POSIX shell, `timeout`, Python 3, Node.js (tested with 24.13.1), and Rust 1.95.0. Prepare the pinned tools and compile once before the fast gate:
 
 ```sh
 rustup toolchain install 1.95.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown

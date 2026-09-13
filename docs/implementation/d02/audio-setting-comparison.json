@@ -1,0 +1,23 @@
+{
+  "scope": "Matched uninitialized developer-probe UI; no ROM, emulation or audio playback",
+  "before_head": "a7107439d2c85f9de17ede2284d87b4eb288c37f",
+  "browser": "145.0.7632.75",
+  "viewport": {
+    "width": 1000,
+    "height": 600
+  },
+  "audio_initialized": false,
+  "page_errors": [],
+  "captures": [
+    {
+      "mode": "before",
+      "html_sha256": "37ca24402d7ad26adee808b562bb0dd8e527f906cb478b6897392318e38396fa",
+      "image_sha256": "02b2633305fb0cd615ebacc588c62f858b91f0391d50f7fcf285a877a23bcb0a"
+    },
+    {
+      "mode": "after",
+      "html_sha256": "aeedd5552928fd9473ab4367ce7d3f7e2b240703b396054c851cfd77065c462b",
+      "image_sha256": "f1425708c7912a983da94c3b678f3663aeaf98402427f1e3fe4b38287a70a053"
+    }
+  ]
+}

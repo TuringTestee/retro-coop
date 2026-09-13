@@ -1,0 +1,10 @@
+{
+  "source_commit": "41afcde5f1318208d298f69d7d2b655e0c1baeb3",
+  "run_id": "34782405793",
+  "run_attempt": "1",
+  "platform": "Windows-2025Server-10.0.26100-SP0",
+  "machine": "AMD64",
+  "cpu_count": 2,
+  "python_version": "3.12.10",
+  "scope": "Original-fixture replay/restore/rewind only; no featured-game, network, or audible voice qualification"
+}
