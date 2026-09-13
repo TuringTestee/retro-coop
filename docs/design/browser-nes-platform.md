@@ -6,6 +6,8 @@ Retro Coop lets visitors browse live game sessions, drop a legally supplied NES 
 
 This is the first planning candidate, not an approved implementation specification. The user requested a homepage showing all hosted sessions, drag-and-drop hosting, and an always-available special Tetris variant. They accepted delegated choices for staffing, budget, technology, and a first release with two-player deterministic delayed-input netplay. Final approval applies to the reviewed document revision, not earlier conversational assent.
 
+The [UI design](browser-nes-ui.md) supplies text wireframes, the critique/revision record, and stories S01–S32 mapped to this document's acceptance criteria. It describes the visible states for both players, including failure and recovery; it does not replace the engineering or content gates below.
+
 The variant's rules, source/ROM, name, rights, and two-controller behavior were not supplied in this conversation. No particular game or licence is assumed. This is a launch-blocking content decision: resolve it in a reviewed design amendment before content-dependent issue breakdown. Do not substitute another game or implement guessed rules. If it needs to be built, estimate that work separately and realign the schedule.
 
 ## Users, outcome, and boundaries
