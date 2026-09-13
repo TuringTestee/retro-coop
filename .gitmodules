@@ -1,0 +1,3 @@
+[submodule "tooling/vaseline"]
+	path = tooling/vaseline
+	url = git@github.com:TuringTestee/vaseline.git
