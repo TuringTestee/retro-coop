@@ -1,0 +1,9 @@
+/target/
+/state-audit.local.json
+/results.local.json
+/*.wasm
+
+/*.local.json
+/__pycache__/
+
+/*.local.nes

@@ -1,6 +1,6 @@
 # Retro Coop
 
-A new project. Product scope and technology choices are pending.
+Retro Coop is an approved browser-local NES multiplayer project in feasibility testing. The D02 probe measures deterministic replay and bounded checkpoints; it is not a playable release.
 
 ## Start working
 
@@ -24,12 +24,23 @@ To update deliberately, fetch Vaseline, check out a reviewed commit inside `tool
 
 ## Verification
 
-Run from the repository root on a system with Git, a POSIX shell, and `timeout`:
+The research probe needs Git, a POSIX shell, `timeout`, Python 3 and Rust 1.95.0. Prepare the pinned tools and compile once before the fast gate:
+
+```sh
+rustup toolchain install 1.95.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown
+cd spikes/d02
+cargo +1.95.0 fetch --locked
+python3 original_fixture.py fixture.local.nes
+cargo +1.95.0 test --locked --release --lib --no-run
+cd ../..
+```
+
+Then run from the repository root:
 
 ```sh
 timeout 60s sh scripts/preflight.sh
 ```
 
-This initial pre-flight checks whitespace and shell syntax only; there is no application or product test suite yet. CI also checks submitted whitespace against the base revision. Add focused tests and useful fast checks as features arrive. Pre-flight must finish in under one minute; presubmit CI has a 30-minute hard limit. Separate post-submit tests may run for hours.
+Pre-flight checks whitespace, shell/Python/Rust syntax and the focused codec tests using an original generated diagnostic. CI also builds the pinned WASM artifact and runs the browser probe on that original fixture. The featured ROM is never committed or fetched by CI. See [D02 reproduction and remaining gates](docs/implementation/d02-feasibility.md). Pre-flight must finish in under one minute; presubmit CI has a 30-minute hard limit. Separate post-submit tests may run for hours.
 
 CI currently needs no submodule checkout. Future jobs that use shared skills must authenticate with read access to Vaseline and initialize the submodule; the default repository token does not grant cross-repository access.
