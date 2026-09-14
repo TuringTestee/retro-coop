@@ -99,6 +99,35 @@ with sync_playwright() as p:
     page.wait_for_function('loadDigests.length === 2')
     page.evaluate('loadDigests[1]')
     assert page.locator('#title').inner_text() == 'second'
+    # Exercise non-NROM cartridge admission, NES 2.0, and drop through the actual page.
+    # These original diagnostics exercise boot/input/save paths, not every banking feature.
+    cartridge_cases = []
+    for mapper in [1, 2, 3, 4, 7]:
+        fixture = bytearray(rom)
+        fixture[4] = 2
+        fixture[6] = mapper << 4
+        fixture[16+16384:16+16384] = rom[16:16+16384]
+        name = f'mapper-{mapper}.nes'
+        page.set_input_files('#file', {'name': name, 'mimeType': 'application/octet-stream', 'buffer': bytes(fixture)})
+        page.wait_for_function("name=>document.querySelector('#title').textContent===name", arg=name[:-4])
+        page.locator('#save').click()
+        page.wait_for_function("document.querySelector('#status').textContent.includes('Saved')")
+        page.locator('#restore').click()
+        page.wait_for_function("document.querySelector('#status').textContent.includes('restored')")
+        cartridge_cases.append(mapper)
+    fixture[7] = 8  # NES 2.0, mapper 7, same original diagnostic.
+    page.evaluate("""bytes=>{
+      const transfer=new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(bytes)],'nes2-drop.nes'));
+      document.querySelector('#screen').dispatchEvent(new DragEvent('drop',{dataTransfer:transfer,bubbles:true,cancelable:true}));
+    }""", list(fixture))
+    page.wait_for_function("document.querySelector('#title').textContent==='nes2-drop'")
+    # The former application size cutoff is gone: a valid core-readable cartridge
+    # with trailing bytes is passed to the core even above 8 MiB.
+    large = bytes(fixture) + bytes(8*1024*1024)
+    page.set_input_files('#file', {'name':'large.nes','mimeType':'application/octet-stream','buffer':large})
+    page.wait_for_function("document.querySelector('#title').textContent==='large'")
+    assert page.evaluate('audioProof.starts') == 0
     # Normal play starts audio after a user gesture, without an unmute click.
     page.goto(args.url)
     with page.expect_file_chooser() as chooser:
@@ -113,6 +142,7 @@ with sync_playwright() as p:
     assert all(method == "GET" and url.startswith(args.url.split('/demo/')[0]) for method, url in requests), requests
     result = {"browser_version": browser.version, "wall_seconds": time.monotonic()-started,
                       "rom_sha256": hashlib.sha256(Path(args.rom).read_bytes()).hexdigest(),
+                      "non_nrom_mappers_loaded_and_saved": cartridge_cases, "nes2_drop": True, "over_8_mib_admitted": True,
                       "test_starts_muted": True, "normal_start_unmuted": True, "mute_stops_scheduling": True,
                       "manual_input_changes_pixels": True, "pause_freezes_pixels": True,
                       "latest_file_selection_wins": True,
