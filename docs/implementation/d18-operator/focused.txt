@@ -1,0 +1,16 @@
+✔ operator listener requires private owned directory and has no public HTTP or WebSocket command (63.088652ms)
+✔ confirmed operator removal closes exact room and directory entry without disclosing private content (21.024116ms)
+✔ address block revokes old token, targets canonical proxy client, rejects fresh connections and expires (14.379779ms)
+✔ changed admission membership invalidates prepared block and malformed commands cannot mutate (12.727921ms)
+✔ confirmation expires, consumes failed targets, and bounds pending requests (1.435146ms)
+✔ a stale transport cannot revoke a session that moved to another connection (0.325461ms)
+✔ CLI presents exact action and cancellation leaves target connected (134.349993ms)
+✔ actual coordinator entry point enables only private operator socket and shuts it down (164.921921ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 593.59391
