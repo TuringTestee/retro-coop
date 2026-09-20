@@ -6,6 +6,7 @@ mod local_file;
 pub mod local_player;
 mod local_state;
 pub mod memory_tail;
+mod rewind;
 mod state_validation;
 #[cfg(test)]
 mod test_support;

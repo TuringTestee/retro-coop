@@ -1,0 +1,8 @@
+    Finished `release` profile [optimized] target(s) in 0.05s
+     Running unittests src/lib.rs (spikes/d02/target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 1 test
+rewind maximum-file capacity history=28214120 restore_peak=30557032 budget=33554432
+test rewind::tests::actual_capacity_at_the_shared_file_limit_leaves_room_for_restore_scratch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.01s
