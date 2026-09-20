@@ -1,0 +1,104 @@
+{
+  "head": "dab41c71ba3f45269ac4b978274088dd3cc6ae7a",
+  "qualification": "failed; these are bounded diagnostics only",
+  "rows": [
+    {
+      "evidence": "/tmp/d11-compiler-baseline.json",
+      "experiment": "compiler-baseline",
+      "mean": {
+        "emulateMs": 8.216666666666667,
+        "pixelsMs": 0.7016666666666667,
+        "audioMs": 0.006666666666666667,
+        "workerTotalMs": 9.078333333333333,
+        "previousPostMs": 0.025
+      },
+      "seconds": 6.47705863200099,
+      "wasm_bytes": 3144842,
+      "outputs_equal": true
+    },
+    {
+      "evidence": "/tmp/d11-compiler-thin-cgu1.json",
+      "experiment": "compiler-thin-cgu1",
+      "mean": {
+        "emulateMs": 8.571666666666667,
+        "pixelsMs": 0.71,
+        "audioMs": 0.008333333333333333,
+        "workerTotalMs": 9.446666666666667,
+        "previousPostMs": 0.01
+      },
+      "seconds": 6.7217132590012625,
+      "wasm_bytes": 2783509,
+      "outputs_equal": true
+    },
+    {
+      "evidence": "/tmp/d11-ppu-inline.json",
+      "experiment": "ppu-inline",
+      "mean": {
+        "emulateMs": 8.083333333333334,
+        "pixelsMs": 0.7116666666666667,
+        "audioMs": 0.006666666666666667,
+        "workerTotalMs": 8.95,
+        "previousPostMs": 0.018333333333333333
+      },
+      "seconds": 6.455573211998853,
+      "wasm_bytes": 3660299,
+      "outputs_equal": true
+    },
+    {
+      "evidence": "/tmp/d11-output-reuse.json",
+      "experiment": "output-reuse",
+      "mean": {
+        "emulateMs": 10.24,
+        "pixelsMs": 0.7066666666666667,
+        "audioMs": 0.006666666666666667,
+        "workerTotalMs": 11.098333333333333,
+        "previousPostMs": 0.028333333333333332
+      },
+      "seconds": 7.706872593000298,
+      "wasm_bytes": 3146046,
+      "outputs_equal": true
+    },
+    {
+      "evidence": "/tmp/d11-output-restored-baseline.json",
+      "experiment": "output-restored-baseline",
+      "mean": {
+        "emulateMs": 8.225,
+        "pixelsMs": 0.6866666666666666,
+        "audioMs": 0.013333333333333334,
+        "workerTotalMs": 9.075,
+        "previousPostMs": 0.015
+      },
+      "seconds": 6.493292746003135,
+      "wasm_bytes": 3144842,
+      "outputs_equal": true
+    },
+    {
+      "evidence": "/tmp/d11-standalone-baseline.json",
+      "experiment": "standalone-baseline",
+      "mean": {
+        "emulateMs": 8.116666666666667,
+        "pixelsMs": 0.7233333333333334,
+        "audioMs": 0.015,
+        "workerTotalMs": 8.988333333333333,
+        "previousPostMs": 0.01
+      },
+      "seconds": 6.467,
+      "wasm_bytes": 3144842,
+      "outputs_equal": true
+    },
+    {
+      "evidence": "/tmp/d11-stock-standalone-baseline.json",
+      "experiment": "stock-standalone-baseline",
+      "mean": {
+        "emulateMs": 1.6783333333333332,
+        "pixelsMs": 0.095,
+        "audioMs": 0,
+        "workerTotalMs": 1.91,
+        "previousPostMs": 0.01
+      },
+      "seconds": 2.154,
+      "wasm_bytes": 3144842,
+      "outputs_equal": true
+    }
+  ]
+}

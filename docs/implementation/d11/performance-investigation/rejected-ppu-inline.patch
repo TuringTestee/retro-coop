@@ -1,0 +1,10 @@
+--- a/vendor/tetanes-core/src/ppu.rs
++++ b/vendor/tetanes-core/src/ppu.rs
+@@ -1764,6 +1764,7 @@
+     }
+
+     /// Clocks the PPU a single dot.
++    #[inline(always)]
+     pub fn ppu_clock(&mut self) {
+         // === SCANLINE TRANSITION (cycle 340) ===
+         if self.ppu.cycle >= cycle::END {

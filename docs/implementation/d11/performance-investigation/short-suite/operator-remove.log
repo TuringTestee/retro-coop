@@ -1,0 +1,1 @@
+{"result": "pass", "source": {"commit": "350f9a960901bd49a8f8183d78a9431970e0755c", "tree": "8bd27004babd882bea141cbe7a663a195b121b8e"}, "scenario": "operator remove during shared play", "stopped_shared_frames": [263, 263], "preserved_local_frames": [263, 263], "explicit_host_resume": true, "both_peers_closed": true, "page_errors": [], "seconds": 6.05}

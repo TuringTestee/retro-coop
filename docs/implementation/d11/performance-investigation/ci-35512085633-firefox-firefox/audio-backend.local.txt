@@ -1,0 +1,2 @@
+pulseaudio 16.1
+1	d02	module-null-sink.c	s16le 2ch 48000Hz	IDLE

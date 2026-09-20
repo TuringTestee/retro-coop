@@ -1,6 +1,6 @@
 Audience: Agent
 
-Shared play now preserves elapsed frame debt during packet waits and negotiates six frames of input delay. A 30-second production probe completed in 29.74 active seconds with identical checkpoints and final state; this is short qualification evidence, not the required ten-minute browser matrix.
+This historical pacing experiment established absolute frame-debt accounting with a six-frame proposal. Current shared play uses a bounded round-trip-based proposal fixed at each acknowledged epoch; see [current qualification and the subsequent browser-build investigation](../d11.md#current-performance-qualification). The 30-second result below is development evidence, not final delivery acceptance.
 
 The initial RAF scheduler moved its clock anchor before input admission and discarded elapsed debt. Under the existing D02 kernel profile (100 ms RTT, 20 ms jitter, 1% packet loss), [the observed run](raf-before.json) needed 40.34 active seconds for 1,800 frames, including approximately 10.4 seconds of input waits. Workers needed approximately 2.2 ms per frame, so native emulation cost did not explain the missing throughput.
 

@@ -1,0 +1,23 @@
+--- a/spikes/d02/src/local_player.rs
++++ b/spikes/d02/src/local_player.rs
+@@ -381,14 +381,13 @@
+         PLAYER.with_borrow_mut(|slot| {
+             if let Some(player) = slot {
+                 match kind {
+-                    5 => *output = player.deck.frame_buffer().to_vec(),
++                    5 => {
++                        output.clear();
++                        output.extend_from_slice(player.deck.frame_buffer());
++                    }
+                     2 => {
+-                        *output = player
+-                            .deck
+-                            .audio_samples()
+-                            .iter()
+-                            .flat_map(|sample| sample.to_le_bytes())
+-                            .collect()
++                        output.clear();
++                        output.extend(player.deck.audio_samples().iter().flat_map(|sample| sample.to_le_bytes()));
+                     }
+                     _ => {}
+                 }

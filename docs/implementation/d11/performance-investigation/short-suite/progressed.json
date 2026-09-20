@@ -1,0 +1,13 @@
+{
+  "result": "pass",
+  "scenario": "progressed host pauses without reset",
+  "host_state": {
+    "hash": "042d519038e13847f7f3ba7045813b9d5c765014967c16c3ad6287aaf5e2858e",
+    "frame": 50,
+    "fresh": false
+  },
+  "host_frames": "50 frames",
+  "lease_preserved": true,
+  "seconds": 2.09,
+  "page_errors": []
+}

@@ -1,0 +1,24 @@
+{
+  "captured_epoch_seconds": 1789909272.2805932,
+  "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "logical_cpu_count": 4,
+  "affinity": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "cpu_models": [
+    "AMD EPYC 9V74 80-Core Processor"
+  ],
+  "memory": {
+    "MemTotal": "16373452 kB",
+    "MemAvailable": "15301736 kB"
+  },
+  "cgroup_cpu_max": null,
+  "cgroup_cpu_stat": "usage_usec 230309000\nuser_usec 192006000\nsystem_usec 38303000\nnice_usec 3226000\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0",
+  "proc_cpu_stat": [
+    "cpu  18878 322 3730 32456 1566 0 99 0 0 0"
+  ],
+  "load_average": "3.22 1.08 0.39 1/281 2343"
+}
