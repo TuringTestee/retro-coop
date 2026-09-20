@@ -1,4 +1,4 @@
-    Finished `release` profile [optimized] target(s) in 0.23s
+    Finished `release` profile [optimized] target(s) in 0.07s
      Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
 
 running 9 tests
@@ -12,14 +12,14 @@ test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch
 test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
 test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.24s
 
 PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
 PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
 PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
 .......
 ----------------------------------------------------------------------
-Ran 7 tests in 0.075s
+Ran 7 tests in 0.073s
 
 OK
 ..................
@@ -35,16 +35,16 @@ OK
 > test
 > node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts
 
-✔ admission is structural, accepts unknown mapper metadata and large valid files (1.153172ms)
-✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.456925ms)
-✔ neutral defaults depend only on random values, never cartridge data (0.732634ms)
-✔ all eight NES inputs and reserved talk binding share conflict detection (1.360513ms)
-✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.484012ms)
-✔ default restoration returns independent mapping arrays (0.838055ms)
-✔ health is content-free, other routes reject, shutdown closes listener (30.495817ms)
-✔ configuration is explicit and rejects bad ports/stages (0.392304ms)
-✔ SIGTERM exits a running coordinator cleanly (94.474083ms)
-✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (0.855529ms)
+✔ admission is structural, accepts unknown mapper metadata and large valid files (0.830746ms)
+✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.41017ms)
+✔ neutral defaults depend only on random values, never cartridge data (0.653571ms)
+✔ all eight NES inputs and reserved talk binding share conflict detection (0.974275ms)
+✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.409706ms)
+✔ default restoration returns independent mapping arrays (0.703292ms)
+✔ health is content-free, other routes reject, shutdown closes listener (32.625447ms)
+✔ configuration is explicit and rejects bad ports/stages (0.559784ms)
+✔ SIGTERM exits a running coordinator cleanly (93.225586ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (0.760543ms)
 ℹ tests 10
 ℹ suites 0
 ℹ pass 10
@@ -52,6 +52,6 @@ OK
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 245.421832
+ℹ duration_ms 251.535819
 Pre-flight passed (repository hygiene and D02 codec regression tests).
-elapsed=6.28
+elapsed=6.39
