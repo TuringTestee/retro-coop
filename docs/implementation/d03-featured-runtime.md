@@ -1,3 +1,5 @@
+Audience: Agent
+
 # From Below: selected-game runtime evidence
 
 The exact selected From Below release starts in all three modes in the current local worker. These short checks support its single-player presentation: P1 moves the piece, while the tested P2 inputs leave the video unchanged. They complement the earlier browser and network experiments; they do not complete release qualification.
