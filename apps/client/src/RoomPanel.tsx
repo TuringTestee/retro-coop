@@ -36,7 +36,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  },[fingerprint,state.room?.id,state.room?.role]);
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
- return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2><p>The included game is being prepared. You can play your own local NES game below.</p><button disabled>Included game unavailable</button></section><DirectoryPanel state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
+ return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2><p>Featured game not configured. You can play your own local NES game below.</p><button disabled>Included game unavailable</button></section><DirectoryPanel state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
   {!room && !invite && <button onClick={onHost}>Host a game</button>}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
