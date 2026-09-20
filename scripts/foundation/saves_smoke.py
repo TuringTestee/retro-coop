@@ -106,6 +106,14 @@ def verify_saves(browser,url,rom,output):
     assert page.evaluate("fileCalls.filter(x=>x==='state-validate').length")==validations
     assert rows()==preserved
     dialog.get_by_role('button',name='Delete Slot 2',exact=True).click();dialog.get_by_role('button',name='Cancel',exact=True).click();assert rows()==preserved
+    dialog.get_by_role('button',name='Delete Slot 2',exact=True).click()
+    page.evaluate("()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result.find(row=>row.slot===2);row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})")
+    replaced=rows()
+    dialog.get_by_role('button',name='Confirm',exact=True).click()
+    page.wait_for_function("/changed in another tab|Deleted Slot 2/.test(document.querySelector('[data-testid=save-status]')?.textContent)")
+    assert 'changed in another tab' in page.locator('[data-testid=save-status]').inner_text(), 'stale delete reported success'
+    assert rows()==replaced, 'stale delete removed the newer record'
+    dialog.get_by_role('button',name='Close saves',exact=True).click();open_saves()
     dialog.get_by_role('button',name='Delete Slot 2',exact=True).click();dialog.get_by_role('button',name='Confirm',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Deleted Slot 2')")
     assert len(rows())==1
@@ -141,5 +149,5 @@ def verify_saves(browser,url,rom,output):
     assert len(rows())==1
     assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result={'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'reload_requires_rom_and_retains_save':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'no_rom_record_or_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
+    result={'stale_delete_preserves_new_record_and_requires_fresh_confirmation':True,'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'reload_requires_rom_and_retains_save':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'no_rom_record_or_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
     page.close();return result

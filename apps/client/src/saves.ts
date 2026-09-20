@@ -25,19 +25,20 @@ export async function listSaves(identity:string):Promise<SaveSlot[]> {
  const rows=await transaction('readonly',store=>store.index('identity').getAll(identity));
  return rows.filter((row):row is SaveSlot=>row.identity===identity && Number.isSafeInteger(row.slot) && row.slot>0 && Number.isFinite(row.savedAt) && Math.abs(row.savedAt)<=8640000000000000 && row.bytes instanceof ArrayBuffer).sort((a,b)=>a.slot-b.slot);
 }
-export async function putSave(save:SaveSlot,expected?:SaveSlot) {
+async function changeSlot(identity:string,slot:number,expected:SaveSlot|undefined,change:(store:IDBObjectStore)=>void) {
  let failure:unknown;
  try {await transaction('readwrite',store=>{
-  const request=store.get([save.identity,save.slot]);
+  const request=store.get([identity,slot]);
   request.addEventListener('success',()=>{
    const current=request.result as SaveSlot|undefined;
    const same=!current && !expected || current && expected && current.savedAt===expected.savedAt && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);
-   if(!same){failure=Error('This slot changed in another tab. Close and reopen Saves before replacing it.');store.transaction.abort();return;}
-   try{store.put(save);}catch(error){failure=error;store.transaction.abort();}
+   if(!same){failure=Error('This slot changed in another tab. Close and reopen Saves before changing it.');store.transaction.abort();return;}
+   try{change(store);}catch(error){failure=error;store.transaction.abort();}
   });return request;
  });}catch(error){throw failure ?? error;}
 }
-export async function deleteSave(identity:string,slot:number) {await transaction('readwrite',store=>store.delete([identity,slot]));}
+export async function putSave(save:SaveSlot,expected?:SaveSlot) {await changeSlot(save.identity,save.slot,expected,store=>{store.put(save);});}
+export async function deleteSave(expected:SaveSlot) {await changeSlot(expected.identity,expected.slot,expected,store=>{store.delete([expected.identity,expected.slot]);});}
 export function downloadSave(bytes:ArrayBuffer,slot?:number) {
  const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
  try {const link=document.createElement('a');link.href=url;link.download=`retro-coop${slot ? '-slot-'+slot : '-backup'}.rcstate`;link.click();}

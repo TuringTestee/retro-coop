@@ -65,7 +65,7 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
    <ul>{rows.map(row=><li key={row.slot}>Slot {row.slot} · <time dateTime={new Date(row.savedAt).toISOString()}>{new Date(row.savedAt).toLocaleString()}</time>
     <button disabled={busy} onClick={()=>setConfirmation({label:`Load Slot ${row.slot}? Current unsaved progress will be replaced.`,action:()=>run(async current=>{if(!current())return;await player!.loadSave(row.bytes);if(current())setMessage('Save loaded. Close this panel and Resume whenever you’re ready.');})})}>Load Slot {row.slot}</button>
     <button disabled={busy} onClick={()=>exportBytes(row.bytes,row.slot)}>Export Slot {row.slot}</button>
-    <button disabled={busy} onClick={()=>setConfirmation({label:`Delete Slot ${row.slot}? This cannot be undone. Export a backup first if you need it.`,action:()=>run(async current=>{await deleteSave(info!.identity,row.slot);if(current()){await refresh(current);setMessage(`Deleted Slot ${row.slot}.`);}})})}>Delete Slot {row.slot}</button>
+    <button disabled={busy} onClick={()=>setConfirmation({label:`Delete Slot ${row.slot}? This cannot be undone. Export a backup first if you need it.`,action:()=>run(async current=>{await deleteSave(row);if(current()){await refresh(current);setMessage(`Deleted Slot ${row.slot}.`);}})})}>Delete Slot {row.slot}</button>
    </li>)}</ul>
   </div>
   <button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
