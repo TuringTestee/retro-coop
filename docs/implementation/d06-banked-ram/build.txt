@@ -1,0 +1,26 @@
+    Finished `release` profile [optimized] target(s) in 0.09s
+
+> build
+> npm run typecheck && npm run build -w @retro-coop/client
+
+
+> typecheck
+> tsc --noEmit
+
+
+> build
+> vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 44 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               0.39 kB │ gzip:   0.27 kB
+dist/client-licenses.txt                      3.42 kB │ gzip:   0.77 kB
+dist/assets/worker-DICpqP-T.js                4.28 kB
+dist/assets/retro_coop_d02-TUAcRFmO.wasm  3,146.60 kB │ gzip: 846.42 kB
+dist/assets/index-J9HoPDeR.css                6.40 kB │ gzip:   2.09 kB
+dist/assets/index-CVt8nmBe.js               314.17 kB │ gzip:  95.80 kB
+
+✓ built in 390ms

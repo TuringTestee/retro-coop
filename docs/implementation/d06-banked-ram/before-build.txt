@@ -1,0 +1,16 @@
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-banked-ram/spikes/d02)
+warning: unused `Clocked` that must be used
+  --> examples/mmc1_banked_probe.rs:16:9
+   |
+16 |         deck.clock_frame().unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_must_use)]` (part of `#[warn(unused)]`) on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+16 |         let _ = deck.clock_frame().unwrap();
+   |         +++++++
+
+warning: `retro-coop-d02` (example "mmc1_banked_probe") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 4.93s
+build wall seconds: 4.95

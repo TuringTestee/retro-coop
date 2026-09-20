@@ -1,0 +1,73 @@
+✖ trusted proxy preserves per-client admission rather than capping the entire deployment at twenty sockets (31.748803ms)
+✔ one trusted client still hits its address limit and direct clients cannot spoof forwarding identity (23.029143ms)
+✖ trusted path rejects absent, invalid and ambiguous identity instead of guessing a client (1.283748ms)
+✖ proxy trust must be explicit literal addresses, never arbitrary forwarded-header trust (0.500279ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 194.649536
+
+✖ failing tests:
+
+test at apps/coordinator/src/proxy.test.ts:17:1
+✖ trusted proxy preserves per-client admission rather than capping the entire deployment at twenty sockets (31.748803ms)
+  AssertionError [ERR_ASSERTION]: distinct client 21
+
+  403 !== 101
+
+      at file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:18:72
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async fixture (file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:15:7)
+      at async TestContext.<anonymous> (file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:18:2)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 101,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/coordinator/src/proxy.test.ts:24:1
+✖ trusted path rejects absent, invalid and ambiguous identity instead of guessing a client (1.283748ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  101 !== 403
+
+      at file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:26:110
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async fixture (file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:15:7)
+      at async TestContext.<anonymous> (file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:25:2)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 101,
+    expected: 403,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/coordinator/src/proxy.test.ts:30:1
+✖ proxy trust must be explicit literal addresses, never arbitrary forwarded-header trust (0.500279ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///tmp/retro-d24-proxy/apps/coordinator/src/proxy.test.ts:31:102)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /proxy/i,
+    operator: 'throws',
+    diff: 'simple'
+  }

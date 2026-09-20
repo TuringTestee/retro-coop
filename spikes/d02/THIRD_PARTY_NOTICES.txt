@@ -117,6 +117,9 @@ syn 3.0.5 — MIT OR Apache-2.0
   LICENSE-APACHE: TEXT-025
   LICENSE-MIT: TEXT-003
 tetanes-core 0.17.0 — MIT OR Apache-2.0
+  Local versioned override of upstream release 94e3db3684ced606c6865c51a9a61b0e15bc08fe.
+  MMC1 cartridge RAM geometry and bank/address mapping corrections are recorded in
+  vendor/tetanes-core.patch and vendor/tetanes-core.provenance.json in this project.
   LICENSE-MIT: TEXT-040
 thiserror 2.0.20 — MIT OR Apache-2.0
   LICENSE-APACHE: TEXT-025

@@ -1,0 +1,315 @@
+127.0.0.1 - - [20/Sep/2026 06:45:12] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:12] "GET /assets/index-CVt8nmBe.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:12] "GET /assets/index-J9HoPDeR.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:12] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 06:45:12] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:41] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:42] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:46] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:46] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:46] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:46] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:49] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:49] "GET /assets/worker-DICpqP-T.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:49] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 06:45:49] "GET /assets/retro_coop_d02-TUAcRFmO.wasm HTTP/1.1" 200 -
+{
+  "mappings": [
+    {
+      "case": "banked-controls",
+      "observed": [
+        17,
+        34,
+        51,
+        68,
+        68,
+        68,
+        17
+      ],
+      "partialBits": 0
+    },
+    {
+      "case": "sorom",
+      "observed": [
+        17,
+        34
+      ],
+      "partialBits": 0
+    },
+    {
+      "case": "single-bank",
+      "observed": [
+        68,
+        68,
+        68,
+        68
+      ],
+      "partialBits": 0
+    },
+    {
+      "case": "large-chr",
+      "observed": [
+        68,
+        68,
+        68,
+        68
+      ],
+      "partialBits": 0
+    },
+    {
+      "case": "mmc1a",
+      "observed": [
+        17,
+        34,
+        51,
+        68
+      ],
+      "partialBits": 0
+    },
+    {
+      "case": "banked-partial",
+      "observed": [
+        17,
+        34,
+        51,
+        68
+      ],
+      "partialBits": 2
+    },
+    {
+      "case": "mirrored",
+      "observed": [
+        16
+      ],
+      "partialBits": 0
+    },
+    {
+      "case": "mirrored-control",
+      "observed": [
+        16
+      ],
+      "partialBits": 0
+    }
+  ],
+  "regional": [
+    {
+      "region": 0,
+      "target": 76,
+      "frames": 677,
+      "cycles": 20161510,
+      "clockRate": 1789772.625,
+      "actualSeconds": 10.00025296509382,
+      "history": {
+        "availableSeconds": 0.24959036346865568,
+        "budgetBytes": 33554432,
+        "checkpoints": 1,
+        "clockRate": 1789772.625,
+        "cycles": 2263331,
+        "frame": 76,
+        "inputs": 15,
+        "maxSeconds": 10,
+        "peakBytes": 4403944,
+        "retainedBytes": 457609,
+        "spanSeconds": 0.24959036346865568,
+        "issue": null
+      },
+      "canonicalReplay": true,
+      "pixels": true
+    },
+    {
+      "region": 1,
+      "target": 62,
+      "frames": 563,
+      "cycles": 18718345,
+      "clockRate": 1662607,
+      "actualSeconds": 10.018603313952125,
+      "history": {
+        "availableSeconds": 0.21996839902634838,
+        "budgetBytes": 33554432,
+        "checkpoints": 1,
+        "clockRate": 1662607,
+        "cycles": 2061345,
+        "frame": 62,
+        "inputs": 11,
+        "maxSeconds": 10,
+        "peakBytes": 4403859,
+        "retainedBytes": 457603,
+        "spanSeconds": 0.21996839902634838,
+        "issue": null
+      },
+      "canonicalReplay": true,
+      "pixels": true
+    },
+    {
+      "region": 3,
+      "target": 62,
+      "frames": 563,
+      "cycles": 19966231,
+      "clockRate": 1773447.5,
+      "actualSeconds": 10.018600494235098,
+      "history": {
+        "availableSeconds": 0.21996986096289853,
+        "budgetBytes": 33554432,
+        "checkpoints": 1,
+        "clockRate": 1773447.5,
+        "cycles": 2198769,
+        "frame": 62,
+        "inputs": 11,
+        "maxSeconds": 10,
+        "peakBytes": 4403938,
+        "retainedBytes": 457604,
+        "spanSeconds": 0.21996986096289853,
+        "issue": null
+      },
+      "canonicalReplay": true,
+      "pixels": true
+    }
+  ],
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:39965/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/index-CVt8nmBe.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/index-J9HoPDeR.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/worker-DICpqP-T.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39965/assets/retro_coop_d02-TUAcRFmO.wasm"
+    ]
+  ],
+  "browser": "145.0.7632.75",
+  "duration_seconds": 40.76,
+  "core_sha256": "5c8bdf0e527aab9e9f74c3163f2dc91cafde27f5ce0e9ec1791a48504f68e557"
+}

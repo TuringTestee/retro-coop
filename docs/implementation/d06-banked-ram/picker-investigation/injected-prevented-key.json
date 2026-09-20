@@ -1,0 +1,61 @@
+{
+  "browser": "145.0.7632.6",
+  "channel": "default-headless-shell",
+  "outcome": "Timeout 1000ms exceeded while waiting for event \"filechooser\"\n=========================== logs ===========================\nwaiting for event \"filechooser\"\n============================================================",
+  "pageErrors": [],
+  "events": {
+    "events": [
+      {
+        "type": "focusin",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 275.80000000074506
+      },
+      {
+        "type": "keydown",
+        "key": "Enter",
+        "prevented": true,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 280.80000000074506
+      },
+      {
+        "type": "keyup",
+        "key": "Enter",
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 281.69999999925494
+      }
+    ],
+    "active": {
+      "tag": "BUTTON",
+      "label": "Choose NES file"
+    },
+    "focused": true,
+    "activation": true
+  }
+}

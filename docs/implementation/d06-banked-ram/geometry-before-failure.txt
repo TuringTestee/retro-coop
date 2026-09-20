@@ -1,0 +1,34 @@
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-banked-ram/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 5.42s
+     Running unittests src/lib.rs (spikes/d02/target/release/deps/retro_coop_d02-2b5f06576a605556)
+
+running 3 tests
+CPU mapping banked: [17, 34, 51, 68]
+CPU mapping sorom: [17, 34]
+CPU mapping banked-controls: [17, 34, 51, 68, 68, 68, 17]
+CPU mapping banked-partial: [17, 34, 51, 68]
+CPU mapping mirrored: [16]
+CPU mapping mirrored-control: [16]
+test banked_ram::cpu_banks_mirrors_enable_and_serial_reset_follow_board_wiring ... ok
+
+thread 'banked_ram::banked_state_battery_partial_serial_and_invalid_imports_share_existing_owners' (566462) panicked at src/banked_ram.rs:50:13:
+assertion `left == right` failed
+  left: 0
+ right: 34
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test banked_ram::banked_state_battery_partial_serial_and_invalid_imports_share_existing_owners ... FAILED
+banked regional rewind Ntsc: target=76 cycles=20161510 info={"availableSeconds":0.24959036346865568,"budgetBytes":33554432,"checkpoints":1,"clockRate":1789772.625,"cycles":2263331,"frame":76,"inputs":15,"maxSeconds":10.0,"peakBytes":4404272,"retainedBytes":457937,"spanSeconds":0.24959036346865568}
+banked regional rewind Pal: target=62 cycles=18718345 info={"availableSeconds":0.21996839902634838,"budgetBytes":33554432,"checkpoints":1,"clockRate":1662607.0,"cycles":2061345,"frame":62,"inputs":11,"maxSeconds":10.0,"peakBytes":4404187,"retainedBytes":457931,"spanSeconds":0.21996839902634838}
+banked regional rewind Dendy: target=62 cycles=19966231 info={"availableSeconds":0.21996986096289853,"budgetBytes":33554432,"checkpoints":1,"clockRate":1773447.5,"cycles":2198769,"frame":62,"inputs":11,"maxSeconds":10.0,"peakBytes":4404266,"retainedBytes":457932,"spanSeconds":0.21996986096289853}
+test banked_ram::cpu_written_banked_progress_rewinds_ten_actual_regional_seconds ... ok
+
+failures:
+
+failures:
+    banked_ram::banked_state_battery_partial_serial_and_invalid_imports_share_existing_owners
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 25 filtered out; finished in 6.09s
+
+error: test failed, to rerun pass `--lib`
+Command exited with non-zero status 101
+focused wall seconds: 11.52
