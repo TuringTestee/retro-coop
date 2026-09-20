@@ -42,6 +42,10 @@ if [ "$D02_JOB" = core ]; then
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
   (cd ../.. && timeout --foreground 120s python3 scripts/peer/browser_smoke.py --output spikes/d02/peer.local.json)
+  for D17_PAIR in Chrome-Chrome Chrome-Firefox Firefox-Firefox; do
+    (cd ../.. && timeout --foreground 90s python3 scripts/voice/browser_smoke.py --pair "$D17_PAIR" --output "spikes/d02/voice-$D17_PAIR-direct.local.json")
+    (cd ../.. && timeout --foreground 90s python3 scripts/voice/browser_smoke.py --pair "$D17_PAIR" --relay --output "spikes/d02/voice-$D17_PAIR-relay.local.json")
+  done
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/directory_smoke.py --output spikes/d02/directory.local.json)
 elif [ "$D02_JOB" = network ]; then
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
