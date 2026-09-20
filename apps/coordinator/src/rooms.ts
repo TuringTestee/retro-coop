@@ -1,12 +1,14 @@
 import {RoomChat} from './chat.ts';
 import {CHAT_LIMITS} from '../../../packages/contracts/src/chat.ts';
+import {PeerBroker,PeerError,type RelayConfig} from './peer.ts';
+import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import {PUBLIC_CODE_ALPHABET,PUBLIC_CODE_LENGTH,publicCode} from '../../../packages/contracts/src/directory.ts';
 import { randomBytes, randomInt } from 'node:crypto';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, Visibility } from '../../../packages/contracts/src/rooms.ts';
 import { matchesFile } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
-type Session = { directory?:boolean; token:string; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
+type Session = { directory?:boolean; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
 type Room = { chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
 export type Sender = (event:RoomEvent)=>void;
 export class RoomError extends Error { code:string;retryAfterMs?:number;constructor(code:string,retryAfterMs?:number) { super(code);this.code = code;this.retryAfterMs = retryAfterMs; } }
@@ -22,8 +24,9 @@ export class Rooms {
  private invites = new Map<string,string>();
  private codes = new Map<string,string>();
  private now:()=>number;
+ private peers:PeerBroker;
  private codeCandidate:()=>string;
- constructor(now:()=>number = Date.now,codeCandidate:()=>string = ()=>Array.from({length:PUBLIC_CODE_LENGTH},()=>PUBLIC_CODE_ALPHABET[randomInt(PUBLIC_CODE_ALPHABET.length)]).join('')) {this.now = now;this.codeCandidate=codeCandidate;}
+ constructor(now:()=>number = Date.now,codeCandidate:()=>string = ()=>Array.from({length:PUBLIC_CODE_LENGTH},()=>PUBLIC_CODE_ALPHABET[randomInt(PUBLIC_CODE_ALPHABET.length)]).join(''),relay?:RelayConfig) {this.now = now;this.codeCandidate=codeCandidate;this.peers=new PeerBroker(now,relay);}
  private session(token:string) { const session = this.sessions.get(token); if(!session) throw new RoomError('session_expired'); return session; }
  private rate(session:Session,kind:string,count:number,windowMs:number) {
   const now = this.now(), times = (session.rates.get(kind) ?? []).filter(time => time > now-windowMs);
@@ -37,44 +40,54 @@ export class Rooms {
  private directory() {return [...this.rooms.values()].filter(room=>room.confirmed && room.visibility==='public').map(room=>this.preview(room));}
  private publishDirectory() {const rooms=this.directory();for(const session of this.sessions.values()) if(session.directory) session.send?.({type:'directory',rooms});}
  private publicRoom(code:string) {const id=this.codes.get(code),room=id && this.rooms.get(id);return room && room.confirmed && room.visibility==='public' ? room:undefined;}
- private reserve(session:Session,room:Room|undefined,intent:string):RoomData {
+ private reserve(session:Session,room:Room|undefined,intent:string,policy?:ConnectionPolicy):RoomData {
   this.rate(session,'join',5,60_000);
   if(!room || !room.confirmed || room.kicked.has(session.token)) throw new RoomError('room_unavailable');
   if(room.reconnectUntil) throw new RoomError('host_reconnecting');
   if(session.room) throw new RoomError('already_in_room');
   if(room.guest) throw new RoomError('place_taken');
-  room.guest=session;room.guestIntent=intent;room.reservationUntil=this.now()+limits.reservation;session.room=room.id;
+  session.policy=policy??session.policy;room.guest=session;room.guestIntent=intent;room.reservationUntil=this.now()+limits.reservation;session.room=room.id;
   this.publish(room);return {room:this.view(room,session)};
  }
  private preview(room:Room): RoomPreview { return {id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil ? 'reconnecting' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1}; }
- private view(room:Room,session:Session): RoomView { return {...this.preview(room),chatMembership:room.host===session ? room.intent:room.guestIntent!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
- private publish(room:Room) { for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)}); this.publishDirectory(); }
+ private view(room:Room,session:Session): RoomView { return {...this.preview(room),chatMembership:room.host===session ? room.intent:room.guestIntent!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,connectionPolicy:session.policy,peer:this.peers.view(room.id,session.policy),...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
+ private publish(room:Room,directory=true) {this.peers.sync(room.confirmed && room.guest && !room.reconnectUntil ? {id:room.id,host:room.host,guest:room.guest,reservation:room.guestIntent!}:undefined,room.id); for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)});if(directory) this.publishDirectory(); }
  private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.chat.leave(room.guestIntent!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
+  this.peers.clear(room.id);
   this.rooms.delete(room.id); this.invites.delete(room.invite); if(room.code) this.codes.delete(room.code);
   for(const session of [room.host,room.guest]) if(session) {session.room = undefined;session.send?.({type:'ended',reason});}
   this.publishDirectory();
  }
  private room(session:Session) { const room = session.room && this.rooms.get(session.room); if(!room) throw new RoomError('not_in_room'); return room; }
  private hosted(session:Session) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); return room; }
- attach(token:string|undefined,send:Sender,disconnect:()=>void): {token:string;data:RoomData} {
+ attach(token:string|undefined,send:Sender,disconnect:()=>void,policy?:ConnectionPolicy): {token:string;data:RoomData} {
   this.sweep();
   let session:Session;
   if(token) session = this.session(token);
   else {
    if(this.sessions.size >= limits.sessions) throw new RoomError('capacity');
-   const now = this.now(); session = {token:secret(),nickname:`Guest ${pick(colors)} ${randomInt(10000)}`,touched:now,heartbeat:now,cancelled:new Map(),rates:new Map()};
+   const now = this.now(); session = {token:secret(),policy:'standard',nickname:`Guest ${pick(colors)} ${randomInt(10000)}`,touched:now,heartbeat:now,cancelled:new Map(),rates:new Map()};
    this.sessions.set(session.token,session);
   }
+  if(policy) session.policy=policy;
   session.disconnect?.(); session.send = send; session.disconnect = disconnect; session.touched = session.heartbeat = this.now();
   let room = session.room && this.rooms.get(session.room);
   if(room && !room.confirmed) {this.close(room,'creation_cancelled');room = undefined;}
-  if(room && room.host === session) {room.reconnectUntil = undefined;this.publish(room);}
+  if(room) {if(room.host===session) room.reconnectUntil=undefined;this.publish(room);}
   return {token:session.token,data:{session:{token:session.token,nickname:session.nickname,expiresInMs:limits.sessionIdle},...(room ? {room:this.view(room,session)}:{})}};
  }
- detach(token:string,send:Sender) { const session = this.sessions.get(token); if(session?.send === send) {session.send = undefined;session.disconnect = undefined;} }
- handle(token:string,command:Exclude<RoomCommand,{type:'hello'}>): RoomData {
-  this.sweep(); const session = this.session(token); this.rate(session,'messages',60,10_000); session.touched = this.now();
+ detach(token:string,send:Sender) { const session = this.sessions.get(token); if(session?.send === send) {session.send = undefined;session.disconnect = undefined;const room=session.room && this.rooms.get(session.room);if(room) this.publish(room);} }
+ handle(token:string,command:Exclude<RoomCommand,{type:'hello'}>,sender?:Sender): RoomData {
+  this.sweep(); const session = this.session(token); if(sender && session.send!==sender) throw new RoomError('session_replaced');this.rate(session,'messages',60,10_000); session.touched = this.now();
+  if(command.type==='peerPolicy') {this.rate(session,'peerPolicy',10,60_000);session.policy=command.policy;const room=session.room && this.rooms.get(session.room);if(room) this.publish(room,false);return room?{room:this.view(room,session)}:{};}
+  if(command.type.startsWith('peer')) {
+   const room=this.room(session);
+   if(command.type==='peerRetry') this.rate(session,'peerRetry',5,60_000);
+   try {this.peers.handle(room.id,token,command as Exclude<import('../../../packages/contracts/src/peer.ts').PeerCommand,{type:'peerPolicy'}>);}catch(error) {if(error instanceof PeerError) throw new RoomError(error.message);throw error;}
+   if(command.type==='peerSignal') return {};
+   this.publish(room,false);return {room:this.view(room,session)};
+  }
   switch(command.type) {
    case 'chat': {
     const room=this.room(session),membership=room.host===session ? room.intent:room.guestIntent;
@@ -87,10 +100,10 @@ export class Rooms {
    case 'heartbeat': {session.heartbeat = this.now();const room = session.room && this.rooms.get(session.room);if(room && room.host === session && room.reconnectUntil) {room.reconnectUntil = undefined;this.publish(room);}return {};}
    case 'directory': {this.rate(session,'directory',20,60_000);session.directory=true;return {directory:this.directory()};}
    case 'lookupCode': {this.rate(session,'preview',20,60_000);const room=this.publicRoom(command.code);if(!room) throw new RoomError('room_unavailable');return {preview:this.preview(room)};}
-   case 'joinCode': return this.reserve(session,this.publicRoom(command.code),command.intent);
+   case 'joinCode': return this.reserve(session,this.publicRoom(command.code),command.intent,command.policy);
    case 'preview': { this.rate(session,'preview',20,60_000); const id = this.invites.get(command.invite), room = id && this.rooms.get(id); if(!room || !room.confirmed) throw new RoomError('room_unavailable'); return {preview:this.preview(room)}; }
    case 'create': {
-    this.rate(session,'create',5,60_000);
+    this.rate(session,'create',5,60_000);session.policy=command.policy??session.policy;
     if(session.cancelled.has(command.intent)) throw new RoomError('cancelled');
     if(session.room) {const room = this.room(session); if(room.host === session && room.intent === command.intent) return {room:this.view(room,session)}; throw new RoomError('already_in_room');}
     if(this.rooms.size >= limits.rooms) throw new RoomError('capacity');
@@ -107,7 +120,7 @@ export class Rooms {
     const room = session.room && this.rooms.get(session.room);
     if(room && room.host === session && room.intent === command.intent) this.close(room,'creation_cancelled'); return {};
    }
-   case 'join': {const id=this.invites.get(command.invite);return this.reserve(session,id ? this.rooms.get(id):undefined,command.intent);}
+   case 'join': {const id=this.invites.get(command.invite);return this.reserve(session,id ? this.rooms.get(id):undefined,command.intent,command.policy);}
    case 'leave': {
     // Cancellation belongs to one attempt, never whichever reservation this session has now.
     const room = session.room && this.rooms.get(session.room);
@@ -121,9 +134,10 @@ export class Rooms {
    case 'nickname': {session.nickname = command.nickname.trim();const room = session.room && this.rooms.get(session.room);if(room) this.publish(room);return {session:{token:session.token,nickname:session.nickname,expiresInMs:limits.sessionIdle}};}
    case 'file': { const room = this.room(session);if(room.host === session) throw new RoomError('close_before_changing_game');room.guestFile = command.fingerprint;this.publish(room);return {room:this.view(room,session)}; }
   }
+  return {};
  }
  sweep() {
-  const now = this.now();
+  const now = this.now();this.peers.sweep();
   for(const room of this.rooms.values()) {
    if(!room.confirmed && now-room.created >= 5000) {this.close(room,'creation_expired');continue;}
    for(const token of room.kicked) if(!this.sessions.has(token)) room.kicked.delete(token);

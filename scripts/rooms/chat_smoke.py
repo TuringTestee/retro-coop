@@ -16,7 +16,7 @@ try:
         errors=[]
         def page(address=url):
             page=browser.new_page(viewport={'width':1280,'height':1000});page.on('pageerror',lambda error:errors.append(str(error)))
-            page.add_init_script('''window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}};
+            page.add_init_script('''window.chatProof={errors:[],requests:{}};window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}};
 window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...rest){if(message.type==='frame')inputProof.push(message.p1);return post.call(this,message,...rest)};''')
             page.goto(address);return page
         host=page();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_test_id('room-view').wait_for()
@@ -49,7 +49,11 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         guest.get_by_role('button',name='Retry message',exact=True).wait_for();assert guest.get_by_role('button',name='Retry message',exact=True).is_disabled()
         guest.get_by_role('button',name='Reconnect rooms',exact=True).click();guest.wait_for_function("[...document.querySelectorAll('button')].some(button=>button.textContent==='Retry message' && !button.disabled)")
         assert host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).count()==0
-        guest.get_by_role('button',name='Retry message',exact=True).click();host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).wait_for()
+        guest.get_by_role('button',name='Retry message',exact=True).click()
+        try:host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).wait_for()
+        except Exception:
+            print(json.dumps({'failed':'reconnect delivery','hostErrors':host.evaluate('chatProof.errors'),'guestErrors':guest.evaluate('chatProof.errors'),'guestDeliveryStatus':guest.locator('.chat-panel [role=status]').all_text_contents()}),flush=True)
+            raise
         assert host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).count()==1
         guest.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).wait_for()
         guest.wait_for_function("document.querySelector('#chat-message').readOnly===false")
@@ -66,9 +70,15 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         guest.screenshot(path=str(output.with_suffix('.chat.png')),full_page=True)
         guest.set_viewport_size({'width':400,'height':900})
         assert guest.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        # Relay service is intentionally absent here; failed peer setup cannot disable text.
+        guest.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('relay')
+        guest.get_by_text('Relay service is unavailable.',exact=False).first.wait_for()
+        guest.get_by_label('Chat message',exact=True).fill('text survives peer denial')
+        guest.get_by_role('button',name='Send message',exact=True).click()
+        host.locator('.chat-panel li p').get_by_text('text survives peer denial',exact=True).wait_for()
         guest.get_by_role('button',name='Cancel join',exact=True).click();guest.locator('.chat-panel').wait_for(state='detached')
         guest.get_by_role('button',name='Retry join / Join',exact=True).click();guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
         assert not errors,errors
-        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
+        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_relay_denial_keeps_chat_usable':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()
 finally:service.terminate();service.wait(timeout=5)

@@ -1,3 +1,4 @@
+import {object,keys,integer} from './protocol-validation.ts';
 /** Exact browser-local cartridge identity shared by player and room compatibility. */
 export const LOCAL_SCHEMA = 1;
 export const LOCAL_SETTINGS = 'auto-region;zero-ram;48000hz;standard-p1-p2';
@@ -8,9 +9,6 @@ export type Fingerprint = {
  cartridge: Cartridge;
 };
 
-function object(value:unknown): value is Record<string,unknown> {return !!value && typeof value==='object' && !Array.isArray(value);}
-function keys(value:Record<string,unknown>,required:string[]) {return required.every(key=>Object.hasOwn(value,key)) && Object.keys(value).every(key=>required.includes(key));}
-const integer = (value:unknown,min:number,max:number) => typeof value === 'number' && Number.isSafeInteger(value) && value >= min && value <= max;
 export function validFingerprint(value:unknown): value is Fingerprint {
  if(!object(value) || !keys(value,['romSha256','coreSha256','localSchema','settings','cartridge'])) return false;
  const cart = value.cartridge;

@@ -1,0 +1,96 @@
+{
+  "result": "pass",
+  "browser": "145.0.7632.75",
+  "seconds": 9.07,
+  "direct": [
+    {
+      "local": "host",
+      "remote": "host",
+      "bytesSent": 1360,
+      "bytesReceived": 1371,
+      "policy": "all",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": false
+    },
+    {
+      "local": "host",
+      "remote": "host",
+      "bytesSent": 1371,
+      "bytesReceived": 1360,
+      "policy": "all",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": false
+    }
+  ],
+  "forced_turn": [
+    {
+      "local": "relay",
+      "remote": "relay",
+      "bytesSent": 1396,
+      "bytesReceived": 1335,
+      "policy": "relay",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": true
+    },
+    {
+      "local": "relay",
+      "remote": "relay",
+      "bytesSent": 1335,
+      "bytesReceived": 1396,
+      "policy": "relay",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": true
+    }
+  ],
+  "relay_reload_recovery": [
+    {
+      "local": "relay",
+      "remote": "relay",
+      "bytesSent": 1361,
+      "bytesReceived": 1335,
+      "policy": "relay",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": true
+    },
+    {
+      "local": "relay",
+      "remote": "relay",
+      "bytesSent": 1335,
+      "bytesReceived": 1361,
+      "policy": "relay",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": true
+    }
+  ],
+  "retry_after_capacity": [
+    {
+      "local": "relay",
+      "remote": "relay",
+      "bytesSent": 1378,
+      "bytesReceived": 1602,
+      "policy": "relay",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": true
+    },
+    {
+      "local": "relay",
+      "remote": "relay",
+      "bytesSent": 1602,
+      "bytesReceived": 1378,
+      "policy": "relay",
+      "gatherBeforeStart": false,
+      "relayCandidatesOnly": true
+    }
+  ],
+  "stricter_policy_before_gathering": true,
+  "relay_unavailable_no_fallback": true,
+  "capacity_denial_before_peer_creation": true,
+  "reservation_lease_unchanged": true,
+  "settings_same_policy": true,
+  "stay_preserves_room_and_lease": true,
+  "invite_discloses_source_before_any_peer": true,
+  "public_code_join_same_policy": true,
+  "client_rejects_policy_downgrade_before_peer_creation": true,
+  "scope": "Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.",
+  "page_errors": []
+}

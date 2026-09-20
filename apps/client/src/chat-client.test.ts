@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ChatClient,type ChatState} from './chat-client.ts';
 import type {RoomView,RoomData} from '../../../packages/contracts/src/rooms.ts';
-const room:RoomView={id:'room',chatMembership:'member',invite:'invite',role:'guest',slot:2,label:'Room',host:'Host',visibility:'public',status:'reserved',occupancy:2,fingerprint:{romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}}};
+const room:RoomView={id:'room',chatMembership:'member',connectionPolicy:'standard',peer:{policy:'standard',status:'waiting'},invite:'invite',role:'guest',slot:2,label:'Room',host:'Host',visibility:'public',status:'reserved',occupancy:2,fingerprint:{romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}}};
 test('explicit retry preserves message identity and draft, and membership changes reject late responses',async()=>{
  let state:ChatState={messages:[],draft:'',sending:false},calls=0;
  const sent:string[]=[];let resolve:((data:RoomData)=>void)|undefined;
