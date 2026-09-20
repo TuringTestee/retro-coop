@@ -55,3 +55,21 @@ test('hello applies stricter policy before recovering an existing room transport
  assert.equal(events.some(event=>event.type==='peerPrepare' && event.policy==='standard'),false);
  assert.throws(()=>t.act(host.token,{type:'peerAck',epoch:room.peer.epoch!}),/stale_peer/);
 });
+
+test('public-code admission captures the same strict policy before preparing peers',()=>{
+ const t=setup(),host=t.guest(),peer=t.guest(),intent=randomUUID();
+ const room=t.act(host.token,{type:'create',intent,visibility:'public',fingerprint}).room!;t.act(host.token,{type:'confirmCreate',intent});
+ const command={type:'joinCode',code:room.code!,intent:randomUUID(),policy:'relay'} as const;
+ assert.ok(parseRoomCommand({...command,requestId:randomUUID()}));
+ const joined=t.act(peer.token,command).room!;
+ assert.equal(joined.connectionPolicy,'relay');assert.equal(joined.peer.status,'relay_unavailable');
+ assert.equal(host.events.some(event=>event.type==='peerPrepare'),false);
+});
+
+test('either local policy change renews the epoch even when the other peer keeps relay required',()=>{
+ const t=setup(1),{host,peer}=t.pair('relay');
+ const both=t.act(peer.token,{type:'peerPolicy',policy:'relay'}).room!;
+ const relaxed=t.act(host.token,{type:'peerPolicy',policy:'standard'}).room!;
+ assert.equal(relaxed.peer.policy,'relay');assert.notEqual(relaxed.peer.epoch,both.peer.epoch);
+ assert.throws(()=>t.act(peer.token,{type:'peerAck',epoch:both.peer.epoch!}),/stale_peer/);
+});

@@ -22,7 +22,7 @@ export class PeerBroker {
  sync(pair:Pair|undefined,id:string) {
   if(!pair?.host.send || !pair.guest.send) {this.clear(id);return;}
   const policy=effectivePolicy(pair.host.policy,pair.guest.policy),old=this.rounds.get(id);
-  if(old && old.pair.reservation===pair.reservation && old.policy===policy && old.pair.host.send===pair.host.send && old.pair.guest.send===pair.guest.send) return;
+  if(old && old.pair.reservation===pair.reservation && old.policy===policy && old.pair.host.policy===pair.host.policy && old.pair.guest.policy===pair.guest.policy && old.pair.host.send===pair.host.send && old.pair.guest.send===pair.guest.send) return;
   this.clear(id,'Connection policy or membership changed.');
   const occupied=[...this.rounds.values()].filter(round=>round.relay).length;
   const relay=!!this.relay && occupied<this.relay.rooms;

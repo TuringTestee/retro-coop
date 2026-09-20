@@ -1,4 +1,4 @@
-import {peerLimits,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
+import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type ConnectionState={status:string;route?:'direct'|'relay';epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
@@ -10,7 +10,7 @@ export class PeerConnection {
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
  private serial=Promise.resolve();
- constructor(private send:(command:Command)=>Promise<unknown>,private update:(state:ConnectionState)=>void,private ready?:(channel:RTCDataChannel)=>void) {}
+ constructor(private send:(command:Command)=>Promise<unknown>,private update:(state:ConnectionState)=>void,private ready?:(channel:RTCDataChannel)=>void,private preference:()=>ConnectionPolicy=()=> 'standard') {}
  close(status='Peer connection closed. Your local game is preserved.') {clearTimeout(this.timer);this.epoch=undefined;this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
  private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
@@ -18,6 +18,7 @@ export class PeerConnection {
   if(event.type==='peerPrepare') {
    this.close('Preparing connection privacy…');this.epoch=event.epoch;this.role=event.role;
    try {
+    if(effectivePolicy(event.policy,this.preference())!==event.policy) throw Error('Privacy downgrade rejected');
     const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;
     const epoch=event.epoch;
     pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
@@ -47,13 +48,14 @@ export class PeerConnection {
  private wire(channel:RTCDataChannel,epoch:string) {
   if(this.channel || channel.label!=='retro-coop-control') {channel.close();this.fail(epoch);return;}
   this.channel=channel;
-  const nonce=crypto.randomUUID();let verified=false;
+  const nonce=crypto.randomUUID();let verified=false,replied=false,announced=false;
+  const complete=()=>{if(verified && replied && !announced) {announced=true;void this.connected(epoch,channel);}};
   channel.onopen=()=>{if(this.epoch===epoch) channel.send(JSON.stringify({type:'transportProbe',nonce}));};
   channel.onmessage=({data})=>{
    if(this.epoch!==epoch || typeof data!=='string' || data.length>256) {this.fail(epoch);return;}
    let message;try {message=JSON.parse(data);}catch {this.fail(epoch);return;}
-   if(message.type==='transportProbe' && typeof message.nonce==='string' && message.nonce.length===36) channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));
-   else if(message.type==='transportReply' && message.nonce===nonce && !verified) {verified=true;void this.connected(epoch,channel);}
+   if(message.type==='transportProbe' && !replied && typeof message.nonce==='string' && message.nonce.length===36) {replied=true;channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));complete();}
+   else if(message.type==='transportReply' && message.nonce===nonce && !verified) {verified=true;complete();}
    else this.fail(epoch);
   };
   channel.onclose=()=>{if(this.epoch===epoch) this.fail(epoch);};channel.onerror=()=>this.fail(epoch);

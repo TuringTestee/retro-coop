@@ -21,7 +21,7 @@ const messages:Record<string,string> = {
 export class RoomClient {
  private socket?:WebSocket;
  private policy:ConnectionPolicy='standard';
- private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}));
+ private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),undefined,()=>this.policy);
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;

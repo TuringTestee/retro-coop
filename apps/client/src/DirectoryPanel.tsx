@@ -1,8 +1,9 @@
+import type {ReactNode} from 'react';
 import React,{useLayoutEffect,useRef,useState} from 'react';
 import {matchingRooms,publicCode} from '../../../packages/contracts/src/directory.ts';
 import type {RoomState} from './room-client.ts';
 
-export function DirectoryPanel({state,onJoin,onRetry}:{state:RoomState;onJoin:(code:string)=>void;onRetry:()=>void}) {
+export function DirectoryPanel({state,onJoin,onRetry,connection}:{state:RoomState;connection?:ReactNode;onJoin:(code:string)=>void;onRetry:()=>void}) {
  const [query,setQuery]=useState('');
  const search=useRef<HTMLInputElement>(null), list=useRef<HTMLUListElement>(null), focusedRoom=useRef<string|undefined>(undefined);
  const rooms=matchingRooms(state.directory ?? [],query), live=state.directoryStatus==='live';
@@ -12,6 +13,7 @@ export function DirectoryPanel({state,onJoin,onRetry}:{state:RoomState;onJoin:(c
  },[rooms]);
  return <section className="directory-panel" aria-labelledby="directory-heading">
   <h2 id="directory-heading">Public rooms</h2>
+  {connection}
   <p>Join reserves Player 2 for 120 seconds. Bring your own matching game file.</p>
   <label>Search rooms, hosts or public code <input ref={search} type="search" value={query} maxLength={80} onChange={event=>setQuery(event.target.value)} onFocus={()=>{focusedRoom.current=undefined;}}/></label>
   {state.directoryStatus==='loading' && <p role="status">Loading rooms…</p>}

@@ -24,8 +24,9 @@ use-auth-secret
 static-auth-secret={secret}
 user-quota=4
 total-quota=16
-max-bps=1000000
-bps-capacity=4000000
+relay-threads=1
+max-bps=100000
+bps-capacity=1600000
 allow-loopback-peers
 no-multicast-peers
 no-cli
@@ -48,13 +49,13 @@ log-file=stdout
   errors=[]
   def page(url):
    page=browser.new_page(viewport={'width':1280,'height':1050});page.on('pageerror',lambda error:errors.append(str(error)))
-   page.add_init_script('''window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[]};
+   page.add_init_script('''window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
     const NativeSocket=WebSocket;window.WebSocket=class extends NativeSocket{
-     set onmessage(fn){super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare')peerProof.started=false;if(d.type==='peerStart')peerProof.started=true;fn(e)}}
+     set onmessage(fn){super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.started=false;if(window.lowerPolicy){d.policy='standard';e=new MessageEvent('message',{data:JSON.stringify(d)})}};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
      send(raw){const d=JSON.parse(raw);if(d.type==='peerSignal'&&d.signal.kind==='candidate')peerProof.sentCandidates.push(d.signal.candidate.candidate);super.send(raw)}
     };
     const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{
-     constructor(c){super(c);peerProof.pcs.push(this);peerProof.policies.push(c.iceTransportPolicy)}
+     constructor(c){super(c);peerProof.pcs.push(this);peerProof.policies.push(c.iceTransportPolicy);this.addEventListener('icecandidateerror',e=>peerProof.ice.push({error:e.errorCode}));this.addEventListener('iceconnectionstatechange',()=>peerProof.ice.push({state:this.iceConnectionState}));this.addEventListener('icecandidate',e=>{if(e.candidate)peerProof.ice.push({candidate:e.candidate.type})})}
      setLocalDescription(d){if(!peerProof.started)peerProof.gatherBeforeStart=true;return super.setLocalDescription(d)}
     };''');page.goto(url);return page
   def host(url,policy='standard'):
@@ -67,7 +68,7 @@ log-file=stdout
    try:
     for tab in [h,g]:tab.wait_for_function("r=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
    except Exception:
-    print(json.dumps({'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),errors:peerProof.errors})") for tab in [h,g]]}),flush=True)
+    print(json.dumps({'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),errors:peerProof.errors,ice:peerProof.ice})") for tab in [h,g]]}),flush=True)
     raise
    result=[]
    for tab in [h,g]:
@@ -99,7 +100,10 @@ log-file=stdout
   assert lease_before in g.get_by_test_id('room-view').inner_text()
   assert g.evaluate('peerProof.policies.every(policy=>policy==="relay")')
   # Server admission denies a second relay pair before creating any RTCPeerConnection.
-  denied,denied_invite=host(relay,'relay');waiting=join(denied_invite)
+  denied,denied_invite=host(relay,'relay');waiting=page(relay)
+  code=denied.get_by_test_id('room-view').locator('strong').inner_text().split(' · ')[1]
+  waiting.locator('.directory-panel').get_by_label('Connection privacy',exact=True).select_option('standard')
+  waiting.locator('.room-list li').filter(has_text=code).get_by_role('button',name='Join room',exact=True).click();waiting.get_by_test_id('room-view').wait_for()
   denied.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Relay capacity is full')")
   assert denied.evaluate('peerProof.pcs.length')==0 and waiting.evaluate('peerProof.pcs.length')==0
   denied.screenshot(path=str(out.with_suffix('.capacity.png')),full_page=True)
@@ -108,11 +112,21 @@ log-file=stdout
   g.get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
   waiting.get_by_role('button',name='Retry connection',exact=True).click();retry_proof=connected(denied,waiting,'relay')
   assert lease in waiting.get_by_test_id('room-view').inner_text()
+  # A local choice change reconnects even if the other player's stricter policy remains effective.
+  waiting.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('relay')
+  connected(denied,waiting,'relay')
+  denied.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('standard')
+  connected(denied,waiting,'relay')
   # Settings reflects and changes the same privacy owner; shared gameplay is never promoted.
-  denied.get_by_role('button',name='Settings',exact=True).click();assert denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).input_value()=='relay'
+  denied.get_by_role('button',name='Settings',exact=True).click();assert denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).input_value()=='standard'
   denied.screenshot(path=str(out.with_suffix('.settings.png')),full_page=True)
+  waiting.get_by_role('button',name='Cancel join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
+  guard=page(invite);guard.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('relay');guard.evaluate('window.lowerPolicy=true')
+  guard.get_by_role('button',name='Retry join / Join',exact=True).click()
+  guard.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('failed')")
+  assert guard.evaluate('peerProof.pcs.length')==0
   assert not errors,errors
-  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','page_errors':errors}
+  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','page_errors':errors}
   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));browser.close()
 finally:
  for proc in reversed(processes):
