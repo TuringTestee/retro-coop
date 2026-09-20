@@ -132,12 +132,12 @@ test('CLI escapes terminal direction controls in untrusted room labels',async()=
  await fixture(async t=>{
   const host=await t.open('192.0.2.1');await host.command({type:'hello'});
   const intent=randomUUID(),room=(await host.command({type:'create',intent,visibility:'public',fingerprint})).data.room;
-  await host.command({type:'confirmCreate',intent});await host.command({type:'rename',roomId:room.id,label:'Room\u202e reversed'});
+  await host.command({type:'confirmCreate',intent});await host.command({type:'rename',roomId:room.id,label:'Room\u061c\u200e\u200f\u202e reversed'});
   const {stdout}=await promisify(execFile)(process.execPath,['apps/coordinator/src/operator-cli.ts',t.directory,'list'],{timeout:5000});
-  assert.ok(!stdout.includes('\u202e'),'untrusted labels must not change terminal text direction');assert.ok(stdout.includes('\\u202e'));
+  assert.ok(!/\p{Bidi_Control}/u.test(stdout),'untrusted labels must not change terminal text direction');for(const hex of ['061c','200e','200f','202e'])assert.ok(stdout.includes('\\u'+hex));
   const child=spawn(process.execPath,['apps/coordinator/src/operator-cli.ts',t.directory,'remove-room',room.id],{stdio:['pipe','pipe','pipe']});
   let preview='';child.stdout.on('data',data=>{preview+=data;if(preview.includes('Type CONFIRM'))child.stdin.end('cancel\n');});
   const timer=setTimeout(()=>child.kill('SIGKILL'),5000);
-  try {assert.deepEqual(await once(child,'exit'),[0,null]);assert.ok(!preview.includes('\u202e'));assert.ok(preview.includes('\\u202e'));assert.match(preview,/Cancelled/);}finally{clearTimeout(timer);if(child.exitCode===null)child.kill('SIGKILL');}
+  try {assert.deepEqual(await once(child,'exit'),[0,null]);assert.ok(!/\p{Bidi_Control}/u.test(preview));for(const hex of ['061c','200e','200f','202e'])assert.ok(preview.includes('\\u'+hex));assert.match(preview,/Cancelled/);}finally{clearTimeout(timer);if(child.exitCode===null)child.kill('SIGKILL');}
  });
 });

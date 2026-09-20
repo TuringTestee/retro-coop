@@ -2,7 +2,7 @@ import {createInterface} from 'node:readline/promises';
 import {operatorRequest} from './operator.ts';
 
 // Keep untrusted labels literal in terminal listings and confirmation previews.
-const printable=(text:string)=>text.replace(/[\u0080-\u009f\u2028-\u202e\u2066-\u2069]/g,char=>'\\u'+char.charCodeAt(0).toString(16).padStart(4,'0'));
+const printable=(text:string)=>text.replace(/[\p{Bidi_Control}\u0080-\u009f\u2028\u2029]/gu,char=>'\\u'+char.charCodeAt(0).toString(16).padStart(4,'0'));
 
 async function main() {
  const [directory,action,target,seconds,...extra]=process.argv.slice(2);

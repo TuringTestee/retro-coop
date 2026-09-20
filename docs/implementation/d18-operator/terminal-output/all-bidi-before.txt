@@ -1,0 +1,28 @@
+✖ CLI escapes terminal direction controls in untrusted room labels (118.500493ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 271.264792
+
+✖ failing tests:
+
+test at apps/coordinator/src/operator.test.ts:131:1
+✖ CLI escapes terminal direction controls in untrusted room labels (118.500493ms)
+  AssertionError [ERR_ASSERTION]: untrusted labels must not change terminal text direction
+      at file:///tmp/retro-d18-operator/apps/coordinator/src/operator.test.ts:137:10
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async fixture (file:///tmp/retro-d18-operator/apps/coordinator/src/operator.test.ts:34:7)
+      at async TestContext.<anonymous> (file:///tmp/retro-d18-operator/apps/coordinator/src/operator.test.ts:132:2)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
