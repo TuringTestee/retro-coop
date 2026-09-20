@@ -41,6 +41,7 @@ if [ "$D02_JOB" = core ]; then
   (cd ../.. && timeout --foreground 60s python3 scripts/staging/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
   (cd ../.. && timeout --foreground 60s python3 scripts/rooms/moderation_smoke.py --output spikes/d02/moderation.local.json)
+  (cd ../.. && timeout --foreground 60s python3 scripts/rooms/operator_smoke.py --output spikes/d02/operator.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
   (cd ../.. && timeout --foreground 120s python3 scripts/peer/browser_smoke.py --output spikes/d02/peer.local.json)
   for D17_PAIR in Chrome-Chrome Chrome-Firefox Firefox-Firefox; do
