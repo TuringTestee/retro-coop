@@ -29,14 +29,30 @@ impl Codec {
             region: deck.region(),
         })
     }
-    pub(crate) fn export(&self, deck: &ControlDeck) -> Result<Vec<u8>, String> {
-        let value = json!({"hardware":validation::dynamic(deck),"mapper":deck.bus().mapper});
-        self.validate(&value)?;
-        let payload = serde_json::to_vec(&value).map_err(|e| e.to_string())?;
+    fn value(&self, deck: &ControlDeck) -> Value {
+        json!({"hardware":validation::dynamic(deck),"mapper":deck.bus().mapper})
+    }
+    fn payload(value: &Value) -> Result<Vec<u8>, String> {
+        let payload = serde_json::to_vec(value).map_err(|e| e.to_string())?;
         if payload.len() > local_file::LIMIT - HEADER {
             return Err("Local state exceeds the file limit".into());
         }
         validation::preparse(&payload, TOKEN_LIMIT)?;
+        Ok(payload)
+    }
+    /// Hash trusted live state, including power-on before the first committed frame.
+    /// Import/export committed-boundary validation remains unchanged.
+    pub(crate) fn hash(&self, deck: &ControlDeck) -> Result<[u8; 32], String> {
+        let payload = Self::payload(&self.value(deck))?;
+        let mut digest = Sha256::new();
+        digest.update(self.identity);
+        digest.update(payload);
+        Ok(digest.finalize().into())
+    }
+    pub(crate) fn export(&self, deck: &ControlDeck) -> Result<Vec<u8>, String> {
+        let value = self.value(deck);
+        self.validate(&value)?;
+        let payload = Self::payload(&value)?;
         let mut bytes = Vec::with_capacity(HEADER + payload.len());
         bytes.extend_from_slice(MAGIC);
         bytes.extend_from_slice(&self.identity);
@@ -202,6 +218,43 @@ mod tests {
                 bus.mapper.ppu_bus_addr(&mut bus.memory, 0);
             }
             _ => {}
+        }
+    }
+    #[test]
+    fn live_hash_covers_power_on_mapper_and_identity_without_relaxing_restore() {
+        for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {
+            for mapper in [0, 1, 2, 3, 4, 7] {
+                let (rom, mut first) = cartridge(mapper, region);
+                let (_, mut second) = cartridge(mapper, region);
+                let codec = codec(&rom, &first);
+                let initial = codec.hash(&first).unwrap();
+                assert_eq!(initial, codec.hash(&second).unwrap());
+                assert!(
+                    codec.export(&first).is_err(),
+                    "power-on does not become an importable checkpoint"
+                );
+                let other = Codec::new(&first, &Sha256::digest(&rom).into(), &[4; 32]).unwrap();
+                assert_ne!(
+                    initial,
+                    other.hash(&first).unwrap(),
+                    "exact core identity belongs in hash"
+                );
+                let _ = first.clock_frame().unwrap();
+                let _ = second.clock_frame().unwrap();
+                assert_eq!(codec.hash(&first).unwrap(), codec.hash(&second).unwrap());
+                assert_ne!(initial, codec.hash(&first).unwrap());
+                if mapper != 0 {
+                    change_mapper(&mut first, mapper);
+                    assert_ne!(
+                        codec.hash(&first).unwrap(),
+                        codec.hash(&second).unwrap(),
+                        "mutable mapper state is included"
+                    );
+                }
+                let state = codec.export(&first).unwrap();
+                codec.restore(&mut second, &state).unwrap();
+                assert_eq!(codec.hash(&first).unwrap(), codec.hash(&second).unwrap());
+            }
         }
     }
     #[test]

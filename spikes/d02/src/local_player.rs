@@ -197,6 +197,22 @@ pub extern "C" fn local_state_alloc(len: usize) -> *mut u8 {
     allocate_file(len)
 }
 #[unsafe(no_mangle)]
+pub extern "C" fn local_state_hash() -> u32 {
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        let hash = player
+            .state_codec
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .map_err(Clone::clone)?
+            .hash(&player.deck)?;
+        OUTPUT.with_borrow_mut(|output| *output = hash.to_vec());
+        Ok(())
+    }))
+}
+#[unsafe(no_mangle)]
 pub extern "C" fn local_state_info() -> u32 {
     result(PLAYER.with_borrow_mut(|slot| {
         let player = slot.as_mut().ok_or("No game loaded")?;
