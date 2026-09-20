@@ -47,12 +47,13 @@ export class GameClient {
   try{
    const info=await player.holdForGame();if(serial!==this.serial||!this.eligible())return;
    await this.send({type:'gameReady',peerEpoch,...info,delay:gameplayLimits.delayDefault});
+   if(serial!==this.serial)return;
    this.publish({busy:false,status:room.established?'Ready to resume. Waiting for the host and other player.':'Waiting for the matching initial-state barrier…'});
   }catch(error){if(serial===this.serial)this.clear(error instanceof Error?error.message:'Shared game could not prepare.',!room.established);}
   finally{if(serial===this.serial)this.offering=false;}
  }
  async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
- async resumeTogether(){const epoch=this.room?.game?.epoch;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){this.publish({status:String(error),busy:false});}}
+ async resumeTogether(){const epoch=this.room?.game?.epoch,serial=this.serial;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){if(serial===this.serial)this.publish({status:String(error),busy:false});}}
  handle(event:GameEvent){
   if(event.type==='gameInspect') {if(this.peerEpoch!==event.peerEpoch){this.inspect=event.peerEpoch;return;}void this.offer();return;}
   if(event.type==='gameStop'){this.clear(event.reason);return;}
@@ -103,7 +104,7 @@ export class GameClient {
  private pause(reason:GameReason){
   const scheduler=this.scheduler;if(!scheduler||this.awaitingFence||this.fence!==undefined)return;
   this.awaitingFence=true;this.publish({status:'Pausing both players at a common frame…',busy:true});
-  void this.send({type:'gamePause',epoch:scheduler.epoch,frame:scheduler.frame+scheduler.delay+1,reason}).catch(error=>this.fail(String(error),'network'));
+  void this.send({type:'gamePause',epoch:scheduler.epoch,frame:scheduler.frame+scheduler.delay+1,reason}).catch(error=>{if(this.scheduler===scheduler)this.fail(String(error),'network');});
  }
  private async finishPause(){
   const scheduler=this.scheduler;if(!scheduler||this.pausedSent)return;this.pausedSent=true;

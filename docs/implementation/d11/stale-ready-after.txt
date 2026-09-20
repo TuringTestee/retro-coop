@@ -1,0 +1,10 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (17.679813ms)
+✔ a completed old readiness request cannot overwrite a later membership change (3.502332ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 128.873037
