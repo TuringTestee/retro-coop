@@ -1,6 +1,7 @@
 import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type PeerMedia={prepare(pc:RTCPeerConnection,role:'host'|'guest'):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
+export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
 export type ConnectionState={status:string;route?:'direct'|'relay';epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
 export class PeerConnection {
@@ -11,16 +12,16 @@ export class PeerConnection {
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
  private serial=Promise.resolve();
- constructor(private send:(command:Command)=>Promise<unknown>,private update:(state:ConnectionState)=>void,private ready?:(channel:RTCDataChannel)=>void,private preference:()=>ConnectionPolicy=()=> 'standard',private media?:PeerMedia) {}
- close(status='Peer connection closed. Your local game is preserved.') {this.media?.close();clearTimeout(this.timer);this.epoch=undefined;this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
+ constructor(private send:(command:Command)=>Promise<unknown>,private update:(state:ConnectionState)=>void,private options:PeerOptions={}) {}
+ close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
  private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {this.close(event.reason);return;}
   if(event.type==='peerPrepare') {
    this.close('Preparing connection privacy…');this.epoch=event.epoch;this.role=event.role;
    try {
-    if(effectivePolicy(event.policy,this.preference())!==event.policy) throw Error('Privacy downgrade rejected');
-    const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.media?.prepare(pc,event.role);
+    if(effectivePolicy(event.policy,this.options.preference?.() ?? 'standard')!==event.policy) throw Error('Privacy downgrade rejected');
+    const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.role);
     const epoch=event.epoch;
     pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
     pc.onconnectionstatechange=()=>{if(this.epoch===epoch && ['failed','disconnected'].includes(pc.connectionState)) this.fail(epoch);};
@@ -41,7 +42,7 @@ export class PeerConnection {
    } else if(event.signal.kind==='description') {
     await pc.setRemoteDescription(event.signal.description);if(this.epoch!==epoch) return;
     const candidates=this.candidates;this.candidates=[];for(const candidate of candidates) {await pc.addIceCandidate(candidate);if(this.epoch!==epoch) return;}
-    if(event.signal.description.type==='offer') {this.media?.answer(pc);await pc.setLocalDescription(await pc.createAnswer());if(this.epoch===epoch) await this.send({type:'peerSignal',epoch,signal:{kind:'description',description:{type:'answer',sdp:pc.localDescription!.sdp}}});}
+    if(event.signal.description.type==='offer') {this.options.media?.answer(pc);await pc.setLocalDescription(await pc.createAnswer());if(this.epoch===epoch) await this.send({type:'peerSignal',epoch,signal:{kind:'description',description:{type:'answer',sdp:pc.localDescription!.sdp}}});}
    } else if(pc.remoteDescription) await pc.addIceCandidate(event.signal.candidate);
    else {if(this.candidates.length>=peerLimits.candidates) throw Error('Too many candidates');this.candidates.push(event.signal.candidate);}
   }).catch(()=>this.fail(epoch));
@@ -68,7 +69,7 @@ export class PeerConnection {
    let route:'direct'|'relay'='direct';
    stats.forEach(report=>{if(report.type==='transport' && report.selectedCandidatePairId) {const pair=stats.get(report.selectedCandidatePairId);if(stats.get(pair?.localCandidateId)?.candidateType==='relay' || stats.get(pair?.remoteCandidateId)?.candidateType==='relay') route='relay';}});
    this.update({status:'Peer transport connected. Shared gameplay is not available yet.',route,epoch});
-   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.media?.connected();this.ready?.(channel);}
+   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.options.media?.connected();this.options.ready?.(channel,epoch);}
   }catch {this.fail(epoch);}
  }
 }

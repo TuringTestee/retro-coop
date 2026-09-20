@@ -25,7 +25,7 @@ export class RoomClient {
  private chat=new ChatClient(chat=>this.publish({chat}),command=>this.request(command));
  private socket?:WebSocket;
  private policy:ConnectionPolicy='standard';
- private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),undefined,()=>this.policy,this.voice);
+ private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,media:this.voice});
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;
