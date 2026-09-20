@@ -4,7 +4,7 @@ import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import { inspectCartridge, hex, type Cartridge } from './cartridge.ts';
 
 export type LocalFingerprint = { romSha256: string; coreSha256: string; localSchema: 1; settings: 'auto-region;zero-ram;48000hz;standard-p1-p2'; cartridge: Cartridge };
-export type PlayerState = { status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; fingerprint?: LocalFingerprint };
+export type PlayerState = { status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  private active?: Worker;
@@ -28,7 +28,7 @@ export class LocalPlayer {
   canvas.addEventListener('blur',this.release);
   this.animation = requestAnimationFrame(this.tick);
  }
- private publish(patch: Partial<PlayerState>) { this.state = {...this.state,...patch}; this.update(this.state); }
+ private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
  private release = () => { this.keys = 0; };
  private down = (event: KeyboardEvent) => { const bit = keyMap[event.code as keyof typeof keyMap]; if(bit && document.activeElement === this.canvas && this.state.running) { event.preventDefault(); this.keys |= bit; } };
@@ -44,6 +44,7 @@ export class LocalPlayer {
   this.send(this.active,{type:'frame',p1:this.keys | pad,p2:0});
  };
  private abandonCandidate() { ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
+ rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,status:message}); }
  cancel() {
   this.abandonCandidate();
   this.publish({loading:false,status:this.state.loaded ? 'Selection cancelled. Your previous game is still here.' : 'Selection cancelled. Choose a game whenever you’re ready.'});
@@ -58,11 +59,12 @@ export class LocalPlayer {
   this.activateAudio(); this.last = 0; this.publish({running:true,status:'Playing locally. Your file stays in this browser.'}); this.canvas.focus();
  }
  setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : 1; this.audio.flush(); if(!value) this.activateAudio(); }
+ retryAudio() { this.activateAudio(); }
  private activateAudio() {
   try {
    if(!this.context) { this.context = new AudioContext(); this.gain = this.context.createGain(); this.gain.gain.value = this.muted ? 0 : 1; this.gain.connect(this.context.destination); }
-   void this.context.resume().catch(() => {}); // Audio permission must never prevent local play; Unmute retries from a gesture.
-  } catch { /* A browser without Web Audio can still run the cartridge. */ }
+   void this.context.resume().then(() => this.publish({audioIssue:this.context?.state === 'running' ? undefined : 'Sound is blocked. Retry sound to allow it; your game can continue.'})).catch(() => this.publish({audioIssue:'Sound could not start. Retry sound; your game can continue.'}));
+  } catch { this.publish({audioIssue:'Sound is unavailable in this browser. Your game can continue.'}); }
  }
  private read(file: File): Promise<ArrayBuffer> {
   return new Promise((resolve,reject) => {

@@ -137,10 +137,22 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         page.set_viewport_size({'width':390,'height':844})
         assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
         page.screenshot(path=str(output.with_suffix('.mobile.png')),full_page=True)
+        # Audio permission failure is visible and never blocks frames; an explicit retry recovers.
+        audio_page = browser.new_page()
+        audio_page.add_init_script('''const resume=AudioContext.prototype.resume; window.denySound=true;
+          AudioContext.prototype.resume=function(){return denySound ? Promise.reject(new Error('denied')) : resume.call(this)};''')
+        audio_page.goto(f'http://127.0.0.1:{server.server_port}/')
+        audio_page.set_input_files('input[type=file]', {'name':'audio-check.nes','mimeType':'application/octet-stream','buffer':rom})
+        audio_page.wait_for_function("Number(document.querySelector('output').textContent.split(' ')[0])>10")
+        assert audio_page.get_by_role('button',name='Retry sound').is_visible()
+        audio_page.evaluate('denySound=false')
+        audio_page.get_by_role('button',name='Retry sound').click()
+        audio_page.get_by_role('button',name='Retry sound').wait_for(state='detached')
+        audio_page.close()
         assert not errors, errors
         assert all(method == 'GET' and url.startswith(f'http://127.0.0.1:{server.server_port}/') for method,url in requests), requests
         assert not any(name in url for _,url in requests for name in ['private','unknown','drag-'])
-        result = {'result':'pass','browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
+        result = {'result':'pass','browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
         output.write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result,indent=2))
         browser.close()

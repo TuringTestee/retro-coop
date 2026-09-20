@@ -11,7 +11,7 @@ node --check spikes/d02/demo/app.js
 sh -n spikes/d02/run_network_probe.sh
 bash -n spikes/d02/ci_job.sh
 node --check spikes/d02/realtime-worker.js
-python3 -c 'import ast, pathlib; root=pathlib.Path("spikes/d02"); [ast.parse(p.read_text()) for p in [*root.glob("*.py"), *(root/"demo").glob("*.py")]]'
+python3 -c 'import ast, pathlib; root=pathlib.Path("spikes/d02"); [ast.parse(p.read_text()) for p in [*root.glob("*.py"), *(root/"demo").glob("*.py"), *pathlib.Path("scripts/foundation").glob("*.py")]]'
 (cd spikes/d02 && python3 original_fixture.py fixture.local.nes && cargo +1.95.0 fmt --check && cargo +1.95.0 test --locked --offline --release --lib)
 node spikes/d02/test_realtime_audio.cjs
 node spikes/d02/test_realtime_scheduler.cjs
