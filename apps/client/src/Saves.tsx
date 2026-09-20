@@ -7,7 +7,7 @@ type Confirmation={label:string;action:()=>Promise<void>};
 export function Saves({open,close,player,game}:{open:boolean;close:()=>void;player:LocalPlayer|null;game:string}) {
  const dialog=useRef<HTMLDialogElement>(null),picker=useRef<HTMLInputElement>(null),epoch=useRef(0),previousGame=useRef(game),confirmFocus=useRef<HTMLElement|null>(null);
  const [info,setInfo]=useState<StateInfo|null>(null),[rows,setRows]=useState<SaveSlot[]>([]),[slot,setSlot]=useState(1);
- const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmation,setConfirmationState]=useState<Confirmation|null>(null);
+ const [listed,setListed]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmation,setConfirmationState]=useState<Confirmation|null>(null);
  const setConfirmation=(value:Confirmation|null)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);};
  useEffect(()=>{if(!confirmation && confirmFocus.current){const target=confirmFocus.current;confirmFocus.current=null;requestAnimationFrame(()=>target.focus());}},[confirmation]);
  const [backup,setBackup]=useState<ArrayBuffer|null>(null),[exportFailed,setExportFailed]=useState(false);
@@ -16,12 +16,12 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
   if(previousGame.current!==game){previousGame.current=game;setBackup(null);setExportFailed(false);}
   if(!open){dialog.current?.close();return;}
   const returnFocus=document.activeElement as HTMLElement|null;
-  dialog.current?.showModal();setInfo(null);setRows([]);setMessage('Checking saves for this game…');
+  dialog.current?.showModal();setInfo(null);setRows([]);setListed(false);setMessage('Checking saves for this game…');
   void (async()=>{
    try {
     if(!player)throw Error('Load a game first.');
     const current=await player.saveInfo();if(token!==epoch.current)return;setInfo(current);
-    try {const stored=await listSaves(current.identity);if(token===epoch.current){setRows(stored);setMessage(stored.length ? '' : 'No saves for this game yet.');}}
+    try {const stored=await listSaves(current.identity);if(token===epoch.current){setRows(stored);setListed(true);setMessage(stored.length ? '' : 'No saves for this game yet.');}}
     catch(error){if(token===epoch.current)setMessage(storageError(error));}
    } catch(error){if(token===epoch.current)setMessage(errorText(error));}
   })();
@@ -35,7 +35,7 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
  const refresh=async(current:()=>boolean)=>{const stored=await listSaves(info!.identity);if(current())setRows(stored);};
  const persist=async(bytes:ArrayBuffer,current:()=>boolean)=>{
   if(!current())return;setBackup(bytes);
-  try{await putSave({identity:info!.identity,slot,savedAt:Date.now(),bytes});}
+  try{await putSave({identity:info!.identity,slot,savedAt:Date.now(),bytes},rows.find(row=>row.slot===slot));}
   catch(error){if(current())setMessage(storageError(error));return;}
   if(current()){await refresh(current);setMessage(`Saved in Slot ${slot} on this device.`);}
  };
@@ -59,8 +59,8 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
   {message && <p role="status" data-testid="save-status">{message}</p>}
   {confirmation && <section role="alertdialog" aria-label="Confirm save action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void confirmation.action()}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}<div hidden={!!confirmation}>
    <label>Save slot <select aria-label="Save slot" disabled={busy || !info} value={slot} onChange={event=>setSlot(Number(event.target.value))}>{[1,2,3].map(number=><option key={number} value={number}>Slot {number}</option>)}</select></label>
-   <button disabled={busy || !info} onClick={chooseSave}>Save current point</button>
-   <button disabled={busy || !info} onClick={()=>{picker.current!.value='';picker.current!.click();}}>Import save</button>
+   <button disabled={busy || !info || !listed} onClick={chooseSave}>Save current point</button>
+   <button disabled={busy || !info || !listed} onClick={()=>{picker.current!.value='';picker.current!.click();}}>Import save</button>
    {open && <input ref={picker} type="file" hidden aria-label="Save file" accept=".rcstate" onChange={event=>importFile(event.target.files?.[0])}/>}
    <ul>{rows.map(row=><li key={row.slot}>Slot {row.slot} · <time dateTime={new Date(row.savedAt).toISOString()}>{new Date(row.savedAt).toLocaleString()}</time>
     <button disabled={busy} onClick={()=>setConfirmation({label:`Load Slot ${row.slot}? Current unsaved progress will be replaced.`,action:()=>run(async current=>{if(!current())return;await player!.loadSave(row.bytes);if(current())setMessage('Save loaded. Close this panel and Resume whenever you’re ready.');})})}>Load Slot {row.slot}</button>

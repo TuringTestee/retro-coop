@@ -12,16 +12,18 @@ def verify_saves(browser,url,rom,output):
         constructor(...args){super(...args);this.addEventListener('message',event=>{const data=event.data;if(data.type==='state-info' && window.holdInfo){event.stopImmediatePropagation();window.heldInfo={worker:this,data};return}if('requestId' in data)fileReplies.push(data)})}
         postMessage(data,...args){if('requestId' in data)fileCalls.push(data.type);return super.postMessage(data,...args)}
       };
+      const openDb=indexedDB.open.bind(indexedDB);
+      indexedDB.open=(...args)=>{const request=openDb(...args);request.addEventListener('success',event=>{if(window.holdDbOpen){window.holdDbOpen=false;event.stopImmediatePropagation();window.heldDbOpen=request;}});return request};
       const put=IDBObjectStore.prototype.put;
-      IDBObjectStore.prototype.put=function(...args){const request=put.apply(this,args);if(abortNextSave){abortNextSave=false;const tx=this.transaction;request.addEventListener('success',()=>tx.abort())}return request};
+      IDBObjectStore.prototype.put=function(...args){if(window.throwNextSave){window.throwNextSave=false;throw new DOMException('quota','QuotaExceededError')}const request=put.apply(this,args);if(abortNextSave){abortNextSave=false;const tx=this.transaction;request.addEventListener('success',()=>tx.abort())}return request};
     ''')
     def load():
         page.get_by_label('NES cartridge file').set_input_files({'name':'private-slots.nes','mimeType':'application/octet-stream','buffer':rom})
         page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
-    def open_saves():
+    def open_saves(wait_for_slots=True):
         page.get_by_role('button',name='Saves',exact=True).click()
         page.get_by_role('button',name='Save current point',exact=True).wait_for()
-        page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Save current point').disabled")
+        if wait_for_slots: page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Save current point').disabled")
     def saved():
         page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Saved in Slot')")
     def rows():
@@ -37,6 +39,17 @@ def verify_saves(browser,url,rom,output):
     dialog.get_by_role('button',name='Save current point',exact=True).click()
     dialog.get_by_role('button',name='Cancel',exact=True).click();assert rows()==first
     page.wait_for_function("document.activeElement.textContent==='Save current point'")
+    # A second tab can create/change the slot after listing: check-and-put is atomic.
+    page.evaluate("""()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})""")
+    first=rows()
+    dialog.get_by_role('button',name='Save current point',exact=True).click();dialog.get_by_role('button',name='Confirm',exact=True).click()
+    page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('changed in another tab')")
+    assert rows()==first
+    dialog.get_by_role('button',name='Close saves',exact=True).click();open_saves()
+    page.evaluate('throwNextSave=true')
+    dialog.get_by_role('button',name='Save current point',exact=True).click();dialog.get_by_role('button',name='Confirm',exact=True).click()
+    page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('quota')")
+    assert rows()==first
     # Abort after request success: no false durable success and old row survives.
     page.evaluate('abortNextSave=true')
     dialog.get_by_role('button',name='Save current point',exact=True).click()
@@ -58,7 +71,12 @@ def verify_saves(browser,url,rom,output):
     assert open(download.value.path(),'rb').read()==bytes(first[0]['bytes'])
     # Persisted data survives reload, but ROM must be selected again.
     page.reload();assert page.get_by_role('button',name='Choose NES file',exact=True).is_visible()
-    load();open_saves();dialog.get_by_role('button',name='Load Slot 1',exact=True).wait_for()
+    load();page.evaluate('holdDbOpen=true');open_saves(False)
+    page.wait_for_function('!!window.heldDbOpen')
+    assert dialog.get_by_role('button',name='Save current point',exact=True).is_disabled()
+    assert dialog.get_by_role('button',name='Import save',exact=True).is_disabled()
+    page.evaluate("heldDbOpen.dispatchEvent(new Event('success'))")
+    dialog.get_by_role('button',name='Load Slot 1',exact=True).wait_for()
     assert rows()==first
     dialog.get_by_role('button',name='Load Slot 1',exact=True).click();dialog.get_by_role('button',name='Cancel',exact=True).click()
     assert page.evaluate("fileCalls.filter(x=>x==='state-import').length")==0
@@ -98,7 +116,7 @@ def verify_saves(browser,url,rom,output):
     dialog.press('Escape');assert page.evaluate("document.activeElement.textContent==='Saves'")
     # Storage denial still exposes the in-memory export path; play remains usable.
     page.evaluate("()=>{window.nativeOpen=indexedDB.open.bind(indexedDB);indexedDB.open=()=>{throw new DOMException('denied','SecurityError')}}")
-    open_saves()
+    open_saves(False)
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes(\"Couldn't save on this device\")")
     with page.expect_download() as download:
         dialog.get_by_role('button',name='Export current save',exact=True).click()
@@ -123,5 +141,5 @@ def verify_saves(browser,url,rom,output):
     assert len(rows())==1
     assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result={'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'reload_requires_rom_and_retains_save':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'no_rom_record_or_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
+    result={'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'reload_requires_rom_and_retains_save':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'no_rom_record_or_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
     page.close();return result
