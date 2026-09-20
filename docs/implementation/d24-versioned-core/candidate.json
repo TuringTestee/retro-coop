@@ -1,0 +1,18 @@
+{
+  "source": "38d2bf044cc0843cbd3672e6751457d70ba8c1f2",
+  "base": "2f58a1e915d3849c5732677bc77e9b52a8f41f7b",
+  "browser": "Chrome145.0.7632.75",
+  "approval": {
+    "plan_head": "2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965",
+    "governing_merge": "ecf6bd4c7443526f0a163b721a351c854ee90fd4",
+    "epic": 2,
+    "issue": 28
+  },
+  "regression": "Old tab takes new emulator hash on baseline; distinct URLs preserve old/new/rollback actual worker identity after fix.",
+  "limits": [
+    "Local static publication model, not provider deployment",
+    "D24 remains open for real HTTPS/coordinator/relay/independent networks/cost limits"
+  ],
+  "foundation_seconds": 49.45,
+  "asset_test_seconds": 4.28
+}
