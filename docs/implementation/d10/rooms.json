@@ -1,7 +1,7 @@
 {
   "result": "pass",
   "browser": "145.0.7632.75",
-  "seconds": 10.64,
+  "seconds": 7.65,
   "host_file_to_room_no_extra_form": true,
   "public_default_and_unlisted_selection": true,
   "invite_preview_before_join": true,
@@ -32,7 +32,7 @@
     "leave": 5,
     "peerAck": 14,
     "peerConnected": 14,
-    "peerFailed": 1,
+    "peerFailed": 2,
     "peerSignal": 28,
     "preview": 6,
     "rename": 1,

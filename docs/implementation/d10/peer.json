@@ -1,7 +1,7 @@
 {
   "result": "pass",
   "browser": "145.0.7632.75",
-  "seconds": 9.07,
+  "seconds": 44.01,
   "direct": [
     {
       "local": "host",
@@ -26,8 +26,8 @@
     {
       "local": "relay",
       "remote": "relay",
-      "bytesSent": 1396,
-      "bytesReceived": 1335,
+      "bytesSent": 1393,
+      "bytesReceived": 1336,
       "policy": "relay",
       "gatherBeforeStart": false,
       "relayCandidatesOnly": true
@@ -35,8 +35,8 @@
     {
       "local": "relay",
       "remote": "relay",
-      "bytesSent": 1335,
-      "bytesReceived": 1396,
+      "bytesSent": 1336,
+      "bytesReceived": 1393,
       "policy": "relay",
       "gatherBeforeStart": false,
       "relayCandidatesOnly": true
@@ -46,8 +46,8 @@
     {
       "local": "relay",
       "remote": "relay",
-      "bytesSent": 1361,
-      "bytesReceived": 1335,
+      "bytesSent": 1396,
+      "bytesReceived": 1336,
       "policy": "relay",
       "gatherBeforeStart": false,
       "relayCandidatesOnly": true
@@ -55,8 +55,8 @@
     {
       "local": "relay",
       "remote": "relay",
-      "bytesSent": 1335,
-      "bytesReceived": 1361,
+      "bytesSent": 1336,
+      "bytesReceived": 1396,
       "policy": "relay",
       "gatherBeforeStart": false,
       "relayCandidatesOnly": true
@@ -66,8 +66,8 @@
     {
       "local": "relay",
       "remote": "relay",
-      "bytesSent": 1378,
-      "bytesReceived": 1602,
+      "bytesSent": 1359,
+      "bytesReceived": 1336,
       "policy": "relay",
       "gatherBeforeStart": false,
       "relayCandidatesOnly": true
@@ -75,8 +75,8 @@
     {
       "local": "relay",
       "remote": "relay",
-      "bytesSent": 1602,
-      "bytesReceived": 1378,
+      "bytesSent": 1336,
+      "bytesReceived": 1359,
       "policy": "relay",
       "gatherBeforeStart": false,
       "relayCandidatesOnly": true
@@ -92,5 +92,59 @@
   "public_code_join_same_policy": true,
   "client_rejects_policy_downgrade_before_peer_creation": true,
   "scope": "Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.",
+  "server_deadlines": [
+    {
+      "phase": "preparing",
+      "both_received_failed_state": true,
+      "stay_and_retry_visible": true,
+      "original_room_and_lease_preserved": true,
+      "retry_route": [
+        {
+          "local": "host",
+          "remote": "host",
+          "bytesSent": 1361,
+          "bytesReceived": 1335,
+          "policy": "all",
+          "gatherBeforeStart": false,
+          "relayCandidatesOnly": false
+        },
+        {
+          "local": "host",
+          "remote": "host",
+          "bytesSent": 1335,
+          "bytesReceived": 1361,
+          "policy": "all",
+          "gatherBeforeStart": false,
+          "relayCandidatesOnly": false
+        }
+      ]
+    },
+    {
+      "phase": "connecting",
+      "both_received_failed_state": true,
+      "stay_and_retry_visible": true,
+      "original_room_and_lease_preserved": true,
+      "retry_route": [
+        {
+          "local": "host",
+          "remote": "host",
+          "bytesSent": 1395,
+          "bytesReceived": 1371,
+          "policy": "all",
+          "gatherBeforeStart": false,
+          "relayCandidatesOnly": false
+        },
+        {
+          "local": "host",
+          "remote": "host",
+          "bytesSent": 1371,
+          "bytesReceived": 1395,
+          "policy": "all",
+          "gatherBeforeStart": false,
+          "relayCandidatesOnly": false
+        }
+      ]
+    }
+  ],
   "page_errors": []
 }

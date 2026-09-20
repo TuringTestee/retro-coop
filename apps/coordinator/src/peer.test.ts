@@ -73,3 +73,21 @@ test('either local policy change renews the epoch even when the other peer keeps
  assert.equal(relaxed.peer.policy,'relay');assert.notEqual(relaxed.peer.epoch,both.peer.epoch);
  assert.throws(()=>t.act(peer.token,{type:'peerAck',epoch:both.peer.epoch!}),/stale_peer/);
 });
+
+for(const phase of ['preparing','connecting'] as const) test(`${phase} deadline publishes failed state to both members without another command`,()=>{
+ const t=setup(1),{host,peer,room}=t.pair('relay'),epoch=room.peer.epoch!;
+ if(phase==='connecting') {t.act(host.token,{type:'peerAck',epoch});t.act(peer.token,{type:'peerAck',epoch});}
+ host.events.length=0;peer.events.length=0;
+ const deadline=phase==='preparing'?15_000:20_000;
+ t.advance(deadline-1);assert.equal(host.events.length,0);assert.equal(peer.events.length,0);
+ t.advance(1);
+ for(const member of [host,peer]) {
+  assert.equal(member.events[0]?.type,'peerStop');
+  const views=member.events.filter(event=>event.type==='room');assert.equal(views.length,1);
+  assert.equal(views[0].room.peer.status,'failed');assert.equal(views[0].room.peer.epoch,epoch);
+  assert.equal(views[0].room.id,room.id);assert.equal(views[0].room.reservationUntil,room.reservationUntil);assert.equal(views[0].room.status,'reserved');
+ }
+ t.advance(1);assert.equal(host.events.filter(event=>event.type==='room').length,1);
+ const retried=t.act(peer.token,{type:'peerRetry',epoch}).room!;
+ assert.notEqual(retried.peer.epoch,epoch);assert.equal(retried.peer.status,'preparing');assert.equal(retried.reservationUntil,room.reservationUntil);
+});
