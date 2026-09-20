@@ -1,0 +1,14 @@
+{
+  "result": "pass",
+  "seconds": 5.12,
+  "browser": "145.0.7632.6",
+  "private_cli_confirmation": [
+    "Remove room \"Coral Orbit\" (0dvQy7mDu9XWeptCgzAN6ZSGyEEPK_xxc9VwgE5s6M0) for both players\nType CONFIRM within 30 seconds to apply, or anything else to cancel: Done.\n",
+    "Disconnect and block address 127.0.0.1 (lTkA4IPihRCtag_vF_5XUQO_4xl_sTqS, 2 connections) for 60 seconds; this affects everyone sharing that address\nType CONFIRM within 30 seconds to apply, or anything else to cancel: Done.\n"
+  ],
+  "room_removed_and_directory_cleared": true,
+  "both_peer_connections_and_microphones_stopped": true,
+  "no_local_reload_or_import": true,
+  "explicit_operator_and_admission_feedback": true,
+  "page_errors": []
+}

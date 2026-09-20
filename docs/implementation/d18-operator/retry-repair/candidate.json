@@ -1,0 +1,14 @@
+{
+  "source": "3b90e32a45dbef960720da2fd6abc10895aeb440",
+  "base": "d54b985dd576d57281aa03e9390e343ed6b87b05",
+  "build_files": {
+    "client-licenses.txt": "75f018af30becf077e3b4af9c9433e2b9c80167d996971f9e9c54fba99ddde0b",
+    "index.html": "6c3396343009a20b3f084d216d632be709eae847c58037ce590567e745d29410",
+    "assets/index-BA68iJP5.js": "373f54c2daeb3ca678ea7e8547469dde9748d66b293c01984f6f18e241e3a86c",
+    "assets/index-J9HoPDeR.css": "f4db5e6ee044ba8e894796b2bb193bcd73cb1236e8160b85db870d73594051df",
+    "assets/worker-BT6ihxj1.js": "2be48753d7ad634aec4d0ee37691141088ef9ce196627dd603ac641ee2f57508",
+    "assets/retro_coop_d02-DOu2bZLp.wasm": "dd6aed292fadb04addc2552f6689d6315ac515fc277a694ca0855d5a31ee5dd7",
+    "generated/emulator-notices.txt": "6a375b9e8ba7b3d812dc94386e70b8a455de1f60adc4a223eacb2310c4658989",
+    "generated/diagnostic.nes": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03"
+  }
+}

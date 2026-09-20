@@ -1,0 +1,25 @@
+
+> build
+> npm run typecheck && npm run build -w @retro-coop/client
+
+
+> typecheck
+> tsc --noEmit
+
+
+> build
+> vite build
+
+vite v8.3.0 building client environment for production...
+transforming...
+✓ 44 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                               0.39 kB │ gzip:   0.27 kB
+dist/client-licenses.txt                      3.42 kB │ gzip:   0.77 kB
+dist/assets/worker-BnuZsmVG.js                4.28 kB
+dist/assets/retro_coop_d02-BbQi03Dr.wasm  3,147.92 kB │ gzip: 845.59 kB
+dist/assets/index-J9HoPDeR.css                6.40 kB │ gzip:   2.09 kB
+dist/assets/index-Co0CxTwj.js               314.30 kB │ gzip:  95.88 kB
+
+✓ built in 256ms
