@@ -1,6 +1,6 @@
 {
   "source": "38d2bf044cc0843cbd3672e6751457d70ba8c1f2",
-  "base": "2f58a1e915d3849c5732677bc77e9b52a8f41f7b",
+  "base": "aea276ffe52ec10599aa79934658949ed657f01d",
   "browser": "Chrome145.0.7632.75",
   "approval": {
     "plan_head": "2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965",
@@ -14,5 +14,8 @@
     "D24 remains open for real HTTPS/coordinator/relay/independent networks/cost limits"
   ],
   "foundation_seconds": 49.45,
-  "asset_test_seconds": 4.28
+  "asset_test_seconds": 4.28,
+  "integrated_source": "6f84596955583a6142cfab82a37c1010945f6d6e",
+  "integrated_assets_seconds": 4.64,
+  "integrated_voice_seconds": 3.82
 }
