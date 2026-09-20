@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { actions, labels, defaults, conflict, inputMask, padInputs, bindingLabel, type Action, type Controls } from './controls.ts';
 
 type Props = {
+ connection?:ReactNode;
  open:boolean; close():void; controls:Controls; change(value:Controls):void;
  filter:'nearest'|'scanlines'; setFilter(value:'nearest'|'scanlines'):void;
  volume:number; setVolume(value:number):void; muted:boolean; audioIssue?:string; audioState?:AudioContextState; retryAudio():void;
@@ -69,7 +70,8 @@ export function Settings(props:Props) {
   <div className="input-test" tabIndex={0} aria-label="Test mapped input" onKeyDown={event=>{if(event.code!=='Tab' && event.code!=='Escape'){event.preventDefault();held.current.add(event.code);}}} onBlur={()=>held.current.clear()}>
    Focus here to test {source} input: <span data-testid="input-test">{actions.slice(0,8).filter((_,index)=>tested & (1<<index)).map(action=>labels[action]).join(', ') || 'None'}</span>
   </div>
-  <fieldset><legend>Picture and sound</legend><label>Display filter <select value={props.filter} onChange={event=>props.setFilter(event.target.value as Props['filter'])}><option value="nearest">Nearest neighbor</option><option value="scanlines">Scanlines</option></select></label>
+  {props.connection && <fieldset><legend>Connection</legend>{props.connection}</fieldset>}
+   <fieldset><legend>Picture and sound</legend><label>Display filter <select value={props.filter} onChange={event=>props.setFilter(event.target.value as Props['filter'])}><option value="nearest">Nearest neighbor</option><option value="scanlines">Scanlines</option></select></label>
    <label>Game volume {Math.round(props.volume*100)}% <input type="range" min="0" max="100" value={Math.round(props.volume*100)} onChange={event=>props.setVolume(Number(event.target.value)/100)}/></label>
    <p>Audio: {props.audioState ?? 'not started'}. {props.muted ? 'Game output is muted. Unmute from the player when ready.' : 'Game output is enabled.'}</p>
    {props.audioIssue && <p>{props.audioIssue} <button onClick={props.retryAudio}>Retry game audio</button></p>}

@@ -1,8 +1,16 @@
+import {PeerConnection,type ConnectionState} from './peer.ts';
+import type {ConnectionPolicy,PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
+export type RoomState = { connection?:ConnectionState; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
+export function connectionStatus(state:RoomState) {
+ const status=state.room?.peer.status;
+ if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
+ if(status==='relay_capacity') return 'Relay capacity is full. Stay in the room or retry; Relay only will not switch to direct.';
+ return (state.connection?.status ?? 'No peer connection.')+(state.connection?.route ? ` Route: ${state.connection.route}.`:'');
+}
 const messages:Record<string,string> = {
  capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'That place was just taken. Try joining again when it becomes available.',
  room_unavailable:'This room is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
@@ -12,6 +20,8 @@ const messages:Record<string,string> = {
 };
 export class RoomClient {
  private socket?:WebSocket;
+ private policy:ConnectionPolicy='standard';
+ private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}));
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;
@@ -22,7 +32,7 @@ export class RoomClient {
  private joining?:string;
  private pending = new Map<string,{resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false};
- constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false) {try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}}
+ constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false,policy:ConnectionPolicy='standard') {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private apply(data:RoomData) {
   if(data.session) {this.token = data.session.token;try {sessionStorage.setItem('retro-coop-guest',this.token);}catch{}this.publish({session:data.session});}
@@ -50,17 +60,18 @@ export class RoomClient {
     if(event.type === 'result') {
      const pending = this.pending.get(event.requestId);if(!pending) return;clearTimeout(pending.timer);this.pending.delete(event.requestId);
      if(event.ok) pending.resolve(event.data);else {this.publish({retryAfterMs:event.retryAfterMs,needsNewGuest:event.error === 'session_expired'});pending.reject(Error(messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'));}
-    } else if(event.type === 'room') this.publish({room:event.room});
-    else if(event.type === 'ended') this.publish({room:undefined,busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});
+    } else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
+    else if(event.type === 'room') this.publish({room:event.room});
+    else if(event.type === 'ended') {this.peer.close();this.publish({room:undefined,busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
    };
-   socket.onopen = () => {void this.request({type:'hello',...(this.token ? {token:this.token}:{})}).then(data=>{
+   socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(data=>{
     clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.publish({room:data.room});this.apply(data);this.publish({connected:true});
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
    socket.onerror = () => {clearTimeout(deadline);reject(Error('The room service is unavailable. Your local game is preserved.'));};
    socket.onclose = () => {
     if(this.socket !== socket) return;
-    clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error('The room service disconnected. Your local game is preserved.'));}this.pending.clear();
+    this.peer.close('Signaling disconnected. Reconnect the room before retrying peers.');clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error('The room service disconnected. Your local game is preserved.'));}this.pending.clear();
     this.publish({connected:false,busy:false,status:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.'});reject(Error('Room connection lost. Your local game is preserved.'));
    };
   }).finally(()=>{this.connecting = undefined;});
@@ -91,7 +102,7 @@ export class RoomClient {
     this.replacement=undefined;
     await this.request({type:'close'});if(this.intent !== intent) return;
    }
-   await this.request({type:'create',intent,visibility,fingerprint});
+   await this.request({type:'create',intent,visibility,fingerprint,policy:this.policy});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
    const data = await this.request({type:'confirmCreate',intent});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
@@ -100,10 +111,12 @@ export class RoomClient {
  }
  cancelCreation() {++this.generation;const intent = this.intent;this.intent = undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,status:'Room creation cancelled. Your game stays local.'});}}
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Player 2 for 120 seconds. You will need your own matching file.'});}catch(error){if(generation === this.generation) this.failure(error);}}
- async join(invite:string) {const generation = ++this.generation,intent = crypto.randomUUID();this.joining = intent;this.publish({busy:true,status:'Reserving Player 2…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'join',invite,intent});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.publish({busy:false,status:'Player 2 reserved for 120 seconds. Choose your matching file. Shared gameplay is not available in this build yet.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
+ async join(invite:string) {const generation = ++this.generation,intent = crypto.randomUUID();this.joining = intent;this.publish({busy:true,status:'Reserving Player 2…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'join',invite,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.publish({busy:false,status:'Player 2 reserved for 120 seconds. Choose your matching file. Shared gameplay is not available in this build yet.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
  cancelPending() {this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {try {await this.connect();this.apply(await this.request(command));}catch(error){this.failure(error);}}
+ async setPolicy(policy:ConnectionPolicy) {if(policy===this.policy) return;this.policy=policy;this.peer.close(this.state.room?.peer.epoch ? 'Connection policy changed. Preparing a new connection…':'Connection preference saved. Choose a game or join a room.');if(this.state.connected) await this.act({type:'peerPolicy',policy});}
+ async retryPeer() {const epoch=this.state.room?.peer.epoch;if(epoch) await this.act({type:'peerRetry',epoch});}
  async reconnect() {try {await this.connect();this.publish({status:this.state.room ? 'Room connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous room or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
  newGuest() {this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
- dispose() {this.cancelCreation();this.disposed = true;clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {this.peer.close();this.cancelCreation();this.disposed = true;clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }

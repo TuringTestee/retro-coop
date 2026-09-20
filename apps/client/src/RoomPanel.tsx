@@ -1,8 +1,10 @@
+import {ConnectionPolicyControl} from './ConnectionPolicy.tsx';
+import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
-import {RoomClient, type RoomState} from './room-client.ts';
+import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 export type RoomPanelHandle = {beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void}>(function RoomPanel({fingerprint,onNickname},ref) {
+export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void}>(function RoomPanel({fingerprint,onNickname,policy,changePolicy,onConnection},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [visibility,setVisibility] = useState<Visibility>('public');
  const [invite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
@@ -10,10 +12,12 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  const client = useRef<RoomClient|null>(null), selectedVisibility = useRef<Visibility>('public');
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
  useEffect(()=>{
-  const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'));client.current = rooms;
+  const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'),policy);client.current = rooms;
   if(invite) void rooms.preview(invite);
   return ()=>{rooms.dispose();client.current = null;};
  },[invite]);
+ useEffect(()=>{void client.current?.setPolicy(policy);},[policy]);
+ useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peer.status,onConnection]);
  useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useImperativeHandle(ref,()=>({
@@ -38,7 +42,10 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}</p>}
-  <p className="hint">This build supports rooms and reservations. Shared gameplay, peer connections and the public directory are coming next.</p>
+  <ConnectionPolicyControl policy={policy} change={changePolicy}/>
+  <p className="hint">This build connects peers while keeping Player 2 reserved. Shared gameplay is not available yet.</p>
+  <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
+  {room?.peer.epoch && <button onClick={()=>void client.current?.retryPeer()}>Retry connection</button>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
   {state.retryAfterMs && <p>Wait at least {Math.ceil(state.retryAfterMs/1000)} seconds before retrying.</p>}
   {room && <div data-testid="room-view">

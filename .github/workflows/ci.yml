@@ -104,6 +104,7 @@ jobs:
             spikes/d02/*.local.png
             spikes/d02/foundation.local.*.png
             spikes/d02/rooms.local.*.png
+            spikes/d02/peer.local.*.png
             spikes/d02/.network-runs/**/*.json
             spikes/d02/.network-runs/**/*.log
           include-hidden-files: true
