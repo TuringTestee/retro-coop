@@ -59,7 +59,13 @@ impl Codec {
         )?;
         validate_mapper(&self.template["mapper"], &value["mapper"]).map(|_| ())
     }
-    pub(crate) fn restore(&self, deck: &mut ControlDeck, bytes: &[u8]) -> Result<(), String> {
+    pub(crate) fn info(&self) -> Value {
+        json!({"identity":self.identity.iter().map(|b| format!("{b:02x}")).collect::<String>(),"limit":local_file::LIMIT})
+    }
+    pub(crate) fn validate_file(&self, bytes: &[u8]) -> Result<(), String> {
+        self.candidate(bytes).map(|_| ())
+    }
+    fn candidate(&self, bytes: &[u8]) -> Result<Bus, String> {
         if !(HEADER..=local_file::LIMIT).contains(&bytes.len()) {
             return Err("Invalid local state length".into());
         }
@@ -95,6 +101,10 @@ impl Codec {
         // allocation geometry. Derived cartridge mappings are rebuilt by load_bus.
         let mut candidate: Bus = serde_json::from_value(hardware).map_err(|e| e.to_string())?;
         candidate.cpu.corrupted = corrupted;
+        Ok(candidate)
+    }
+    pub(crate) fn restore(&self, deck: &mut ControlDeck, bytes: &[u8]) -> Result<(), String> {
+        let candidate = self.candidate(bytes)?;
         deck.load_bus(candidate).map_err(|e| e.to_string())?;
         deck.set_sample_rate(48_000.0);
         deck.clear_audio_samples();
@@ -266,6 +276,25 @@ mod tests {
                 assert_eq!(expected, repeated);
             }
         }
+    }
+    #[test]
+    fn validation_only_uses_restore_decoder_without_replacing_progress() {
+        let (rom, mut deck) = cartridge(1, NesRegion::Pal);
+        let codec = codec(&rom, &deck);
+        let _ = deck.clock_frame().unwrap();
+        let saved = codec.export(&deck).unwrap();
+        let _ = deck.clock_frame().unwrap();
+        let current = snapshot(&deck);
+        codec.validate_file(&saved).unwrap();
+        assert_eq!(current, snapshot(&deck));
+        let mut malformed = saved.clone();
+        malformed[40] ^= 1;
+        assert!(codec.validate_file(&malformed).is_err());
+        assert_eq!(current, snapshot(&deck));
+        codec.restore(&mut deck, &saved).unwrap();
+        assert_ne!(current, snapshot(&deck));
+        assert_eq!(codec.info()["limit"], local_file::LIMIT);
+        assert_eq!(codec.info()["identity"].as_str().unwrap().len(), 64);
     }
     #[test]
     fn real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs() {
