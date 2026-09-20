@@ -18,10 +18,11 @@ export class RoomClient {
  private token?:string;
  private intent?:string;
  private generation = 0;
+ private replacement?:{room:string;fingerprint:Fingerprint};
  private joining?:string;
  private pending = new Map<string,{resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false};
- constructor(private update:(state:RoomState)=>void) {try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}}
+ constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false) {try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private apply(data:RoomData) {
   if(data.session) {this.token = data.session.token;try {sessionStorage.setItem('retro-coop-guest',this.token);}catch{}this.publish({session:data.session});}
@@ -66,6 +67,17 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,status:error instanceof Error ? error.message:'Unable to reach the room service.'});}
+ beginSelection() {this.replacement=undefined;this.cancelCreation();}
+ async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
+  if(!this.token && !this.state.room) return isCurrent();
+  try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
+  if(!isCurrent()) return false;
+  const room=this.state.room;
+  if(!room || room.role!=='host' || matchesFile(room.fingerprint,fingerprint)) return true;
+  if(!this.confirmReplacement()) return false;
+  if(!isCurrent()) return false;
+  this.replacement={room:room.id,fingerprint};return true;
+ }
  async host(fingerprint:Fingerprint,visibility:Visibility) {
   this.cancelCreation();const intent = crypto.randomUUID(), generation = this.generation;this.intent = intent;
   this.publish({busy:true,status:'Creating your room…',retryAfterMs:undefined});
@@ -74,6 +86,9 @@ export class RoomClient {
    if(this.state.room) {
     if(this.state.room.role !== 'host') {this.intent = undefined;this.publish({busy:false});return;}
     if(matchesFile(this.state.room.fingerprint,fingerprint)) {this.intent = undefined;this.publish({busy:false,status:'Your local file matches the existing room. Its guest reservation is preserved.'});return;}
+    const approved=this.replacement?.room===this.state.room.id && matchesFile(this.replacement.fingerprint,fingerprint);
+    if(!approved && !this.confirmReplacement()) {this.intent=undefined;this.publish({busy:false,status:'Room replacement cancelled. Your existing room is preserved.'});return;}
+    this.replacement=undefined;
     await this.request({type:'close'});if(this.intent !== intent) return;
    }
    await this.request({type:'create',intent,visibility,fingerprint});

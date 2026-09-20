@@ -86,6 +86,52 @@ try:
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
         second.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('closed, unavailable')")
         assert int(host.get_by_test_id('frames').inner_text().split()[0])>10
+        # Recover the host before committing a replacement: decline preserves room/guest and active game.
+        replacement=page();replacement.goto(url)
+        replacement.set_input_files('input[type=file]',{'name':'PRIVATE-ORIGINAL.nes','mimeType':'application/octet-stream','buffer':rom})
+        replacement.get_by_test_id('room-view').wait_for()
+        old_invite=replacement.get_by_label('Room invitation',exact=True).input_value()
+        waiting=page();waiting.goto(old_invite)
+        waiting.get_by_role('button',name='Retry join / Join',exact=True).click()
+        waiting.get_by_test_id('room-view').wait_for()
+        declines=[]
+        def decline(dialog):
+            declines.append(dialog.message);dialog.dismiss()
+        replacement.on('dialog',decline)
+        replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
+        replacement.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('Selection cancelled')")
+        assert len(declines)==1 and waiting.get_by_test_id('room-view').count()==1
+        assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
+        replacement.locator('.panel summary').click()
+        assert __import__('hashlib').sha256(rom).hexdigest() in replacement.get_by_test_id('fingerprint').inner_text()
+        replacement.reload()
+        replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
+        replacement.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('Selection cancelled')")
+        assert len(declines)==2 and waiting.get_by_test_id('room-view').count()==1
+        assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
+        assert replacement.get_by_test_id('frames').inner_text()=='0 frames'
+        replacement.evaluate("window.originalRead=FileReader.prototype.readAsArrayBuffer;FileReader.prototype.readAsArrayBuffer=function(){}")
+        replacement.set_input_files('input[type=file]',{'name':'PRIVATE-CANCELLED.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
+        replacement.get_by_role('button',name='Cancel loading',exact=True).click()
+        replacement.evaluate("()=>{FileReader.prototype.readAsArrayBuffer=window.originalRead}")
+        assert len(declines)==2 and waiting.get_by_test_id('room-view').count()==1
+        assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
+        replacement.set_input_files('input[type=file]',{'name':'PRIVATE-INVALID.nes','mimeType':'application/octet-stream','buffer':b'invalid'})
+        replacement.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('NES')")
+        assert len(declines)==2 and waiting.get_by_test_id('room-view').count()==1
+        replacement.screenshot(path=str(output.with_suffix('.replacement-declined.png')),full_page=True)
+        replacement.remove_listener('dialog',decline)
+        confirms=[]
+        def confirm(dialog):
+            confirms.append(dialog.message);dialog.accept()
+        replacement.on('dialog',confirm)
+        replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
+        waiting.get_by_test_id('room-view').wait_for(state='detached')
+        replacement.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Room created')")
+        assert len(confirms)==1
+        assert replacement.get_by_label('Room invitation',exact=True).input_value()!=old_invite
+        replacement.screenshot(path=str(output.with_suffix('.replacement-confirmed.png')),full_page=True)
+        replacement.close();waiting.close()
         # A fresh tab does not inherit Unlisted; selecting it before loading creates an unlisted room.
         unlisted=page();unlisted.goto(url)
         assert not unlisted.get_by_label('Unlisted · invitation only',exact=True).is_checked()
@@ -159,7 +205,7 @@ try:
         assert not any(key in command for command in frames for key in ['rom','filename','save','state'])
         # Raw tokens are intentionally excluded from published evidence.
         counts={kind:sum(command['type']==kind for command in frames) for kind in sorted({command['type'] for command in frames})}
-        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'host_file_to_room_no_extra_form':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_browser_race':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'stale_join_cannot_release_newer_reservation':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
+        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'host_file_to_room_no_extra_form':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_browser_race':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'stale_join_cannot_release_newer_reservation':True,'recovered_host_replacement_requires_confirmation':True,'declined_and_invalid_replacement_preserve_room_and_game':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
         browser.close()
 finally:

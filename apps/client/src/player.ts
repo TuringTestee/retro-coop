@@ -1,11 +1,12 @@
+import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import type { WorkerRequest, WorkerResponse } from '../../../packages/contracts/src/index.ts';
 import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
-import { inspectCartridge, hex, type Cartridge } from './cartridge.ts';
+import { inspectCartridge, hex } from './cartridge.ts';
 
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
-export type LocalFingerprint = { romSha256: string; coreSha256: string; localSchema: 1; settings: 'auto-region;zero-ram;48000hz;standard-p1-p2'; cartridge: Cartridge };
+export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type PlayerState = { status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
@@ -100,7 +101,7 @@ export class LocalPlayer {
    reader.readAsArrayBuffer(file);
   });
  }
- async load(file?: File) {
+ async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>) {
   if(!file || this.disposed) return; // A chooser cancellation does not replace the valid selection.
   this.abandonCandidate(); const request = this.generation;
   this.activateAudio(); this.publish({loading:true,status:'Reading your file locally…'});
@@ -119,15 +120,21 @@ export class LocalPlayer {
     else if(this.active === worker) { this.active = undefined; worker.terminate(); this.busy = false; this.audio.flush(); this.publish({loaded:false,running:false,status:`The emulator stopped: ${message} Choose another file to retry.`}); }
    };
    worker.onerror = () => fail('This cartridge could not run in the emulator.');
-   worker.onmessage = ({data}: MessageEvent<WorkerResponse>) => {
+   worker.onmessage = async ({data}: MessageEvent<WorkerResponse>) => {
     if(this.disposed) return;
     if(data.type === 'error') { fail(data.message); return; }
     if(data.type === 'ready') {
      if(request !== this.generation || this.candidate !== worker) { worker.terminate(); return; }
+     const fingerprint:LocalFingerprint = {romSha256,coreSha256:data.coreSha256,localSchema:LOCAL_SCHEMA,settings:LOCAL_SETTINGS,cartridge};
+     const isCurrent=()=>request===this.generation && this.candidate===worker && !this.disposed;
+     try {
+      if(approve && !await approve(fingerprint,isCurrent)) {if(isCurrent()) this.cancel();return;}
+     }catch {if(isCurrent()) fail('Unable to confirm the room change.');return;}
+     if(!isCurrent()) {worker.terminate();return;}
      this.active?.terminate(); this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      const {available} = this.inputDevice();
-     this.publish({loading:false,loaded:true,running:available,frames:0,inputIssue:available ? undefined : disconnectedMessage,status:available ? 'Playing locally. Your file stays in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint:{romSha256,coreSha256:data.coreSha256,localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge}});
+     this.publish({loading:false,loaded:true,running:available,frames:0,inputIssue:available ? undefined : disconnectedMessage,status:available ? 'Playing locally. Your file stays in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint});
      this.canvas.focus(); return;
     }
     if(this.active !== worker) return;

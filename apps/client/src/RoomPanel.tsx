@@ -1,7 +1,7 @@
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {RoomClient, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
-export type RoomPanelHandle = {beforeSelection():boolean;cancelCreation():void};
+export type RoomPanelHandle = {beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
 export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void}>(function RoomPanel({fingerprint,onNickname},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [visibility,setVisibility] = useState<Visibility>('public');
@@ -10,7 +10,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  const client = useRef<RoomClient|null>(null), selectedVisibility = useRef<Visibility>('public');
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
  useEffect(()=>{
-  const rooms = new RoomClient(setState);client.current = rooms;
+  const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'));client.current = rooms;
   if(invite) void rooms.preview(invite);
   return ()=>{rooms.dispose();client.current = null;};
  },[invite]);
@@ -18,9 +18,8 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useImperativeHandle(ref,()=>({
   beforeSelection() {
-   if(state.room?.role === 'host' && !window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?')) return false;
-   client.current?.cancelCreation();selectedVisibility.current = visibility;return true;
-  },cancelCreation(){client.current?.cancelCreation();}
+   client.current?.beginSelection();selectedVisibility.current = visibility;return true;
+  },approveSelection(fingerprint,isCurrent){return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){client.current?.beginSelection();}
  }),[visibility,state.room]);
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;

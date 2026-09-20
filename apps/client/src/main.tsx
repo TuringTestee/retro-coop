@@ -21,7 +21,7 @@ function App() {
  const [identity] = useState(neutralDefaults);
  const [guest,setGuest] = useState(identity.guest);
  const rooms = useRef<RoomPanelHandle>(null);
- const load = (file?:File) => {if(file && rooms.current?.beforeSelection() !== false) void runtime.current?.load(file);};
+ const load = (file?:File) => {if(file && rooms.current?.beforeSelection() !== false) void runtime.current?.load(file,(fingerprint,isCurrent)=>rooms.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent()));};
  const [state,setState] = useState<PlayerState>({status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0});
  const [muted,setMuted] = useState(true), [drag,setDrag] = useState(false);
  useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
