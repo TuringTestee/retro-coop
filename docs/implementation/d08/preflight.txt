@@ -12,19 +12,19 @@ test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
 test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
 test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.88s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
 
 PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
 PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
 PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
 .......
 ----------------------------------------------------------------------
-Ran 7 tests in 0.070s
+Ran 7 tests in 0.072s
 
 OK
 ..................
 ----------------------------------------------------------------------
-Ran 18 tests in 3.404s
+Ran 18 tests in 3.442s
 
 OK
 
@@ -35,21 +35,21 @@ OK
 > test
 > node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts
 
-✔ admission is structural, accepts unknown mapper metadata and large valid files (1.195356ms)
-✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.457099ms)
-✔ neutral defaults depend only on random values, never cartridge data (0.660037ms)
-✔ creation acknowledgement and cancellation never expose stale invitations (3.001521ms)
-✔ unlisted preview excludes hashes and codes, host alone controls room mutations (0.931614ms)
-✔ two concurrent contenders have one winner and cancellation frees the slot immediately (0.542339ms)
-✔ mismatch, reconnect and retries do not extend the initial 120-second reservation (0.620238ms)
-✔ only host membership receives heartbeat detection and 60-second recovery grace (0.487333ms)
-✔ unused sessions expire, capacity is bounded, rate limits state their retry time (3.461729ms)
-✔ strict metadata schema rejects uploads, arbitrary fields and malformed values (0.81553ms)
-✔ real WebSockets enforce origin/auth/schema and atomic reservations across clients (41.577039ms)
-✔ health is content-free, other routes reject, shutdown closes listener (35.542196ms)
-✔ configuration is explicit and rejects bad ports/stages (0.376926ms)
-✔ SIGTERM exits a running coordinator cleanly (140.458346ms)
-✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (1.104344ms)
+✔ admission is structural, accepts unknown mapper metadata and large valid files (1.334416ms)
+✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.800784ms)
+✔ neutral defaults depend only on random values, never cartridge data (0.914342ms)
+✔ creation acknowledgement and cancellation never expose stale invitations (3.602783ms)
+✔ unlisted preview excludes hashes and codes, host alone controls room mutations (0.878744ms)
+✔ two concurrent contenders have one winner and cancellation frees the slot immediately (0.53508ms)
+✔ mismatch, reconnect and retries do not extend the initial 120-second reservation (0.657191ms)
+✔ only host membership receives heartbeat detection and 60-second recovery grace (0.455838ms)
+✔ unused sessions expire, capacity is bounded, rate limits state their retry time (2.50113ms)
+✔ strict metadata schema rejects uploads, arbitrary fields and malformed values (1.041341ms)
+✔ real WebSockets enforce origin/auth/schema and atomic reservations across clients (42.264076ms)
+✔ health is content-free, other routes reject, shutdown closes listener (43.137389ms)
+✔ configuration is explicit and rejects bad ports/stages (0.485666ms)
+✔ SIGTERM exits a running coordinator cleanly (135.005161ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (0.758732ms)
 ℹ tests 15
 ℹ suites 0
 ℹ pass 15
@@ -57,6 +57,6 @@ OK
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 330.005464
+ℹ duration_ms 345.211635
 Pre-flight passed (repository hygiene and D02 codec regression tests).
-elapsed_seconds=6.05
+elapsed_seconds=6.10
