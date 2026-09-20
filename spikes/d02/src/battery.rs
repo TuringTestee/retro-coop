@@ -5,7 +5,7 @@ use tetanes_core::prelude::*;
 
 const MAGIC: &[u8; 8] = b"RCBAT001";
 const HEADER: usize = 8 + 32 + 4 + 32;
-pub(crate) const LIMIT: usize = 2 * 1024 * 1024;
+use crate::local_file::LIMIT;
 
 pub(crate) struct Battery {
     identity: [u8; 32],
@@ -21,15 +21,14 @@ impl Battery {
         if len > LIMIT - HEADER {
             return Err("Battery data exceeds the format limit".into());
         }
-        let mut identity = Sha256::new();
-        identity.update(MAGIC);
-        identity.update(rom);
-        identity.update(core);
-        identity.update(serde_json::to_vec(&deck.region()).unwrap());
-        identity.update(b"zero-ram;48000hz;1x;standard-p1-p2;default-mapper-revisions");
-        identity.update((len as u32).to_le_bytes());
         Ok(Self {
-            identity: identity.finalize().into(),
+            identity: crate::local_file::identity(
+                MAGIC,
+                deck,
+                rom,
+                core,
+                &(len as u32).to_le_bytes(),
+            ),
             len,
         })
     }
@@ -73,30 +72,9 @@ impl Battery {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::cartridge as fixture;
     use crate::{canonical, snapshot};
     use tetanes_core::memory::Src;
-    fn fixture(mapper: u8, region: NesRegion) -> (Vec<u8>, ControlDeck) {
-        let original = std::fs::read("fixture.local.nes").unwrap();
-        let mut rom = original.clone();
-        rom[4] = 2;
-        rom.splice(
-            16 + 16384..16 + 16384,
-            original[16..16 + 16384].iter().copied(),
-        );
-        rom[6] = (mapper << 4) | 2;
-        rom[7] = mapper & 0xf0;
-        rom[16 + 8192..16 + 8256].fill(0xa7);
-        let mut deck = ControlDeck::with_config(
-            Config::default()
-                .with_sram_dir(None)
-                .with_ram_state(RamState::AllZeros)
-                .with_region(region),
-        );
-        deck.load_rom("battery-diagnostic", &mut std::io::Cursor::new(&rom))
-            .unwrap();
-        deck.set_sample_rate(48_000.0);
-        (rom, deck)
-    }
     fn codec(rom: &[u8], deck: &ControlDeck) -> Battery {
         Battery::new(deck, &Sha256::digest(rom).into(), &[7; 32]).unwrap()
     }

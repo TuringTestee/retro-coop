@@ -1,4 +1,4 @@
-//! Browser-local player. Its in-memory saves never cross the WASM boundary.
+//! Browser-local player with separate validated local file operations.
 //! Separate from the deliberately narrow, ROM-free peer checkpoint experiment.
 use crate::{snapshot, *};
 
@@ -7,6 +7,7 @@ struct LocalPlayer {
     saved: Option<(Vec<u8>, bool)>,
     rom_sha256: [u8; 32],
     core_sha256: Option<[u8; 32]>,
+    state_codec: Option<Result<crate::local_state::Codec, String>>,
 }
 thread_local! {
     static PLAYER: RefCell<Option<LocalPlayer>> = const { RefCell::new(None) };
@@ -38,6 +39,7 @@ fn load(rom: &[u8]) -> Result<LocalPlayer, String> {
         saved: None,
         rom_sha256: Sha256::digest(rom).into(),
         core_sha256: None,
+        state_codec: None,
     })
 }
 #[unsafe(no_mangle)]
@@ -109,22 +111,25 @@ pub extern "C" fn local_restore() -> u32 {
 /// The Rust format owns the limit; the worker queries it before copying imports.
 #[unsafe(no_mangle)]
 pub extern "C" fn local_battery_limit() -> usize {
-    crate::battery::LIMIT
+    crate::local_file::LIMIT
 }
-/// Bounded allocation for battery imports and the fixed 32-byte core identity.
+/// Bounded allocation shared by local file imports and the fixed core identity.
 /// A zero pointer means rejection; no allocation occurs for invalid lengths.
-#[unsafe(no_mangle)]
-pub extern "C" fn local_battery_alloc(len: usize) -> *mut u8 {
-    if len == 0 || len > crate::battery::LIMIT {
+fn allocate_file(len: usize) -> *mut u8 {
+    if len == 0 || len > crate::local_file::LIMIT {
         return std::ptr::null_mut();
     }
     local_alloc(len)
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_battery_alloc(len: usize) -> *mut u8 {
+    allocate_file(len)
 }
 /// Bind the trusted worker's actual WASM digest once per loaded cartridge.
 /// # Safety
 /// Pointer/length must describe a live local_battery_alloc allocation, consumed once.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn local_battery_bind(ptr: *mut u8, len: usize) -> u32 {
+pub unsafe extern "C" fn local_bind_core(ptr: *mut u8, len: usize) -> u32 {
     let bytes = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
     result(PLAYER.with_borrow_mut(|slot| {
         let player = slot.as_mut().ok_or("No game loaded")?;
@@ -167,6 +172,63 @@ pub unsafe extern "C" fn local_battery_import(ptr: *mut u8, len: usize) -> u32 {
         battery.restore(&mut player.deck, &bytes)
     }))
 }
+// Build only on a save operation, never as a condition for loading/playing a ROM.
+fn prepare_state(player: &mut LocalPlayer) -> Result<(), String> {
+    if player.state_codec.is_none() {
+        let core = player
+            .core_sha256
+            .as_ref()
+            .ok_or("Core identity not bound")?;
+        player.state_codec = Some(crate::local_state::Codec::new(
+            &player.deck,
+            &player.rom_sha256,
+            core,
+        ));
+    }
+    Ok(())
+}
+/// Shared budget; separate accessor preserves the established battery ABI.
+#[unsafe(no_mangle)]
+pub extern "C" fn local_state_limit() -> usize {
+    crate::local_file::LIMIT
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_state_alloc(len: usize) -> *mut u8 {
+    allocate_file(len)
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_state_export() -> u32 {
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        let codec = player
+            .state_codec
+            .as_ref()
+            .ok_or("Core identity not bound")?
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let bytes = codec.export(&player.deck)?;
+        OUTPUT.with_borrow_mut(|output| *output = bytes);
+        Ok(())
+    }))
+}
+/// # Safety
+/// Pointer/length must describe a live local_state_alloc allocation, consumed once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn local_state_import(ptr: *mut u8, len: usize) -> u32 {
+    let bytes = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        let codec = player
+            .state_codec
+            .as_ref()
+            .ok_or("Core identity not bound")?
+            .as_ref()
+            .map_err(Clone::clone)?;
+        codec.restore(&mut player.deck, &bytes)
+    }))
+}
 #[unsafe(no_mangle)]
 pub extern "C" fn local_fps() -> f64 {
     PLAYER.with_borrow(|slot| match slot.as_ref().unwrap().deck.region() {
@@ -174,7 +236,7 @@ pub extern "C" fn local_fps() -> f64 {
         _ => 60.0,
     })
 }
-// Pixels, PCM, error text and validated battery files only; no upstream snapshots.
+// Pixels, PCM, error text and validated local files only; no upstream snapshots.
 #[unsafe(no_mangle)]
 pub extern "C" fn local_output(kind: u32) -> *const u8 {
     OUTPUT.with_borrow_mut(|output| {
@@ -211,7 +273,7 @@ mod tests {
         rom[6] |= 2;
         PLAYER.with_borrow_mut(|slot| *slot = Some(load(&rom).unwrap()));
         assert!(local_battery_alloc(0).is_null());
-        assert_eq!(local_battery_limit(), crate::battery::LIMIT);
+        assert_eq!(local_battery_limit(), crate::local_file::LIMIT);
         assert!(local_battery_alloc(local_battery_limit() + 1).is_null());
         unsafe {
             let ptr = local_battery_alloc(local_battery_limit());
@@ -225,11 +287,11 @@ mod tests {
         assert_eq!(local_battery_export(), 0, "must bind actual core first");
         unsafe {
             let ptr = local_battery_alloc(31);
-            assert_eq!(local_battery_bind(ptr, 31), 0);
+            assert_eq!(local_bind_core(ptr, 31), 0);
             let ptr = local_battery_alloc(32);
-            assert_eq!(local_battery_bind(ptr, 32), 1);
+            assert_eq!(local_bind_core(ptr, 32), 1);
             let ptr = local_battery_alloc(32);
-            assert_eq!(local_battery_bind(ptr, 32), 0, "cannot rebind identity");
+            assert_eq!(local_bind_core(ptr, 32), 0, "cannot rebind identity");
         }
         assert_eq!(local_battery_export(), 1);
         let bytes = OUTPUT.with_borrow(Clone::clone);

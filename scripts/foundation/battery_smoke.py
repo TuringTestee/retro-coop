@@ -1,40 +1,14 @@
 """Exercise the actual worker/WASM battery ABI, without presenting audio or save UI."""
 
+from worker_probe import prepare_worker_probe, finish_worker_probe
+
 def verify_battery(browser, url, rom, worker_path):
-    page = browser.new_page()
-    requests=[]
-    page.on('request',lambda request: requests.append((request.method,request.url)))
-    # Observe real export calls; wrappers preserve the actual WASM return values.
-    def observe_allocations(route):
-        response=route.fetch()
-        prefix="""const batteryProbeInstantiate=WebAssembly.instantiate;
-        WebAssembly.instantiate=async (...args)=>{
-          const instance=await batteryProbeInstantiate(...args),exports={...instance.exports};
-          for(const name of ['local_battery_limit','local_battery_alloc']) {
-            exports[name]=(...args)=>{const result=instance.exports[name](...args);postMessage({type:'abi-proof',name,args,result});return result};
-          }
-          return {exports};
-        };
-"""
-        route.fulfill(response=response,body=prefix+response.text())
-    page.route('**/worker-*.js',observe_allocations)
-    page.goto(url)
+    page,requests=prepare_worker_probe(browser,url)
     variant=bytearray(rom)
     variant[4]=2
     variant[16+16384:16+16384]=rom[16:16+16384]
     variant[6]=0x12  # MMC1, battery present.
-    result=page.evaluate('''async ({rom,workerPath})=>{
-      const ensure=(condition,message)=>{if(!condition)throw Error(message)};
-      const digest=async bytes=>new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
-      const equal=(a,b)=>a.length===b.length && a.every((x,i)=>x===b[i]);
-      const workers=[];
-      const create=()=>{const worker=new Worker(workerPath,{type:'module'});workers.push(worker);worker.proof=[];return worker};
-      const ask=(worker,data)=>new Promise((resolve,reject)=>{
-        const timeout=setTimeout(()=>{worker.terminate();reject(Error('worker response timeout'))},10000);
-        worker.onmessage=({data})=>{if(data.type==='abi-proof'){worker.proof.push(data);return}clearTimeout(timeout);resolve(data)};
-        worker.onerror=event=>{clearTimeout(timeout);reject(Error(event.message))};worker.postMessage(data);
-      });
-      try {
+    result=page.evaluate('''({rom,workerPath})=>runWorkerProbe(workerPath,async ({ensure,digest,equal,create,ask})=>{
         const worker=create(),twin=create();
         let identity;
         for(const target of [worker,twin]) {
@@ -87,9 +61,5 @@ def verify_battery(browser, url, rom, worker_path):
         ensure((await ask(noBattery,{type:'load',rom:plain.buffer})).type==='ready','plain cartridge load');
         ensure((await ask(noBattery,{type:'battery-export',requestId:6})).type==='battery-error','no-battery cartridge exported');
         return {mapper:1,bytes:battery.length,core_owned_limit:cap,exact_limit_reaches_validator:true,oversized_rejected_before_wasm_allocation:true,coreSha256:identity,correlated_roundtrip:true,malformed_cases:invalid.length,failed_import_preserves_battery_and_future_pixels_pcm:true,exact_rom_mismatch_rejected:true,no_battery_error:true,audio_presented:false};
-      } finally {workers.forEach(worker=>worker.terminate())}
-    }''',{'rom':list(variant),'workerPath':worker_path})
-    assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result['requests']=requests
-    page.close()
-    return result
+    })''',{'rom':list(variant),'workerPath':worker_path})
+    return finish_worker_probe(page,requests,url,result)
