@@ -91,3 +91,13 @@ for(const phase of ['preparing','connecting'] as const) test(`${phase} deadline 
  const retried=t.act(peer.token,{type:'peerRetry',epoch}).room!;
  assert.notEqual(retried.peer.epoch,epoch);assert.equal(retried.peer.status,'preparing');assert.equal(retried.reservationUntil,room.reservationUntil);
 });
+
+test('ICE completion markers remain authenticated and safe under relay-only policy',()=>{
+ const t=setup(1),{host,peer,room}=t.pair('relay');const epoch=room.peer.epoch!;
+ t.act(host.token,{type:'peerAck',epoch});t.act(peer.token,{type:'peerAck',epoch});
+ const command={type:'peerSignal',requestId:randomUUID(),epoch,signal:{kind:'candidate',candidate:{candidate:'',sdpMid:'0',sdpMLineIndex:0,usernameFragment:'generation'}}} as const;
+ assert.ok(parseRoomCommand(command));
+ t.act(host.token,command);assert.ok(peer.events.some(event=>event.type==='peerSignal' && event.signal.kind==='candidate' && event.signal.candidate.candidate===''));
+ assert.equal(parseRoomCommand({...command,signal:{...command.signal,candidate:{...command.signal.candidate,candidate:' '}}}),undefined);
+ assert.throws(()=>t.act(host.token,{...command,epoch:randomUUID()}),/stale_peer/);
+});

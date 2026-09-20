@@ -1,5 +1,6 @@
 """Local direct and authenticated coturn route evidence; not public-network qualification."""
-import argparse, collections, json, os, re, secrets, socket, subprocess, tempfile, time
+import argparse, json, os, subprocess, time
+from fixture import LocalTurn
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 parser=argparse.ArgumentParser()
@@ -11,43 +12,7 @@ def service(extra):
  env={**os.environ,**extra};proc=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env=env,stdout=subprocess.PIPE,text=True);processes.append(proc)
  line=proc.stdout.readline();assert line, 'coordinator gateway did not start';return json.loads(line)['url']
 try:
- with tempfile.TemporaryDirectory(prefix='retro-peer-') as tmp, sync_playwright() as p:
-  with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
-  secret=secrets.token_hex(32);config=Path(tmp)/'turn.conf'
-  config.write_text(f'''listening-ip=127.0.0.1
-relay-ip=127.0.0.1
-listening-port={port}
-min-port=49200
-max-port=49249
-realm=retro-coop-local
-use-auth-secret
-static-auth-secret={secret}
-user-quota=4
-total-quota=16
-relay-threads=1
-max-bps=100000
-bps-capacity=1600000
-allow-loopback-peers
-no-multicast-peers
-no-cli
-no-tls
-no-dtls
-no-tcp-relay
-no-software-attribute
-pidfile={tmp}/turn.pid
-log-file=stdout
-''');config.chmod(0o600)
-  turn_log=Path(tmp)/'turn.log'
-  with turn_log.open('w') as log:
-   turn=subprocess.Popen([args.turnserver,'-v','-c',str(config)],stdout=log,stderr=subprocess.STDOUT)
-  processes.append(turn)
-  deadline=time.monotonic()+10
-  while True:
-   assert turn.poll() is None,'coturn stopped during startup'
-   try:
-    with socket.create_connection(('127.0.0.1',port),timeout=.2):break
-   except OSError:
-    assert time.monotonic()<deadline,'coturn startup deadline';time.sleep(.05)
+ with LocalTurn(args.turnserver) as turn, sync_playwright() as p:
   browser=p.chromium.launch(ignore_default_args=['--mute-audio'],**({'channel':'chrome'} if args.chrome else {}))
   errors=[]
   def page(url):
@@ -74,7 +39,7 @@ log-file=stdout
     for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peer.status==='connected' && document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
    except Exception:
     failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),earlySendModel:{enabled:window.modelEarlySendLoss===true,count:window.earlySendDrops??0},probeSuppression:{enabled:window.suppressTransportProbe===true,count:window.suppressedProbes??0},errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
-     'turn_error_codes':dict(collections.Counter(re.findall(r'error (\d{3})',turn_log.read_text(errors='replace'))))}
+     'turn_error_codes':turn.error_codes()}
     out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True)
     raise
    result=[]
@@ -109,7 +74,7 @@ log-file=stdout
   assert g.get_by_test_id('room-view').inner_text()==lease and g.evaluate('peerProof.pcs.length')==before
   g.get_by_text('You stayed in the room.',exact=False).wait_for()
   g.screenshot(path=str(out.with_suffix('.unavailable.png')),full_page=True);h.close();g.close()
-  relay=service({'TURN_URLS':f'turn:127.0.0.1:{port}?transport=udp','TURN_SECRET':secret,'TURN_ROOM_LIMIT':'1'})
+  relay=service(turn.environment())
   h,invite=host(relay);g=join(invite,'relay');relay_proof=connected(h,g,'relay')
   for tab in [h,g]:assert tab.evaluate('peerProof.sentCandidates.every(c=>c.includes(" typ relay "))')
   h.screenshot(path=str(out.with_suffix('.relay.png')),full_page=True)

@@ -1,0 +1,1143 @@
+{
+  "failure": [
+    {
+      "diagnostics": {
+        "trace": [
+          {
+            "ms": 3717,
+            "kind": "signaling-in",
+            "type": "peerPrepare",
+            "epoch": 1
+          },
+          {
+            "ms": 3723,
+            "kind": "signaling-out",
+            "type": "peerAck",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 3724,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 3744,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 3744,
+            "kind": "signaling-in",
+            "type": "peerStart",
+            "epoch": 1
+          },
+          {
+            "ms": 3745,
+            "kind": "channel-observed",
+            "id": 0,
+            "state": "connecting"
+          },
+          {
+            "ms": 3745,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 3747,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "description"
+          },
+          {
+            "ms": 3751,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3752,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3752,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3752,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3752,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3753,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3753,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3753,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3754,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3754,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3755,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3755,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3755,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3756,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 3775,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 3781,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 3782,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 3784,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 3784,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 3784,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 3804,
+            "kind": "channel-open",
+            "id": 0,
+            "state": "open"
+          },
+          {
+            "ms": 3804,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 0
+          },
+          {
+            "ms": 3804,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 3814,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportProbe"
+          },
+          {
+            "ms": 3815,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 0
+          },
+          {
+            "ms": 3815,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 3815,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportReply"
+          },
+          {
+            "ms": 3817,
+            "kind": "signaling-out",
+            "type": "peerConnected",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 3820,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 3820,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connected"
+          }
+        ],
+        "transport": [
+          {
+            "state": "connected",
+            "sctp": "connected",
+            "samples": [
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "peerErrors": [],
+      "iceErrors": [],
+      "candidateShapes": [
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": true,
+          "prefix": false,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "1",
+          "index": 1
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "1",
+          "index": 1
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "1",
+          "index": 1
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "1",
+          "index": 1
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": true,
+          "prefix": false,
+          "mid": "1",
+          "index": 1
+        }
+      ],
+      "focus": true,
+      "hidden": false,
+      "microphone": "Transmitting microphone audio",
+      "connection": "Peer transport connected. Shared gameplay is not available yet. Route: direct.",
+      "tracks": [
+        [
+          {
+            "state": "ended",
+            "enabled": true
+          }
+        ],
+        [
+          {
+            "state": "ended",
+            "enabled": false
+          }
+        ],
+        [
+          {
+            "state": "ended",
+            "enabled": true
+          }
+        ],
+        [
+          {
+            "state": "live",
+            "enabled": true
+          }
+        ]
+      ],
+      "peers": [
+        {
+          "state": "connected",
+          "stats": [
+            {
+              "type": "inbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": 1565,
+              "packetsSent": null,
+              "totalAudioEnergy": 0.322386329684504
+            },
+            {
+              "type": "outbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": 1568,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": false,
+              "nominated": false,
+              "state": "cancelled",
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": true,
+              "nominated": true,
+              "state": "succeeded",
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "diagnostics": {
+        "trace": [
+          {
+            "ms": 261,
+            "kind": "signaling-in",
+            "type": "peerPrepare",
+            "epoch": 1
+          },
+          {
+            "ms": 268,
+            "kind": "signaling-out",
+            "type": "peerAck",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 268,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 294,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 294,
+            "kind": "signaling-in",
+            "type": "peerStart",
+            "epoch": 1
+          },
+          {
+            "ms": 295,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 306,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 310,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 311,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 312,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 312,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 312,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 312,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 312,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 318,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "description"
+          },
+          {
+            "ms": 322,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 323,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 323,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 323,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 324,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 356,
+            "kind": "channel-observed",
+            "id": 0,
+            "state": "open"
+          },
+          {
+            "ms": 359,
+            "kind": "channel-open",
+            "id": 0,
+            "state": "open"
+          },
+          {
+            "ms": 359,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportProbe"
+          },
+          {
+            "ms": 359,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 0
+          },
+          {
+            "ms": 359,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 359,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 359,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 144
+          },
+          {
+            "ms": 360,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportReply"
+          },
+          {
+            "ms": 363,
+            "kind": "signaling-out",
+            "type": "peerConnected",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 368,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 369,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connected"
+          }
+        ],
+        "transport": [
+          {
+            "state": "connected",
+            "sctp": "connected",
+            "samples": [
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "peerErrors": [],
+      "iceErrors": [],
+      "candidateShapes": [
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": true,
+          "prefix": false,
+          "mid": "0",
+          "index": 0
+        }
+      ],
+      "focus": true,
+      "hidden": false,
+      "microphone": "Transmitting microphone audio",
+      "connection": "Peer transport connected. Shared gameplay is not available yet. Route: direct.",
+      "tracks": [
+        [
+          {
+            "state": "live",
+            "enabled": true
+          }
+        ]
+      ],
+      "peers": [
+        {
+          "state": "connected",
+          "stats": [
+            {
+              "type": "inbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": 1569,
+              "packetsSent": null,
+              "totalAudioEnergy": 0.32331158736242616
+            },
+            {
+              "type": "outbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": 1566,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": true,
+              "nominated": true,
+              "state": "succeeded",
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "prflx",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "page_errors": [],
+  "turn_error_codes": {}
+}

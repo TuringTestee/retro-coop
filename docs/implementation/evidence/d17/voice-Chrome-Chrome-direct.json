@@ -1,0 +1,30 @@
+{
+  "pair": "Chrome-Chrome",
+  "versions": {
+    "Chrome": "145.0.7632.75"
+  },
+  "route": "direct",
+  "firefox_local_turn_loopback_enabled": false,
+  "two_way_decoded_audio_energy": true,
+  "no_capture_before_enable": true,
+  "native_browser_permission_denial_and_retry": true,
+  "blur_mutes_focus_does_not_unmute": true,
+  "leave_stops_both_tracks": true,
+  "missing_device_selection_allows_default_retry": true,
+  "timeline_mutating_worker_commands_unchanged": {
+    "workers": 1,
+    "loads": 1,
+    "imports": 0
+  },
+  "rejoin_requires_opt_in_and_new_push_to_talk_input": true,
+  "remote_volume_zero_via_setting": true,
+  "page_errors": [],
+  "push_to_talk_key_button_and_typing_isolation": true,
+  "permission_device_and_playback_retry_preserve_peer_and_frames": true,
+  "late_cancelled_capture_stops": true,
+  "device_replacement_muted_until_deliberate_unmute": true,
+  "failed_sender_attachment_retries_without_peer_reset": true,
+  "mobile_no_overflow": true,
+  "selected_gamepad_push_to_talk_and_unplug_mute": true,
+  "seconds": 3.74
+}
