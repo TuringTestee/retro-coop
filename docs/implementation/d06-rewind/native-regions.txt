@@ -1,0 +1,62 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling cfg-if v1.0.4
+   Compiling libc v0.2.189
+   Compiling serde_core v1.0.229
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling rand_core v0.10.1
+   Compiling serde v1.0.229
+   Compiling getrandom v0.4.3
+   Compiling crc32fast v1.5.2
+   Compiling simd-adler32 v0.3.10
+   Compiling adler2 v2.0.1
+   Compiling thiserror v2.0.20
+   Compiling cpufeatures v0.3.1
+   Compiling once_cell v1.21.4
+   Compiling option-ext v0.2.0
+   Compiling zmij v1.0.23
+   Compiling chacha20 v0.10.2
+   Compiling miniz_oxide v0.9.1
+   Compiling generic-array v0.14.7
+   Compiling tracing-core v0.1.36
+   Compiling tetanes-core v0.17.0 (https://github.com/lukexor/tetanes.git?rev=a0a6b17f8ba9c5ee451453fb2409753fd06e5a31#a0a6b17f)
+   Compiling pin-project-lite v0.2.17
+   Compiling unty v0.0.4
+   Compiling serde_json v1.0.151
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling tracing v0.1.44
+   Compiling flate2 v1.1.10
+   Compiling syn v3.0.5
+   Compiling dirs-sys v0.5.0
+   Compiling dirs v6.0.0
+   Compiling rand v0.10.2
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.20
+   Compiling bitflags v2.13.2
+   Compiling bincode v2.0.1
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-rewind/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 18.62s
+     Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 2 tests
+test rewind::tests::wrapped_cpu_cycles_short_history_and_invalid_targets_preserve_state ... ok
+rewind qualification mapper=0 region=Ntsc trace_frames=752 target=151 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1789772.625,"cycles":22395060,"frame":752,"inputs":630,"maxSeconds":10.0,"peakBytes":3615339,"retainedBytes":3322316,"spanSeconds":10.482795265683539}
+rewind qualification mapper=1 region=Ntsc trace_frames=752 target=151 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1789772.625,"cycles":22395060,"frame":752,"inputs":630,"maxSeconds":10.0,"peakBytes":4208175,"retainedBytes":3865749,"spanSeconds":10.482795265683539}
+rewind qualification mapper=4 region=Ntsc trace_frames=752 target=151 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1789772.625,"cycles":22395060,"frame":752,"inputs":630,"maxSeconds":10.0,"peakBytes":3618179,"retainedBytes":3324919,"spanSeconds":10.482795265683539}
+rewind qualification mapper=0 region=Pal trace_frames=626 target=125 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1662607.0,"cycles":20812936,"frame":626,"inputs":524,"maxSeconds":10.0,"peakBytes":3615254,"retainedBytes":3322258,"spanSeconds":10.478537020474471}
+rewind qualification mapper=1 region=Pal trace_frames=626 target=125 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1662607.0,"cycles":20812936,"frame":626,"inputs":524,"maxSeconds":10.0,"peakBytes":4208090,"retainedBytes":3865691,"spanSeconds":10.478537020474471}
+rewind qualification mapper=4 region=Pal trace_frames=626 target=125 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1662607.0,"cycles":20812936,"frame":626,"inputs":524,"maxSeconds":10.0,"peakBytes":3618094,"retainedBytes":3324861,"spanSeconds":10.478537020474471}
+rewind qualification mapper=0 region=Dendy trace_frames=626 target=125 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1773447.5,"cycles":22200466,"frame":626,"inputs":524,"maxSeconds":10.0,"peakBytes":3615336,"retainedBytes":3322331,"spanSeconds":10.478537424987207}
+rewind qualification mapper=1 region=Dendy trace_frames=626 target=125 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1773447.5,"cycles":22200466,"frame":626,"inputs":524,"maxSeconds":10.0,"peakBytes":4208172,"retainedBytes":3865764,"spanSeconds":10.478537424987207}
+rewind qualification mapper=4 region=Dendy trace_frames=626 target=125 info={"availableSeconds":10.0,"budgetBytes":33554432,"checkpoints":11,"clockRate":1773447.5,"cycles":22200466,"frame":626,"inputs":524,"maxSeconds":10.0,"peakBytes":3618176,"retainedBytes":3324934,"spanSeconds":10.478537424987207}
+test rewind::tests::regions_banked_ram_partial_serial_and_irq_rewind_exactly_with_real_capacity_accounting ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 16.68s

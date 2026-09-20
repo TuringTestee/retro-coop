@@ -1,0 +1,190 @@
+{
+  "regionalCpuMapperReplay": [
+    {
+      "region": 0,
+      "traceFrames": 737,
+      "targetFrame": 136,
+      "actualCycles": 21948348,
+      "clockRate": 1789772.625,
+      "actualRewoundSeconds": 10.00025184763344,
+      "history": {
+        "availableSeconds": 10,
+        "budgetBytes": 33554432,
+        "checkpoints": 11,
+        "clockRate": 1789772.625,
+        "cycles": 21948348,
+        "frame": 737,
+        "inputs": 615,
+        "maxSeconds": 10,
+        "peakBytes": 3865226,
+        "retainedBytes": 3865226,
+        "spanSeconds": 10.233205460945074,
+        "issue": null
+      },
+      "rewound": {
+        "availableSeconds": 0.23295361331163505,
+        "budgetBytes": 33554432,
+        "checkpoints": 1,
+        "clockRate": 1789772.625,
+        "cycles": 4050171,
+        "frame": 136,
+        "inputs": 14,
+        "maxSeconds": 10,
+        "peakBytes": 4207628,
+        "retainedBytes": 441227,
+        "spanSeconds": 0.23295361331163505,
+        "issue": null
+      },
+      "canonicalReplay": true,
+      "pixels": true,
+      "cpuBank": 1,
+      "partialSerial": 3,
+      "batteryByte": 121
+    },
+    {
+      "region": 1,
+      "traceFrames": 613,
+      "targetFrame": 112,
+      "actualCycles": 20380716,
+      "clockRate": 1662607,
+      "actualRewoundSeconds": 10.01860090809193,
+      "history": {
+        "availableSeconds": 10,
+        "budgetBytes": 33554432,
+        "checkpoints": 11,
+        "clockRate": 1662607,
+        "cycles": 20380716,
+        "frame": 613,
+        "inputs": 511,
+        "maxSeconds": 10,
+        "peakBytes": 3865174,
+        "retainedBytes": 3865174,
+        "spanSeconds": 10.218573000113677,
+        "issue": null
+      },
+      "rewound": {
+        "availableSeconds": 0.19997209202174657,
+        "budgetBytes": 33554432,
+        "checkpoints": 1,
+        "clockRate": 1662607,
+        "cycles": 3723720,
+        "frame": 112,
+        "inputs": 10,
+        "maxSeconds": 10,
+        "peakBytes": 4207588,
+        "retainedBytes": 441236,
+        "spanSeconds": 0.19997209202174657,
+        "issue": null
+      },
+      "canonicalReplay": true,
+      "pixels": true,
+      "cpuBank": 1,
+      "partialSerial": 3,
+      "batteryByte": 121
+    },
+    {
+      "region": 3,
+      "traceFrames": 613,
+      "targetFrame": 112,
+      "actualCycles": 21739437,
+      "clockRate": 1773447.5,
+      "actualRewoundSeconds": 10.01860331360246,
+      "history": {
+        "availableSeconds": 10,
+        "budgetBytes": 33554432,
+        "checkpoints": 11,
+        "clockRate": 1773447.5,
+        "cycles": 21739437,
+        "frame": 613,
+        "inputs": 511,
+        "maxSeconds": 10,
+        "peakBytes": 3865201,
+        "retainedBytes": 3865201,
+        "spanSeconds": 10.21857652961252,
+        "issue": null
+      },
+      "rewound": {
+        "availableSeconds": 0.1999732160100595,
+        "budgetBytes": 33554432,
+        "checkpoints": 1,
+        "clockRate": 1773447.5,
+        "cycles": 3971970,
+        "frame": 112,
+        "inputs": 10,
+        "maxSeconds": 10,
+        "peakBytes": 4207625,
+        "retainedBytes": 441241,
+        "spanSeconds": 0.1999732160100595,
+        "issue": null
+      },
+      "canonicalReplay": true,
+      "pixels": true,
+      "cpuBank": 1,
+      "partialSerial": 3,
+      "batteryByte": 121
+    }
+  ],
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:38047/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/index-BVMqqWrJ.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/index-YdH-pPHK.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/worker-D64cuQfn.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/worker-D64cuQfn.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/worker-D64cuQfn.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/worker-D64cuQfn.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/worker-D64cuQfn.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/assets/worker-D64cuQfn.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38047/generated/retro_coop_d02.wasm"
+    ]
+  ],
+  "duration_seconds": 10.96106546900046
+}

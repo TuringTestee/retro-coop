@@ -2,7 +2,7 @@ Audience: Agent
 
 # Local battery progress, preferences and recovery
 
-Battery-backed games now resume their saved cartridge RAM when the player selects the same compatible ROM again. Local controls, display and volume preferences survive reload, and Local data lets players export or delete current and older records. ROMs are never persisted. This is a bounded part of D06; measured rewind and remaining state-profile qualification are still open.
+Battery-backed games now resume their saved cartridge RAM when the player selects the same compatible ROM again. Local controls, display and volume preferences survive reload, and Local data lets players export or delete current and older records. ROMs are never persisted. This is a bounded part of D06; [measured local rewind](d06-rewind.md) follows separately, and remaining state-profile qualification is still open.
 
 ## Ownership and behavior
 
@@ -34,4 +34,4 @@ Desktop before/after and mobile screenshots show the real Local data panel. Exis
 
 This advances U6 and S12/S14–17 in [issue #10](https://github.com/TuringTestee/retro-coop/issues/10), [the approved UI](../design/browser-nes-ui.md#u6--saves-and-local-data) and [the implementation plan](browser-nes-platform.md). The governing plan was approved at `2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965` and merged in PR #3 (`ecf6bd4c7443526f0a163b721a351c854ee90fd4`). Battery, validated state and slots prerequisites were integrated through PRs #47, #49 and #52; this slice starts from `0629cec4f90b9e8b4c335358dbdc5a1f8d4e528e`.
 
-Ten seconds of rewind must still use actual regional emulated duration and measured retained allocations. The prior real-worker 96,616-byte snapshot multiplied by 602 is 58,162,832 bytes (55.47 MiB), exceeding 32 MiB before overhead. Sparse checkpoints plus input replay remain a candidate, not delivered proof. Remaining mapper qualification and coordinated shared-game restore are also not claimed here. The established state-restore audio filter/synth epoch limitation is unchanged; arbitrary PCM continuity is not promised. D06 stays open.
+The later [local rewind slice](d06-rewind.md) measures actual regional emulated duration and retained allocations for representative cases. The prior real-worker 96,616-byte snapshot multiplied by 602 is 58,162,832 bytes (55.47 MiB), exceeding 32 MiB before overhead. That slice implements sparse checkpoints plus input replay; this persistence slice did not itself establish the rewind result. Remaining mapper qualification and coordinated shared-game restore are also not claimed here. The established state-restore audio filter/synth epoch limitation is unchanged; arbitrary PCM continuity is not promised. D06 stays open.

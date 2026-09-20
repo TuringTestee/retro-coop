@@ -13,6 +13,7 @@ import {LocalData} from './LocalData.tsx';
 import {usePreferences} from './preferences.ts';
 import {fileIdentity} from '../../../packages/contracts/src/fingerprint.ts';
 import {downloadSave} from './saves.ts';
+import { Rewind } from './Rewind.tsx';
 import { Saves } from './Saves.tsx';
 import { Settings } from './Settings.tsx';
 import { defaults, type Controls } from './controls.ts';
@@ -21,6 +22,7 @@ function App() {
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
  const runtime = useRef<LocalPlayer | null>(null);
  const panel = useRef<HTMLElement>(null);
+ const [rewind,setRewind]=useState(false);
  const [saves,setSaves]=useState(false),[localData,setLocalData]=useState(false),[returnSettings,setReturnSettings]=useState(false),[persistenceMessage,setPersistenceMessage]=useState('');
  const [controls,setControls] = useState<Controls>(defaults), [settings,setSettings] = useState(false);
  const [filter,setFilter] = useState<'nearest'|'scanlines'>('nearest'), [volume,setVolume] = useState(1);
@@ -53,7 +55,7 @@ function App() {
    <p>{state.loaded ? 'Your local game stays available if the room service cannot connect.' : 'Choose a file, or drop it anywhere in this panel. Your file stays on this device.'}</p>
    <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => load(event.target.files?.[0])}/>
    <div className="controls"><button onClick={choose}>{state.loaded ? 'Choose another file' : 'Choose NES file'}</button>{state.loading && <button onClick={() => {runtime.current?.cancel();rooms.current?.cancelCreation();}}>Cancel loading</button>}<button disabled={!state.loaded || state.loading} onClick={() => state.running ? runtime.current?.pause() : runtime.current?.resume()}>{state.running ? 'Pause' : 'Resume'}</button><button aria-pressed={muted} onClick={() => {const value = !muted;setMuted(value);runtime.current?.setMuted(value);}}>{muted ? 'Unmute' : 'Mute'}</button></div>
-   <div className="controls"><button disabled={!state.loaded || state.loading} onClick={()=>setSaves(true)}>Saves</button><button onClick={()=>setSettings(true)}>Settings</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div>
+   <div className="controls"><button disabled={!state.loaded || state.loading} onClick={()=>setSaves(true)}>Saves</button><button disabled={!state.loaded || state.loading} onClick={()=>setRewind(true)}>Rewind</button><button onClick={()=>setSettings(true)}>Settings</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div>
    {fullscreen && <p className="hint">Press Esc or Exit fullscreen to return.</p>}{fullscreenIssue && <p role="status">{fullscreenIssue}</p>}
    {state.inputIssue && <p role="alert">{state.inputIssue} <button onClick={()=>{changeControls({...controls,device:null});runtime.current?.useKeyboard();}}>Use keyboard</button></p>}
    <p role="status" data-testid="player-status" aria-live="polite">{state.status}</p>{state.audioIssue && <p className="hint">{state.audioIssue} <button onClick={() => runtime.current?.retryAudio()}>Retry sound</button></p>}
@@ -67,6 +69,7 @@ function App() {
   {(state.storageIssue || preferences.issue || persistenceMessage) && <p role="status" data-testid="persistence-status">{state.storageIssue || preferences.issue || persistenceMessage} <button onClick={()=>openLocalData()}>Manage local data</button></p>}
   {state.batteryAvailable && <div className="battery-actions"><button onClick={()=>void batteryAction(async()=>{downloadSave(await runtime.current!.exportBattery(),undefined,'battery');})}>Export current battery</button><button onClick={()=>void batteryAction(()=>runtime.current!.retryBatteryPersistence())}>Retry battery saving</button></div>}
   <LocalData open={localData} close={()=>{setLocalData(false);if(returnSettings)setSettings(true);}} player={runtime.current} preferencesIdentity={preferencesIdentity} beforeClear={()=>{runtime.current?.stopPersistence();preferences.stop();}} afterClear={()=>{preferences.dismiss();setPersistenceMessage('Local data deleted. Current progress remains in memory.');}}/>
+  <Rewind open={rewind && state.loaded && !state.loading} close={()=>setRewind(false)} player={runtime.current}/>
   <Saves open={saves && state.loaded && !state.loading} close={()=>setSaves(false)} player={runtime.current} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
   <Settings voice={<VoiceControls state={voice} voice={rooms.current?.voice()}/>} localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
   <footer>Your game runs in this browser. Room metadata, connection signaling and temporary chat go to the service; your game file stays here. Optional voice goes to the other player through the peer connection.</footer>
