@@ -35,7 +35,7 @@ Credit Matt Hughson for the game, Tui for music and sound effects, Haller Zoltan
 
 ## Multiplayer presentation
 
-The supplied 2020 binary is treated as **single-player**. Its source-era input code polls controller 0; current master combines controllers, so current source behavior must not be projected onto this older binary. A scoped local JSNES inspection recorded P1 effects and no P2 framebuffer change for title, options, and gameplay probes in [the ticket evidence](https://github.com/TuringTestee/retro-coop/issues/7#issuecomment-5654074203). That is neither exhaustive controller proof nor qualification of the selected TetaNES core.
+The supplied 2020 binary is treated as **single-player**. Its source-era input code polls controller 0; current master combines controllers, so current source behavior must not be projected onto this older binary. A scoped local JSNES inspection recorded P1 effects and no P2 framebuffer change for title, options, and gameplay probes in [the ticket evidence](https://github.com/TuringTestee/retro-coop/issues/7#issuecomment-5654074203). That is historical, scoped evidence. The [selected-core mode/controller probe](d03-featured-runtime.md) now records all three menus, P1 effects, scoped P2 video invariance, nonzero PCM and restored video replay for the exact binary; it is not exhaustive controller proof or final qualification.
 
 Use the already planned optional **shared P1 handoff** for friends taking turns: one owner at a time, explicit transfer acceptance, and cleared held inputs at transfer. Both browsers still synchronize the same local game. Do not label this title “native two-player co-op,” invent a second board, or imply that voice chat changes its native gameplay. Native P1/P2 support remains platform scope for suitable locally loaded games.
 
@@ -49,7 +49,7 @@ The game retains its own menus and controls. “Start” on the website opens pl
 
 | Evidence still needed | Owner |
 |---|---|
-| Exact artifact identity, credits and scoped mode/controller qualification | D03 |
+| Exact artifact identity, credits and scoped mode/controller qualification | D03: [recorded evidence](d03-featured-runtime.md), subject to PR acceptance |
 | Exact artifact boot, audio, controls, save/restore and rewind in selected core and supported browsers | D02 initial feasibility; D20 final qualification |
 | Included download identity, zero-room start, friend join and recovery UI | D19 |
 | Shared P1 handoff and accurate single-player labels | D15 and D19 |
