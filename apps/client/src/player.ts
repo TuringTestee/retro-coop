@@ -2,7 +2,7 @@ import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '
 import type { WorkerRequest, WorkerResponse, LocalFileRequest, LocalFileInfo } from '../../../packages/contracts/src/index.ts';
 import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
-import {readStored,putBattery,type BatteryRecord} from './saves.ts';
+import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
 
 type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
@@ -40,7 +40,7 @@ export class LocalPlayer {
    if(!isCurrent())return {};
    session.generation=stored.generation;session.record=stored.record;
    if(stored.record) {
-    if(!(stored.record.bytes instanceof ArrayBuffer) || stored.record.bytes.byteLength>reply.info.limit)throw Error('Stored battery data is invalid.');
+    if(!validSavedAt(stored.record.savedAt) || !(stored.record.bytes instanceof ArrayBuffer) || stored.record.bytes.byteLength>reply.info.limit)throw Error('Stored battery data is invalid.');
     await this.fileRequest({type:'battery-import',bytes:stored.record.bytes},worker);
    }
    session.enabled=true;return {session};
@@ -73,7 +73,7 @@ export class LocalPlayer {
   const stored=await readStored<BatteryRecord>('batteries',session.info.identity);
   if(session!==this.batterySession)return;
   // Never replace a corrupt/conflicting existing record merely by retrying.
-  if(stored.record && (!session.record || stored.record.savedAt!==session.record.savedAt || !session.enabled))throw Error('Existing battery data needs attention. Export or delete it in Local data, then retry.');
+  if(stored.record && (!sameRecord(stored.record,session.record) || !session.enabled))throw Error('Existing battery data needs attention. Export or delete it in Local data, then retry.');
   session.generation=stored.generation;session.record=stored.record;session.enabled=true;await this.persistBattery(session);
  }
  stopPersistence() {if(this.batterySession)this.batterySession.enabled=false;}

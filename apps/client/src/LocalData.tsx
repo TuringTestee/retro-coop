@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {listLocalData,clearLocalData,deleteSave,deleteBattery,deletePreferences,downloadSave,type LocalData as Data} from './saves.ts';
+import {listLocalData,validSavedAt,clearLocalData,deleteSave,deleteBattery,deletePreferences,downloadSave,type LocalData as Data} from './saves.ts';
 import type {LocalPlayer} from './player.ts';
 
 export function LocalData({open,close,player,preferencesIdentity,beforeClear,afterClear}:{open:boolean;close:()=>void;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void}) {
@@ -44,4 +44,4 @@ export function LocalData({open,close,player,preferencesIdentity,beforeClear,aft
  </dialog>;
 }
 function text(error:unknown){return error instanceof Error ? error.message : 'Local data is unavailable. Retry later.';}
-function when(value:number){const date=new Date(value);return Number.isFinite(date.getTime()) ? date.toLocaleString() : 'Unknown time';}
+function when(value:number){return validSavedAt(value) ? new Date(value).toLocaleString() : 'Unknown time';}

@@ -2,6 +2,7 @@
 export type SaveSlot = {identity:string;slot:number;savedAt:number;bytes:ArrayBuffer};
 export type BatteryRecord = {identity:string;savedAt:number;bytes:ArrayBuffer};
 export type PreferencesRecord = {identity:string;savedAt:number;value:unknown};
+export function validSavedAt(value:unknown):value is number {return typeof value==='number' && Number.isFinite(value) && Math.abs(value)<=8640000000000000;}
 const database='retro-coop-local',store='saves';
 const stores=['saves','batteries','preferences','meta'];
 function open():Promise<IDBDatabase> {
@@ -27,7 +28,7 @@ async function transaction<T>(mode:IDBTransactionMode,operation:(store:IDBObject
 }
 export async function listSaves(identity:string):Promise<SaveSlot[]> {
  const rows=await transaction('readonly',store=>store.index('identity').getAll(identity));
- return rows.filter((row):row is SaveSlot=>row.identity===identity && Number.isSafeInteger(row.slot) && row.slot>0 && Number.isFinite(row.savedAt) && Math.abs(row.savedAt)<=8640000000000000 && row.bytes instanceof ArrayBuffer).sort((a,b)=>a.slot-b.slot);
+ return rows.filter((row):row is SaveSlot=>row.identity===identity && Number.isSafeInteger(row.slot) && row.slot>0 && validSavedAt(row.savedAt) && row.bytes instanceof ArrayBuffer).sort((a,b)=>a.slot-b.slot);
 }
 async function changeRecord(name:string,key:IDBValidKey,expected:BatteryRecord|undefined,change:(store:IDBObjectStore)=>void) {
  let failure:unknown;
@@ -89,7 +90,7 @@ export async function listLocalData():Promise<LocalData> {
 export async function deleteBattery(expected:BatteryRecord) {await changeRecord('batteries',expected.identity,expected,store=>{store.delete(expected.identity);});}
 export async function deletePreferences(expected:PreferencesRecord) {
  let failure:unknown;
- try{await transaction('readwrite',store=>{const request=store.get(expected.identity);request.addEventListener('success',()=>{if(JSON.stringify(request.result)!==JSON.stringify(expected)){failure=Error('Preferences changed in another tab. Reopen Local data before deleting them.');store.transaction.abort();return;}store.delete(expected.identity);});return request;},['preferences']);}catch(error){throw failure ?? error;}
+ try{await transaction('readwrite',store=>{const request=store.get(expected.identity);request.addEventListener('success',()=>{if(!request.result || !Object.is(request.result.savedAt,expected.savedAt) || JSON.stringify(request.result)!==JSON.stringify(expected)){failure=Error('Preferences changed in another tab. Reopen Local data before deleting them.');store.transaction.abort();return;}store.delete(expected.identity);});return request;},['preferences']);}catch(error){throw failure ?? error;}
 }
 export async function clearLocalData(generation:number) {
  let failure:unknown;
@@ -98,4 +99,4 @@ export async function clearLocalData(generation:number) {
   for(const name of ['saves','batteries','preferences'])tx.objectStore(name).clear();meta.put(generation+1,'generation');
  });return request;},stores);}catch(error){throw failure ?? error;}
 }
-function sameRecord(current:BatteryRecord|undefined,expected:BatteryRecord|undefined) {return !current && !expected || !!current && !!expected && current.savedAt===expected.savedAt && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);}
+export function sameRecord(current:BatteryRecord|undefined,expected:BatteryRecord|undefined) {return !current && !expected || !!current && !!expected && Object.is(current.savedAt,expected.savedAt) && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);}

@@ -70,8 +70,14 @@ def verify_persistence(browser,url,rom,worker_path,output):
     for name,fields in [('saves',{'identity','slot','savedAt','bytes'}),('batteries',{'identity','savedAt','bytes'}),('preferences',{'identity','savedAt','value'})]:
         assert before[name] and all(set(row)==fields for row in before[name])
     panel.get_by_role('button',name='Delete local data',exact=True).click();panel.get_by_role('button',name='Cancel',exact=True).click();assert data()==before
+    # Damaged metadata alone must disable automatic replacement, even with valid payload bytes.
+    page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries','readwrite'),store=tx.objectStore('batteries'),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];row.savedAt=NaN;store.put(row)};tx.oncomplete=()=>{db.close();resolve()}}})""")
+    page.reload();load()
+    assert 'could not be restored' in page.get_by_test_id('persistence-status').inner_text()
+    page.evaluate("window.dispatchEvent(new Event('pagehide'))")
+    assert page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries'),q=tx.objectStore('batteries').getAll();q.onsuccess=()=>resolve(Number.isNaN(q.result[0].savedAt));tx.oncomplete=()=>db.close()}})""")
     # Corrupt battery/preferences remain exportable and never block ROM admission.
-    page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(['batteries','preferences'],'readwrite');for(const name of ['batteries','preferences']){const store=tx.objectStore(name),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];if(name==='batteries')new Uint8Array(row.bytes)[44]^=1;else row.value={controls:null};store.put(row)}}tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})''')
+    page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(['batteries','preferences'],'readwrite');for(const name of ['batteries','preferences']){const store=tx.objectStore(name),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];if(name==='batteries'){new Uint8Array(row.bytes)[44]^=1;row.savedAt=Date.now();}else row.value={controls:null};store.put(row)}}tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})''')
     corrupted=data();page.reload();load()
     page.get_by_test_id('persistence-status').wait_for()
     assert 'could not be restored' in page.get_by_test_id('persistence-status').inner_text()
@@ -112,9 +118,10 @@ def verify_persistence(browser,url,rom,worker_path,output):
     assert open(download.value.path(),'rb').read()[:8]==b'RCBAT001'
     denied.close()
     verify_replacement(browser,url,variant)
+    verify_damaged_timestamp(browser,url)
     assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result={'v1_slots_preserved_on_upgrade':True,'actual_periodic_nonzero_battery_write':True,'battery_import_before_first_frame':True,'real_cpu_observed_restored_battery_at_boot':True,'preferences_restored_for_exact_game':True,'other_identity_backup_export':True,'corrupt_data_retained_and_play_continues':True,'corrupt_battery_export_delete_and_explicit_retry':True,'stale_battery_delete_preserves_replacement_then_refreshes':True,'clear_confirmation_cancel_preserves_records':True,'cleared_epoch_blocks_other_tab_automatic_write':True,'storage_denial_keeps_play_and_export':True,'same_rom_replacement_captures_before_candidate_restore':True,'mobile_no_overflow':True,'page_errors':errors}
+    result={'v1_slots_preserved_on_upgrade':True,'actual_periodic_nonzero_battery_write':True,'battery_import_before_first_frame':True,'real_cpu_observed_restored_battery_at_boot':True,'preferences_restored_for_exact_game':True,'other_identity_backup_export':True,'corrupt_data_retained_and_play_continues':True,'corrupt_battery_export_delete_and_explicit_retry':True,'stale_battery_delete_preserves_replacement_then_refreshes':True,'clear_confirmation_cancel_preserves_records':True,'cleared_epoch_blocks_other_tab_automatic_write':True,'storage_denial_keeps_play_and_export':True,'damaged_timestamp_blocks_automatic_write':True,'damaged_timestamp_export_delete_preserves_unrelated':True,'changed_damaged_timestamp_refuses_stale_delete':True,'same_rom_replacement_captures_before_candidate_restore':True,'mobile_no_overflow':True,'page_errors':errors}
     context.close();return result
 
 
@@ -132,4 +139,31 @@ def verify_replacement(browser,url,rom):
     with page.expect_download() as download:page.get_by_role('button',name='Export current save',exact=True).click()
     machine=json.loads(open(download.value.path(),'rb').read()[72:])
     assert machine['hardware']['wram'][3]==0x5a, {'restored_boot_byte':machine['hardware']['wram'][3],'expected':0x5a}
+    page.close()
+
+
+def verify_damaged_timestamp(browser,url):
+    page=browser.new_page(accept_downloads=True);page.goto(url)
+    def panel():
+        page.get_by_role('button',name='Settings',exact=True).click()
+        page.get_by_role('button',name='Local data',exact=True).click()
+        page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Delete local data').disabled")
+        return page.get_by_role('dialog',name='Local data',exact=True)
+    dialog=panel();dialog.get_by_role('button',name='Close local data').click();page.get_by_role('button',name='Done',exact=True).click()
+    page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(['batteries','saves'],'readwrite');tx.objectStore('batteries').put({identity:'damaged-record',savedAt:NaN,bytes:new Uint8Array([1,2,3]).buffer});tx.objectStore('saves').put({identity:'unrelated',slot:1,savedAt:1,bytes:new Uint8Array([4,5,6]).buffer});tx.oncomplete=()=>{db.close();resolve()}}})""")
+    dialog=panel();dialog.get_by_text('Unknown time',exact=False).wait_for()
+    with page.expect_download() as download:dialog.get_by_role('button',name='Export battery',exact=True).click()
+    assert open(download.value.path(),'rb').read()==bytes([1,2,3])
+    dialog.get_by_role('button',name='Delete battery',exact=True).click();dialog.get_by_role('button',name='Confirm',exact=True).click()
+    page.wait_for_function("!Array.from(document.querySelectorAll('.local-data li')).some(row=>row.textContent.includes('Battery progress'))",timeout=2000)
+    with page.expect_download() as download:dialog.get_by_role('button',name='Export save',exact=True).click()
+    assert open(download.value.path(),'rb').read()==bytes([4,5,6])
+    for store,kind in [('batteries','battery'),('preferences','preferences')]:
+        dialog.get_by_role('button',name='Close local data').click();page.get_by_role('button',name='Done',exact=True).click()
+        page.evaluate("""name=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(name,'readwrite');tx.objectStore(name).put({identity:'damaged-record',savedAt:NaN,...(name==='batteries'?{bytes:new Uint8Array([7,8]).buffer}:{value:{invalid:true}})});tx.oncomplete=()=>{db.close();resolve()}}})""",store)
+        dialog=panel();dialog.get_by_role('button',name='Delete '+kind,exact=True).click()
+        page.evaluate("""name=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(name,'readwrite'),store=tx.objectStore(name),q=store.get('damaged-record');q.onsuccess=()=>{const row=q.result;row.savedAt=null;store.put(row)};tx.oncomplete=()=>{db.close();resolve()}}})""",store)
+        dialog.get_by_role('button',name='Confirm',exact=True).click()
+        page.get_by_test_id('local-data-status').filter(has_text='changed in another tab').wait_for()
+        assert page.evaluate("""name=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(name),q=tx.objectStore(name).get('damaged-record');q.onsuccess=()=>resolve(q.result?.savedAt===null);tx.oncomplete=()=>db.close()}})""",store)
     page.close()
