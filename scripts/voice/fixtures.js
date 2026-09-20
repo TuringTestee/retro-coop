@@ -25,3 +25,6 @@ window.Worker=class extends NativeWorker {
  constructor(...args){super(...args);timelineWrites.workers++;}
  postMessage(message,...args){if(message.type==='load')timelineWrites.loads++;if(message.type==='state-import'||message.type==='battery-import')timelineWrites.imports++;return super.postMessage(message,...args);}
 };
+
+const enumerateMicrophones=navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
+navigator.mediaDevices.enumerateDevices=()=>window.hideMicrophoneDevices?Promise.resolve([]):enumerateMicrophones();

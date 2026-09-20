@@ -193,6 +193,28 @@ try:
         "captures.slice(0,-1).every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )
     panel.get_by_role("button", name="Unmute microphone", exact=True).click()
+    # Model device removal: keep the missing selection visible so Default is an actual new choice.
+    host.evaluate(
+        "hideMicrophoneDevices=true;captures.at(-1).getAudioTracks()[0].dispatchEvent(new Event('ended'));navigator.mediaDevices.dispatchEvent(new Event('devicechange'))"
+    )
+    panel.get_by_text(
+        "Microphone disconnected. Choose a device and try again.", exact=True
+    ).wait_for()
+    host.wait_for_function(
+        "id=>[...document.querySelector('.room-panel select[id$=device]').options].every(o=>o.value!==id || o.textContent.includes('unavailable'))",
+        arg=devices[0],
+    )
+    host.screenshot(
+        path=str(Path(args.output).with_suffix(".missing-device.png")), full_page=True
+    )
+    assert (
+        panel.get_by_label("Microphone device", exact=True).input_value() == devices[0]
+    ), "missing selection silently displays Default instead of its unavailable state"
+    panel.get_by_label("Microphone device", exact=True).select_option("default")
+    panel.get_by_role("button", name="Try microphone again", exact=True).click()
+    panel.get_by_text("Transmitting microphone audio", exact=True).wait_for()
+    host.evaluate("hideMicrophoneDevices=false")
+    panel.get_by_role("button", name="Refresh microphones", exact=True).click()
     # Pending permission can be cancelled; a later result must stop all its tracks.
     panel.get_by_role("button", name="Disable microphone", exact=True).click()
     host.evaluate("window.holdCapture=true")
@@ -259,7 +281,9 @@ try:
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )
-    assert host.evaluate("timelineWrites") == timeline_before, "voice changed the local emulator timeline"
+    assert (
+        host.evaluate("timelineWrites") == timeline_before
+    ), "voice changed the local emulator timeline"
     assert not errors, errors
     result = {
         "pair": args.pair,
@@ -270,6 +294,7 @@ try:
         "no_capture_before_enable": True,
         "blur_mutes_focus_does_not_unmute": True,
         "leave_stops_both_tracks": True,
+        "missing_device_selection_allows_default_retry": True,
         "timeline_mutating_worker_commands_unchanged": timeline_before,
         "rejoin_requires_opt_in_and_new_push_to_talk_input": True,
         "remote_volume_zero_via_setting": True,

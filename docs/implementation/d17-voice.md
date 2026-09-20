@@ -14,6 +14,8 @@ This implements D17 / issue #21 under approved epic #2 and planning PR #3. The f
 
 Enable voice requests permission only after a click. Permission denial, unavailable devices and sender attachment failures allow another explicit attempt. Playback denial has a separate sound retry. Device changes replace capture but stay muted until deliberate unmute. Blur/hidden state releases push-to-talk and mutes open mic; focus return never unmutes. Leave, kick, expiry and peer replacement stop microphone tracks. Reconnecting makes voice opt-in again. Remote mute and volume affect only incoming voice, independently of the game's mute setting.
 
+A removed microphone keeps an explicit unavailable option in the device selector. The browser removal model originally reproduced a misleading Default selection while the previous device ID remained active; the corrected selector lets Default become a real new choice, followed by explicit capture retry. This models device removal and does not claim a physical unplug test.
+
 A reconnect regression initially reproduced a retained held key after peer replacement. Closing the voice session now clears keyboard, pointer and gamepad arming state before a new opt-in; the browser test proves old held input cannot transmit after rejoin, then verifies a fresh press works.
 
 The selected gamepad reuses the controls mapping and neutral-input arming. Keyboard push-to-talk does not activate while typing or inside a dialog. An on-screen hold button supports pointer and keyboard release/cancellation. Echo cancellation and noise suppression are requested as browser capabilities, not promised as elimination of echo.
