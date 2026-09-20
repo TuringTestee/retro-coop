@@ -30,7 +30,7 @@ test('both authenticated members acknowledge effective relay before any signal i
 test('relay denial never emits preparation; released capacity supports explicit retry',()=>{
  const unavailable=setup(),a=unavailable.pair('relay');assert.equal(a.room.peer.status,'relay_unavailable');assert.equal(a.host.events.some(event=>event.type==='peerPrepare'),false);
  const t=setup(1),first=t.pair('relay'),second=t.pair('relay');assert.equal(second.room.peer.status,'relay_capacity');assert.equal(second.host.events.some(event=>event.type==='peerPrepare'),false);
- t.act(first.host.token,{type:'close'});const retried=t.act(second.peer.token,{type:'peerRetry',epoch:second.room.peer.epoch!}).room!;assert.equal(retried.peer.status,'preparing');assert.equal(retried.peer.policy,'relay');assert.equal(retried.reservationUntil,second.room.reservationUntil);
+ t.act(first.host.token,{type:'close',roomId:first.room.id});const retried=t.act(second.peer.token,{type:'peerRetry',epoch:second.room.peer.epoch!}).room!;assert.equal(retried.peer.status,'preparing');assert.equal(retried.peer.policy,'relay');assert.equal(retried.reservationUntil,second.room.reservationUntil);
 });
 test('policy and socket changes invalidate epochs; cancellation and expiry remove signaling authority',()=>{
  const t=setup(1),{host,peer,room}=t.pair(),old=room.peer.epoch!;

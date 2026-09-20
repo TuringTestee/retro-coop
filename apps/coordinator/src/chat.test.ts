@@ -28,9 +28,9 @@ test('chat is membership-scoped, works before a guest ROM and never replays pre-
  assert.throws(()=>act(guest.token,chat(joined.chatMembership,'too fast')),/rate_limited/);
  now+=10_001;act(host.token,{type:'heartbeat'});act(guest.token,chat(joined.chatMembership,'after wait'));
  act(guest.token,{type:'leave',intent:joined.reservationIntent!});const rejoined=act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;
- assert.notEqual(rejoined.chatMembership,joined.chatMembership);assert.throws(()=>act(guest.token,command),/not_in_room/);
+ assert.notEqual(rejoined.chatMembership,joined.chatMembership);assert.throws(()=>act(guest.token,command),/membership_changed/);
  const received=guest.events.filter(event=>event.type==='chat').length;rooms.attach(guest.token,event=>guest.events.push(event),()=>{});assert.equal(guest.events.filter(event=>event.type==='chat').length,received);
- act(host.token,{type:'close'});assert.throws(()=>act(guest.token,chat(rejoined.chatMembership,'after close')),/not_in_room/);
+ act(host.token,{type:'close',roomId:room.id});assert.throws(()=>act(guest.token,chat(rejoined.chatMembership,'after close')),/not_in_room/);
 });
 test('latest retry receipt survives other members messages without rebroadcasting uncertain delivery',()=>{
  const chat=new RoomChat(),member=randomUUID(),id=randomUUID();
