@@ -12,7 +12,7 @@ import {validFingerprint,type Fingerprint} from './fingerprint.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
 export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2 };
-export type RoomView = RoomPreview & { game?:GameView; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:'host'|'guest'; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+export type RoomView = RoomPreview & { game?:GameView; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string;policy?:ConnectionPolicy};
 export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
@@ -24,11 +24,11 @@ export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCom
  | { type:'cancelCreate'; requestId:string; intent:string }
  | (ReservationRequest & { type:'join'; invite:string })
  | { type:'leave'; requestId:string; intent:string }
- | { type:'close'; requestId:string }
- | { type:'kick'; requestId:string }
- | { type:'rename'; requestId:string; label:string }
+ | { type:'close'; requestId:string; roomId:string }
+ | { type:'kick'; requestId:string; roomId:string; guestMembership:string }
+ | { type:'rename'; requestId:string; roomId:string; label:string }
  | { type:'nickname'; requestId:string; nickname:string }
- | { type:'visibility'; requestId:string; visibility:Visibility }
+ | { type:'visibility'; requestId:string; roomId:string; visibility:Visibility }
  | { type:'file'; requestId:string; fingerprint:Fingerprint };
 export type RoomData = { chatAck?:ChatAck; session?:SessionInfo; room?:RoomView; preview?:RoomPreview; directory?:RoomPreview[] };
 export type RoomEvent = GameEvent | ChatEvent | PeerEvent
@@ -47,7 +47,9 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  switch(value.type) {
   case 'chat': valid=keys(value,[...base,'roomId','membership','clientId','text']) && token(value.roomId) && token(value.membership) && token(value.clientId) && validChatText(value.text);break;
   case 'hello': valid = keys(value,base,['token','policy']) && (value.policy===undefined || validPolicy(value.policy)) && (value.token === undefined || token(value.token)); break;
-  case 'directory': case 'heartbeat': case 'close': case 'kick': valid = keys(value,base); break;
+  case 'directory': case 'heartbeat': valid = keys(value,base); break;
+  case 'close': valid=keys(value,[...base,'roomId']) && token(value.roomId);break;
+  case 'kick': valid=keys(value,[...base,'roomId','guestMembership']) && token(value.roomId) && token(value.guestMembership);break;
   case 'lookupCode': valid = keys(value,[...base,'code']) && typeof value.code === 'string' && !!publicCode(value.code); break;
   case 'joinCode': valid = keys(value,[...base,'code','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent); break;
   case 'preview': valid = keys(value,[...base,'invite']) && token(value.invite); break;
@@ -55,9 +57,9 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'create': valid = keys(value,[...base,'intent','visibility','fingerprint'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && token(value.intent) && ['public','unlisted'].includes(value.visibility as string) && validFingerprint(value.fingerprint); break;
   case 'confirmCreate': case 'cancelCreate': valid = keys(value,[...base,'intent']) && token(value.intent); break;
-  case 'rename': valid = keys(value,[...base,'label']) && text(value.label,80); break;
+  case 'rename': valid = keys(value,[...base,'roomId','label']) && token(value.roomId) && text(value.label,80); break;
   case 'nickname': valid = keys(value,[...base,'nickname']) && text(value.nickname,32); break;
-  case 'visibility': valid = keys(value,[...base,'visibility']) && ['public','unlisted'].includes(value.visibility as string); break;
+  case 'visibility': valid = keys(value,[...base,'roomId','visibility']) && token(value.roomId) && ['public','unlisted'].includes(value.visibility as string); break;
   case 'file': valid = keys(value,[...base,'fingerprint']) && validFingerprint(value.fingerprint); break;
  }
  if(!valid) return;

@@ -10,7 +10,7 @@ import { matchesFile } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
 type Session = { directory?:boolean; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
-type Room = { game:GameSession; established?:boolean; guestReconnectUntil?:number; chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
+type Room = { game:GameSession; established?:boolean; guestReconnectUntil?:number; chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestMembership?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
 export type Sender = (event:RoomEvent)=>void;
 export class RoomError extends Error { code:string;retryAfterMs?:number;constructor(code:string,retryAfterMs?:number) { super(code);this.code = code;this.retryAfterMs = retryAfterMs; } }
 const secret = () => randomBytes(32).toString('base64url');
@@ -47,13 +47,13 @@ export class Rooms {
   if(room.reconnectUntil) throw new RoomError('host_reconnecting');
   if(session.room) throw new RoomError('already_in_room');
   if(room.guest) throw new RoomError('place_taken');
-  session.policy=policy??session.policy;room.guest=session;room.guestIntent=intent;room.reservationUntil=this.now()+limits.reservation;session.room=room.id;
+  session.policy=policy??session.policy;room.guest=session;room.guestIntent=intent;room.guestMembership=secret();room.reservationUntil=this.now()+limits.reservation;session.room=room.id;
   this.publish(room);return {room:this.view(room,session)};
  }
  private preview(room:Room): RoomPreview { return {id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil||room.guestReconnectUntil ? 'reconnecting' : room.established ? room.game.view().status==='playing'?'playing':'paused' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1}; }
- private view(room:Room,session:Session): RoomView { return {...this.preview(room),game:room.game.view(),established:!!room.established,...(room.guestReconnectUntil?{guestReconnectUntil:room.guestReconnectUntil}:{}),chatMembership:room.host===session ? room.intent:room.guestIntent!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,connectionPolicy:session.policy,peer:this.peers.view(room.id,session.policy),...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
+ private view(room:Room,session:Session): RoomView { return {...this.preview(room),game:room.game.view(),established:!!room.established,...(room.guestReconnectUntil?{guestReconnectUntil:room.guestReconnectUntil}:{}),chatMembership:room.host===session ? room.intent:room.guestMembership!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,connectionPolicy:session.policy,peer:this.peers.view(room.id,session.policy),...(room.guest ? {guest:room.guest.nickname,guestMembership:room.guestMembership,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
  private publish(room:Room,directory=true) {this.peers.sync(room.confirmed && room.guest && !room.reconnectUntil ? {id:room.id,host:room.host,guest:room.guest,reservation:room.guestIntent!}:undefined,room.id); const peer=this.peers.view(room.id,room.host.policy);room.game.bind(peer.status==='connected'?peer.epoch:undefined);for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)});if(directory) this.publishDirectory(); }
- private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.game.stop('Player 2 left. Your local game is preserved.');room.established=false;room.guestReconnectUntil=undefined;room.chat.leave(room.guestIntent!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
+ private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.game.stop('Player 2 left. Your local game is preserved.');room.established=false;room.guestReconnectUntil=undefined;room.chat.leave(room.guestMembership!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; room.guestMembership = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
   room.game.stop('The room closed. Your local game is preserved.');this.peers.clear(room.id);
   this.rooms.delete(room.id); this.invites.delete(room.invite); if(room.code) this.codes.delete(room.code);
@@ -61,7 +61,7 @@ export class Rooms {
   this.publishDirectory();
  }
  private room(session:Session) { const room = session.room && this.rooms.get(session.room); if(!room) throw new RoomError('not_in_room'); return room; }
- private hosted(session:Session) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); return room; }
+ private hosted(session:Session,expectedRoom?:string) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); if(expectedRoom!==undefined && room.id!==expectedRoom) throw new RoomError('room_changed'); return room; }
  attach(token:string|undefined,send:Sender,disconnect:()=>void,policy?:ConnectionPolicy): {token:string;data:RoomData} {
   this.sweep();
   let session:Session;
@@ -106,11 +106,12 @@ export class Rooms {
   }
   switch(command.type) {
    case 'chat': {
-    const room=this.room(session),membership=room.host===session ? room.intent:room.guestIntent;
-    if(room.id!==command.roomId || membership!==command.membership || !room.confirmed) throw new RoomError('not_in_room');
+    const room=this.room(session),membership=room.host===session ? room.intent:room.guestMembership;
+    if(room.id!==command.roomId || !room.confirmed) throw new RoomError('not_in_room');
+    if(membership!==command.membership) throw new RoomError('membership_changed');
     this.rate(session,'chat',CHAT_LIMITS.rateCount,CHAT_LIMITS.rateWindowMs);
     let result;try {result=room.chat.send(membership!,command.clientId,command.text,room.host===session ? 'host':'guest',session.nickname,this.now());}catch {throw new RoomError('chat_retry_changed');}
-    if(result.message) for(const recipient of [room.host,room.guest]) recipient?.send?.({type:'chat',roomId:room.id,membership:recipient===room.host ? room.intent:room.guestIntent!,message:result.message});
+    if(result.message) for(const recipient of [room.host,room.guest]) recipient?.send?.({type:'chat',roomId:room.id,membership:recipient===room.host ? room.intent:room.guestMembership!,message:result.message});
     return {chatAck:result.ack};
    }
    case 'heartbeat': {session.heartbeat = this.now();const room = session.room && this.rooms.get(session.room);if(room && room.host === session && room.reconnectUntil) {room.reconnectUntil = undefined;this.publish(room);}return {};}
@@ -143,10 +144,10 @@ export class Rooms {
     if(room && room.guest === session && room.guestIntent === command.intent) this.releaseGuest(room,'left');
     return {};
    }
-   case 'close': this.close(this.hosted(session),'host_closed');return {};
-   case 'kick': { const room = this.hosted(session);if(room.guest) room.kicked.add(room.guest.token); this.releaseGuest(room,'removed');return {room:this.view(room,session)}; }
-   case 'visibility': { const room = this.hosted(session);if(room.visibility !== command.visibility) {if(command.visibility === 'public') room.code = this.code(room.id);else if(room.code) {this.codes.delete(room.code);room.code = undefined;}room.visibility = command.visibility;this.publish(room);}return {room:this.view(room,session)}; }
-   case 'rename': {const room = this.hosted(session);room.label = command.label.trim();this.publish(room);return {room:this.view(room,session)};}
+   case 'close': this.close(this.hosted(session,command.roomId),'host_closed');return {};
+   case 'kick': { const room = this.hosted(session,command.roomId);if(!room.guest || room.guestMembership!==command.guestMembership) throw new RoomError('membership_changed');room.kicked.add(room.guest.token); this.releaseGuest(room,'removed');return {room:this.view(room,session)}; }
+   case 'visibility': { const room = this.hosted(session,command.roomId);if(room.visibility !== command.visibility) {if(command.visibility === 'public') room.code = this.code(room.id);else if(room.code) {this.codes.delete(room.code);room.code = undefined;}room.visibility = command.visibility;this.publish(room);}return {room:this.view(room,session)}; }
+   case 'rename': {const room = this.hosted(session,command.roomId);room.label = command.label.trim();this.publish(room);return {room:this.view(room,session)};}
    case 'nickname': {session.nickname = command.nickname.trim();const room = session.room && this.rooms.get(session.room);if(room) this.publish(room);return {session:{token:session.token,nickname:session.nickname,expiresInMs:limits.sessionIdle}};}
    case 'file': { const room = this.room(session);if(room.host === session) throw new RoomError('close_before_changing_game');if(room.guestFile&&!matchesFile(room.guestFile,command.fingerprint))room.game.stop('Guest game changed. Shared play is paused.');room.guestFile = command.fingerprint;this.publish(room);return {room:this.view(room,session)}; }
   }
