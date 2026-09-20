@@ -1,0 +1,8 @@
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-rewind/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 5.13s
+     Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 1 test
+test rewind::tests::wrapped_cpu_cycles_short_history_and_invalid_targets_preserve_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.04s

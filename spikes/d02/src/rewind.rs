@@ -194,7 +194,7 @@ mod tests {
     use crate::test_support::{cartridge, change_mapper};
     use sha2::{Digest, Sha256};
     #[test]
-    fn regions_banked_ram_partial_serial_and_irq_rewind_exactly_with_real_capacity_accounting() {
+    fn regions_changed_banks_ram_partial_serial_and_irq_rewind_exactly_with_real_capacity_accounting() {
         for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {
             for mapper in [0, 1, 4] {
                 let (rom, mut deck) = cartridge(mapper, region);
