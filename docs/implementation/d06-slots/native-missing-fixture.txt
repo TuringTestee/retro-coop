@@ -1,0 +1,191 @@
+   Compiling libc v0.2.189
+   Compiling cfg-if v1.0.4
+   Compiling typenum v1.20.1
+   Compiling rand_core v0.10.1
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling crc32fast v1.5.2
+   Compiling getrandom v0.4.3
+   Compiling option-ext v0.2.0
+   Compiling cpufeatures v0.3.1
+   Compiling syn v3.0.5
+   Compiling generic-array v0.14.7
+   Compiling once_cell v1.21.4
+   Compiling simd-adler32 v0.3.10
+   Compiling adler2 v2.0.1
+   Compiling thiserror v2.0.20
+   Compiling zmij v1.0.23
+   Compiling unty v0.0.4
+   Compiling pin-project-lite v0.2.17
+   Compiling chacha20 v0.10.2
+   Compiling tetanes-core v0.17.0 (https://github.com/lukexor/tetanes.git?rev=a0a6b17f8ba9c5ee451453fb2409753fd06e5a31#a0a6b17f)
+   Compiling serde_json v1.0.151
+   Compiling itoa v1.0.18
+   Compiling miniz_oxide v0.9.1
+   Compiling tracing-core v0.1.36
+   Compiling memchr v2.8.3
+   Compiling cpufeatures v0.2.17
+   Compiling tracing v0.1.44
+   Compiling flate2 v1.1.10
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling dirs-sys v0.5.0
+   Compiling dirs v6.0.0
+   Compiling rand v0.10.2
+   Compiling sha2 v0.10.9
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.20
+   Compiling bitflags v2.13.2
+   Compiling bincode v2.0.1
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-slots/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 20.10s
+     Running unittests src/lib.rs (spikes/d02/target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 22 tests
+test battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact ... FAILED
+test battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore ... FAILED
+test battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay ... FAILED
+test checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core ... FAILED
+test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... FAILED
+test checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits ... FAILED
+test local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game ... FAILED
+test local_player::tests::non_nrom_local_save_replay_and_errors ... FAILED
+test local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay ... FAILED
+test local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry ... FAILED
+test local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid ... FAILED
+test local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save ... FAILED
+test local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode ... FAILED
+test local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs ... FAILED
+test local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional ... FAILED
+test local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery ... FAILED
+test local_state::tests::validation_only_uses_restore_decoder_without_replacing_progress ... FAILED
+test realtime_tests::manual_controller_ports_render_and_release ... FAILED
+test memory_tail::tests::fragment_contains_only_mutable_tail_and_preserves_local_rom ... ok
+test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... FAILED
+test memory_tail::tests::invalid_fragments_leave_all_memory_untouched ... ok
+test memory_tail::tests::upstream_memory_decoder_accepts_small_payload_requesting_large_arena ... ok
+
+failures:
+
+---- battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact stdout ----
+
+thread 'battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact' (294487) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore stdout ----
+
+thread 'battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore' (294488) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay stdout ----
+
+thread 'battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay' (294489) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core stdout ----
+
+thread 'checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core' (294490) panicked at src/checkpoint.rs:123:14:
+run original_fixture.py fixture.local.nes first: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch stdout ----
+
+thread 'checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch' (294491) panicked at src/checkpoint.rs:123:14:
+run original_fixture.py fixture.local.nes first: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits stdout ----
+
+thread 'checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits' (294492) panicked at src/checkpoint.rs:123:14:
+run original_fixture.py fixture.local.nes first: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game stdout ----
+
+thread 'local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game' (294493) panicked at src/local_player.rs:304:58:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_player::tests::non_nrom_local_save_replay_and_errors stdout ----
+
+thread 'local_player::tests::non_nrom_local_save_replay_and_errors' (294494) panicked at src/local_player.rs:350:59:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay stdout ----
+
+thread 'local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay' (294495) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry stdout ----
+
+thread 'local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry' (294496) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid stdout ----
+
+thread 'local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid' (294497) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save stdout ----
+
+thread 'local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save' (294498) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode stdout ----
+
+thread 'local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode' (294499) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs stdout ----
+
+thread 'local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs' (294500) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional stdout ----
+
+thread 'local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional' (294501) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery stdout ----
+
+thread 'local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery' (294502) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- local_state::tests::validation_only_uses_restore_decoder_without_replacing_progress stdout ----
+
+thread 'local_state::tests::validation_only_uses_restore_decoder_without_replacing_progress' (294503) panicked at src/test_support.rs:4:55:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- realtime_tests::manual_controller_ports_render_and_release stdout ----
+
+thread 'realtime_tests::manual_controller_ports_render_and_release' (294507) panicked at src/lib.rs:249:54:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+---- realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video stdout ----
+
+thread 'realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video' (294508) panicked at src/lib.rs:226:54:
+called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "No such file or directory" }
+
+
+failures:
+    battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact
+    battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore
+    battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay
+    checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core
+    checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch
+    checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits
+    local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game
+    local_player::tests::non_nrom_local_save_replay_and_errors
+    local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay
+    local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry
+    local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid
+    local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save
+    local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode
+    local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs
+    local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional
+    local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery
+    local_state::tests::validation_only_uses_restore_decoder_without_replacing_progress
+    realtime_tests::manual_controller_ports_render_and_release
+    realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video
+
+test result: FAILED. 3 passed; 19 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

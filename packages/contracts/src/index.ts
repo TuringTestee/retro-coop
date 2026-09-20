@@ -1,7 +1,11 @@
 // ROM, local save files and PCM buffers cross only the browser's dedicated worker boundary.
 const localFileKinds = ['battery','state'] as const;
 export type LocalFileKind = typeof localFileKinds[number];
-export type LocalFileRequest = {[Kind in LocalFileKind]:
+export type StateInfo = {identity:string;limit:number};
+export type LocalFileRequest =
+  | {type:'state-info';requestId:number}
+  | {type:'state-validate';requestId:number;bytes:ArrayBuffer}
+  | {[Kind in LocalFileKind]:
   | { type: `${Kind}-export`; requestId: number }
   | { type: `${Kind}-import`; requestId: number; bytes: ArrayBuffer }
 }[LocalFileKind];
@@ -14,6 +18,8 @@ export type WorkerResponse =
   | { type: 'ready'; fps: number; coreSha256: string }
   | { type: 'frame'; pixels: ArrayBuffer; audio: ArrayBuffer }
   | { type: 'paused' }
+  | {type:'state-info';requestId:number;info:StateInfo}
+  | {type:'state-validated';requestId:number}
   | { type: `${LocalFileKind}-exported`; requestId: number; bytes: ArrayBuffer }
   | { type: `${LocalFileKind}-imported`; requestId: number }
   | { type: `${LocalFileKind}-error`; requestId: number; message: string }
@@ -21,14 +27,14 @@ export type WorkerResponse =
 export type HealthResponse = { status: 'ok'; service: 'retro-coop-coordinator'; protocol: 1 };
 export const health: HealthResponse = { status: 'ok', service: 'retro-coop-coordinator', protocol: 1 };
 export function isLocalFileOperation(value: unknown): value is {type:LocalFileRequest['type'];requestId:number} {
-  return !!value && typeof value === 'object' && 'type' in value && localFileKinds.some(kind=>value.type===`${kind}-export` || value.type===`${kind}-import`) && 'requestId' in value && typeof value.requestId === 'number' && Number.isSafeInteger(value.requestId) && value.requestId >= 0;
+  return !!value && typeof value === 'object' && 'type' in value && (value.type==='state-info' || value.type==='state-validate' || localFileKinds.some(kind=>value.type===`${kind}-export` || value.type===`${kind}-import`)) && 'requestId' in value && typeof value.requestId === 'number' && Number.isSafeInteger(value.requestId) && value.requestId >= 0;
 }
 export function localFileKind(type: LocalFileRequest['type']):LocalFileKind { return type.split('-')[0] as LocalFileKind; }
 export function isWorkerRequest(value: unknown): value is WorkerRequest {
   if (!value || typeof value !== 'object' || !('type' in value)) return false;
   if (value.type === 'load') return 'rom' in value && value.rom instanceof ArrayBuffer && value.rom.byteLength > 0;
   if (isLocalFileOperation(value)) {
-    return value.type.endsWith('-export') || ('bytes' in value && value.bytes instanceof ArrayBuffer && value.bytes.byteLength > 0);
+    return (value.type==='state-info' || value.type.endsWith('-export')) || ('bytes' in value && value.bytes instanceof ArrayBuffer && value.bytes.byteLength > 0);
   }
   if (value.type === 'pause') return true;
   return value.type === 'frame' && 'p1' in value && 'p2' in value && [value.p1, value.p2].every(v => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 255);

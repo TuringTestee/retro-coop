@@ -15,3 +15,4 @@
 .room-placeholder{min-height:4rem;color:transparent;background:#191b2a}
 
 .room-list button[aria-disabled="true"]{opacity:.5;cursor:not-allowed}.room-list small{font-weight:400;margin-left:.5rem}
+.saves ul{padding:0;list-style:none}.saves li{padding:16px 0;border-bottom:1px solid #38394d}.saves li time{display:inline-block;margin-right:12px}.saves [role=alertdialog]{border:1px solid #b5a3ff;padding:16px;border-radius:8px}.saves [role=status]{overflow-wrap:anywhere}.saves input{max-width:100%}
