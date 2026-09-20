@@ -14,7 +14,7 @@ Then open **http://127.0.0.1:8765/demo/**. Choose your local NES `.nes` file, pr
 
 ## Application
 
-The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The Node coordinator currently provides only a health endpoint; online rooms remain in development.
+The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The [room coordinator](docs/implementation/d08-rooms.md) now creates anonymous public/unlisted rooms and reserves guest places. Synchronized gameplay and the public directory remain in development.
 
 ## Start working
 

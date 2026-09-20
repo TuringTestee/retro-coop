@@ -1,24 +1,68 @@
 import { createServer } from 'node:http';
+import { WebSocket, WebSocketServer } from 'ws';
 import { health } from '../../../packages/contracts/src/index.ts';
+import { parseRoomCommand, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
+import { Rooms, RoomError, limits, type Sender } from './rooms.ts';
 export function config(env: NodeJS.ProcessEnv) {
-  const stage = env.COORDINATOR_STAGE ?? 'local';
-  if (!['local', 'staging'].includes(stage)) throw Error('COORDINATOR_STAGE must be local or staging');
-  const port = Number(env.COORDINATOR_PORT ?? 8787);
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('Invalid COORDINATOR_PORT');
-  return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1' };
+ const stage = env.COORDINATOR_STAGE ?? 'local';
+ if (!['local', 'staging'].includes(stage)) throw Error('COORDINATOR_STAGE must be local or staging');
+ const port = Number(env.COORDINATOR_PORT ?? 8787);
+ if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('Invalid COORDINATOR_PORT');
+ const origins = (env.COORDINATOR_ORIGINS ?? (stage === 'local' ? 'http://127.0.0.1:5173,http://localhost:5173' : '')).split(',').filter(Boolean);
+ if(!origins.length || origins.some(origin => {try { const url = new URL(origin);return !['http:','https:'].includes(url.protocol) || url.origin !== origin;}catch{return true;}})) throw Error('Set COORDINATOR_ORIGINS to exact allowed client origins');
+ return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins };
 }
-export function createCoordinator() {
-  return createServer((request, response) => {
-    response.setHeader('Cache-Control', 'no-store');
-    response.setHeader('Content-Type', 'application/json');
-    if (request.url === '/health' && request.method === 'GET') {
-      response.writeHead(200).end(JSON.stringify(health));
-    } else response.writeHead(404).end(JSON.stringify({ error: 'not_found' }));
+export function createCoordinator(options: {origins?:string[]; rooms?:Rooms} = {}) {
+ const rooms = options.rooms ?? new Rooms();
+ const origins = new Set(options.origins ?? config({}).origins);
+ const server = createServer((request, response) => {
+  response.setHeader('Cache-Control', 'no-store');response.setHeader('Content-Type', 'application/json');response.setHeader('Referrer-Policy','no-referrer');
+  if (request.url === '/health' && request.method === 'GET') response.writeHead(200).end(JSON.stringify(health));
+  else response.writeHead(404).end(JSON.stringify({ error: 'not_found' }));
+ });
+ const sockets = new WebSocketServer({noServer:true,maxPayload:4096,perMessageDeflate:false});
+ // Address admission is bounded and uses the transport address, never untrusted forwarding headers.
+ const admission = new Map<string,{times:number[];active:number}>();
+ server.on('upgrade',(request,socket,head) => {
+  const address = request.socket.remoteAddress ?? 'unknown', now = Date.now();
+  for(const [key,item] of admission) if(!item.active && item.times.every(time => time <= now-60_000)) admission.delete(key);
+  const record = admission.get(address) ?? {times:[],active:0};record.times = record.times.filter(time => time > now-60_000);
+  if(!origins.has(request.headers.origin ?? '') || !['/ws','/coordinator/ws'].includes(request.url ?? '') || sockets.clients.size >= limits.connections || record.active >= 20 || record.times.length >= 30 || (!admission.has(address) && admission.size >= 1000)) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
+  record.times.push(now);admission.set(address,record);
+  sockets.handleUpgrade(request,socket,head,ws => {record.active++;ws.once('close',()=>record.active--);sockets.emit('connection',ws);});
+ });
+ sockets.on('connection',ws => {
+  let token:string|undefined;
+  let windowStarted = Date.now(), received = 0;
+  const send:Sender = (event:RoomEvent) => {if(ws.readyState !== WebSocket.OPEN) return;if(ws.bufferedAmount > 64*1024) {ws.terminate();return;}ws.send(JSON.stringify(event));};
+  const authDeadline = setTimeout(()=>ws.close(1008,'Authenticate first'),5000);authDeadline.unref();
+  ws.on('error',()=>{}); // Protocol errors close the socket; content is never logged.
+  ws.on('message',(raw,binary) => {
+   if(Date.now()-windowStarted >= 10_000) {windowStarted = Date.now();received = 0;}
+   if(++received > 120) {ws.close(1008,'Message rate exceeded');return;}
+   let command;
+   try {if(!binary) command = parseRoomCommand(JSON.parse(raw.toString()));}catch{}
+   if(!command) {ws.close(1008,'Invalid room message');return;}
+   try {
+    let data;
+    if(command.type === 'hello') {
+     if(token) throw new RoomError('already_authenticated');
+     const attached = rooms.attach(command.token,send,()=>ws.close(1000,'Session replaced or expired'));
+     token = attached.token;data = attached.data;clearTimeout(authDeadline);
+    } else {if(!token) throw new RoomError('authenticate_first');data = rooms.handle(token,command);}
+    send({type:'result',requestId:command.requestId,ok:true,data});
+   } catch(error) { const failure = error instanceof RoomError ? error:new RoomError('server_error');send({type:'result',requestId:command.requestId,ok:false,error:failure.code,...(failure.retryAfterMs ? {retryAfterMs:failure.retryAfterMs}:{})}); }
   });
+  ws.once('close',()=>{clearTimeout(authDeadline);if(token) rooms.detach(token,send);});
+ });
+ const timer = setInterval(()=>rooms.sweep(),1000);timer.unref();
+ const stop = () => {clearInterval(timer);rooms.stop();for(const client of sockets.clients) client.terminate();sockets.close();};
+ server.once('close',stop);
+ return Object.assign(server,{stopRooms:stop});
 }
 export async function shutdown(server: ReturnType<typeof createCoordinator>) {
-  const deadline = setTimeout(() => server.closeAllConnections(), 2000);
-  deadline.unref();
-  try { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
-  finally { clearTimeout(deadline); }
+ server.stopRooms();
+ const deadline = setTimeout(() => server.closeAllConnections(), 2000);deadline.unref();
+ try { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); }
+ finally { clearTimeout(deadline); }
 }

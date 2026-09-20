@@ -1,0 +1,67 @@
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d08-prospective/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 5.51s
+     Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 9 tests
+test memory_tail::tests::fragment_contains_only_mutable_tail_and_preserves_local_rom ... ok
+test memory_tail::tests::invalid_fragments_leave_all_memory_untouched ... ok
+test memory_tail::tests::upstream_memory_decoder_accepts_small_payload_requesting_large_arena ... ok
+test realtime_tests::manual_controller_ports_render_and_release ... ok
+test checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits ... ok
+test checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core ... ok
+test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
+test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
+test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.91s
+
+PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
+PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
+PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.070s
+
+OK
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 3.406s
+
+OK
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts
+
+✔ admission is structural, accepts unknown mapper metadata and large valid files (0.922562ms)
+✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.417262ms)
+✔ neutral defaults depend only on random values, never cartridge data (0.802599ms)
+✔ all eight NES inputs and reserved talk binding share conflict detection (1.21401ms)
+✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.4661ms)
+✔ default restoration returns independent mapping arrays (0.692803ms)
+✔ creation acknowledgement and cancellation never expose stale invitations (2.890946ms)
+✔ unlisted preview excludes hashes and codes, host alone controls room mutations (0.880979ms)
+✔ two concurrent contenders have one winner and cancellation frees the slot immediately (0.619951ms)
+✔ mismatch, reconnect and retries do not extend the initial 120-second reservation (0.609065ms)
+✔ only host membership receives heartbeat detection and 60-second recovery grace (0.481655ms)
+✔ unused sessions expire, capacity is bounded, rate limits state their retry time (2.559397ms)
+✔ strict metadata schema rejects uploads, arbitrary fields and malformed values (0.619677ms)
+✔ real WebSockets enforce origin/auth/schema and atomic reservations across clients (40.816799ms)
+✔ delayed cancellation cannot release a newer reservation from the same guest (0.434421ms)
+✔ health is content-free, other routes reject, shutdown closes listener (33.246394ms)
+✔ configuration is explicit and rejects bad ports/stages (0.508585ms)
+✔ SIGTERM exits a running coordinator cleanly (131.035927ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (1.138684ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 322.173346
+Pre-flight passed (repository hygiene and D02 codec regression tests).
+Elapsed: 11.52 seconds

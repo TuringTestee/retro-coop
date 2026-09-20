@@ -57,7 +57,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         page.wait_for_function("before=>document.querySelector('canvas').toDataURL()!==before", arg=before)
         page.keyboard.up('ArrowRight')
         page.screenshot(path=str(output.with_suffix('.after.png')), full_page=True)
-        page.locator('summary').click()
+        page.locator('.panel summary').click()
         assert hashlib.sha256(rom).hexdigest() in fingerprint()
         wasm = (root / 'apps/client/dist/generated/retro_coop_d02.wasm').read_bytes()
         assert hashlib.sha256(wasm).hexdigest() in fingerprint()

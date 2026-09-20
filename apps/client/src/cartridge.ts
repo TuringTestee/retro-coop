@@ -1,5 +1,6 @@
 /** Header admission only: the pinned emulator remains the authority on hardware support. */
-export type Cartridge = { format: 'iNES' | 'NES 2.0'; mapper: number; submapper: number; region: string; bytes: number };
+import type {Cartridge} from '../../../packages/contracts/src/fingerprint.ts';
+export type {Cartridge} from '../../../packages/contracts/src/fingerprint.ts';
 export function inspectCartridge(bytes: Uint8Array): Cartridge {
  if (bytes.length < 16 || bytes[0] !== 0x4e || bytes[1] !== 0x45 || bytes[2] !== 0x53 || bytes[3] !== 0x1a) {
   throw Error('This is not an NES cartridge. Choose an uncompressed .nes file; archives and disk images are not supported.');

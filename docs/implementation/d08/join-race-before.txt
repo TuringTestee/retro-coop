@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/tmp/retro-d08-rooms/scripts/rooms/browser_smoke.py", line 119, in <module>
+    assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: stale Join A released newer Join B on the real server
