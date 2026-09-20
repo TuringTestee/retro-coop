@@ -36,7 +36,7 @@ async function changeRecord(name:string,key:IDBValidKey,expected:BatteryRecord|u
   request.addEventListener('success',()=>{
    const current=request.result as SaveSlot|undefined;
    const same=sameRecord(current,expected);
-   if(!same){failure=Error('This slot changed in another tab. Close and reopen Saves before changing it.');store.transaction.abort();return;}
+   if(!same){failure=Error('This saved data changed in another tab. Reopen the panel before changing it.');store.transaction.abort();return;}
    try{change(store);}catch(error){failure=error;store.transaction.abort();}
   });return request;
  },[name]);}catch(error){throw failure ?? error;}

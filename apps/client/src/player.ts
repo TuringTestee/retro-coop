@@ -6,7 +6,7 @@ import {readStored,putBattery,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
 
 type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
-type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;busy:boolean;backup?:ArrayBuffer};
+type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;busy:boolean};
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
@@ -52,7 +52,6 @@ export class LocalPlayer {
   try {
    const reply=await this.fileRequest({type:'battery-export'},session.worker);
    if(reply.type!=='battery-exported' || session!==this.batterySession)return;
-   session.backup=reply.bytes;
    const record={identity:session.info.identity,savedAt:Date.now(),bytes:reply.bytes};
    await putBattery(record,session.record,session.generation);
    session.record=record;
