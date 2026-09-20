@@ -88,6 +88,7 @@ try:
     guest = page(host.get_by_label("Room invitation", exact=True).input_value())
     guest.get_by_role("button", name="Retry join / Join", exact=True).click()
     guest.get_by_test_id("room-view").wait_for()
+    timeline_before = host.evaluate("timelineWrites")
     for tab in [host, guest]:
         tab.wait_for_function(
             "route=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+route)",
@@ -258,6 +259,7 @@ try:
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )
+    assert host.evaluate("timelineWrites") == timeline_before, "voice changed the local emulator timeline"
     assert not errors, errors
     result = {
         "pair": args.pair,
@@ -268,6 +270,7 @@ try:
         "no_capture_before_enable": True,
         "blur_mutes_focus_does_not_unmute": True,
         "leave_stops_both_tracks": True,
+        "timeline_mutating_worker_commands_unchanged": timeline_before,
         "rejoin_requires_opt_in_and_new_push_to_talk_input": True,
         "remote_volume_zero_via_setting": True,
         "page_errors": errors,

@@ -17,3 +17,11 @@ window.RTCPeerConnection=class extends Native{constructor(...args){super(...args
 
 const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async c=>{if(window.denyCapture)throw new DOMException('fixture denial','NotAllowedError');if(window.missingDevice)throw new DOMException('fixture device missing','NotFoundError');if(window.holdCapture)await new Promise(resolve=>window.releaseCapture=resolve);
 const s=await capture(c);captures.push(s);return s};
+
+// Observe only counts: never retain ROM/save bytes or frame inputs.
+window.timelineWrites={workers:0,loads:0,imports:0};
+const NativeWorker=Worker;
+window.Worker=class extends NativeWorker {
+ constructor(...args){super(...args);timelineWrites.workers++;}
+ postMessage(message,...args){if(message.type==='load')timelineWrites.loads++;if(message.type==='state-import'||message.type==='battery-import')timelineWrites.imports++;return super.postMessage(message,...args);}
+};
