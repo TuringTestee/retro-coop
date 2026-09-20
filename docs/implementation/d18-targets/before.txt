@@ -32,7 +32,7 @@ test at apps/coordinator/src/moderation.test.ts:16:1
 test at apps/coordinator/src/moderation.test.ts:32:1
 ✖ reusing a client intent never restores a prior membership or delayed chat authority (0.710575ms)
   AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
-  
+
   '74da0eb6-2dd0-468f-8681-20c71bf63216'
       at TestContext.<anonymous> (file:///tmp/retro-d18-moderation/apps/coordinator/src/moderation.test.ts:37:9)
       at Test.runInAsyncScope (node:async_hooks:214:14)
@@ -71,13 +71,13 @@ test at apps/coordinator/src/moderation.test.ts:51:1
 ✖ host mutation wire schema requires exact targets and rejects public authority extensions (0.953801ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + {
   +   requestId: '85c95255-7879-4c96-a797-4f9c0c2c804f',
   +   type: 'close'
   + }
   - undefined
-  
+
       at TestContext.<anonymous> (file:///tmp/retro-d18-moderation/apps/coordinator/src/moderation.test.ts:53:66)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1103:25)
