@@ -5,78 +5,154 @@ on:
     branches: [main]
 permissions:
   contents: read
+  actions: read
 jobs:
-  preflight:
+  watchdog:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Keep the original CI deadline
-        run: test "$GITHUB_RUN_ATTEMPT" = 1
-      - name: Check submitted whitespace
+      - name: Enforce the shared workflow deadline
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          git diff --check "$BASE_SHA" HEAD
-      - name: Prepare pinned research toolchain
-        run: |
-          rustup toolchain install 1.95.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown
-          cd spikes/d02
-          cargo +1.95.0 fetch --locked
-          python3 original_fixture.py fixture.local.nes
-          cargo +1.95.0 test --locked --release --lib --no-run
-          cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown
-      - name: Pre-flight
-        run: timeout 60s sh scripts/preflight.sh
-      - name: Prepare pinned browser harness
-        run: |
-          python3 -m venv /tmp/d02-browser-venv
-          /tmp/d02-browser-venv/bin/pip install playwright==1.58.0
-          /tmp/d02-browser-venv/bin/playwright install --with-deps chromium firefox
-          timeout 180s python3 spikes/d02/prepare_stock_firefox.py /tmp/d02-stock-firefox
-          cp /tmp/d02-stock-firefox/browser-build.json spikes/d02/stock-firefox-build.local.json
-      - name: Original-fixture browser regression
-        run: |
-          cd spikes/d02
-          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
-          D02_HTTP_PID=$!
-          trap 'kill "$D02_HTTP_PID"' EXIT
-          timeout 1200s /tmp/d02-browser-venv/bin/python browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
-          python3 verify_results.py browser-ci.local.json
-          timeout 60s /tmp/d02-browser-venv/bin/python demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
-      - name: Prepare real headless audio output
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pulseaudio pulseaudio-utils
-          pulseaudio --start --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=d02 rate=48000 channels=2
-          pactl set-default-sink d02
-          test "$(pactl get-default-sink)" = d02
-          pulseaudio --version > spikes/d02/audio-backend.local.txt
-          pactl list short sinks >> spikes/d02/audio-backend.local.txt
-      - name: Full impaired peer matrix
-        run: |
-          # Hosted Ubuntu's AppArmor policy otherwise blocks the isolated user/net namespace.
-          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          export PATH="/tmp/d02-browser-venv/bin:$PATH"
-          cd spikes/d02
-          timeout 900s python3 run_network_matrix.py fixture.local.nes --bundled-chromium --firefox-executable /tmp/d02-stock-firefox/firefox/firefox --output network-matrix.local.json
-      - name: Browser evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+          GH_TOKEN: ${{ github.token }}
+        run: python3 spikes/d02/ci_budget.py watch --gate preflight
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      deadline: ${{ steps.budget.outputs.deadline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
         with:
-          name: d02-browser-evidence
+          persist-credentials: false
+          fetch-depth: 0
+      - id: budget
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D02_DEADLINE=$(python3 spikes/d02/ci_budget.py deadline)
+          echo "deadline=$D02_DEADLINE" >> "$GITHUB_OUTPUT"
+      - name: Build and fast preflight within the shared deadline
+        env:
+          D02_DEADLINE: ${{ steps.budget.outputs.deadline }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        timeout-minutes: 1
+        with:
+          name: d02-build
           path: |
-            spikes/d02/browser-ci.local.json
-            spikes/d02/demo-smoke.local.json
-            spikes/d02/demo-before.local.png
-            spikes/d02/demo-after.local.png
-            spikes/d02/network-matrix.local.json
-            spikes/d02/audio-backend.local.txt
-            spikes/d02/stock-firefox-build.local.json
-            spikes/d02/.network-runs/matrix-*/*.json
-            spikes/d02/.network-runs/matrix-*/*.log
-          if-no-files-found: ignore
+            spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm
+            spikes/d02/fixture.local.nes
+          if-no-files-found: error
+          retention-days: 7
+  core:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: d02-build
+          path: spikes/d02
+      - name: Full core qualification within the shared deadline
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh core
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        timeout-minutes: 1
+        with:
+          name: d02-core
+          path: |
+            spikes/d02/*.local.json
+            spikes/d02/*.local.txt
+            spikes/d02/*.local.png
+            spikes/d02/.network-runs/**/*.json
+            spikes/d02/.network-runs/**/*.log
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+  network:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pair: [Chrome-Chrome, Firefox-Firefox, Chrome-Firefox]
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+      D02_PAIR: ${{ matrix.pair }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: d02-build
+          path: spikes/d02
+      - name: Full network qualification within the shared deadline
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh network
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        timeout-minutes: 1
+        with:
+          name: d02-pair-${{ matrix.pair }}
+          path: |
+            spikes/d02/*.local.json
+            spikes/d02/*.local.txt
+            spikes/d02/*.local.png
+            spikes/d02/.network-runs/**/*.json
+            spikes/d02/.network-runs/**/*.log
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+  preflight:
+    if: always()
+    needs: [build, core, network]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+      D02_BUILD: ${{ needs.build.result }}
+      D02_CORE: ${{ needs.core.result }}
+      D02_NETWORK: ${{ needs.network.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require every complete workload
+        run: |
+          test "$D02_BUILD" = success
+          test "$D02_CORE" = success
+          test "$D02_NETWORK" = success
+          python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          pattern: d02-pair-*
+          path: /tmp/d02-pair-evidence
+      - name: Require all six peers to agree within the original deadline
+        run: |
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 spikes/d02/verify_ci_matrix.py /tmp/d02-pair-evidence
+          python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"

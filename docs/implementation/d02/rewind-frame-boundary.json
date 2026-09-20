@@ -1,0 +1,38 @@
+{
+  "browser": "Chrome",
+  "version": "145.0.7632.75",
+  "rom_sha256": "1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555",
+  "audio_context_created": false,
+  "warmup_frames": 600,
+  "runs": [
+    {
+      "result": {
+        "canonical_replay_equal": true,
+        "frames_rewound": 600,
+        "max_snapshot_bytes": 21518,
+        "retained_snapshots": 601,
+        "tracked_allocation_bytes": 12939530
+      },
+      "probe_ms": 3425.300000000745,
+      "wasm_memory_bytes": 17104896,
+      "warmup_frames": 600,
+      "start_canonical": "7b0b4c8560f33b6e17c65ff414d2cbde14acab060eebb60a1163e995172d4698",
+      "wasm_sha256": "d4ae03cd634d78fa9bc0205431cac4ebb954bfa2b9de201bd17e6e56c2c45bb5"
+    },
+    {
+      "result": {
+        "canonical_replay_equal": true,
+        "frames_rewound": 601,
+        "max_snapshot_bytes": 21518,
+        "retained_snapshots": 602,
+        "tracked_allocation_bytes": 12961060
+      },
+      "probe_ms": 3486.60000000149,
+      "wasm_memory_bytes": 17235968,
+      "warmup_frames": 600,
+      "start_canonical": "7b0b4c8560f33b6e17c65ff414d2cbde14acab060eebb60a1163e995172d4698",
+      "wasm_sha256": "43acae58ad16d3bb9f2137c0d4b1a9b451ddeb04e249d83b8737f0f8783d42fb"
+    }
+  ],
+  "wall_seconds": 12.313393694999831
+}

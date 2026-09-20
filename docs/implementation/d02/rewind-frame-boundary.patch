@@ -1,0 +1,31 @@
+diff --git a/spikes/d02/src/lib.rs b/spikes/d02/src/lib.rs
+index 4c01009..c801618 100644
+--- a/spikes/d02/src/lib.rs
++++ b/spikes/d02/src/lib.rs
+@@ -183,9 +183,9 @@ pub fn canonical(d: &ControlDeck) -> Vec<u8> {
+ pub extern "C" fn rewind_probe(start: u32) -> *const u8 {
+     PROBE.with_borrow_mut(|p| {
+         let p = p.as_mut().unwrap();
+-        let mut ring = Vec::with_capacity(601);
++        let mut ring = Vec::with_capacity(602);
+         ring.push(snapshot(&p.deck));
+-        for f in start..start + 600 {
++        for f in start..start + 601 {
+             step(&mut p.deck, f);
+             ring.push(snapshot(&p.deck));
+         }
+@@ -197,12 +197,12 @@ pub extern "C" fn rewind_probe(start: u32) -> *const u8 {
+             bincode::serde::decode_from_slice(&ring[0], bincode::config::legacy()).unwrap();
+         assert_eq!(consumed, ring[0].len());
+         p.deck.load_bus(bus).unwrap();
+-        for f in start..start + 600 {
++        for f in start..start + 601 {
+             step(&mut p.deck, f);
+         }
+         p.output = serde_json::to_vec(&serde_json::json!({
+             "retained_snapshots":ring.len(), "tracked_allocation_bytes":tracked_bytes,
+-            "frames_rewound":600, "canonical_replay_equal":expected == canonical(&p.deck),
++            "frames_rewound":601, "canonical_replay_equal":expected == canonical(&p.deck),
+             "max_snapshot_bytes":ring.iter().map(Vec::len).max().unwrap(),
+         }))
+         .unwrap();
