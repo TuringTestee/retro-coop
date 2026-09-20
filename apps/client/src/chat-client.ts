@@ -1,15 +1,16 @@
 import {CHAT_LIMITS,type ChatCommand,type ChatEvent,type ChatMessage} from '../../../packages/contracts/src/chat.ts';
 import type {RoomData,RoomView} from '../../../packages/contracts/src/rooms.ts';
+export type ChatRoom=Pick<RoomView,'id'|'chatMembership'|'role'>;
 type Outbox={command:Omit<ChatCommand,'requestId'>;nickname:string;sender:'host'|'guest';at:number;error?:string;retryAt?:number};
 export type ChatState={messages:ChatMessage[];draft:string;outbox?:Outbox;sending:boolean};
 export class ChatClient {
- private room?:RoomView;
+ private room?:ChatRoom;
  private state:ChatState={messages:[],draft:'',sending:false};
  private update:(state:ChatState)=>void;
  private request:(command:Omit<ChatCommand,'requestId'>)=>Promise<RoomData>;
  constructor(update:(state:ChatState)=>void,request:(command:Omit<ChatCommand,'requestId'>)=>Promise<RoomData>){this.update=update;this.request=request;}
  private publish(patch:Partial<ChatState>){this.state={...this.state,...patch};this.update(this.state);}
- enter(room?:RoomView):ChatState {
+ enter(room?:ChatRoom):ChatState {
   if(this.room?.id!==room?.id || this.room?.chatMembership!==room?.chatMembership) this.state={messages:[],draft:'',sending:false};
   this.room=room;return this.state;
  }
