@@ -4,7 +4,7 @@ Audience: Human
 
 Visitors see every public game session, drop a local ROM to host, and join a two-player room with a clear next step. The game stays central while chat, controller ownership, and shared pause/recovery remain visible. These text wireframes cover the first-release stories and failure states; they are a design proposal, not a working interface or a usability-test result.
 
-The [included-games amendment](included-games.md) updates U1/U3/U9 to show Super Tilt Bro first and From Below second, with per-game Start/Browse/About and license placeholders. Other interaction and consent rules below remain unchanged.
+The [included-games amendment](included-games.md) updates U1/U3/U4/U9: before play it shows the complete lobby directory plus one-click launchers for Super Tilt Bro and From Below; after load it enlarges the game and exposes play controls. It removes promotional copy and standalone About tabs. Other interaction and consent rules below remain unchanged.
 
 ## Scope and reading guide
 
@@ -18,7 +18,7 @@ Square brackets denote controls. A disabled control is explicitly labelled unava
 
 The current agent-proposed visual direction remains a restrained arcade theme; the user’s governing product principle is minimal setup, not a mandated aesthetic: dark charcoal page, slightly lighter panels, warm off-white text, and one bright accent for the next action. Reserve amber for attention and red for errors/destructive actions, always paired with words or icons. Body text uses a readable system sans-serif; a pixel-style wordmark is optional. No scanlines on page text, flashing decoration, fabricated cartridge art, or automatic background gameplay.
 
-At a wide desktop viewport, center a content area around 1200 px. Directory rows stay compact so multiple games are immediately visible. Session layout gives roughly three quarters of the width to play and one quarter to players/chat, with the game preserving the emulator's 256:240 source ratio. Do not stretch its pixels to match these schematic boxes. Narrow desktop windows stack the side panel below play and expose a chat tab with an unread marker; they must retain every action without horizontal page scrolling. This responsive treatment does not expand first-release support to mobile play.
+At a wide desktop viewport, use the full available window up to a readable maximum width. The document has no horizontal or vertical scroll in discovery or play. Directory rows stay compact and paginate within the remaining viewport height; do not add a nested scrolling list. Session layout gives roughly three quarters of the width to play and one quarter to players/chat, with the game preserving the emulator's 256:240 source ratio. Do not stretch its pixels to match these schematic boxes. Narrow supported desktop windows move the side panel into a compact switchable region and shrink the canvas to fit; they retain every action without document overflow. This responsive treatment does not expand first-release support to mobile play.
 
 Use at least 16 px body text, clear focus outlines, comfortably sized controls, readable contrast, and reduced-motion behavior. Screen-reader labels name the game and host for each Join action. Announce join outcomes and pauses politely; do not announce every heartbeat, game frame, or countdown tick. Dialogs receive focus and return it to their trigger when closed. There is no drag-only, hover-only, color-only, or pointer-only task.
 
@@ -69,6 +69,8 @@ S04/S08/S33 → duplicate names, slot squatting and a late guest can strand or d
 S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. Content identity and the measured supported-hardware matrix remain open release gates; no additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
 
 ## U1 — Directory
+
+The following historical wireframe is superseded where it shows one large featured panel. The current U1 wireframe and state rules live in [Included games and arbitrary NES files](included-games.md): compact Play/Show lobbies actions for both included games, compact arbitrary-file hosting, then the live directory as the dominant content. There is no marketing hero, tagline, passive featured-information panel or page scrolling. Overflowing lobby results use pagination.
 
 ```text
 RETRO COOP                             Guest Alex [Settings]
@@ -176,6 +178,8 @@ Voice is optional and never blocks play. Enable voice requests microphone permis
 * Host control. Saving creates a copy on your device.
 ```
 
+U4 appears only after a game has loaded. The canvas expands into the primary content area and the controls below it become visible at that point. Before load, Pause, Save, Rewind, Fullscreen, sound and controller controls are absent rather than disabled clutter. **All lobbies** returns to the complete directory while preserving the current loaded game. **Game help** replaces a pre-play About tab and contains controls/instructions, credits and the requested license placeholder for an included game.
+
 Both players can request Pause; it pauses the shared timeline and identifies the requester. Resume requires both players to be present and acknowledge readiness, then the host selects [Resume together]. While awaiting the other player, show “Waiting for Jo to resume” instead of an apparently broken button. System pauses (connection, focus, disconnected controller, slow device) use U8 and cannot be bypassed while their prerequisite is unresolved.
 
 Save is local and non-disruptive at a committed frame. It opens U6 and reports success only after persistence succeeds. Rewind is host-only in multiplayer; guests see “Host controls shared rewind” as explanatory text in More, not an actionable button. More exposes [Saves], [Request restart] for the host, [Session settings], and [Leave session]/[Close session] appropriate to role. Solo practice permits immediate local rewind/restore/reset with the same confirmation for replacing progress, without a nonexistent peer approval.
@@ -281,7 +285,7 @@ Leave during play confirms its effect on the other player and can offer [Leave a
 
 The host's Session settings shows visibility, copy invite, controller assignment while paused/waiting, guest removal, and Close session. Remove player names the affected guest and confirms “They will lose their place and reconnect access.” It does not claim to ban a person across new anonymous sessions. Server-confirmed changes update both clients; failed changes retain the previous state and explain the failure. Browser Back and All sessions from an active room invoke the same leave/close choice rather than silently abandoning the peer.
 
-Featured About shows the confirmed title, creator credits, actual licence/permission notice, controls/how-to-play supplied with the game, and Start/Browse actions. This panel cannot be finished until the variant is specified. User-ROM information says “Host-provided title · Bring your own matching ROM” and explains local file handling; it has no supplied cover image or download action.
+Game help for a loaded included game shows the confirmed title, creator credits, the requested licence placeholder and controls/how-to-play supplied with the game. It does not repeat Start/Browse actions. User-ROM help says “Host-provided title · Bring your own matching ROM” and explains local file handling; it has no supplied cover image or download action.
 
 Operator removal and temporary admission blocks remain a restricted operational tool/runbook, not a new public admin dashboard. Its required interaction is: authenticated operator identifies a session or admission subject → sees a confirmation naming that target and action → receives success/failure → affected clients get the corresponding U8 removal/capacity state. No public page exposes operator credentials, chat inspection, ROM hashes, or private invites. Exact operational tooling is selected with the deployment package; UI review checks the resulting public feedback and authorization evidence.
 
