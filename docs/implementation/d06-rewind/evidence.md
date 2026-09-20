@@ -18,3 +18,9 @@ The application/native implementation is commit `0578946`, integrated with voice
 The inspected [confirmation](rewind-before-before-assets.png), [restored state](rewind-after-before-assets.png) and [mobile dialog](rewind-mobile-before-assets.png) show readable controls and no horizontal overflow. The game moves from frame 653 to 52 after confirmation and stays paused until Resume. Audio evidence observes finite, nonzero PCM after Resume while muting only application gain; it does not claim bit-exact filter history.
 
 The guide [defines the measured allocation boundary and remaining D06 work](../d06-rewind.md). CI remains pending until the branch is published. No independent review verdict is claimed by this author evidence.
+
+## Asset-integrated candidate
+
+The [candidate metadata](candidate.json) pins source/base and the rebuilt WASM digest after merging PR #57. The [current full browser result](browser.json) and [raw output](browser.txt) passed in 72.54 seconds, including the explicit 32 MiB assertion. [Confirmation](rewind-before.png), [restored state](rewind-after.png) and [mobile](rewind-mobile.png) were inspected: controls and status are readable, confirmation is explicit, and the mobile dialog fits without overflow. The same 653→52 frame transition and separately observed resumed PCM passed. The static browser harness intentionally has no coordinator; its room connection failure is unrelated to local rewind.
+
+The immutable [issue snapshot](issue-10.json) and [epic snapshot](epic-2.json) preserve the assigned scope and approval lineage. Native timing and capacity proof above remains applicable; only native test naming changed since those runs. Final full preflight output is linked after the evidence commit.
