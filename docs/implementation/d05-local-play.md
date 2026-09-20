@@ -8,7 +8,7 @@ This records the D05 checkpoint. The subsequent [D08 room guide](d08-rooms.md) d
 
 ## Run and verify
 
-Use the README's pinned tools, then `npm ci`, `sh scripts/foundation/prepare.sh`, and `npm run dev`. Open the printed local URL and choose an uncompressed NES cartridge. Arrow keys move, X/Z map to A/B, Enter is Start, Shift is Select; a standard gamepad works while the screen has focus. Game output starts muted; Unmute affects only the application's gain. Window blur/background pauses play. Resume continues the existing worker rather than restarting progress.
+Use the README's pinned tools, then `npm ci`, `sh scripts/foundation/prepare.sh`, and `npm run dev`. Open the printed local URL and choose an uncompressed NES cartridge. Arrow keys move, X/Z map to A/B, Enter is Start, Shift is Select; choose a detected gamepad in Settings to use it while the screen has focus. Game output starts muted; Unmute affects only the application's gain. Window blur/background pauses play. See [D07 controls and presentation](d07-controls.md) for remapping, controller recovery, filters, volume and fullscreen. Resume continues the existing worker rather than restarting progress.
 
 For a production bundle run `npm run build`. With Playwright 1.58.0 and Chromium installed:
 

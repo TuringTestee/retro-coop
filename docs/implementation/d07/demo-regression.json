@@ -1,0 +1,30 @@
+{
+  "browser_version": "145.0.7632.75",
+  "wall_seconds": 5.268681356999878,
+  "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+  "non_nrom_mappers_loaded_and_saved": [
+    1,
+    2,
+    3,
+    4,
+    7
+  ],
+  "nes2_drop": true,
+  "over_8_mib_admitted": true,
+  "test_starts_muted": true,
+  "normal_start_unmuted": true,
+  "mute_stops_scheduling": true,
+  "manual_input_changes_pixels": true,
+  "pause_freezes_pixels": true,
+  "latest_file_selection_wins": true,
+  "save_restore": true,
+  "invalid_rom_preserves_game": true,
+  "narrow_layout_no_overflow": true,
+  "audio": {
+    "buffers": 7,
+    "peak": 0.042960409075021744,
+    "starts": 7
+  },
+  "page_errors": [],
+  "no_upload_requests": true
+}
