@@ -1,0 +1,1214 @@
+{
+  "run_id": "ac82e74d649b4710b6ccfb0007866b45",
+  "result": "pass",
+  "browsers": {
+    "Chrome": "145.0.7632.6"
+  },
+  "pair": "Chrome-Chrome",
+  "target_seconds": 30,
+  "active_seconds": 29.74,
+  "final": [
+    {
+      "hash": "b54672d961a10333bea2a354b94219e6f42bfdfd20c553d4dc356a5484835074",
+      "frame": 1809,
+      "fresh": false
+    },
+    {
+      "hash": "b54672d961a10333bea2a354b94219e6f42bfdfd20c553d4dc356a5484835074",
+      "frame": 1809,
+      "fresh": false
+    }
+  ],
+  "seconds": 39.13,
+  "pause": [
+    {
+      "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+      "frame": 262,
+      "fresh": false
+    },
+    {
+      "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+      "frame": 262,
+      "fresh": false
+    }
+  ],
+  "peers": [
+    {
+      "hashes": [
+        {
+          "hash": "4945166471f4bbdfd599c7a95ff74e5b90cb85842f790424ee5caabc62389c24",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "4945166471f4bbdfd599c7a95ff74e5b90cb85842f790424ee5caabc62389c24",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "26ad09f789ccafa19a36dbc62db074b57eb575729ef267ad3746a5b16d9ad734",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "da5e3e794b331022359a7d5c12abc2ffac14151d2ce45ac3a01d737b72e76644",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "5f9cc7e69cec3d95c137f57e26318c1281106a7eb525d77a88ac340cd72d64ac",
+          "frame": 382,
+          "fresh": false
+        },
+        {
+          "hash": "1515fb12bea1c3f6276da55e97633295005d0d591cae337b285b944dcac368c6",
+          "frame": 502,
+          "fresh": false
+        },
+        {
+          "hash": "5ecc7f6d7250a3fa4aea7957cd4314000acf23bd1af7156471deb2b7ed24152c",
+          "frame": 622,
+          "fresh": false
+        },
+        {
+          "hash": "e89a991546c4a13a7d52263fc477613d93882ab3ce4202643039867e827d0e15",
+          "frame": 742,
+          "fresh": false
+        },
+        {
+          "hash": "55b9704cf630cccb9cd071ab6262f518881246e3d7a58e280de137b0160f2c65",
+          "frame": 862,
+          "fresh": false
+        },
+        {
+          "hash": "928e03cf91c83e001477c65f110d01cf4aea61c035d09648372934f1b2c90792",
+          "frame": 982,
+          "fresh": false
+        },
+        {
+          "hash": "14a20a0461d80144650d25361ec686245af19e3a93068e651f183da12f024643",
+          "frame": 1102,
+          "fresh": false
+        },
+        {
+          "hash": "7f0b83ed54bf8291792850566a4f249ca57e483a3ac24c1c050020f27fca301f",
+          "frame": 1222,
+          "fresh": false
+        },
+        {
+          "hash": "4c779c9da7f52ef3d6e5bd459bbafc25fd94df487d18dfa35d686e5d0beaccba",
+          "frame": 1342,
+          "fresh": false
+        },
+        {
+          "hash": "88a92ba4150b99abd1bdaba72692ccf5eb3436bf5cdea3ad11cf6bc90ebe0928",
+          "frame": 1462,
+          "fresh": false
+        },
+        {
+          "hash": "35baf35476ff537ca0c2038d4bd43e2175b8b1fe3b5e3451c17b0accd0abb39c",
+          "frame": 1582,
+          "fresh": false
+        },
+        {
+          "hash": "ad19fd1cda4240acc284e2cd65e46ac2ebb6de1a3de38abb9743274d582e951b",
+          "frame": 1702,
+          "fresh": false
+        },
+        {
+          "hash": "b54672d961a10333bea2a354b94219e6f42bfdfd20c553d4dc356a5484835074",
+          "frame": 1809,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1535
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1536
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1537
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1538
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1539
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1540
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1541
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1542
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1543
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1544
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1545
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1546
+        }
+      ],
+      "frameCount": 1809,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "uc83v4476xaiPHiH_y18N6hDzoW0Z-J2",
+          "frame": 120,
+          "hash": "26ad09f789ccafa19a36dbc62db074b57eb575729ef267ad3746a5b16d9ad734"
+        },
+        {
+          "kind": "hash",
+          "epoch": "uc83v4476xaiPHiH_y18N6hDzoW0Z-J2",
+          "frame": 240,
+          "hash": "da5e3e794b331022359a7d5c12abc2ffac14151d2ce45ac3a01d737b72e76644"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 120,
+          "hash": "5f9cc7e69cec3d95c137f57e26318c1281106a7eb525d77a88ac340cd72d64ac"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 240,
+          "hash": "1515fb12bea1c3f6276da55e97633295005d0d591cae337b285b944dcac368c6"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 360,
+          "hash": "5ecc7f6d7250a3fa4aea7957cd4314000acf23bd1af7156471deb2b7ed24152c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 480,
+          "hash": "e89a991546c4a13a7d52263fc477613d93882ab3ce4202643039867e827d0e15"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 600,
+          "hash": "55b9704cf630cccb9cd071ab6262f518881246e3d7a58e280de137b0160f2c65"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 720,
+          "hash": "928e03cf91c83e001477c65f110d01cf4aea61c035d09648372934f1b2c90792"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 840,
+          "hash": "14a20a0461d80144650d25361ec686245af19e3a93068e651f183da12f024643"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 960,
+          "hash": "7f0b83ed54bf8291792850566a4f249ca57e483a3ac24c1c050020f27fca301f"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1080,
+          "hash": "4c779c9da7f52ef3d6e5bd459bbafc25fd94df487d18dfa35d686e5d0beaccba"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1200,
+          "hash": "88a92ba4150b99abd1bdaba72692ccf5eb3436bf5cdea3ad11cf6bc90ebe0928"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1320,
+          "hash": "35baf35476ff537ca0c2038d4bd43e2175b8b1fe3b5e3451c17b0accd0abb39c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1440,
+          "hash": "ad19fd1cda4240acc284e2cd65e46ac2ebb6de1a3de38abb9743274d582e951b"
+        }
+      ],
+      "timing": {
+        "workerMs": 3426.0999999530613,
+        "workerMax": 29.300000000745058,
+        "frameGaps": [
+          null,
+          null,
+          6,
+          6,
+          110,
+          9,
+          3,
+          4,
+          13,
+          1,
+          null,
+          null,
+          18,
+          38,
+          7,
+          22,
+          364,
+          1085,
+          30,
+          5,
+          13,
+          40,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          1,
+          2,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          1,
+          null,
+          4,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          1,
+          null,
+          2,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          3
+        ],
+        "waitMs": 1897.200000014156,
+        "waitCount": 47,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "controllerRam": [
+        128,
+        64
+      ]
+    },
+    {
+      "hashes": [
+        {
+          "hash": "4945166471f4bbdfd599c7a95ff74e5b90cb85842f790424ee5caabc62389c24",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "4945166471f4bbdfd599c7a95ff74e5b90cb85842f790424ee5caabc62389c24",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "26ad09f789ccafa19a36dbc62db074b57eb575729ef267ad3746a5b16d9ad734",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "da5e3e794b331022359a7d5c12abc2ffac14151d2ce45ac3a01d737b72e76644",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "51b8a11486bccc499c1ea801db1bdce81ee2481cdc0ef9db310e7c7a1bce4298",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "5f9cc7e69cec3d95c137f57e26318c1281106a7eb525d77a88ac340cd72d64ac",
+          "frame": 382,
+          "fresh": false
+        },
+        {
+          "hash": "1515fb12bea1c3f6276da55e97633295005d0d591cae337b285b944dcac368c6",
+          "frame": 502,
+          "fresh": false
+        },
+        {
+          "hash": "5ecc7f6d7250a3fa4aea7957cd4314000acf23bd1af7156471deb2b7ed24152c",
+          "frame": 622,
+          "fresh": false
+        },
+        {
+          "hash": "e89a991546c4a13a7d52263fc477613d93882ab3ce4202643039867e827d0e15",
+          "frame": 742,
+          "fresh": false
+        },
+        {
+          "hash": "55b9704cf630cccb9cd071ab6262f518881246e3d7a58e280de137b0160f2c65",
+          "frame": 862,
+          "fresh": false
+        },
+        {
+          "hash": "928e03cf91c83e001477c65f110d01cf4aea61c035d09648372934f1b2c90792",
+          "frame": 982,
+          "fresh": false
+        },
+        {
+          "hash": "14a20a0461d80144650d25361ec686245af19e3a93068e651f183da12f024643",
+          "frame": 1102,
+          "fresh": false
+        },
+        {
+          "hash": "7f0b83ed54bf8291792850566a4f249ca57e483a3ac24c1c050020f27fca301f",
+          "frame": 1222,
+          "fresh": false
+        },
+        {
+          "hash": "4c779c9da7f52ef3d6e5bd459bbafc25fd94df487d18dfa35d686e5d0beaccba",
+          "frame": 1342,
+          "fresh": false
+        },
+        {
+          "hash": "88a92ba4150b99abd1bdaba72692ccf5eb3436bf5cdea3ad11cf6bc90ebe0928",
+          "frame": 1462,
+          "fresh": false
+        },
+        {
+          "hash": "35baf35476ff537ca0c2038d4bd43e2175b8b1fe3b5e3451c17b0accd0abb39c",
+          "frame": 1582,
+          "fresh": false
+        },
+        {
+          "hash": "ad19fd1cda4240acc284e2cd65e46ac2ebb6de1a3de38abb9743274d582e951b",
+          "frame": 1702,
+          "fresh": false
+        },
+        {
+          "hash": "b54672d961a10333bea2a354b94219e6f42bfdfd20c553d4dc356a5484835074",
+          "frame": 1809,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1535
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1536
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1537
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1538
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1539
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1540
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1541
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1542
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1543
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1544
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1545
+        },
+        {
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1546
+        }
+      ],
+      "frameCount": 1809,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "uc83v4476xaiPHiH_y18N6hDzoW0Z-J2",
+          "frame": 120,
+          "hash": "26ad09f789ccafa19a36dbc62db074b57eb575729ef267ad3746a5b16d9ad734"
+        },
+        {
+          "kind": "hash",
+          "epoch": "uc83v4476xaiPHiH_y18N6hDzoW0Z-J2",
+          "frame": 240,
+          "hash": "da5e3e794b331022359a7d5c12abc2ffac14151d2ce45ac3a01d737b72e76644"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 120,
+          "hash": "5f9cc7e69cec3d95c137f57e26318c1281106a7eb525d77a88ac340cd72d64ac"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 240,
+          "hash": "1515fb12bea1c3f6276da55e97633295005d0d591cae337b285b944dcac368c6"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 360,
+          "hash": "5ecc7f6d7250a3fa4aea7957cd4314000acf23bd1af7156471deb2b7ed24152c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 480,
+          "hash": "e89a991546c4a13a7d52263fc477613d93882ab3ce4202643039867e827d0e15"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 600,
+          "hash": "55b9704cf630cccb9cd071ab6262f518881246e3d7a58e280de137b0160f2c65"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 720,
+          "hash": "928e03cf91c83e001477c65f110d01cf4aea61c035d09648372934f1b2c90792"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 840,
+          "hash": "14a20a0461d80144650d25361ec686245af19e3a93068e651f183da12f024643"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 960,
+          "hash": "7f0b83ed54bf8291792850566a4f249ca57e483a3ac24c1c050020f27fca301f"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1080,
+          "hash": "4c779c9da7f52ef3d6e5bd459bbafc25fd94df487d18dfa35d686e5d0beaccba"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1200,
+          "hash": "88a92ba4150b99abd1bdaba72692ccf5eb3436bf5cdea3ad11cf6bc90ebe0928"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1320,
+          "hash": "35baf35476ff537ca0c2038d4bd43e2175b8b1fe3b5e3451c17b0accd0abb39c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "jdBiIP7fsEZqkVxCKESz_lpHQPgpoW96",
+          "frame": 1440,
+          "hash": "ad19fd1cda4240acc284e2cd65e46ac2ebb6de1a3de38abb9743274d582e951b"
+        }
+      ],
+      "timing": {
+        "workerMs": 3448.699999921024,
+        "workerMax": 20.100000001490116,
+        "frameGaps": [
+          null,
+          null,
+          2,
+          17,
+          332,
+          38,
+          8,
+          6,
+          135,
+          36,
+          8,
+          9,
+          112,
+          78,
+          15,
+          7,
+          140,
+          304,
+          15,
+          7,
+          50,
+          135,
+          11,
+          5,
+          24,
+          111,
+          11,
+          2,
+          7,
+          81,
+          7,
+          3,
+          9,
+          34,
+          1,
+          1,
+          1,
+          6,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          4,
+          1,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          1,
+          2,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          1,
+          null,
+          1,
+          null,
+          null,
+          null,
+          3,
+          null,
+          null,
+          2,
+          2,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2
+        ],
+        "waitMs": 20042.69999998808,
+        "waitCount": 1179,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "controllerRam": [
+        128,
+        64
+      ]
+    }
+  ],
+  "page_errors": [],
+  "network_evidence": {
+    "run_id": "ac82e74d649b4710b6ccfb0007866b45",
+    "netem_before": [
+      {
+        "kind": "netem",
+        "handle": "8006:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 0,
+        "packets": 0,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "netem_after": [
+      {
+        "kind": "netem",
+        "handle": "8006:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 8424732,
+        "packets": 8349,
+        "drops": 69,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "route": [
+      {
+        "type": "local",
+        "dst": "10.201.0.1",
+        "dev": "lo",
+        "prefsrc": "10.201.0.1",
+        "flags": [],
+        "uid": 0,
+        "cache": [
+          "local"
+        ]
+      }
+    ],
+    "udp_headers": {
+      "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+      "wall_seconds": 39.99382716100081,
+      "flows": {
+        "10.201.0.1:57002>10.201.0.1:37628": {
+          "observations": 3719,
+          "udp_bytes": 370255
+        },
+        "10.201.0.1:37628>10.201.0.1:57002": {
+          "observations": 3682,
+          "udp_bytes": 369106
+        }
+      }
+    }
+  }
+}

@@ -86,6 +86,11 @@ def verify(result, seconds=600, require_muted=False):
         require(teardown["localTrack"] == "ended" and teardown["connection"] == "closed"
                 and teardown["audio"] == "closed" and teardown["remoteElementPaused"] is True, "incomplete media teardown")
     require(result["canonical_equal"] is True and runs[0]["hashes"] == runs[1]["hashes"], "canonical peer divergence")
+    verify_network_evidence(result, seconds)
+
+
+def verify_network_evidence(result, seconds):
+    """Validate the shared actual-packet impairment proof for a uniquely bound run."""
     evidence = result["network_evidence"]
     require(isinstance(result["run_id"], str) and bool(result["run_id"])
             and evidence["run_id"] == result["run_id"], "network evidence belongs to another run")

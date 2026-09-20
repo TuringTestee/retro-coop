@@ -44,7 +44,7 @@ export class GameClient {
   this.publish({busy:true,status:'Checking the committed machine state…'});
   try{
    const info=await player.holdForGame();if(serial!==this.serial||!this.eligible())return;
-   await this.send({type:'gameReady',peerEpoch,...info,delay:gameplayLimits.delayMin});
+   await this.send({type:'gameReady',peerEpoch,...info,delay:gameplayLimits.delayDefault});
    this.publish({busy:false,status:room.established?'Ready to resume. Waiting for the host and other player.':'Waiting for the matching initial-state barrier…'});
   }catch(error){if(serial===this.serial)this.clear(error instanceof Error?error.message:'Shared game could not prepare.',!room.established);}
   finally{if(serial===this.serial)this.offering=false;}
@@ -87,7 +87,7 @@ export class GameClient {
   try{
    scheduler.sample(this.fence!==undefined?0:mask);const input=scheduler.next();
    if(!input){this.missingSince ||= performance.now();this.publish({status:'Waiting for the other player’s input. Emulation is stopped.'});if(performance.now()-this.missingSince>gameplayLimits.stallMs)this.fail('Input stream stalled. Shared play is paused.','network');return;}
-   this.missingSince=0;return {frame:scheduler.frame,p1:input[this.room?.role==='host'?0:1],p2:input[this.room?.role==='host'?1:0]};
+   if(this.missingSince)this.publish({status:'Playing together.'});this.missingSince=0;return {frame:scheduler.frame,p1:input[this.room?.role==='host'?0:1],p2:input[this.room?.role==='host'?1:0]};
   }catch(error){this.fail(String(error),'network');}
  }
  private committed(frame:number){

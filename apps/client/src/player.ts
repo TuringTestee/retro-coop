@@ -1,6 +1,6 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import type { WorkerRequest, WorkerResponse, LocalFileRequest, StateInfo, StateHash } from '../../../packages/contracts/src/index.ts';
-import type { GameReason } from '../../../packages/contracts/src/gameplay.ts';
+import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
 import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import { inspectCartridge, hex } from './cartridge.ts';
@@ -15,6 +15,8 @@ export type PlayerState = { shared?:boolean; status: string; loading: boolean; r
 export class LocalPlayer {
  private active?: Worker;
  private game?:GameDriver;
+ private gameTimer?:ReturnType<typeof setTimeout>;
+ private gameStarted=0;private gameFrames=0;
  private shared=false;
  private expectedFrame?:{epoch:string;frame:number};
  private nextRequest = 0;
@@ -32,9 +34,9 @@ export class LocalPlayer {
  }
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
  async holdForGame() {if(!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game and reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
- startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game with a connected controller before starting.');this.game=driver;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();}
+ startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game with a connected controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
- stopGame(status:string,leave=false) {this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
+ stopGame(status:string,leave=false) {clearTimeout(this.gameTimer);this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
  async saveInfo():Promise<StateInfo> {const reply=await this.fileRequest({type:'state-info'});if(reply.type!=='state-info')throw Error('Unexpected save response');return reply.info;}
  async exportSave():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'state-export'});if(reply.type!=='state-exported')throw Error('Unexpected save response');return reply.bytes;}
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
@@ -100,16 +102,29 @@ export class LocalPlayer {
    return;
   }
   if(this.state.inputIssue) this.publish({inputIssue:undefined,status:'Controller reconnected. Resume whenever you’re ready.'});
-  if(!this.active || !this.state.running || this.busy || now-this.last < 1000/this.fps) return;
+  if(this.game || !this.active || !this.state.running || this.busy || now-this.last < 1000/this.fps) return;
   this.last = now-(now-this.last)%(1000/this.fps);
   const pressed = document.activeElement === this.canvas ? (selected ? padInputs(pad) : this.keys) : new Set<string>();
   const mask = inputMask(selected ? this.controls.gamepad : this.controls.keyboard,pressed);
-  if(this.game) {
-   const next=this.game.next(mask);if(!next)return;
-   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};
-   this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
-  } else {this.busy=true;this.send(this.active,{type:'frame',p1:mask,p2:0});}
+  this.busy=true;this.send(this.active,{type:'frame',p1:mask,p2:0});
  };
+ // As in the qualified D02 scheduler, wall time sets an absolute target. Input
+ // waits retain debt; each worker request still commits exactly one known frame.
+ private pumpGame = () => {
+  if(!this.game||this.disposed)return;
+  this.gameTimer=setTimeout(this.pumpGame,2);
+  if(!this.active||!this.state.running||this.game.draining())return;
+  const {pad,available}=this.inputDevice();
+  if(!available||document.hidden||!this.windowFocused){this.pause(available?'focus':'device');return;}
+  const elapsed=performance.now()-this.gameStarted;
+  if(elapsed-this.gameFrames*1000/this.fps>gameplayLimits.stallMs){this.pause('network');return;}
+  if(this.busy||this.gameFrames>=Math.floor(elapsed*this.fps/1000))return;
+  const selected=this.controls.device;
+  const pressed=document.activeElement===this.canvas?(selected?padInputs(pad):this.keys):new Set<string>();
+  const next=this.game.next(inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed));if(!next)return;
+  this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
+ };
+
  drainGame() {
   if(!this.game?.draining()||!this.active||this.busy)return;
   const next=this.game.next(0);if(!next)return;this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
@@ -200,7 +215,7 @@ export class LocalPlayer {
      this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
      if(this.state.running) this.audio.play(data.audio);
      this.publish({frames:this.state.frames+1});
-     if(committed && this.game?.epoch===committed.epoch)this.game.committed(committed.frame);
+     if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();
     }
    };
@@ -210,7 +225,7 @@ export class LocalPlayer {
   }
  }
  dispose() {
-  this.disposed = true; this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
+  this.disposed = true; clearTimeout(this.gameTimer); this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
   window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('focus',this.focus); document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
  }
 }
