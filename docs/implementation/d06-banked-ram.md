@@ -68,7 +68,7 @@ The complete [committed-evidence preflight](d06-banked-ram/preflight.txt) passed
 
 ## CI keyboard-picker investigation
 
-The first [CI run](https://github.com/TuringTestee/retro-coop/actions/runs/35506106328) failed before loading a game: Enter did not yield a file-chooser event within the existing 30-second timeout. The [raw failure](d06-banked-ram/picker-investigation/ci-failure.txt) and [pre-action screenshot](d06-banked-ram/picker-investigation/ci-before.png) are retained. Its cause is **unknown**, not repaired or dismissed as flaky. All three network jobs passed, but the core job remains a failed gate.
+The first [CI run](https://github.com/TuringTestee/retro-coop/actions/runs/35506106328) failed before loading a game: Enter did not yield a file-chooser event within the existing 30-second timeout. The [raw failure, with trailing whitespace normalized](d06-banked-ram/picker-investigation/ci-failure.txt) and [pre-action screenshot](d06-banked-ram/picker-investigation/ci-before.png) are retained. Its cause is **unknown**, not repaired or dismissed as flaky. All three network jobs passed, but the core job remains a failed gate.
 
 The exact downloaded CI client artifact with Playwright 1.58.0's default headless shell 145.0.7632.6 passed eight instrumented probes and then [30 probes without an extra protocol call between focus and Enter](d06-banked-ram/picker-investigation/isolated-default-shell.json). A separate initial probe hit a [screenshot protocol error](d06-banked-ram/picker-investigation/isolated-screenshot-failure.txt), also preserved. These observations establish non-reproduction locally, not the original failure's cause.
 
