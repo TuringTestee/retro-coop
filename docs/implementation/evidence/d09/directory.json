@@ -1,0 +1,18 @@
+{
+  "empty": true,
+  "duplicate_names_distinct_codes": [
+    "JM5HUASU",
+    "7P2DCTR2"
+  ],
+  "case_insensitive_search": true,
+  "live_focus_retained": true,
+  "reserve_before_file": true,
+  "matching_guest_file": true,
+  "full_room_disabled": true,
+  "unlisted_removed_and_focus_recovered": true,
+  "stale_rows_disabled_retry_recovers": true,
+  "directory_payloads_metadata_only": 36,
+  "private_filenames_never_sent": true,
+  "page_errors": [],
+  "elapsedSeconds": 2.96
+}
