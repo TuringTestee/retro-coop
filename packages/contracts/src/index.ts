@@ -4,7 +4,7 @@ export type WorkerRequest =
   | { type: 'frame'; p1: number; p2: number }
   | { type: 'pause' };
 export type WorkerResponse =
-  | { type: 'ready'; fps: number }
+  | { type: 'ready'; fps: number; coreSha256: string }
   | { type: 'frame'; pixels: ArrayBuffer; audio: ArrayBuffer }
   | { type: 'paused' }
   | { type: 'error'; message: string };

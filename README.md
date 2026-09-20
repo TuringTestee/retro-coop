@@ -12,9 +12,9 @@ sh scripts/demo.sh
 
 Then open **http://127.0.0.1:8765/demo/**. Choose your local NES `.nes` file, press Enter to start, and use the arrow keys with X/Z. Sound starts enabled for normal play; the Mute button controls only the game. No ROM is bundled or uploaded. See [setup and controls](spikes/d02/demo/README.md) for prerequisites and testing.
 
-## Application foundation
+## Application
 
-The React client and Node coordinator now have a runnable foundation. See the [setup and verification guide](docs/implementation/d04-foundation.md) to run the original diagnostic and service health endpoint.
+The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The Node coordinator currently provides only a health endpoint; online rooms remain in development.
 
 ## Start working
 
