@@ -87,7 +87,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(
    {state.busy && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
    {!room && invite && <button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Retry join / Join</button>}
    {!room && !invite && fingerprint && <button disabled={state.busy} onClick={()=>void client.current?.host(fingerprint,visibility)}>Retry room creation</button>}
-   {!state.connected && (state.room || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
+   {!state.connected && (state.room || state.admissionBlocked || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
   </div>
   {state.session && <details><summary>Guest settings</summary><p className="hint">Temporary name for this browser tab. It is not an account.</p><label>Nickname <input maxLength={32} value={nickname} onChange={event=>setNickname(event.target.value)}/></label><button disabled={!nickname.trim()} onClick={()=>void client.current?.act({type:'nickname',nickname})}>Save nickname</button></details>}
   {state.needsNewGuest && <button onClick={()=>client.current?.newGuest()}>Start a new guest session</button>}

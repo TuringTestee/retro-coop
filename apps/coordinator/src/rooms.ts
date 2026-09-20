@@ -173,4 +173,14 @@ export class Rooms {
   }
  }
  stop() {for(const room of this.rooms.values()) this.close(room,'service_restarted');for(const session of this.sessions.values()) session.disconnect?.();this.sessions.clear();}
+ /** Restricted operator interface: never expose session tokens, invites, chat or fingerprints. */
+ operatorRooms() {this.sweep();return [...this.rooms.values()].filter(room=>room.confirmed).map(room=>({id:room.id,label:room.label,visibility:room.visibility,occupancy:room.guest?2:1}));}
+ removeRoom(id:string) {this.sweep();const room=this.rooms.get(id);if(!room?.confirmed)throw new RoomError('room_unavailable');this.close(room,'operator_removed');}
+ revoke(token:string,sender:Sender) {
+  const session=this.sessions.get(token);if(!session || session.send!==sender)return;
+  const room=session.room && this.rooms.get(session.room);
+  if(room) {if(room.host===session)this.close(room,'operator_removed');else this.releaseGuest(room,'admission_blocked');}
+  session.send?.({type:'ended',reason:'admission_blocked'});
+  this.sessions.delete(token);
+ }
 }

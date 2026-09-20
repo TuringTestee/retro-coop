@@ -1,0 +1,16 @@
+{
+  "result": "pass",
+  "seconds": 13.8,
+  "browser": "145.0.7632.6",
+  "private_cli_confirmation": [
+    "Remove room \"Coral Harbor\" (rBOqwu0DQbY6FvGB-QHYcrvOQK4Bd7FrJCDfMoU4i7E) for both players\nType CONFIRM within 30 seconds to apply, or anything else to cancel: Done.\n",
+    "Disconnect and block address 127.0.0.1 (5lY1RR8b7i-yXF31B-IZYPuEAa6fag47, 2 connections) for 10 seconds; this affects everyone sharing that address\nType CONFIRM within 30 seconds to apply, or anything else to cancel: Done.\n"
+  ],
+  "room_removed_and_directory_cleared": true,
+  "both_peer_connections_and_microphones_stopped": true,
+  "no_local_reload_or_import": true,
+  "explicit_operator_and_admission_feedback": true,
+  "retry_fresh_reload_restriction_feedback": true,
+  "expired_block_allows_fresh_session_and_room": true,
+  "page_errors": []
+}
