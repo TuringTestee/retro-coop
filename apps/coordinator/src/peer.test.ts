@@ -7,7 +7,7 @@ import {parseRoomCommand,type RoomCommand,type RoomEvent,type Fingerprint} from 
 const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}};
 type Command=RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'>:never:never;
 function setup(relayRooms?:number) {
- let now=1000;const secret='test-secret'.repeat(4),rooms=new Rooms(()=>now,relayRooms===undefined?undefined:{urls:['turn:127.0.0.1:3478'],secret,rooms:relayRooms});
+ let now=1000;const secret='test-secret'.repeat(4),rooms=new Rooms(()=>now,undefined,relayRooms===undefined?undefined:{urls:['turn:127.0.0.1:3478'],secret,rooms:relayRooms});
  const guest=()=>{const events:RoomEvent[]=[];const send=(event:RoomEvent)=>events.push(event);return {...rooms.attach(undefined,send,()=>{}),events,send};};
  const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
  const pair=(policy:'standard'|'relay'='standard')=>{const host=guest(),peer=guest(),intent=randomUUID();const room=act(host.token,{type:'create',intent,visibility:'public',fingerprint,policy}).room!;act(host.token,{type:'confirmCreate',intent});const joined=act(peer.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;return {host,peer,room:joined};};

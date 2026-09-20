@@ -1,10 +1,11 @@
 import {ConnectionPolicyControl} from './ConnectionPolicy.tsx';
 import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
+import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 export type RoomPanelHandle = {beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void}>(function RoomPanel({fingerprint,onNickname,policy,changePolicy,onConnection},ref) {
+export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({fingerprint,onNickname,policy,changePolicy,onConnection,onHost},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [visibility,setVisibility] = useState<Visibility>('public');
  const [invite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
@@ -13,6 +14,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
  useEffect(()=>{
   const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'),policy);client.current = rooms;
+  void rooms.watchDirectory();
   if(invite) void rooms.preview(invite);
   return ()=>{rooms.dispose();client.current = null;};
  },[invite]);
@@ -38,7 +40,8 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  },[fingerprint,state.room?.id,state.room?.role]);
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
- return <section className="room-panel" aria-labelledby="room-heading">
+ return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2><p>The included game is being prepared. You can play your own local NES game below.</p><button disabled>Included game unavailable</button></section><DirectoryPanel state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
+  {!room && !invite && <button onClick={onHost}>Host a game</button>}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}</p>}
@@ -70,5 +73,5 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
   </div>
   {state.session && <details><summary>Guest settings</summary><p className="hint">Temporary name for this browser tab. It is not an account.</p><label>Nickname <input maxLength={32} value={nickname} onChange={event=>setNickname(event.target.value)}/></label><button disabled={!nickname.trim()} onClick={()=>void client.current?.act({type:'nickname',nickname})}>Save nickname</button></details>}
   {state.needsNewGuest && <button onClick={()=>client.current?.newGuest()}>Start a new guest session</button>}
- </section>;
+ </section></>;
 });

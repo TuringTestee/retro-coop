@@ -1,5 +1,6 @@
 import {object,keys,text,token} from './protocol-validation.ts';
 import {parsePeerCommand,validPolicy,type PeerCommand,type PeerEvent,type PeerView,type ConnectionPolicy} from './peer.ts';
+import {publicCode,type DirectoryCommand} from './directory.ts';
 /** Coordinator protocol: deliberately metadata-only. No binary or arbitrary extension fields. */
 export const ROOM_PROTOCOL = 1;
 export type Visibility = 'public' | 'unlisted';
@@ -9,14 +10,15 @@ export type {Fingerprint} from './fingerprint.ts';
 export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; status:'waiting'|'reserved'|'reconnecting'; occupancy:1|2 };
 export type RoomView = RoomPreview & { invite:string; role:'host'|'guest'; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
-export type RoomCommand = PeerCommand
+export type ReservationRequest = {requestId:string;intent:string;policy?:ConnectionPolicy};
+export type RoomCommand = PeerCommand | DirectoryCommand
  | { type:'hello'; requestId:string; token?:string; policy?:ConnectionPolicy }
  | { type:'heartbeat'; requestId:string }
  | { type:'preview'; requestId:string; invite:string }
  | { type:'create'; requestId:string; intent:string; visibility:Visibility; fingerprint:Fingerprint; policy?:ConnectionPolicy }
  | { type:'confirmCreate'; requestId:string; intent:string }
  | { type:'cancelCreate'; requestId:string; intent:string }
- | { type:'join'; requestId:string; invite:string; intent:string; policy?:ConnectionPolicy }
+ | (ReservationRequest & { type:'join'; invite:string })
  | { type:'leave'; requestId:string; intent:string }
  | { type:'close'; requestId:string }
  | { type:'kick'; requestId:string }
@@ -24,10 +26,11 @@ export type RoomCommand = PeerCommand
  | { type:'nickname'; requestId:string; nickname:string }
  | { type:'visibility'; requestId:string; visibility:Visibility }
  | { type:'file'; requestId:string; fingerprint:Fingerprint };
-export type RoomData = { session?:SessionInfo; room?:RoomView; preview?:RoomPreview };
+export type RoomData = { session?:SessionInfo; room?:RoomView; preview?:RoomPreview; directory?:RoomPreview[] };
 export type RoomEvent = PeerEvent
  | { type:'result'; requestId:string; ok:true; data:RoomData }
  | { type:'result'; requestId:string; ok:false; error:string; retryAfterMs?:number }
+ | { type:'directory'; rooms:RoomPreview[] }
  | { type:'room'; room:RoomView }
  | { type:'ended'; reason:string };
 
@@ -38,7 +41,9 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  let valid = false;
  switch(value.type) {
   case 'hello': valid = keys(value,base,['token','policy']) && (value.policy===undefined || validPolicy(value.policy)) && (value.token === undefined || token(value.token)); break;
-  case 'heartbeat': case 'close': case 'kick': valid = keys(value,base); break;
+  case 'directory': case 'heartbeat': case 'close': case 'kick': valid = keys(value,base); break;
+  case 'lookupCode': valid = keys(value,[...base,'code']) && typeof value.code === 'string' && !!publicCode(value.code); break;
+  case 'joinCode': valid = keys(value,[...base,'code','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent); break;
   case 'preview': valid = keys(value,[...base,'invite']) && token(value.invite); break;
   case 'join': valid = keys(value,[...base,'invite','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && token(value.invite) && token(value.intent); break;
   case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;
@@ -49,5 +54,6 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'visibility': valid = keys(value,[...base,'visibility']) && ['public','unlisted'].includes(value.visibility as string); break;
   case 'file': valid = keys(value,[...base,'fingerprint']) && validFingerprint(value.fingerprint); break;
  }
- return valid ? value as RoomCommand : undefined;
+ if(!valid) return;
+ return (value.type === 'lookupCode' || value.type === 'joinCode' ? {...value,code:publicCode(value.code as string)!} : value) as RoomCommand;
 }

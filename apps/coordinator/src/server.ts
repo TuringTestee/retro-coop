@@ -15,7 +15,7 @@ export function config(env: NodeJS.ProcessEnv) {
  return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins };
 }
 export function createCoordinator(options: {origins?:string[]; rooms?:Rooms} = {}) {
- const rooms = options.rooms ?? new Rooms(Date.now,relayConfig(process.env));
+ const rooms = options.rooms ?? new Rooms(Date.now,undefined,relayConfig(process.env));
  const origins = new Set(options.origins ?? config({}).origins);
  const server = createServer((request, response) => {
   response.setHeader('Cache-Control', 'no-store');response.setHeader('Content-Type', 'application/json');response.setHeader('Referrer-Policy','no-referrer');
