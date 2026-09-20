@@ -1,0 +1,20 @@
+{
+  "result": "pass",
+  "source": {
+    "commit": "4d1acacea573ffb11606c839b4c0ed7bfdd98578",
+    "tree": "f87cd6766afe8cd4ba8db48deef70855946a3c85"
+  },
+  "scenario": "operator block during shared play",
+  "stopped_shared_frames": [
+    268,
+    268
+  ],
+  "preserved_local_frames": [
+    268,
+    268
+  ],
+  "explicit_host_resume": true,
+  "both_peers_closed": true,
+  "page_errors": [],
+  "seconds": 6.38
+}
