@@ -1,0 +1,1592 @@
+[
+  {
+    "iteration": 0,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 268.19999999925494
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 271.69999999925494
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 272
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 272.29999999701977
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 272.79999999701977
+      }
+    ]
+  },
+  {
+    "iteration": 1,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 202.30000000074506
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 206.69999999925494
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 207.19999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 207.39999999850988
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 208.19999999925494
+      }
+    ]
+  },
+  {
+    "iteration": 2,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.80000000074506
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 222.10000000149012
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 222.5
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 222.80000000074506
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 223.30000000074506
+      }
+    ]
+  },
+  {
+    "iteration": 3,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.5
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 217.80000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.19999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219
+      }
+    ]
+  },
+  {
+    "iteration": 4,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 229.60000000149012
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 232.39999999850988
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 232.69999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 233
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 233.5
+      }
+    ]
+  },
+  {
+    "iteration": 5,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.40000000223517
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.90000000223517
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.20000000298023
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.70000000298023
+      }
+    ]
+  },
+  {
+    "iteration": 6,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 210.80000000074506
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.40000000223517
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.60000000149012
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.30000000074506
+      }
+    ]
+  },
+  {
+    "iteration": 7,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 196.89999999850988
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 199.79999999701977
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.09999999776483
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.29999999701977
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.89999999850988
+      }
+    ]
+  },
+  {
+    "iteration": 8,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 197.79999999701977
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.59999999776483
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.89999999850988
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 201.19999999925494
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 201.69999999925494
+      }
+    ]
+  },
+  {
+    "iteration": 9,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.19999999925494
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.29999999701977
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219.19999999925494
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219.79999999701977
+      }
+    ]
+  },
+  {
+    "iteration": 10,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.20000000298023
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 217.80000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.20000000298023
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.90000000223517
+      }
+    ]
+  },
+  {
+    "iteration": 11,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 207.5
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 210.30000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 210.69999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 210.89999999850988
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211.5
+      }
+    ]
+  },
+  {
+    "iteration": 12,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 238.89999999850988
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 241.80000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 242.09999999776483
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 242.30000000074506
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 242.80000000074506
+      }
+    ]
+  },
+  {
+    "iteration": 13,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 208.90000000223517
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 212.80000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 213.20000000298023
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 213.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.20000000298023
+      }
+    ]
+  },
+  {
+    "iteration": 14,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211.80000000074506
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.60000000149012
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.80000000074506
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 216.60000000149012
+      }
+    ]
+  },
+  {
+    "iteration": 15,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 216.69999999925494
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 220.60000000149012
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 221.10000000149012
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 221.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 222
+      }
+    ]
+  },
+  {
+    "iteration": 16,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211.90000000223517
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.60000000149012
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.30000000074506
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.80000000074506
+      }
+    ]
+  },
+  {
+    "iteration": 17,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.89999999850988
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219.39999999850988
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 220
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 220.39999999850988
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 221.19999999925494
+      }
+    ]
+  },
+  {
+    "iteration": 18,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 203.89999999850988
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 206.79999999701977
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 207.19999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 207.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 208
+      }
+    ]
+  },
+  {
+    "iteration": 19,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 217
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 220.09999999776483
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 220.59999999776483
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 221
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 221.5
+      }
+    ]
+  },
+  {
+    "iteration": 20,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 215.19999999925494
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.30000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.80000000074506
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219.10000000149012
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 219.60000000149012
+      }
+    ]
+  },
+  {
+    "iteration": 21,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 213.89999999850988
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 216.69999999925494
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 217.19999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 217.39999999850988
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 218.09999999776483
+      }
+    ]
+  },
+  {
+    "iteration": 22,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 196.60000000149012
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.30000000074506
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 201.30000000074506
+      }
+    ]
+  },
+  {
+    "iteration": 23,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 207.69999999925494
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 210.79999999701977
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211.19999999925494
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211.39999999850988
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 211.79999999701977
+      }
+    ]
+  },
+  {
+    "iteration": 24,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 210.60000000149012
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 213.5
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 213.80000000074506
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 214.5
+      }
+    ]
+  },
+  {
+    "iteration": 25,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 208.80000000074506
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 212.30000000074506
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 212.60000000149012
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 212.90000000223517
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 213.40000000223517
+      }
+    ]
+  },
+  {
+    "iteration": 26,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 199.39999999850988
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 202.10000000149012
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 202.60000000149012
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 202.80000000074506
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 203.69999999925494
+      }
+    ]
+  },
+  {
+    "iteration": 27,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 196.10000000149012
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 198.89999999850988
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 199.30000000074506
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 199.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.10000000149012
+      }
+    ]
+  },
+  {
+    "iteration": 28,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.70000000298023
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 203.70000000298023
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 204.20000000298023
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 204.5
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 205
+      }
+    ]
+  },
+  {
+    "iteration": 29,
+    "browser": "145.0.7632.6",
+    "focused": "no extra protocol round trip",
+    "result": "chooser",
+    "events": [
+      {
+        "type": "focusin",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 196.90000000223517
+      },
+      {
+        "type": "keydown",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 199.70000000298023
+      },
+      {
+        "type": "click",
+        "target": "<button>Choose NES file</button>",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.10000000149012
+      },
+      {
+        "type": "click",
+        "target": "<input accept=\".nes\" hidden=\"\" aria-label=\"NES cartridge file\" type=\"file\" style=\"\">",
+        "key": null,
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.20000000298023
+      },
+      {
+        "type": "keyup",
+        "target": "<button>Choose NES file</button>",
+        "key": "Enter",
+        "prevented": false,
+        "active": "<button>Choose NES file</button>",
+        "activation": true,
+        "time": 200.80000000074506
+      }
+    ]
+  }
+]

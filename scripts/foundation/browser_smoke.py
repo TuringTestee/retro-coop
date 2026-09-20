@@ -40,6 +40,14 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         const start=AudioBufferSourceNode.prototype.start;
         AudioBufferSourceNode.prototype.start=function(...args){proof.starts++;return start.apply(this,args)};
         ''')
+        # Keep the keyboard picker observable even when CI cannot deliver its chooser event.
+        page.add_init_script('''window.pickerProof={events:[]};
+        const describe=node=>node ? {tag:node.tagName,label:node.getAttribute?.('aria-label') || (node.tagName==='BUTTON' ? node.textContent : null)} : null;
+        const record=event=>{if(pickerProof.events.length>=64)return;const entry={type:event.type,key:event.key,prevented:event.defaultPrevented,target:describe(event.target),active:describe(document.activeElement),activation:navigator.userActivation.isActive,time:performance.now()};pickerProof.events.push(entry);setTimeout(()=>{entry.prevented=event.defaultPrevented;},0);};
+        const types=['focusin','focusout','keydown','keyup','click'];
+        for(const type of types)document.addEventListener(type,record,true);
+        window.finishPickerProof=()=>{for(const type of types)document.removeEventListener(type,record,true);return {...pickerProof,active:describe(document.activeElement),focused:document.hasFocus(),activation:navigator.userActivation.isActive};};
+        ''')
         page.goto(f'http://127.0.0.1:{server.server_port}/')
         page.screenshot(path=str(output.with_suffix('.before.png')), full_page=True)
         def select(data=rom, name='unknown-private-title.nes'):
@@ -50,9 +58,26 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         def fingerprint():
             return page.locator('[data-testid=fingerprint]').inner_text()
         # A single keyboard-accessible picker action goes directly to playable frames.
-        page.get_by_role('button',name='Choose NES file',exact=True).focus()
-        with page.expect_file_chooser() as chooser:
-            page.keyboard.press('Enter')
+        picker_result = {'browser':browser.version,'channel':'chrome' if args.chrome else 'default-headless-shell'}
+        try:
+            page.get_by_role('button',name='Choose NES file',exact=True).focus()
+            with page.expect_file_chooser() as chooser:
+                page.keyboard.press('Enter')
+            picker_result['outcome'] = 'chooser received'
+        except Exception as error:
+            picker_result['outcome'] = str(error)
+            try:
+                page.screenshot(path=str(output.with_suffix('.failure.png')), full_page=True)
+            except Exception as screenshot_error:
+                picker_result['screenshotError'] = str(screenshot_error)
+            raise
+        finally:
+            picker_result['pageErrors'] = list(errors)
+            try:
+                picker_result['events'] = page.evaluate('finishPickerProof()')
+            except Exception as diagnostic_error:
+                picker_result['diagnosticError'] = str(diagnostic_error)
+            output.with_name('picker-'+output.name).write_text(json.dumps(picker_result,indent=2)+'\n')
         chooser.value.set_files({'name':'unknown-private-title.nes','mimeType':'application/octet-stream','buffer':rom})
         running()
         page.wait_for_function('proof.starts>3 && proof.peak>0')

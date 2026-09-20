@@ -1,0 +1,23 @@
+[
+  {
+    "case": "banked",
+    "fixture_sha256": "76534b568c4e771da341bded33e7ee8d28b6aa5df542127a0b0c452f4248a54c",
+    "returncode": 101,
+    "stdout": "case=banked observed=[68, 68, 68, 68] expected=[17, 34, 51, 68]\n",
+    "stderr": "\nthread 'main' (546200) panicked at examples/mmc1_banked_probe.rs:29:5:\nassertion `left == right` failed: CPU-visible mapper behavior differs\n  left: [68, 68, 68, 68]\n right: [17, 34, 51, 68]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+  },
+  {
+    "case": "mirrored",
+    "fixture_sha256": "f0d2aa5f19e2bf2d2d43bbf5c2684e718e37a215f872f17af1b2c0f6e8bd949d",
+    "returncode": 101,
+    "stdout": "case=mirrored observed=[0] expected=[16]\n",
+    "stderr": "\nthread 'main' (546201) panicked at examples/mmc1_banked_probe.rs:29:5:\nassertion `left == right` failed: CPU-visible mapper behavior differs\n  left: [0]\n right: [16]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+  },
+  {
+    "case": "mirrored-control",
+    "fixture_sha256": "b28c594d12589c297f2c0d116c1094042976a4e36f92cc7967746b4d13fcd4c7",
+    "returncode": 0,
+    "stdout": "case=mirrored-control observed=[16] expected=[16]\n",
+    "stderr": ""
+  }
+]

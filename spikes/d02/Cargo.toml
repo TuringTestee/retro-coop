@@ -12,3 +12,6 @@ tetanes-core = { git = "https://github.com/lukexor/tetanes.git", rev = "a0a6b17f
 serde_json = { version = "1", features = ["float_roundtrip"] }
 bincode = { version = "2.0.1", default-features = false, features = ["std", "serde"] }
 sha2 = "0.10.9"
+
+[patch."https://github.com/lukexor/tetanes.git"]
+tetanes-core = { path = "../../vendor/tetanes-core" }

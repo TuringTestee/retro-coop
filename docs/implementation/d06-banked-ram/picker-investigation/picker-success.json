@@ -1,0 +1,91 @@
+{
+  "browser": "145.0.7632.6",
+  "channel": "default-headless-shell",
+  "outcome": "chooser received",
+  "pageErrors": [],
+  "events": {
+    "events": [
+      {
+        "type": "focusin",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 259.30000000074506
+      },
+      {
+        "type": "keydown",
+        "key": "Enter",
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 264.8999999985099
+      },
+      {
+        "type": "click",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 265.30000000074506
+      },
+      {
+        "type": "click",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "INPUT",
+          "label": "NES cartridge file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 265.5
+      },
+      {
+        "type": "keyup",
+        "key": "Enter",
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 266.0999999977648
+      }
+    ],
+    "active": {
+      "tag": "BUTTON",
+      "label": "Choose NES file"
+    },
+    "focused": true,
+    "activation": true
+  }
+}
