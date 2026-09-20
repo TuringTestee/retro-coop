@@ -1,10 +1,12 @@
+import {RoomChat} from './chat.ts';
+import {CHAT_LIMITS} from '../../../packages/contracts/src/chat.ts';
 import { randomBytes, randomInt } from 'node:crypto';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, Visibility } from '../../../packages/contracts/src/rooms.ts';
 import { matchesFile } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
 type Session = { token:string; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
-type Room = { id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
+type Room = { chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
 export type Sender = (event:RoomEvent)=>void;
 export class RoomError extends Error { code:string;retryAfterMs?:number;constructor(code:string,retryAfterMs?:number) { super(code);this.code = code;this.retryAfterMs = retryAfterMs; } }
 const secret = () => randomBytes(32).toString('base64url');
@@ -32,9 +34,9 @@ export class Rooms {
   throw new RoomError('capacity');
  }
  private preview(room:Room): RoomPreview { return {id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil ? 'reconnecting' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1}; }
- private view(room:Room,session:Session): RoomView { return {...this.preview(room),invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
+ private view(room:Room,session:Session): RoomView { return {...this.preview(room),chatMembership:room.host===session ? room.intent:room.guestIntent!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
  private publish(room:Room) { for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)}); }
- private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
+ private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.chat.leave(room.guestIntent!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
   this.rooms.delete(room.id); this.invites.delete(room.invite); if(room.code) this.codes.delete(room.code);
   for(const session of [room.host,room.guest]) if(session) {session.room = undefined;session.send?.({type:'ended',reason});}
@@ -60,6 +62,14 @@ export class Rooms {
  handle(token:string,command:Exclude<RoomCommand,{type:'hello'}>): RoomData {
   this.sweep(); const session = this.session(token); this.rate(session,'messages',60,10_000); session.touched = this.now();
   switch(command.type) {
+   case 'chat': {
+    const room=this.room(session),membership=room.host===session ? room.intent:room.guestIntent;
+    if(room.id!==command.roomId || membership!==command.membership || !room.confirmed) throw new RoomError('not_in_room');
+    this.rate(session,'chat',CHAT_LIMITS.rateCount,CHAT_LIMITS.rateWindowMs);
+    let result;try {result=room.chat.send(membership!,command.clientId,command.text,room.host===session ? 'host':'guest',session.nickname,this.now());}catch {throw new RoomError('chat_retry_changed');}
+    if(result.message) for(const recipient of [room.host,room.guest]) recipient?.send?.({type:'chat',roomId:room.id,membership:recipient===room.host ? room.intent:room.guestIntent!,message:result.message});
+    return {chatAck:result.ack};
+   }
    case 'heartbeat': {session.heartbeat = this.now();const room = session.room && this.rooms.get(session.room);if(room && room.host === session && room.reconnectUntil) {room.reconnectUntil = undefined;this.publish(room);}return {};}
    case 'preview': { this.rate(session,'preview',20,60_000); const id = this.invites.get(command.invite), room = id && this.rooms.get(id); if(!room || !room.confirmed) throw new RoomError('room_unavailable'); return {preview:this.preview(room)}; }
    case 'create': {
@@ -68,7 +78,7 @@ export class Rooms {
     if(session.room) {const room = this.room(session); if(room.host === session && room.intent === command.intent) return {room:this.view(room,session)}; throw new RoomError('already_in_room');}
     if(this.rooms.size >= limits.rooms) throw new RoomError('capacity');
     const code = command.visibility === 'public' ? this.code():undefined;
-    const room:Room = {id:secret(),invite:secret(),code,label:`${pick(colors)} ${pick(places)}`,visibility:command.visibility,host:session,fingerprint:command.fingerprint,intent:command.intent,confirmed:false,created:this.now(),kicked:new Set()};
+    const room:Room = {chat:new RoomChat(),id:secret(),invite:secret(),code,label:`${pick(colors)} ${pick(places)}`,visibility:command.visibility,host:session,fingerprint:command.fingerprint,intent:command.intent,confirmed:false,created:this.now(),kicked:new Set()};
     this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room = room.id;session.heartbeat = this.now();
     return {room:this.view(room,session)};
    }

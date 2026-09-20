@@ -36,6 +36,7 @@ if [ "$D02_JOB" = core ]; then
   timeout --foreground 60s python3 demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
+  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
 elif [ "$D02_JOB" = network ]; then
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
   cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json

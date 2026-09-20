@@ -1,3 +1,4 @@
+import {validChatText,type ChatCommand,type ChatEvent,type ChatAck} from './chat.ts';
 /** Coordinator protocol: deliberately metadata-only. No binary or arbitrary extension fields. */
 export const ROOM_PROTOCOL = 1;
 export type Visibility = 'public' | 'unlisted';
@@ -5,9 +6,10 @@ import {validFingerprint,type Fingerprint} from './fingerprint.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
 export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; status:'waiting'|'reserved'|'reconnecting'; occupancy:1|2 };
-export type RoomView = RoomPreview & { invite:string; role:'host'|'guest'; slot:1|2; guest?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+export type RoomView = RoomPreview & { chatMembership:string; invite:string; role:'host'|'guest'; slot:1|2; guest?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type RoomCommand =
+ | ChatCommand
  | { type:'hello'; requestId:string; token?:string }
  | { type:'heartbeat'; requestId:string }
  | { type:'preview'; requestId:string; invite:string }
@@ -22,8 +24,9 @@ export type RoomCommand =
  | { type:'nickname'; requestId:string; nickname:string }
  | { type:'visibility'; requestId:string; visibility:Visibility }
  | { type:'file'; requestId:string; fingerprint:Fingerprint };
-export type RoomData = { session?:SessionInfo; room?:RoomView; preview?:RoomPreview };
+export type RoomData = { chatAck?:ChatAck; session?:SessionInfo; room?:RoomView; preview?:RoomPreview };
 export type RoomEvent =
+ | ChatEvent
  | { type:'result'; requestId:string; ok:true; data:RoomData }
  | { type:'result'; requestId:string; ok:false; error:string; retryAfterMs?:number }
  | { type:'room'; room:RoomView }
@@ -39,6 +42,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  const base = ['type','requestId'];
  let valid = false;
  switch(value.type) {
+  case 'chat': valid=keys(value,[...base,'roomId','membership','clientId','text']) && token(value.roomId) && token(value.membership) && token(value.clientId) && validChatText(value.text);break;
   case 'hello': valid = keys(value,base,['token']) && (value.token === undefined || token(value.token)); break;
   case 'heartbeat': case 'close': case 'kick': valid = keys(value,base); break;
   case 'preview': valid = keys(value,[...base,'invite']) && token(value.invite); break;

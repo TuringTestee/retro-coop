@@ -1,0 +1,45 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {RoomChat} from './chat.ts';
+import {Rooms} from './rooms.ts';
+import {validChatText} from '../../../packages/contracts/src/chat.ts';
+import {parseRoomCommand,type RoomCommand,type RoomEvent,type Fingerprint} from '../../../packages/contracts/src/rooms.ts';
+const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}};
+type Command=RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'>:never:never;
+test('chat is membership-scoped, works before a guest ROM and never replays pre-join history',()=>{
+ let now=1000;const rooms=new Rooms(()=>now);
+ const connect=()=>{const events:RoomEvent[]=[];return {...rooms.attach(undefined,event=>events.push(event),()=>{}),events};};
+ const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const host=connect(),guest=connect(),outsider=connect(),intent=randomUUID();
+ act(host.token,{type:'create',intent,visibility:'public',fingerprint});const room=act(host.token,{type:'confirmCreate',intent}).room!;
+ const chat=(membership:string,text:string)=>({type:'chat' as const,roomId:room.id,membership,clientId:randomUUID(),text});
+ act(host.token,chat(room.chatMembership,'before join'));assert.equal(guest.events.length,0);
+ const joined=act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;
+ assert.equal(guest.events.filter(event=>event.type==='chat').length,0);
+ assert.throws(()=>act(outsider.token,chat(joined.chatMembership,'intruder')),/not_in_room/);
+ const command=chat(joined.chatMembership,'<img src=x onerror=alert(1)>');
+ const ack=act(guest.token,command).chatAck!;
+ assert.equal(guest.events.filter(event=>event.type==='chat').length,1);
+ assert.equal(host.events.filter(event=>event.type==='chat').at(-1)!.message.text,command.text);
+ assert.deepEqual(act(guest.token,command).chatAck,ack);assert.equal(guest.events.filter(event=>event.type==='chat').length,1);
+ assert.throws(()=>act(guest.token,{...command,text:'changed retry'}),/chat_retry_changed/);
+ act(guest.token,chat(joined.chatMembership,'fourth attempt'));act(guest.token,chat(joined.chatMembership,'fifth attempt'));
+ assert.throws(()=>act(guest.token,chat(joined.chatMembership,'too fast')),/rate_limited/);
+ now+=10_001;act(host.token,{type:'heartbeat'});act(guest.token,chat(joined.chatMembership,'after wait'));
+ act(guest.token,{type:'leave',intent:joined.reservationIntent!});const rejoined=act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;
+ assert.notEqual(rejoined.chatMembership,joined.chatMembership);assert.throws(()=>act(guest.token,command),/not_in_room/);
+ const received=guest.events.filter(event=>event.type==='chat').length;rooms.attach(guest.token,event=>guest.events.push(event),()=>{});assert.equal(guest.events.filter(event=>event.type==='chat').length,received);
+ act(host.token,{type:'close'});assert.throws(()=>act(guest.token,chat(rejoined.chatMembership,'after close')),/not_in_room/);
+});
+test('latest retry receipt survives other members messages without rebroadcasting uncertain delivery',()=>{
+ const chat=new RoomChat(),member=randomUUID(),id=randomUUID();
+ const first=chat.send(member,id,'hello','guest','Guest',1);
+ for(let i=0;i<150;i++) chat.send('host',randomUUID(),'later','host','Host',i+2);
+ const retry=chat.send(member,id,'hello','guest','Guest',200);assert.equal(retry.message,undefined);assert.deepEqual(retry.ack,first.ack);
+});
+test('chat wire format enforces Unicode character bound and rejects attachments or forged fields',()=>{
+ assert.ok(validChatText('🕹'.repeat(500)));assert.equal(validChatText('🕹'.repeat(501)),false);assert.equal(validChatText(' \n '),false);assert.equal(validChatText('bad\u0000'),false);
+ const command={type:'chat',requestId:randomUUID(),roomId:randomUUID(),membership:randomUUID(),clientId:randomUUID(),text:'hello\nfriend'};
+ assert.ok(parseRoomCommand(command));for(const extra of [{nickname:'forged'},{attachment:'base64'},{text:'a'.repeat(501)}]) assert.equal(parseRoomCommand({...command,...extra}),undefined);
+});

@@ -7,3 +7,5 @@
 .room-panel{border:1px solid #36374c;border-radius:16px;padding:24px;margin:0 0 24px;background:#191a27}.room-panel h2{font-size:22px}.room-panel p{margin:10px 0}.room-panel input:not([type=checkbox]){display:block;width:100%;max-width:660px;background:#10111b;color:#eeeefa;border:1px solid #52536e;padding:9px;border-radius:6px;font:inherit;margin:5px 0 12px}.room-panel button{margin:4px 8px 4px 0}.visibility{display:flex;align-items:center;gap:8px}.room-panel details>label{display:block;margin-top:14px}.room-panel details>label.visibility{display:flex}.intro{margin-top:48px}
 
 .room-panel .controls:empty{display:none}
+
+.chat-panel{margin-top:1rem;border-top:1px solid #58617b;padding-top:1rem}.chat-panel ol{max-height:16rem;overflow:auto;list-style:none;padding:0}.chat-panel li p{white-space:pre-wrap;overflow-wrap:anywhere;margin:.25rem 0 .75rem}.chat-panel textarea{display:block;width:100%;box-sizing:border-box;min-height:4rem;font:inherit;color:inherit;background:#101119;border:1px solid #58617b;border-radius:6px;padding:.5rem}

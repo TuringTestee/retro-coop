@@ -47,7 +47,7 @@ function App() {
    <div className={`screen ${filter}`}><canvas ref={canvas} width="256" height="240" tabIndex={0} aria-label="Local game screen"/>{!state.loaded && <p>YOUR NEXT ADVENTURE<br/><span>starts with a file</span></p>}</div>
   </section>
   <Settings open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={setFilter} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
-  <footer>Your game runs in this browser. Only room names and compatibility metadata go to the room service; your file stays here.</footer>
+  <footer>Your game runs in this browser. Room names, compatibility metadata and temporary chat go to the room service; your file stays here.</footer>
  </main>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

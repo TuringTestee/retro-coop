@@ -1,4 +1,5 @@
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
+import {ChatPanel} from './ChatPanel.tsx';
 import {RoomClient, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 export type RoomPanelHandle = {beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
@@ -55,6 +56,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
     <button onClick={()=>{if(window.confirm('Close this room for both players? Your local game stays available.')) void client.current?.act({type:'close'});}}>Close room</button>
    </details> : <button onClick={()=>void client.current?.act({type:'leave',intent:room.reservationIntent!})}>Cancel join</button>}
   </div>}
+  {room && state.chat && <ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/>}
   <div className="controls">
    {state.busy && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
    {!room && invite && <button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Retry join / Join</button>}
