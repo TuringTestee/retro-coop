@@ -6,7 +6,7 @@ from worker_probe import prepare_worker_probe, finish_worker_probe
 def verify_banked_ram(browser, url, worker_path):
     cases = [('banked-controls', [17, 34, 51, 68, 68, 68, 17]),
              ('sorom', [17, 34]), ('single-bank', [68, 68, 68, 68]),
-             ('large-chr', [68, 68, 68, 68]),
+             ('large-chr', [68, 68, 68, 68]), ('mmc1a', [17, 34, 51, 68]),
              ('banked-partial', [17, 34, 51, 68]), ('mirrored', [16]),
              ('mirrored-control', [16])]
     page, requests = prepare_worker_probe(browser, url)

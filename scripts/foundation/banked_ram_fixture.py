@@ -15,6 +15,8 @@ def cartridge(case):
         rom[5] = 4
         rom[11] = 0
         rom.extend(bytes(32768))
+    if case == 'mmc1a':
+        rom[6], rom[7] = 0xb2, 0x98  # Mapper 155, the shared MMC1A owner.
     program = bytearray([0x78, 0xd8, 0xa2, 0xff, 0x9a])  # SEI; CLD; LDX #FF; TXS
 
     def store(address, value):
@@ -30,7 +32,7 @@ def cartridge(case):
 
     store(0x2000, 0)
     store(0x2001, 0)
-    if case in ['banked', 'sorom', 'banked-controls', 'banked-partial', 'banked-progress', 'single-bank', 'large-chr']:
+    if case in ['banked', 'sorom', 'banked-controls', 'banked-partial', 'banked-progress', 'single-bank', 'large-chr', 'mmc1a']:
         serial(0x8000, 0x0c)  # 8 KiB CHR mode; fixed high 16 KiB PRG bank.
         values = [0x11, 0x22] if case == 'sorom' else [0x11, 0x22, 0x33, 0x44]
         shift = 3 if case == 'sorom' else 2
@@ -80,7 +82,7 @@ def cartridge(case):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    cases = ['banked', 'mirrored', 'mirrored-control', 'sorom', 'banked-controls', 'banked-partial', 'banked-progress', 'single-bank', 'large-chr']
+    cases = ['banked', 'mirrored', 'mirrored-control', 'sorom', 'banked-controls', 'banked-partial', 'banked-progress', 'single-bank', 'large-chr', 'mmc1a']
     parser.add_argument('case', choices=['all', *cases])
     parser.add_argument('output', type=Path)
     args = parser.parse_args()
