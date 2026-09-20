@@ -1,7 +1,8 @@
+import type {RoomRole} from '../../../packages/contracts/src/rooms.ts';
 import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
 import {connectionRoute} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
-export type PeerMedia={prepare(pc:RTCPeerConnection,role:'host'|'guest'):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
+export type PeerMedia={prepare(pc:RTCPeerConnection,role:RoomRole):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
 export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
 export type ConnectionState={status:string;route?:'direct'|'relay';epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
@@ -9,7 +10,7 @@ export class PeerConnection {
  private pc?:RTCPeerConnection;
  private channel?:RTCDataChannel;
  private epoch?:string;
- private role?:'host'|'guest';
+ private role?:RoomRole;
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
  private serial=Promise.resolve();

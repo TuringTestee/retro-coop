@@ -1,7 +1,8 @@
+import type {RoomRole} from './rooms.ts';
 import {object,keys,token,integer,sha256} from './protocol-validation.ts';
 /** One protocol owner for frame discipline, independent of local file admission. */
 export const gameplayLimits={delayMin:3,delayMax:8,delayDefault:6,inputWindow:120,hashInterval:120,packetBytes:512,barrierMs:10_000,stallMs:1000} as const;
-export type GameRole='host'|'guest';
+export type GameRole=RoomRole;
 const reasons=['focus','device','network','mismatch','cancelled','user'] as const;
 export type GameReason=typeof reasons[number];
 const validReason=(value:unknown):value is GameReason=>typeof value==='string'&&(reasons as readonly string[]).includes(value);

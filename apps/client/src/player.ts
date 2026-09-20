@@ -145,9 +145,13 @@ export class LocalPlayer {
   const pad = selected ? navigator.getGamepads()[selected.index] : undefined;
   return {pad,available:!selected || !!pad && pad.id===selected.id && pad.connected};
  }
+ private controllerMask(pad:Gamepad|null|undefined) {
+  const selected=this.controls.device;
+  const pressed=document.activeElement===this.canvas?(selected?padInputs(pad):this.keys):new Set<string>();
+  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed);
+ }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
-  const selected = this.controls.device;
   const {pad,available} = this.inputDevice();
   if(!available) {
    if(this.state.running) this.pause('device');
@@ -157,8 +161,7 @@ export class LocalPlayer {
   if(this.state.inputIssue) this.publish({inputIssue:undefined,status:'Controller reconnected. Resume whenever you’re ready.'});
   if(this.game || !this.active || !this.state.running || this.busy || now-this.last < 1000/this.fps) return;
   this.last = now-(now-this.last)%(1000/this.fps);
-  const pressed = document.activeElement === this.canvas ? (selected ? padInputs(pad) : this.keys) : new Set<string>();
-  const mask = inputMask(selected ? this.controls.gamepad : this.controls.keyboard,pressed);
+  const mask=this.controllerMask(pad);
   this.busy=true;this.send(this.active,{type:'frame',p1:mask,p2:0});
  };
  // As in the qualified D02 scheduler, wall time sets an absolute target. Input
@@ -173,9 +176,7 @@ export class LocalPlayer {
   const elapsed=performance.now()-this.gameStarted;
   if(elapsed-this.gameFrames*1000/this.fps>gameplayLimits.stallMs){this.pause('network');return;}
   if(this.busy||this.gameFrames>=Math.floor(elapsed*this.fps/1000))return;
-  const selected=this.controls.device;
-  const pressed=document.activeElement===this.canvas?(selected?padInputs(pad):this.keys):new Set<string>();
-  const next=this.game.next(inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed));if(!next)return;
+  const next=this.game.next(this.controllerMask(pad));if(!next)return;
   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  };
 

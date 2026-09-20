@@ -6,6 +6,7 @@ import {publicCode,type DirectoryCommand} from './directory.ts';
 /** Room protocol: bounded control and text chat messages. No binary or arbitrary extension fields. */
 export const ROOM_PROTOCOL = 1;
 export const ROOM_METADATA_BYTES = 4096;
+export type RoomRole = 'host'|'guest';
 export type Visibility = 'public' | 'unlisted';
 import {validFingerprint,type Fingerprint} from './fingerprint.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';

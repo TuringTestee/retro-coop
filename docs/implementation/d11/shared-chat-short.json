@@ -1,0 +1,582 @@
+{
+  "build_files": {
+    "assets/worker-BWKm9Kt8.js": "0876ac65c3c5c690d935f5ba6e82e317c325fa965e47faab5f242b78810b9c56",
+    "assets/index-BZKt_C6W.js": "d3969bbe7b99a4396bb8516469223ff5357f715720cc54c92199a0ab7694a8b1",
+    "generated/retro_coop_d02.wasm": "8df59916ef73f680ce9a645aa42fb341a6021184fe81e7b29227140e7f9cc5b9"
+  },
+  "identity": {
+    "romSha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+    "coreSha256": "8df59916ef73f680ce9a645aa42fb341a6021184fe81e7b29227140e7f9cc5b9",
+    "localSchema": 1,
+    "settings": "auto-region;zero-ram;48000hz;standard-p1-p2",
+    "cartridge": {
+      "format": "iNES",
+      "mapper": 0,
+      "submapper": 0,
+      "region": "NTSC",
+      "bytes": 24592
+    }
+  },
+  "delayed_start": false,
+  "run_id": null,
+  "result": "pass",
+  "browsers": {
+    "Chrome": "145.0.7632.6"
+  },
+  "pair": "Chrome-Chrome",
+  "injection": "none",
+  "target_seconds": 8,
+  "active_seconds": 7.88,
+  "final": [
+    {
+      "hash": "909db7b57fb391fa1d62043835046faa46e8dbe9142da4ea73dfea0e0e714047",
+      "frame": 494,
+      "fresh": false
+    },
+    {
+      "hash": "909db7b57fb391fa1d62043835046faa46e8dbe9142da4ea73dfea0e0e714047",
+      "frame": 494,
+      "fresh": false
+    }
+  ],
+  "seconds": 9.85,
+  "pause": [
+    {
+      "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+      "frame": 279,
+      "fresh": false
+    },
+    {
+      "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+      "frame": 279,
+      "fresh": false
+    }
+  ],
+  "peers": [
+    {
+      "hashes": [
+        {
+          "hash": "4c0e509354afcd92a6dec38ff14f44d73e07f6f272b6846d3110151cd5a69afd",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "4c0e509354afcd92a6dec38ff14f44d73e07f6f272b6846d3110151cd5a69afd",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "a2d71287dfd0233c9c84afb7d18b0646db476b496a053ac5ce68a96b195af40d",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "9f0da3e956e371cb442fbdebf75edc82502e3ff30ae48658ee99be04613f49a3",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+          "frame": 279,
+          "fresh": false
+        },
+        {
+          "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+          "frame": 279,
+          "fresh": false
+        },
+        {
+          "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+          "frame": 279,
+          "fresh": false
+        },
+        {
+          "hash": "0447a000abfa4bdd781e63496e8e90b434e634addf1277c3fb3a090fe3591de3",
+          "frame": 399,
+          "fresh": false
+        },
+        {
+          "hash": "909db7b57fb391fa1d62043835046faa46e8dbe9142da4ea73dfea0e0e714047",
+          "frame": 494,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 203
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 204
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 205
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 206
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 207
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 208
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 209
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 210
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 211
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 212
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 213
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 214
+        }
+      ],
+      "frameCount": 494,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "XZ906oCOO5fO842dzYKzGCByyuW0OwRZ",
+          "frame": 120,
+          "hash": "a2d71287dfd0233c9c84afb7d18b0646db476b496a053ac5ce68a96b195af40d"
+        },
+        {
+          "kind": "hash",
+          "epoch": "XZ906oCOO5fO842dzYKzGCByyuW0OwRZ",
+          "frame": 240,
+          "hash": "9f0da3e956e371cb442fbdebf75edc82502e3ff30ae48658ee99be04613f49a3"
+        },
+        {
+          "kind": "hash",
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 120,
+          "hash": "0447a000abfa4bdd781e63496e8e90b434e634addf1277c3fb3a090fe3591de3"
+        }
+      ],
+      "timing": {
+        "workerMs": 1011.0000000521541,
+        "workerMax": 28.699999999254942,
+        "frameGaps": [
+          null,
+          null,
+          9,
+          3,
+          2,
+          1,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          1,
+          10,
+          95,
+          347,
+          12,
+          1,
+          2,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2,
+          1,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1
+        ],
+        "waitMs": 7.399999998509884,
+        "waitCount": 2,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "controllerRam": [
+        128,
+        64
+      ],
+      "chatRam": [
+        0,
+        64
+      ],
+      "scriptedInputs": 3
+    },
+    {
+      "hashes": [
+        {
+          "hash": "4c0e509354afcd92a6dec38ff14f44d73e07f6f272b6846d3110151cd5a69afd",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "4c0e509354afcd92a6dec38ff14f44d73e07f6f272b6846d3110151cd5a69afd",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "a2d71287dfd0233c9c84afb7d18b0646db476b496a053ac5ce68a96b195af40d",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "9f0da3e956e371cb442fbdebf75edc82502e3ff30ae48658ee99be04613f49a3",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+          "frame": 279,
+          "fresh": false
+        },
+        {
+          "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+          "frame": 279,
+          "fresh": false
+        },
+        {
+          "hash": "fbfd5314edc49d9ae5d74f85a2921a47556ab25f3bdd5fb2fd73ebee410ae550",
+          "frame": 279,
+          "fresh": false
+        },
+        {
+          "hash": "0447a000abfa4bdd781e63496e8e90b434e634addf1277c3fb3a090fe3591de3",
+          "frame": 399,
+          "fresh": false
+        },
+        {
+          "hash": "909db7b57fb391fa1d62043835046faa46e8dbe9142da4ea73dfea0e0e714047",
+          "frame": 494,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 203
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 204
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 205
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 206
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 207
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 208
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 209
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 210
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 211
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 212
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 213
+        },
+        {
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 214
+        }
+      ],
+      "frameCount": 494,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "XZ906oCOO5fO842dzYKzGCByyuW0OwRZ",
+          "frame": 120,
+          "hash": "a2d71287dfd0233c9c84afb7d18b0646db476b496a053ac5ce68a96b195af40d"
+        },
+        {
+          "kind": "hash",
+          "epoch": "XZ906oCOO5fO842dzYKzGCByyuW0OwRZ",
+          "frame": 240,
+          "hash": "9f0da3e956e371cb442fbdebf75edc82502e3ff30ae48658ee99be04613f49a3"
+        },
+        {
+          "kind": "hash",
+          "epoch": "ZqBsS48aokT9kM9qwItJYdrNAkrjZsxu",
+          "frame": 120,
+          "hash": "0447a000abfa4bdd781e63496e8e90b434e634addf1277c3fb3a090fe3591de3"
+        }
+      ],
+      "timing": {
+        "workerMs": 989.1999999545515,
+        "workerMax": 13.5,
+        "frameGaps": [
+          null,
+          null,
+          10,
+          null,
+          2,
+          null,
+          null,
+          null,
+          1,
+          1,
+          null,
+          1,
+          null,
+          null,
+          null,
+          12,
+          86,
+          359,
+          16,
+          1,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          1
+        ],
+        "waitMs": 3.599999997764826,
+        "waitCount": 1,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "controllerRam": [
+        128,
+        64
+      ],
+      "scriptedInputs": 3
+    }
+  ],
+  "page_errors": []
+}

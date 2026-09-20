@@ -26,3 +26,10 @@ test('epochs, bounded windows, duplicates and missing hashes cannot advance a wr
  assert.equal(parseGamePacket(JSON.stringify({kind:'input',epoch,frame:1,mask:1,rom:'secret'})),undefined);
  assert.equal(parseGamePacket(JSON.stringify({kind:'hash',epoch,frame:119,hash:'a'.repeat(64)})),undefined);
 });
+test('ordered checkpoint admission rejects omitted checkpoints and repeats after comparison',()=>{
+ const q=new GameScheduler(epoch,6,()=>{});
+ for(let frame=0;frame<120;frame++){q.sample(1);q.receive({kind:'input',epoch,frame,mask:2});q.commit();}
+ assert.throws(()=>q.receive({kind:'hash',epoch,frame:240,hash:'a'.repeat(64)}),/checkpoint|hash/);
+ q.receive({kind:'hash',epoch,frame:120,hash:'a'.repeat(64)});q.hash('a'.repeat(64));
+ assert.throws(()=>q.receive({kind:'hash',epoch,frame:120,hash:'a'.repeat(64)}),/checkpoint|hash/);
+});

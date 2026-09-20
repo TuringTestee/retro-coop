@@ -5,7 +5,7 @@ export class GameScheduler {
  private remote=new Map<number,number>();
  private hashes=new Map<number,string>();
  private peerHashes=new Map<number,string>();
- private sent=0;
+ private sent=0;private receivedHash=0;
  frame=0;
  readonly epoch:string;readonly delay:number;private send:(packet:GamePacket)=>void;
  constructor(epoch:string,delay:number,send:(packet:GamePacket)=>void) {
@@ -22,8 +22,8 @@ export class GameScheduler {
    if(packet.frame<this.frame||packet.frame>this.frame+gameplayLimits.inputWindow||this.remote.has(packet.frame)) throw Error('Invalid or duplicate frame input');
    this.remote.set(packet.frame,packet.mask);
   } else {
-   if(packet.frame<this.frame-gameplayLimits.inputWindow||packet.frame>this.frame+gameplayLimits.inputWindow||this.peerHashes.has(packet.frame)) throw Error('Invalid or duplicate frame hash');
-   this.peerHashes.set(packet.frame,packet.hash);this.compare(packet.frame);
+   if(packet.frame!==this.receivedHash+gameplayLimits.hashInterval||packet.frame<this.frame-gameplayLimits.inputWindow||packet.frame>this.frame+gameplayLimits.inputWindow||this.peerHashes.has(packet.frame)) throw Error('Invalid or duplicate frame hash');
+   this.receivedHash=packet.frame;this.peerHashes.set(packet.frame,packet.hash);this.compare(packet.frame);
   }
  }
  next():[number,number]|undefined {const local=this.local.get(this.frame),remote=this.remote.get(this.frame);return local===undefined||remote===undefined?undefined:[local,remote];}
