@@ -54,6 +54,12 @@ export class VoiceSession {
    audio.direction='sendrecv';this.microphone.endpoint(audio.sender);
   }catch{this.publish({connectionError:'Voice negotiation is unavailable. Text and gameplay can still connect.'});}
  }
+ retryBinding(){
+  const pc=this.pc;if(!pc)return;
+  const audio=pc.getTransceivers().find(item=>item.receiver.track.kind==='audio' && item.currentDirection && item.currentDirection!=='inactive');
+  if(!audio){this.publish({connectionError:'Voice was not negotiated on this connection. Text and gameplay remain available.'});return;}
+  this.microphone.endpoint(audio.sender);this.publish({connectionError:undefined});
+ }
  connected(){this.publish({connected:true});}
  close(){this.pc=undefined;this.microphone.endpoint();this.audio.pause();this.audio.srcObject=null;this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
  async enable(){
