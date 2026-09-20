@@ -1,0 +1,28 @@
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-state/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 4.70s
+     Running unittests src/lib.rs (spikes/d02/target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 21 tests
+test battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore ... ok
+test battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact ... ok
+test local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game ... ok
+test local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode ... ok
+test local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry ... ok
+test memory_tail::tests::fragment_contains_only_mutable_tail_and_preserves_local_rom ... ok
+test memory_tail::tests::invalid_fragments_leave_all_memory_untouched ... ok
+test memory_tail::tests::upstream_memory_decoder_accepts_small_payload_requesting_large_arena ... ok
+test local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save ... ok
+test local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery ... ok
+test battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay ... ok
+test realtime_tests::manual_controller_ports_render_and_release ... ok
+test checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits ... ok
+test local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional ... ok
+test checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core ... ok
+test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
+test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
+test local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs ... ok
+test local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay ... ok
+test local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid ... ok
+test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.11s

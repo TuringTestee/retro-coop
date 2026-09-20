@@ -1,0 +1,22 @@
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-state/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 5.13s
+     Running unittests src/lib.rs (spikes/d02/target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 1 test
+test local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs ... FAILED
+
+failures:
+
+---- local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs stdout ----
+
+thread 'local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs' (244508) panicked at src/local_state.rs:159:65:
+called `Result::unwrap()` on an `Err` value: "enum /mmc1/last_chr_reg"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.05s
+
+error: test failed, to rerun pass `--lib`
