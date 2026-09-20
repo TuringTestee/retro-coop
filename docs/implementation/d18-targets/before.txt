@@ -1,0 +1,94 @@
+✖ confirmed kick cannot remove a replacement guest; current kick revokes only its target (3.461592ms)
+✖ reusing a client intent never restores a prior membership or delayed chat authority (0.710575ms)
+✖ host actions target the confirmed room, not a newer room belonging to the same host (0.702392ms)
+✖ host mutation wire schema requires exact targets and rejects public authority extensions (0.953801ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 114.196624
+
+✖ failing tests:
+
+test at apps/coordinator/src/moderation.test.ts:16:1
+✖ confirmed kick cannot remove a replacement guest; current kick revokes only its target (3.461592ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///tmp/retro-d18-moderation/apps/coordinator/src/moderation.test.ts:22:9)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /membership_changed/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at apps/coordinator/src/moderation.test.ts:32:1
+✖ reusing a client intent never restores a prior membership or delayed chat authority (0.710575ms)
+  AssertionError [ERR_ASSERTION]: Expected "actual" to be strictly unequal to:
+  
+  '74da0eb6-2dd0-468f-8681-20c71bf63216'
+      at TestContext.<anonymous> (file:///tmp/retro-d18-moderation/apps/coordinator/src/moderation.test.ts:37:9)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '74da0eb6-2dd0-468f-8681-20c71bf63216',
+    expected: '74da0eb6-2dd0-468f-8681-20c71bf63216',
+    operator: 'notStrictEqual',
+    diff: 'simple'
+  }
+
+test at apps/coordinator/src/moderation.test.ts:42:1
+✖ host actions target the confirmed room, not a newer room belonging to the same host (0.702392ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///tmp/retro-d18-moderation/apps/coordinator/src/moderation.test.ts:46:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /room_changed/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at apps/coordinator/src/moderation.test.ts:51:1
+✖ host mutation wire schema requires exact targets and rejects public authority extensions (0.953801ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   requestId: '85c95255-7879-4c96-a797-4f9c0c2c804f',
+  +   type: 'close'
+  + }
+  - undefined
+  
+      at TestContext.<anonymous> (file:///tmp/retro-d18-moderation/apps/coordinator/src/moderation.test.ts:53:66)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { type: 'close', requestId: '85c95255-7879-4c96-a797-4f9c0c2c804f' },
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
