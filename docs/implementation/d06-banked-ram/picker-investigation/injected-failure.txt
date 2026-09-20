@@ -1,0 +1,19 @@
+127.0.0.1 - - [20/Sep/2026 07:07:45] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 07:07:45] "GET /assets/index-CVt8nmBe.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 07:07:45] "GET /assets/index-J9HoPDeR.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 07:07:45] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 07:07:45] "GET /coordinator/ws HTTP/1.1" 404 -
+Traceback (most recent call last):
+  File "/tmp/pr62-diagnostic-fault.py", line 8, in <module>
+    exec(compile(source,str(path),'exec'),{'__file__':str(path),'__name__':'__main__'})
+  File "/tmp/retro-d06-banked-ram/scripts/foundation/browser_smoke.py", line 65, in <module>
+    page.keyboard.press('Enter')
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 85, in __exit__
+    self._event.value
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 59, in value
+    raise exception
+playwright._impl._errors.TimeoutError: Timeout 1000ms exceeded while waiting for event "filechooser"
+=========================== logs ===========================
+waiting for event "filechooser"
+============================================================
