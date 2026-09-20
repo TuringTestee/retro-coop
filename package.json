@@ -6,7 +6,7 @@
     "dev": "npm run dev -w @retro-coop/client",
     "coordinator": "node apps/coordinator/src/main.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts",
+    "test": "node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts",
     "build": "npm run typecheck && npm run build -w @retro-coop/client",
     "build:staging": "npm run typecheck && npm run build:staging -w @retro-coop/client"
   },
