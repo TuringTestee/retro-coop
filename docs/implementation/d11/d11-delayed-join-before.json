@@ -1,0 +1,259 @@
+{
+  "controlled_worker_delivery_floor_ms": 0,
+  "build_files": {
+    "assets/retro_coop_d02-BATHQAFP.wasm": "2b19991f0f470929f0c43daaa9fb14ec1c2451c6ea01d2b99b259a18ee9a70fe",
+    "assets/worker-CBbDvQ-C.js": "5a5e0d8f9d72e35b8da58952d6f71834af29713e35988864f7e5b22ae33f00e2",
+    "assets/index-ChfmD_Fm.js": "67b12dde9ce4b7710817fd030b33ab50b73efcb0c6a9035ee00652eab6bb8293"
+  },
+  "browsers": {
+    "Firefox": "146.0.1",
+    "Chrome": "145.0.7632.6"
+  },
+  "pair": "Chrome-Firefox",
+  "source": {
+    "commit": "dc339f9420b2e067e9ef1b8c7c2f9c6df7380334",
+    "tree": "0101e7669ad80cd196cc709287cf6854b3db0621"
+  },
+  "run_id": null,
+  "result": "fail",
+  "page_errors": [],
+  "peers": [
+    {
+      "proof": {
+        "hashes": [],
+        "rooms": [
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "paused"
+          }
+        ],
+        "frames": [],
+        "frameCount": 0,
+        "sentHashes": [],
+        "timing": {
+          "workerMs": 0,
+          "workerMax": 0,
+          "frameGaps": [],
+          "waitMs": 0,
+          "waitCount": 0,
+          "delays": []
+        },
+        "events": [
+          {
+            "at": 3962,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "gathering"
+          },
+          {
+            "at": 3996,
+            "kind": "iceconnectionstatechange",
+            "connection": "new",
+            "ice": "checking",
+            "gathering": "gathering"
+          },
+          {
+            "at": 3996,
+            "kind": "connectionstatechange",
+            "connection": "connecting",
+            "ice": "checking",
+            "gathering": "gathering"
+          },
+          {
+            "at": 3997,
+            "kind": "iceconnectionstatechange",
+            "connection": "connecting",
+            "ice": "connected",
+            "gathering": "gathering"
+          },
+          {
+            "at": 3997,
+            "kind": "icegatheringstatechange",
+            "connection": "connecting",
+            "ice": "connected",
+            "gathering": "complete"
+          },
+          {
+            "at": 3999,
+            "kind": "connectionstatechange",
+            "connection": "connected",
+            "ice": "connected",
+            "gathering": "complete"
+          },
+          {
+            "at": 4055,
+            "kind": "receive",
+            "type": "gameStop",
+            "reason": "Player 2 left. Your local game is preserved."
+          },
+          {
+            "at": 4056,
+            "kind": "receive",
+            "type": "peerStop",
+            "reason": "Peer left the room."
+          },
+          {
+            "at": 4058,
+            "kind": "receive",
+            "type": "gameStop",
+            "reason": "Connection changed. Shared play is paused; retry requires your action."
+          },
+          {
+            "at": 10120,
+            "kind": "send",
+            "type": "heartbeat",
+            "reason": null,
+            "frame": null,
+            "sinceStart": null,
+            "epochFrames": 0
+          }
+        ],
+        "pacing": [],
+        "fps": 60,
+        "workloadStopped": true
+      },
+      "status": "Connection changed. Shared play is paused; retry requires your action.",
+      "localStatus": "Playing locally. Your file stays in this browser.",
+      "game": {
+        "status": "paused",
+        "reason": "Connection changed. Shared play is paused; retry requires your action.",
+        "ready": []
+      },
+      "established": false
+    },
+    {
+      "proof": {
+        "hashes": [],
+        "rooms": [
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          }
+        ],
+        "frames": [],
+        "frameCount": 0,
+        "sentHashes": [],
+        "timing": {
+          "workerMs": 0,
+          "workerMax": 0,
+          "frameGaps": [],
+          "waitMs": 0,
+          "waitCount": 0,
+          "delays": []
+        },
+        "events": [
+          {
+            "at": 318,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "gathering"
+          },
+          {
+            "at": 321,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "complete"
+          },
+          {
+            "at": 342,
+            "kind": "iceconnectionstatechange",
+            "connection": "connecting",
+            "ice": "checking",
+            "gathering": "complete"
+          },
+          {
+            "at": 342,
+            "kind": "connectionstatechange",
+            "connection": "connecting",
+            "ice": "checking",
+            "gathering": "complete"
+          },
+          {
+            "at": 342,
+            "kind": "iceconnectionstatechange",
+            "connection": "connecting",
+            "ice": "connected",
+            "gathering": "complete"
+          },
+          {
+            "at": 345,
+            "kind": "connectionstatechange",
+            "connection": "connected",
+            "ice": "connected",
+            "gathering": "complete"
+          },
+          {
+            "at": 382,
+            "kind": "receive",
+            "type": "gameStop",
+            "reason": "Player 2 left. Your local game is preserved."
+          },
+          {
+            "at": 383,
+            "kind": "receive",
+            "type": "peerStop",
+            "reason": "Peer left the room."
+          },
+          {
+            "at": 10178,
+            "kind": "send",
+            "type": "heartbeat",
+            "reason": null,
+            "frame": null,
+            "sinceStart": null,
+            "epochFrames": 0
+          }
+        ],
+        "pacing": [],
+        "workloadStopped": true,
+        "fps": 60
+      },
+      "status": null,
+      "localStatus": "Game loaded. Preparing shared play\u2026",
+      "game": {
+        "status": "waiting",
+        "ready": []
+      },
+      "established": false
+    }
+  ]
+}

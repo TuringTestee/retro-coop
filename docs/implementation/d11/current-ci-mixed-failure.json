@@ -1,0 +1,260 @@
+{
+  "controlled_worker_delivery_floor_ms": 0,
+  "build_files": {
+    "assets/worker-BANepF4j.js": "77fb9083e3de31ce876ab8ac01054169ee2e71b17025d499ba8f564d1ed59d71",
+    "assets/retro_coop_d02-DZZ0sjs7.wasm": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4",
+    "assets/index-T5wzDngN.js": "3c7f190661c872ac91d5021b65bcebced1468ac9819bfca8d1d3321a53c38aa5"
+  },
+  "browsers": {
+    "Chrome": "145.0.7632.6",
+    "Firefox": "146.0.1"
+  },
+  "pair": "Chrome-Firefox",
+  "source": {
+    "commit": "72baebc26ad5f3e51895ffd1921d3d5129e9bb61",
+    "tree": "0101e7669ad80cd196cc709287cf6854b3db0621"
+  },
+  "run_id": "c9e0d8185c394444b570cc5ec4fb628f",
+  "result": "fail",
+  "page_errors": [],
+  "peers": [
+    {
+      "proof": {
+        "hashes": [],
+        "rooms": [
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "paused"
+          }
+        ],
+        "frames": [],
+        "frameCount": 0,
+        "sentHashes": [],
+        "timing": {
+          "workerMs": 0,
+          "workerMax": 0,
+          "frameGaps": [],
+          "waitMs": 0,
+          "waitCount": 0,
+          "delays": []
+        },
+        "events": [
+          {
+            "at": 6364,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "gathering"
+          },
+          {
+            "at": 6481,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "complete"
+          },
+          {
+            "at": 6668,
+            "kind": "receive",
+            "type": "gameStop",
+            "reason": "Player 2 left. Your local game is preserved."
+          },
+          {
+            "at": 6669,
+            "kind": "receive",
+            "type": "peerStop",
+            "reason": "Peer left the room."
+          },
+          {
+            "at": 11356,
+            "kind": "send",
+            "type": "heartbeat",
+            "reason": null,
+            "frame": null,
+            "sinceStart": null,
+            "epochFrames": 0
+          }
+        ],
+        "pacing": [],
+        "fps": 60,
+        "workloadStopped": true
+      },
+      "status": "Player 2 left. Your local game is preserved.",
+      "localStatus": "Playing locally. Your file stays in this browser.",
+      "game": {
+        "status": "paused",
+        "reason": "Player 2 left. Your local game is preserved.",
+        "ready": []
+      },
+      "established": false
+    },
+    {
+      "proof": {
+        "hashes": [],
+        "rooms": [
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          }
+        ],
+        "frames": [],
+        "frameCount": 0,
+        "sentHashes": [],
+        "timing": {
+          "workerMs": 0,
+          "workerMax": 0,
+          "frameGaps": [],
+          "waitMs": 0,
+          "waitCount": 0,
+          "delays": []
+        },
+        "events": [
+          {
+            "at": 2547,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "gathering"
+          },
+          {
+            "at": 2548,
+            "kind": "icegatheringstatechange",
+            "connection": "new",
+            "ice": "new",
+            "gathering": "complete"
+          },
+          {
+            "at": 2612,
+            "kind": "receive",
+            "type": "gameStop",
+            "reason": "Player 2 left. Your local game is preserved."
+          },
+          {
+            "at": 2630,
+            "kind": "receive",
+            "type": "peerStop",
+            "reason": "Peer left the room."
+          },
+          {
+            "at": 11445,
+            "kind": "send",
+            "type": "heartbeat",
+            "reason": null,
+            "frame": null,
+            "sinceStart": null,
+            "epochFrames": 0
+          }
+        ],
+        "pacing": [],
+        "workloadStopped": true,
+        "fps": 60
+      },
+      "status": null,
+      "localStatus": "Game loaded. Preparing shared play\u2026",
+      "game": {
+        "status": "waiting",
+        "ready": []
+      },
+      "established": false
+    }
+  ],
+  "network_evidence": {
+    "run_id": "c9e0d8185c394444b570cc5ec4fb628f",
+    "netem_before": [
+      {
+        "kind": "netem",
+        "handle": "8002:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 0,
+        "packets": 0,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "netem_after": [
+      {
+        "kind": "netem",
+        "handle": "8002:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 7424595,
+        "packets": 624,
+        "drops": 5,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "route": [
+      {
+        "type": "local",
+        "dst": "10.201.0.1",
+        "dev": "lo",
+        "prefsrc": "10.201.0.1",
+        "flags": [],
+        "uid": 0,
+        "cache": [
+          "local"
+        ]
+      }
+    ],
+    "udp_headers": {
+      "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+      "wall_seconds": 23.462442699999997,
+      "flows": {}
+    }
+  }
+}

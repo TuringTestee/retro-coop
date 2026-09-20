@@ -2,7 +2,7 @@
 import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-parser=argparse.ArgumentParser();parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];build_files={str(p.relative_to(root/'apps/client/dist')):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'apps/client/dist').rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
@@ -24,12 +24,16 @@ try:
    h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for()
    if args.late_join:
     h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
+   if args.delay_join:
+    g.add_init_script("""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
    invite=h.get_by_label('Room invitation',exact=True).input_value();g.goto(invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for()
    if not args.late_join:assert h.get_by_test_id('frames').inner_text()=='0 frames'
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
    g.set_input_files('input[type=file]',{'name':'matching.nes','mimeType':'application/octet-stream','buffer':rom})
+   if args.delay_join:
+    g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
     g.get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
