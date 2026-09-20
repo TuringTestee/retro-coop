@@ -6,4 +6,3 @@ playwright._impl._errors.Error: Locator.inner_text: Error: strict mode violation
 
 Call log:
   - waiting for get_by_role("dialog", name="Local settings").locator("[role=status]")
-
