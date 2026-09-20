@@ -341,7 +341,16 @@ impl Cart {
         let mut memory = Self::build_memory(
             mapper_num,
             prg_rom_size,
-            prg_ram_size.max(mapper::min_prg_ram(mapper_num)),
+            // Explicit NES 2.0 MMC1 RAM geometry distinguishes SOROM/SXROM.
+            // Keep the legacy fallback only when that geometry is unspecified.
+            if matches!(mapper_num, 1 | 155)
+                && header.variant == NesVariant::Nes2
+                && prg_ram_size > 0
+            {
+                prg_ram_size
+            } else {
+                prg_ram_size.max(mapper::min_prg_ram(mapper_num))
+            },
             chr_rom_size,
             chr_ram_size,
             header.flags & 0x08 == 0x08,

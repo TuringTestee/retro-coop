@@ -1,5 +1,7 @@
 //! Trusted-local feasibility probe. Never expose raw upstream snapshots to peers.
 use std::cell::RefCell;
+#[cfg(test)]
+mod banked_ram;
 mod battery;
 pub mod checkpoint;
 mod local_file;

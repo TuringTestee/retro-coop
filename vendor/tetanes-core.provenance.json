@@ -4,8 +4,9 @@
     "test_roms/"
   ],
   "package": "tetanes-core",
-  "patch_sha256": "c777a349bd7fa7eae8aa8e20e9e0a90dc55c8abdf19cd7c815074c3e597102d4",
+  "patch_sha256": "19449aac4daf44fc41af3234d5caee1806bdb51c2df3b8c780d986fb6a0833ae",
   "patched_files": {
+    "src/cart.rs": "66c68edbcf030c43455a0159544a2268bae34ae0581260c6771f0976632686e0",
     "src/mapper/m001_sxrom.rs": "8015152a6881559ea13596c4c3b78b6e6696bbf496100b4f4ba83f88c2a7c28a"
   },
   "previous_pin": "a0a6b17f8ba9c5ee451453fb2409753fd06e5a31",

@@ -7,6 +7,14 @@ def cartridge(case):
     # NES 2.0 MMC1: 512 KiB PRG, 8 KiB CHR RAM, 32 KiB battery RAM.
     rom = bytearray(16 + 512 * 1024)
     rom[:16] = bytes([0x4e, 0x45, 0x53, 0x1a, 32, 0, 0x12, 8, 0, 0, 0x90, 7, 0, 0, 0, 0])
+    if case == 'sorom':
+        rom[10] = 0x80  # Two 8-KiB banks; this fixture declares both battery-backed.
+    if case == 'single-bank':
+        rom[10] = 0x70
+    if case == 'large-chr':
+        rom[5] = 4
+        rom[11] = 0
+        rom.extend(bytes(32768))
     program = bytearray([0x78, 0xd8, 0xa2, 0xff, 0x9a])  # SEI; CLD; LDX #FF; TXS
 
     def store(address, value):
@@ -22,14 +30,30 @@ def cartridge(case):
 
     store(0x2000, 0)
     store(0x2001, 0)
-    if case == 'banked':
+    if case in ['banked', 'sorom', 'banked-controls', 'banked-partial', 'banked-progress', 'single-bank', 'large-chr']:
         serial(0x8000, 0x0c)  # 8 KiB CHR mode; fixed high 16 KiB PRG bank.
-        for bank, value in enumerate([0x11, 0x22, 0x33, 0x44]):
-            serial(0xa000, bank << 2)
+        values = [0x11, 0x22] if case == 'sorom' else [0x11, 0x22, 0x33, 0x44]
+        shift = 3 if case == 'sorom' else 2
+        for bank, value in enumerate(values):
+            serial(0xa000, bank << shift)
             store(0x6000, value)
-        for bank in range(4):
-            serial(0xa000, bank << 2)
+        for bank in range(len(values)):
+            serial(0xa000, bank << shift)
             observe(0x6000, 0x10 + bank)
+        if case == 'banked-controls':
+            serial(0xe000, 0x10)
+            store(0x6000, 0xaa)  # Disabled write must not change bank 3.
+            serial(0xe000, 0)
+            observe(0x6000, 0x14)
+            store(0xa000, 1)
+            store(0xa000, 0)  # Two partial bits must not select a new bank.
+            observe(0x6000, 0x15)
+            store(0xa000, 0x80)  # Reset discards the partial serial word.
+            serial(0xa000, 0)
+            observe(0x6000, 0x16)
+        elif case == 'banked-partial':
+            store(0xa001, 1)
+            store(0xa001, 0)
     elif case in ['mirrored', 'mirrored-control']:
         serial(0x8000, 0x1c)  # Separate 4 KiB CHR registers.
         serial(0xa000, 0)
@@ -39,6 +63,10 @@ def cartridge(case):
         raise ValueError(case)
     store(0x20, 0x80)
     end = 0x8000 + len(program)
+    if case == 'banked-progress':
+        for bank in range(4):
+            serial(0xa001, bank << 2)
+            program.extend([0xee, 0x01, 0x60])  # Independent progress in every RAM bank.
     program.extend([0x4c, end & 255, end >> 8])
     assert len(program) < 0x1000
     for bank in range(32):
@@ -52,7 +80,12 @@ def cartridge(case):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('case', choices=['banked', 'mirrored', 'mirrored-control'])
+    cases = ['banked', 'mirrored', 'mirrored-control', 'sorom', 'banked-controls', 'banked-partial', 'banked-progress', 'single-bank', 'large-chr']
+    parser.add_argument('case', choices=['all', *cases])
     parser.add_argument('output', type=Path)
     args = parser.parse_args()
-    args.output.write_bytes(cartridge(args.case))
+    if args.case == 'all':
+        for case in cases:
+            (args.output / (case + '.local.nes')).write_bytes(cartridge(case))
+    else:
+        args.output.write_bytes(cartridge(args.case))
