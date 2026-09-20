@@ -5,7 +5,8 @@ import {randomUUID} from 'node:crypto';
 import {mkdtemp,chmod,stat,rm,symlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {spawn} from 'node:child_process';
+import {spawn,execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {WebSocket} from 'ws';
 import {createCoordinator,shutdown} from './server.ts';
 import {Rooms} from './rooms.ts';
@@ -124,4 +125,17 @@ test('actual coordinator entry point enables only private operator socket and sh
   const ended=once(child,'exit');child.kill('SIGTERM');assert.deepEqual(await ended,[0,null]);
   await assert.rejects(operatorRequest(directory,{type:'list'}));
  } finally {clearTimeout(timer);if(child.exitCode===null)child.kill('SIGKILL');await rm(directory,{recursive:true,force:true});}
+});
+test('CLI escapes terminal direction controls in untrusted room labels',async()=>{
+ await fixture(async t=>{
+  const host=await t.open('192.0.2.1');await host.command({type:'hello'});
+  const intent=randomUUID(),room=(await host.command({type:'create',intent,visibility:'public',fingerprint})).data.room;
+  await host.command({type:'confirmCreate',intent});await host.command({type:'rename',roomId:room.id,label:'Room\u202e reversed'});
+  const {stdout}=await promisify(execFile)(process.execPath,['apps/coordinator/src/operator-cli.ts',t.directory,'list'],{timeout:5000});
+  assert.ok(!stdout.includes('\u202e'),'untrusted labels must not change terminal text direction');assert.ok(stdout.includes('\\u202e'));
+  const child=spawn(process.execPath,['apps/coordinator/src/operator-cli.ts',t.directory,'remove-room',room.id],{stdio:['pipe','pipe','pipe']});
+  let preview='';child.stdout.on('data',data=>{preview+=data;if(preview.includes('Type CONFIRM'))child.stdin.end('cancel\n');});
+  const timer=setTimeout(()=>child.kill('SIGKILL'),5000);
+  try {assert.deepEqual(await once(child,'exit'),[0,null]);assert.ok(!preview.includes('\u202e'));assert.ok(preview.includes('\\u202e'));assert.match(preview,/Cancelled/);}finally{clearTimeout(timer);if(child.exitCode===null)child.kill('SIGKILL');}
+ });
 });
