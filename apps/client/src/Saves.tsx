@@ -1,12 +1,12 @@
 import {useEffect,useRef,useState} from 'react';
 import type {LocalPlayer} from './player.ts';
-import type {StateInfo} from '../../../packages/contracts/src/index.ts';
+import type {LocalFileInfo} from '../../../packages/contracts/src/index.ts';
 import {listSaves,putSave,deleteSave,downloadSave,type SaveSlot} from './saves.ts';
 
 type Confirmation={label:string;action:()=>Promise<void>};
 export function Saves({open,close,player,game}:{open:boolean;close:()=>void;player:LocalPlayer|null;game:string}) {
  const dialog=useRef<HTMLDialogElement>(null),picker=useRef<HTMLInputElement>(null),epoch=useRef(0),previousGame=useRef(game),confirmFocus=useRef<HTMLElement|null>(null);
- const [info,setInfo]=useState<StateInfo|null>(null),[rows,setRows]=useState<SaveSlot[]>([]),[slot,setSlot]=useState(1);
+ const [info,setInfo]=useState<LocalFileInfo|null>(null),[rows,setRows]=useState<SaveSlot[]>([]),[slot,setSlot]=useState(1);
  const [listed,setListed]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmation,setConfirmationState]=useState<Confirmation|null>(null);
  const setConfirmation=(value:Confirmation|null)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);};
  useEffect(()=>{if(!confirmation && confirmFocus.current){const target=confirmFocus.current;confirmFocus.current=null;requestAnimationFrame(()=>target.focus());}},[confirmation]);
