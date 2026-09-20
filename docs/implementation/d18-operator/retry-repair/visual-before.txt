@@ -1,0 +1,6 @@
+{"observed_room_status": "Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.", "observed_directory_status": "The room service disconnected. Retry for current availability. Previous results may be out of date. Retry directory"}
+Traceback (most recent call last):
+  File "/tmp/retro-operator-before/scripts/rooms/operator_smoke.py", line 86, in <module>
+    assert 'Access is temporarily restricted' in fresh.get_by_test_id('room-status').inner_text()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
