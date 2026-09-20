@@ -5,6 +5,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'spikes/d02'))
 from verify_realtime import require,verify_network_evidence,digest,number
 
 def verify(result,seconds):
+ require(not result.get('controlled_worker_delivery_floor_ms'), 'controlled diagnostic is not qualification')
  require(result['result']=='pass' and not result['page_errors'],'browser failure')
  require(result['target_seconds']==seconds,'wrong workload')
  require(number(result['active_seconds']) and seconds<=result['active_seconds']<=seconds+2,'shared execution did not sustain the real-time workload')

@@ -1,0 +1,9 @@
+{
+  "diagnostic_only": true,
+  "injected_firefox_worker_delivery_floor_ms": 14,
+  "before_source": "7aca7ec355a0356af76ac3cce67e0932816dfd47",
+  "after_runtime_source": "42487d776b48f09f0589f62ddc2b1c765d7422e0",
+  "after_recorded_head_is_base": true,
+  "explanation": "The after browser began after building the two-line runtime patch but before committing it. Its recorded HEAD is the base; this exact patch and generated client hashes bind the repaired runtime. Neither controlled run is qualification.",
+  "patch_sha256": "4d41696712ff419850bd7423a0f960f82615a57a20a4115fbe82f6c59cfb8a0f"
+}

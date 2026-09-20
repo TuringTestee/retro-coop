@@ -17,6 +17,12 @@ class GameplayEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'wrong workload'):
             verify(self.record, 600)
 
+    def test_controlled_worker_latency_is_not_qualification(self):
+        record=copy.deepcopy(self.record)
+        record['controlled_worker_delivery_floor_ms']=14
+        with self.assertRaisesRegex(ValueError,'controlled diagnostic'):
+            verify(record,30)
+
     def test_equal_peers_cannot_hide_missing_checkpoint(self):
         record = copy.deepcopy(self.record)
         for peer in record['peers']:
