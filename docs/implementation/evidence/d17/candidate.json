@@ -1,6 +1,6 @@
 {
   "source": "66c9ba5fb2d6653b20c1da0481d2735580d126ae",
-  "base": "2c3d1a7986ef7dd76ed788577b1191ba7a59e1f1",
+  "base": "2f58a1e915d3849c5732677bc77e9b52a8f41f7b",
   "approval": {
     "planning_pr": 3,
     "approved_head": "2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965",
@@ -12,7 +12,8 @@
     "peer": "peer-ordered.json ran d332ff2,68.17s with merged PR54 ordered handshake; later changes only voice selector/test fixture/docs. Original peer.json retained at101b9b3.",
     "chat": "chat.json ran101b9b3,21.19s. Chat unchanged; current-head CI repeats integration.",
     "screenshots": "Matched before.* from main0629cec and after.* from041fb5d: same original ROM, paused game, two members,1280x900/400x1000. Missing selection before d332ff2 / after fa7e353. Current voice-*.png from66c9ba5. All inspected.",
-    "ci_browser_matrix": "ci-browser-*.json: same six workloads using full Chromium145.0.7632.6 and Firefox146.0.1. Application unchanged from66c9ba5. Test channel repaired after failedCI35500884475; current CI pending."
+    "ci_browser_matrix": "ci-browser-*.json: same six workloads using full Chromium145.0.7632.6 and Firefox146.0.1. Application unchanged from66c9ba5. Test channel repaired after failedCI35500884475; current CI pending.",
+    "integrated_matrix": "integrated-*.json ran4cabff2 after mainPR55 merge: all six fullChromium145.0.7632.6/Firefox146.0.1 voice cells and complete foundation/settings/persistence. Prior evidence remains historical with original source provenance."
   },
   "failures": {
     "ice-marker-before.json": "Actual Firefox completion marker caused signalingdisconnect; 5e7c233 repairs sharedschema.",
@@ -130,6 +131,27 @@
     },
     "ice-marker-before.json": {
       "sha256": "485d98b1e40dab535f3f76b72ef2dc42ed37235c529ed6d44994ffb33bb285ec"
+    },
+    "integrated-Chrome-Chrome-direct.json": {
+      "sha256": "d2a8a0af56fe8563c619075298a1657587c4e754e1ea72fb7df4d4265e78f676"
+    },
+    "integrated-Chrome-Chrome-relay.json": {
+      "sha256": "d78743563da24a14f63a7dcef9d84a93bbec364ee0ac22c4a583f87f4f57257c"
+    },
+    "integrated-Chrome-Firefox-direct.json": {
+      "sha256": "d797a78d62568fc630046246895dceaaee8e8e25dc91aa08c9a19ea86aeb4d68"
+    },
+    "integrated-Chrome-Firefox-relay.json": {
+      "sha256": "81a6ea378bac0577be0035f7dccef679d74a1968c57b2ed70c6ebc094f7c1ccb"
+    },
+    "integrated-Firefox-Firefox-direct.json": {
+      "sha256": "2bc9a17d258e01c54e924a947bc68480c55c0449e1ca10b0786a442d227dd87f"
+    },
+    "integrated-Firefox-Firefox-relay.json": {
+      "sha256": "b6b0f0622d6d89667fb122b51485f1a44284021d2a5f6d5ebc6b4822aaa2db51"
+    },
+    "integrated-foundation.json": {
+      "sha256": "d0f35ce78eaeb2bf31ef5a8b1b168afcb36bceceb76eb901179c8d4a2d90aa41"
     },
     "issue-source.json": {
       "sha256": "5dd5ad68d251c0619f5f518d7a645f91d1b4cda73476fd75ddf3fd9ca565a06d"
@@ -312,5 +334,6 @@
       "sha256": "d673d01ca0dc0544bc181efd60d1fc18934b32f38d855d20fc4cb9eb0cf50ba6"
     }
   },
-  "ci_browser_probe_source": "bd55de0"
+  "ci_browser_probe_source": "bd55de0",
+  "integrated_source": "4cabff2f7fa81309dbcc4b4e7043f500ddb165a7"
 }

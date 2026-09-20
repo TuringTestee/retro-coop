@@ -1,0 +1,400 @@
+{
+  "persistence": {
+    "v1_slots_preserved_on_upgrade": true,
+    "actual_periodic_nonzero_battery_write": true,
+    "battery_import_before_first_frame": true,
+    "real_cpu_observed_restored_battery_at_boot": true,
+    "preferences_restored_for_exact_game": true,
+    "other_identity_backup_export": true,
+    "corrupt_data_retained_and_play_continues": true,
+    "corrupt_battery_export_delete_and_explicit_retry": true,
+    "stale_battery_delete_preserves_replacement_then_refreshes": true,
+    "clear_confirmation_cancel_preserves_records": true,
+    "cleared_epoch_blocks_other_tab_automatic_write": true,
+    "storage_denial_keeps_play_and_export": true,
+    "damaged_timestamp_blocks_automatic_write": true,
+    "damaged_timestamp_export_delete_preserves_unrelated": true,
+    "changed_damaged_timestamp_refuses_stale_delete": true,
+    "same_rom_replacement_captures_before_candidate_restore": true,
+    "mobile_no_overflow": true,
+    "page_errors": []
+  },
+  "saves": {
+    "stale_delete_preserves_new_record_and_requires_fresh_confirmation": true,
+    "quota_failure_keeps_slot_and_backup": true,
+    "concurrent_slot_change_requires_fresh_confirmation": true,
+    "slot_listing_gates_overwrite_decisions": true,
+    "failed_export_keeps_bytes_for_retry": true,
+    "superseded_worker_reply_ignored": true,
+    "storage_denial_keeps_memory_export": true,
+    "oversized_rejected_before_worker": true,
+    "unvalidated_profile_stays_playable": true,
+    "transaction_complete_before_success": true,
+    "aborted_overwrite_preserves_slot": true,
+    "memory_export_after_storage_failure": true,
+    "reload_requires_rom_and_retains_save": true,
+    "confirmed_restore": true,
+    "import_validates_without_changing_timeline": true,
+    "wrong_identity_and_malformed_preserve_slots": true,
+    "confirmed_delete_and_cancel": true,
+    "save_does_not_pause": true,
+    "mobile_no_overflow": true,
+    "escape_restores_focus": true,
+    "no_rom_record_or_upload": true,
+    "stored_file_bytes": 47217,
+    "page_errors": []
+  },
+  "state": {
+    "mirrored_cpu_addresses": [
+      40961,
+      49151,
+      49153,
+      57343
+    ],
+    "mirrored_early_and_lazy_export_import_replay": true,
+    "bytes": 96616,
+    "core_owned_limit": 2097152,
+    "matching_identity_across_first_export_and_import": true,
+    "restored_video_and_fresh_epoch_pcm_match": true,
+    "malformed_cases": 9,
+    "live_state_bytes_unchanged_on_failure": true,
+    "oversized_rejected_before_wasm_allocation": true,
+    "rom_mismatch_rejected": true,
+    "unvalidated_profile_keeps_play_and_battery": true,
+    "no_audio_presented": true,
+    "requests": [
+      [
+        "GET",
+        "http://127.0.0.1:44029/"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/index-BRTb_2Wv.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/index-J9HoPDeR.css"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ]
+    ]
+  },
+  "battery": {
+    "mapper": 1,
+    "bytes": 32844,
+    "core_owned_limit": 2097152,
+    "exact_limit_reaches_validator": true,
+    "oversized_rejected_before_wasm_allocation": true,
+    "coreSha256": "5f0b24f626e00f4dba4c4a7cbe08c7b19e514b8d9631a7f81c45f0cd6777efaa",
+    "correlated_roundtrip": true,
+    "malformed_cases": 9,
+    "failed_import_preserves_battery_and_future_pixels_pcm": true,
+    "exact_rom_mismatch_rejected": true,
+    "no_battery_error": true,
+    "audio_presented": false,
+    "requests": [
+      [
+        "GET",
+        "http://127.0.0.1:44029/"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/index-BRTb_2Wv.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/index-J9HoPDeR.css"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+      ]
+    ]
+  },
+  "result": "pass",
+  "settings": {
+    "keyboard_remap_input_pixels": true,
+    "reserved_binding_conflict": true,
+    "gamepad_conflict_replaced_without_reopening": true,
+    "cancel_and_defaults_confirmation": true,
+    "gamepad_remap_input_pixels": true,
+    "gamepad_axis_capture": true,
+    "volume_applies_under_mute": true,
+    "reconnect_does_not_resume": true,
+    "focus_releases_gamepad": true,
+    "unplug_pauses_and_keyboard_resumes": true,
+    "presentation_preserves_progress_and_fingerprint": true,
+    "single_worker_through_settings": true,
+    "fullscreen_denial_and_exit": true,
+    "dialog_focus_restore_and_escape": true,
+    "mobile_no_overflow": true,
+    "game_only_muted": true,
+    "page_errors": []
+  },
+  "disconnected_startup": {
+    "first_and_replacement_load_wait_for_valid_input": true,
+    "resume_requires_current_device": true,
+    "reconnect_and_keyboard_fallback_require_explicit_resume": true
+  },
+  "browser": "145.0.7632.75",
+  "duration_seconds": 60.99,
+  "audio": {
+    "buffers": 259,
+    "peak": 0.06666979938745499,
+    "starts": 259,
+    "muted": true
+  },
+  "audio_denial_does_not_block_and_retry_recovers": true,
+  "input_changed_canvas": true,
+  "paused_canvas_stable": true,
+  "cancel_and_blur_preserve_previous": true,
+  "latest_selection_wins": true,
+  "invalid_header_and_mapper_preserve_previous": true,
+  "chooser_dismissal_preserved": true,
+  "exact_rom_and_core_sha256": true,
+  "unknown_mappers_loaded": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    7
+  ],
+  "nes2_over_8mib_loaded": true,
+  "picker_and_drop_start_automatically": true,
+  "mobile_no_overflow": true,
+  "page_errors": [],
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:44029/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/index-BRTb_2Wv.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/index-J9HoPDeR.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/assets/worker-CH2iC4d6.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44029/generated/retro_coop_d02.wasm"
+    ]
+  ],
+  "coordinator_url": "/coordinator"
+}
