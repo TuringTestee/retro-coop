@@ -61,6 +61,8 @@ try:
    for tab in [h,g]:tab.wait_for_function('proof.frameCount>=240',timeout=20000,polling=50)
    for tab in [h,g]:
     tab.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})");tab.wait_for_function('proof.controllerRam',polling=50);assert tab.evaluate('proof.controllerRam')==[128,64]
+    assert tab.get_by_role('button',name='Rewind',exact=True).is_disabled()
+    tab.evaluate("currentWorker.postMessage({type:'state-history',requestId:900002})");tab.wait_for_function('proof.localHistory',polling=50);history=tab.evaluate('proof.localHistory');assert history['inputs']==0 and history['checkpoints']==0 and history['retainedBytes']==0
    if args.screenshots:
     count=h.evaluate('proof.frameCount');h.get_by_label('Chat message',exact=True).press_sequentially('xz shared hello')
     h.get_by_text('Typing in chat · game input released.',exact=False).wait_for()

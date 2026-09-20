@@ -182,43 +182,12 @@ fn validate_mapper(template: &Value, value: &Value) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{canonical, snapshot, test_support::cartridge};
+    use crate::{
+        canonical, snapshot,
+        test_support::{cartridge, change_mapper, write},
+    };
     fn codec(rom: &[u8], deck: &ControlDeck) -> Codec {
         Codec::new(deck, &Sha256::digest(rom).into(), &[3; 32]).unwrap()
-    }
-    fn write(deck: &mut ControlDeck, addr: u16, value: u8) {
-        let bus = deck.bus_mut();
-        bus.mapper.write_register(&mut bus.memory, addr, value);
-        bus.mapper.clock();
-        bus.mapper.clock();
-    }
-    fn change_mapper(deck: &mut ControlDeck, mapper: u8) {
-        match mapper {
-            1 => {
-                for bit in [1, 0, 0, 0, 0] {
-                    write(deck, 0xe000, bit)
-                }
-                write(deck, 0xa000, 1);
-                write(deck, 0xa000, 0);
-            }
-            2 | 3 | 7 => write(deck, 0x8000, 1),
-            4 => {
-                write(deck, 0x8000, 6);
-                write(deck, 0x8001, 2);
-                write(deck, 0xa000, 1);
-                write(deck, 0xc000, 3);
-                write(deck, 0xc001, 0);
-                write(deck, 0xe001, 0);
-                let bus = deck.bus_mut();
-                bus.mapper.ppu_bus_addr(&mut bus.memory, 0);
-                for _ in 0..6 {
-                    bus.mapper.clock();
-                }
-                bus.mapper.ppu_bus_addr(&mut bus.memory, 0x1000);
-                bus.mapper.ppu_bus_addr(&mut bus.memory, 0);
-            }
-            _ => {}
-        }
     }
     #[test]
     fn live_hash_covers_power_on_mapper_and_identity_without_relaxing_restore() {

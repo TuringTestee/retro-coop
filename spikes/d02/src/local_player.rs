@@ -8,6 +8,7 @@ struct LocalPlayer {
     rom_sha256: [u8; 32],
     core_sha256: Option<[u8; 32]>,
     state_codec: Option<Result<crate::local_state::Codec, String>>,
+    history: Option<crate::rewind::History>,
 }
 thread_local! {
     static PLAYER: RefCell<Option<LocalPlayer>> = const { RefCell::new(None) };
@@ -40,6 +41,7 @@ fn load(rom: &[u8]) -> Result<LocalPlayer, String> {
         rom_sha256: Sha256::digest(rom).into(),
         core_sha256: None,
         state_codec: None,
+        history: None,
     })
 }
 #[unsafe(no_mangle)]
@@ -58,34 +60,33 @@ pub unsafe extern "C" fn local_initialize(ptr: *mut u8, len: usize) -> u32 {
 pub extern "C" fn local_frame(one: u8, two: u8) -> u32 {
     result(PLAYER.with_borrow_mut(|slot| {
         let player = slot.as_mut().ok_or("No game loaded")?;
-        for (port, mask) in [(Player::One, one), (Player::Two, two)] {
-            for (index, button) in [
-                JoypadBtnState::A,
-                JoypadBtnState::B,
-                JoypadBtnState::SELECT,
-                JoypadBtnState::START,
-                JoypadBtnState::UP,
-                JoypadBtnState::DOWN,
-                JoypadBtnState::LEFT,
-                JoypadBtnState::RIGHT,
-            ]
-            .iter()
-            .enumerate()
-            {
-                player
-                    .deck
-                    .bus_mut()
-                    .input
-                    .joypad_mut(port)
-                    .set_button(*button, mask & (1 << index) != 0);
-            }
-        }
-        player
-            .deck
-            .clock_frame()
-            .map(|_| ())
-            .map_err(|error| error.to_string())
+        clock_inputs(&mut player.deck, one, two)
     }))
+}
+pub(crate) fn clock_inputs(deck: &mut ControlDeck, one: u8, two: u8) -> Result<(), String> {
+    for (port, mask) in [(Player::One, one), (Player::Two, two)] {
+        for (index, button) in [
+            JoypadBtnState::A,
+            JoypadBtnState::B,
+            JoypadBtnState::SELECT,
+            JoypadBtnState::START,
+            JoypadBtnState::UP,
+            JoypadBtnState::DOWN,
+            JoypadBtnState::LEFT,
+            JoypadBtnState::RIGHT,
+        ]
+        .iter()
+        .enumerate()
+        {
+            deck.bus_mut()
+                .input
+                .joypad_mut(port)
+                .set_button(*button, mask & (1 << index) != 0);
+        }
+    }
+    deck.clock_frame()
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn local_save() -> u32 {
@@ -105,6 +106,7 @@ pub extern "C" fn local_restore() -> u32 {
             .deserialize_state(bytes)
             .map_err(|error| error.to_string())?;
         player.deck.bus_mut().cpu.corrupted = *corrupted;
+        player.history = None;
         Ok(())
     }))
 }
@@ -191,7 +193,9 @@ pub unsafe extern "C" fn local_battery_import(ptr: *mut u8, len: usize) -> u32 {
             .as_ref()
             .ok_or("Core identity not bound")?;
         let battery = crate::battery::Battery::new(&player.deck, &player.rom_sha256, core)?;
-        battery.restore(&mut player.deck, &bytes)
+        battery.restore(&mut player.deck, &bytes)?;
+        player.history = None;
+        Ok(())
     }))
 }
 // Build only on a save operation, never as a condition for loading/playing a ROM.
@@ -296,7 +300,71 @@ pub unsafe extern "C" fn local_state_import(ptr: *mut u8, len: usize) -> u32 {
             .ok_or("Core identity not bound")?
             .as_ref()
             .map_err(Clone::clone)?;
-        codec.restore(&mut player.deck, &bytes)
+        codec.restore(&mut player.deck, &bytes)?;
+        player.history = None;
+        Ok(())
+    }))
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_rewind_clear() {
+    PLAYER.with_borrow_mut(|slot| {
+        if let Some(player) = slot {
+            player.history = None;
+        }
+    });
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_rewind_record(one: u8, two: u8) -> u32 {
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        let codec = player
+            .state_codec
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let history = player
+            .history
+            .get_or_insert_with(|| crate::rewind::History::new(&player.deck));
+        if let Err(error) = history.record(&mut player.deck, codec, one, two) {
+            player.history = None;
+            return Err(error);
+        }
+        Ok(())
+    }))
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_rewind_info() -> u32 {
+    result(PLAYER.with_borrow(|slot| {
+        let player = slot.as_ref().ok_or("No game loaded")?;
+        let info = player.history.as_ref().map_or_else(
+            || {
+                let mut info = crate::rewind::History::new(&player.deck).info();
+                info["retainedBytes"] = 0.into();
+                info
+            },
+            |history| history.info(),
+        );
+        OUTPUT.with_borrow_mut(|output| *output = serde_json::to_vec(&info).unwrap());
+        Ok(())
+    }))
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_rewind(seconds: f64) -> u32 {
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        let codec = player
+            .state_codec
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .map_err(Clone::clone)?;
+        let history = player.history.as_mut().ok_or("No rewind history yet")?;
+        let pixels = history.rewind(&mut player.deck, codec, seconds)?;
+        OUTPUT.with_borrow_mut(|output| *output = pixels);
+        Ok(())
     }))
 }
 #[unsafe(no_mangle)]

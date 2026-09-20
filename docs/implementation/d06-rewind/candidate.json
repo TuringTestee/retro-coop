@@ -1,0 +1,9 @@
+{
+  "base": "31713b08b851312e0f82d7723e81e90500c7da8f",
+  "tested_source": "e8a9a6cd734b16b835b5ad0fe2d34138f72c8350",
+  "wasm_asset": "retro_coop_d02-BbQi03Dr.wasm",
+  "wasm_sha256": "ba743ed855b442f94ae0f2dc7b8e5d00dd8e427c5744bc9ac5734ac898709c4a",
+  "browser_seconds": 72.54,
+  "command": "python3 scripts/foundation/browser_smoke.py --chrome --output /tmp/d06-rewind-final.json",
+  "remaining_edits": "Evidence and lineage documentation only; source test name clarified before this build."
+}

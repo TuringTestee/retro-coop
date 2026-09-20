@@ -23,3 +23,8 @@ test('shared worker frames require a valid paired epoch and frame, and hash reus
  assert.equal(isWorkerRequest({type:'frame',p1:0,p2:255,epoch:'a'.repeat(24),frame:0}),true);
  for(const tag of [{epoch:'a'.repeat(24)},{frame:0},{epoch:' '.repeat(24),frame:0},{epoch:'a'.repeat(24),frame:-1}])assert.equal(isWorkerRequest({type:'frame',p1:0,p2:0,...tag}),false);
 });
+test('rewind uses correlated finite-duration commands without a second file-size policy',()=>{
+ for(const data of [{type:'state-history',requestId:0},{type:'state-rewind',requestId:1,seconds:10}])assert.equal(isWorkerRequest(data),true);
+ for(const seconds of [NaN,Infinity,-1,0,'1'])assert.equal(isWorkerRequest({type:'state-rewind',requestId:1,seconds}),false);
+ assert.equal(isWorkerRequest({type:'state-history',requestId:-1}),false);
+});

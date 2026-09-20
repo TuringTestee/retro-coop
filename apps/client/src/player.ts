@@ -1,5 +1,5 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-import type { WorkerRequest, WorkerResponse, LocalFileRequest, LocalFileInfo, StateHash } from '../../../packages/contracts/src/index.ts';
+import type { WorkerRequest, WorkerResponse, LocalFileRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
 import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
@@ -12,7 +12,7 @@ const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the k
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean};
-export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
+export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  private active?: Worker;
@@ -97,7 +97,19 @@ export class LocalPlayer {
   if(this.shared)throw Error('Shared save loading is not available yet. Leave the room before loading a local save.');
   this.pause();
   await this.fileRequest({type:'state-import',bytes});
-  this.audio.flush();this.release();this.publish({status:'Save loaded. Resume whenever you’re ready.'});
+  this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
+ }
+
+ async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
+ async rewind(seconds:number) {
+  if(this.shared)throw Error('Shared rewind is not available yet. Leave the room before rewinding locally.');
+  if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
+  this.pause();
+  const reply=await this.fileRequest({type:'state-rewind',seconds});
+  if(reply.type!=='state-rewound')throw Error('Unexpected rewind response');
+  this.audio.flush();this.release();
+  this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(reply.pixels),256,240),0,0);
+  this.publish({rewind:reply.info,frames:reply.info.frame+1,status:`Rewound ${seconds} second${seconds===1 ? '' : 's'}. Resume whenever you’re ready.`});
  }
 
  private candidate?: Worker;
@@ -264,7 +276,7 @@ export class LocalPlayer {
      this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      const {available} = this.inputDevice();
-     this.publish({loading:false,loaded:true,running:available&&!startPaused,frames:0,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Preparing shared play…' : available ? 'Playing locally. Your file stays in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint});
+     this.publish({loading:false,loaded:true,running:available&&!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Preparing shared play…' : available ? 'Playing locally. Your file stays in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint});
      this.canvas.focus(); return;
     }
     if(this.active !== worker) return;
@@ -274,7 +286,7 @@ export class LocalPlayer {
      const committed=this.expectedFrame;this.expectedFrame=undefined;
      this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
      if(this.state.running) this.audio.play(data.audio);
-     this.publish({frames:this.state.frames+1});
+     this.publish({frames:this.state.frames+1,rewind:data.rewind});
      if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();
     }

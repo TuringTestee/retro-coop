@@ -2,7 +2,7 @@ Audience: Agent
 
 # Manual local save slots
 
-Players can keep three manual save slots for the current compatible game, restore one after confirmation, and import or export ROM-free backups. Saving and importing into storage do not replace the running game. This is another bounded D06 slice: [battery/preferences and Local data](d06-persistence.md) follow in a separate slice; remaining mapper qualification and measured rewind remain open in issue #10.
+Players can keep three manual save slots for the current compatible game, restore one after confirmation, and import or export ROM-free backups. Saving and importing into storage do not replace the running game. This is another bounded D06 slice: [battery/preferences and Local data](d06-persistence.md) follow in a separate slice; [measured local rewind](d06-rewind.md) follows separately and remaining mapper qualification stays open in issue #10.
 
 ## Ownership and safety
 
@@ -28,4 +28,4 @@ The first author native invocation omitted the generated `fixture.local.nes` in 
 
 This implements U6's manual compatible-slot path under [issue #10](https://github.com/TuringTestee/retro-coop/issues/10), [the approved UI](../design/browser-nes-ui.md#u6--saves-and-local-data) and [the implementation plan](browser-nes-platform.md), approved at `2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965` and merged through PR #3 (`ecf6bd4c7443526f0a163b721a351c854ee90fd4`). Its validated state prerequisite is PR #49, integrated at `039afc9`; battery ABI was PR #47.
 
-Battery/preferences persistence and full Local data management are documented [separately](d06-persistence.md). Rewind must use actual regional emulated duration and measured retained allocations: the prior real-worker MMC1 state was 96,616 bytes, so 602 copies alone require 58,162,832 bytes (55.47 MiB), above the 32 MiB budget. Sparse checkpoints plus input replay are the next candidate implementation, not current proof. D06 cannot close until its ten-second memory-bounded rewind and remaining agreed outcomes are delivered; no fixed 600-frame or rounded-60-fps substitute is accepted.
+Battery/preferences persistence and full Local data management are documented [separately](d06-persistence.md). Rewind must use actual regional emulated duration and measured retained allocations: the prior real-worker MMC1 state was 96,616 bytes, so 602 copies alone require 58,162,832 bytes (55.47 MiB), above the 32 MiB budget. The later [local rewind slice](d06-rewind.md) measures sparse checkpoints plus input replay for representative cases. D06 cannot close until its ten-second memory-bounded rewind and remaining agreed outcomes are delivered; no fixed 600-frame or rounded-60-fps substitute is accepted.
