@@ -19,6 +19,6 @@ dist/index.html                   0.39 kB │ gzip:  0.27 kB
 dist/client-licenses.txt          3.42 kB │ gzip:  0.77 kB
 dist/assets/worker-CH2iC4d6.js    3.61 kB
 dist/assets/index-YdH-pPHK.css    6.04 kB │ gzip:  2.04 kB
-dist/assets/index-oQNfr10F.js   297.69 kB │ gzip: 91.40 kB
+dist/assets/index-B58ZcJl0.js   297.78 kB │ gzip: 91.42 kB
 
-✓ built in 1.45s
+✓ built in 274ms
