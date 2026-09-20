@@ -2,7 +2,7 @@ Audience: Agent
 
 # MMC1 banked-RAM qualification
 
-This bounded D06 follow-on will test whether CPU writes can select and preserve distinct cartridge RAM banks. The current upstream code maps bank zero regardless of the bank bits. Original failing diagnostics were captured before applying the runtime correction.
+This bounded D06 follow-on tests whether CPU writes can select and preserve distinct cartridge RAM banks. The current upstream code maps bank zero regardless of the bank bits. Original failing diagnostics were captured before applying the runtime correction.
 
 ## Scope and current status
 
@@ -63,3 +63,5 @@ The final source integrates moderation main `444e6ea95f7365a690b89eef187cc5a6848
 [Candidate metadata](d06-banked-ram/candidate.json) pins the base, tested source and actual WASM digest. The [normal foundation result](d06-banked-ram/foundation.json) passed in **71.55 seconds** under its unchanged 90-second timeout. The separate [banked worker result](d06-banked-ram/worker.json) passed in **40.76 seconds**, covering eight CPU control cases and three regional rewind/replay cases. [Raw foundation output](d06-banked-ram/foundation.txt), [raw focused output](d06-banked-ram/worker.txt) and [build output](d06-banked-ram/build.txt) are preserved. The existing UI was not redesigned; inspected [before](d06-banked-ram/before.png)/[after](d06-banked-ram/after.png) screenshots show the game loading and controls enabled without layout damage. The static test server intentionally has no room coordinator, so its room-disconnected message is expected.
 
 These functional fixtures qualify the demonstrated memory mapping and file/replay paths, not full commercial-title or all-submapper compatibility. No new codec profile or ROM admission restriction is introduced. Full preflight and independent acceptance remain the final gates; CI is pending publication.
+
+The complete [committed-evidence preflight](d06-banked-ram/preflight.txt) passed in **28.34 seconds** at `d552f6a`, with all 28 native and 54 Node tests passing. The final evidence commit adds only this log, source snapshots and this status. Branch comparison whitespace checks pass. The [issue snapshot](d06-banked-ram/issue-10.json) and [scope/ownership clarification](d06-banked-ram/scope-comment.json) preserve the assignment. Independent review and required CI remain pending; root retains merge ownership under the existing scoped policy.
