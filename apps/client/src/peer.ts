@@ -14,8 +14,10 @@ export class PeerConnection {
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
  private serial=Promise.resolve();
- constructor(private send:(command:Command)=>Promise<unknown>,private update:(state:ConnectionState)=>void,private options:PeerOptions={}) {}
- close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
+ private connectedState?:ConnectionState;
+ private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
+ constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
+ close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
  private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {this.close(event.reason);return;}
@@ -26,7 +28,14 @@ export class PeerConnection {
     const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.role);
     const epoch=event.epoch;
     pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
-    pc.onconnectionstatechange=()=>{if(this.epoch===epoch && ['failed','disconnected'].includes(pc.connectionState)) this.fail(epoch);};
+    pc.onconnectionstatechange=()=>{
+     if(this.epoch!==epoch)return;
+     if(pc.connectionState==='failed')this.fail(epoch);
+     // ICE disconnected is transient; native failure/channel closure are terminal.
+     // Known-input scheduling and its existing stall bound still govern gameplay.
+     else if(pc.connectionState==='disconnected')this.update({status:'Connection interrupted. Waiting for transport recovery.',epoch});
+     else if(pc.connectionState==='connected'&&this.connectedState)this.update(this.connectedState);
+    };
     pc.ondatachannel=({channel})=>{if(this.epoch===epoch) this.wire(channel,epoch);else channel.close();};
     this.timer=setTimeout(()=>this.fail(epoch),peerLimits.prepareMs+peerLimits.connectMs);
     this.update({status:`Preparing ${event.policy==='relay'?'relay-only':'standard'} connection…`,epoch});
@@ -73,7 +82,7 @@ export class PeerConnection {
    const stats=await this.pc!.getStats();if(this.epoch!==epoch) return;
    const route=connectionRoute(stats);
    this.update({status:'Peer transport connected.',route,epoch});
-   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.options.media?.connected();this.options.ready?.(channel,epoch);}
+   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',route,epoch};this.options.media?.connected();this.options.ready?.(channel,epoch);}
   }catch {this.fail(epoch);}
  }
 }

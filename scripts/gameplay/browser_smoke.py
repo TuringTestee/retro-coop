@@ -132,7 +132,9 @@ try:
      result={'result':'pass','injection':args.fault,'seconds':round(time.monotonic()-started,2),'stopped_frames':stopped,'peers':[tab.evaluate('(({room,...p})=>({...p,game:room.game}))(proof)') for tab in [h,g]],'page_errors':errors}
      assert not errors,errors
      out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','injection':args.fault}));[browser.close() for browser in browsers.values()];raise SystemExit(0)
-   for tab in [h,g]:tab.wait_for_function('n=>proof.frameCount>=n',arg=target_frames,timeout=(args.seconds+30)*1000,polling=100)
+   for tab in [h,g]:
+    tab.wait_for_function("n=>proof.frameCount>=n || proof.room?.game?.status!=='playing'",arg=target_frames,timeout=(args.seconds+30)*1000,polling=100)
+    assert tab.evaluate('proof.frameCount')>=target_frames,'Shared gameplay stopped before the required workload completed'
    # This is the measured workload interval, never a guessed startup wait.
    while first_active+time.monotonic()-resumed<args.seconds:h.wait_for_timeout(20)
    active_seconds=round(first_active+time.monotonic()-resumed,2)
