@@ -29,7 +29,7 @@ function App() {
  return <main data-coordinator={clientConfig.coordinatorUrl}>
   <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{guest}</span></header>
   <section className="intro"><p className="eyebrow">Your game. Your browser.</p><h1>Pick a classic.<br/>Press play.</h1><p>Bring an NES cartridge file and jump straight into local play. No account, setup form, or upload.</p></section>
-  <RoomPanel ref={rooms} fingerprint={state.fingerprint} onNickname={setGuest}/>
+  <RoomPanel ref={rooms} fingerprint={state.fingerprint} onNickname={setGuest} onHost={()=>{panel.current?.scrollIntoView({behavior:'smooth'});panel.current?.querySelector('button')?.focus();}}/>
   <section ref={panel} className={`panel ${drag ? 'drag' : ''}`} aria-labelledby="player-title" onDragOver={event => {event.preventDefault(); setDrag(true);}} onDragLeave={event => {if(!event.currentTarget.contains(event.relatedTarget as Node)) setDrag(false);}} onDrop={event => {event.preventDefault();setDrag(false);if(event.dataTransfer.files.length === 1) load(event.dataTransfer.files[0]); else runtime.current?.rejectSelection('Choose one NES cartridge at a time. Your previous game is preserved.');}}>
    <div><p className="eyebrow">Local practice · your controls</p><h2 id="player-title">{state.loaded ? 'Your local game' : 'Drop your NES game here'}</h2>
    <p>{state.loaded ? 'Your local game stays available if the room service cannot connect.' : 'Choose a file, or drop it anywhere in this panel. Your file stays on this device.'}</p>

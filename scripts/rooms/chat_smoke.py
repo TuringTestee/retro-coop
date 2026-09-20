@@ -51,6 +51,8 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         assert host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).count()==0
         guest.get_by_role('button',name='Retry message',exact=True).click();host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).wait_for()
         assert host.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).count()==1
+        guest.locator('.chat-panel li p').get_by_text('after reconnect',exact=True).wait_for()
+        guest.wait_for_function("document.querySelector('#chat-message').readOnly===false")
         # The server receives a message but both sender event and acknowledgement are lost.
         guest.evaluate('window.dropChatReplies=true')
         guest.get_by_label('Chat message',exact=True).fill('uncertain delivery')

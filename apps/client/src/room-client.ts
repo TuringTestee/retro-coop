@@ -3,7 +3,7 @@ import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { chat?:ChatState; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
+export type RoomState = { chat?:ChatState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
 const messages:Record<string,string> = {
  capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'That place was just taken. Try joining again when it becomes available.',
  room_unavailable:'This room is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
@@ -17,6 +17,7 @@ export class RoomClient {
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;
+ private watchingDirectory = false;
  private token?:string;
  private intent?:string;
  private generation = 0;
@@ -29,6 +30,7 @@ export class RoomClient {
  private setRoom(room?:RoomView){this.publish({room,chat:this.chat.enter(room)});}
  private apply(data:RoomData) {
   if(data.session) {this.token = data.session.token;try {sessionStorage.setItem('retro-coop-guest',this.token);}catch{}this.publish({session:data.session});}
+  if(data.directory) this.publish({directory:data.directory,directoryStatus:'live',directoryError:undefined});
   if(data.preview) this.publish({preview:data.preview});
   if(data.room) this.setRoom(data.room);
  }
@@ -54,18 +56,20 @@ export class RoomClient {
      const pending = this.pending.get(event.requestId);if(!pending) return;clearTimeout(pending.timer);this.pending.delete(event.requestId);
      if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'),{retryAfterMs:event.retryAfterMs}));}
     } else if(event.type==='chat') this.chat.receive(event);
+    else if(event.type === 'directory') this.publish({directory:event.rooms,directoryStatus:'live',directoryError:undefined});
     else if(event.type === 'room') this.setRoom(event.room);
     else if(event.type === 'ended') {this.setRoom(undefined);this.publish({busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
    };
    socket.onopen = () => {void this.request({type:'hello',...(this.token ? {token:this.token}:{})}).then(data=>{
     clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.setRoom(data.room);this.apply(data);this.publish({connected:true});
-    this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{});},10_000);resolve();
+    if(this.watchingDirectory) void this.refreshDirectory();
+    this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
    socket.onerror = () => {clearTimeout(deadline);reject(Error('The room service is unavailable. Your local game is preserved.'));};
    socket.onclose = () => {
     if(this.socket !== socket) return;
     clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error('The room service disconnected. Your local game is preserved.'));}this.pending.clear();
-    this.publish({connected:false,busy:false,status:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.'});reject(Error('Room connection lost. Your local game is preserved.'));
+    this.publish({connected:false,busy:false,...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:'The room service disconnected. Retry for current availability.'}:{}),status:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.'});reject(Error('Room connection lost. Your local game is preserved.'));
    };
   }).finally(()=>{this.connecting = undefined;});
   return this.connecting;
@@ -104,9 +108,13 @@ export class RoomClient {
  }
  cancelCreation() {++this.generation;const intent = this.intent;this.intent = undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,status:'Room creation cancelled. Your game stays local.'});}}
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Player 2 for 120 seconds. You will need your own matching file.'});}catch(error){if(generation === this.generation) this.failure(error);}}
- async join(invite:string) {const generation = ++this.generation,intent = crypto.randomUUID();this.joining = intent;this.publish({busy:true,status:'Reserving Player 2…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'join',invite,intent});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.publish({busy:false,status:'Player 2 reserved for 120 seconds. Choose your matching file. Shared gameplay is not available in this build yet.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
+ async join(invite:string) {return this.joinTarget({type:'join',invite});}
+ async joinCode(code:string) {return this.joinTarget({type:'joinCode',code});}
+ private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}) {const generation = ++this.generation,intent = crypto.randomUUID();this.joining = intent;this.publish({busy:true,status:'Reserving Player 2…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.publish({busy:false,status:'Player 2 reserved for 120 seconds. Choose your matching file. Shared gameplay is not available in this build yet.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
  cancelPending() {this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {try {await this.connect();this.apply(await this.request(command));}catch(error){this.failure(error);}}
+ private async refreshDirectory() {try {this.apply(await this.request({type:'directory'}));}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
+ async watchDirectory() {this.watchingDirectory=true;this.publish({directoryStatus:'loading',directoryError:undefined});const connected=this.state.connected;try {await this.connect();if(connected) await this.refreshDirectory();}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async reconnect() {try {await this.connect();this.publish({status:this.state.room ? 'Room connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous room or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
  newGuest() {this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.setRoom(undefined);this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
  chatDraft(text:string){this.chat.draft(text);}
