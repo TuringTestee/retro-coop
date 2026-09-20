@@ -1,0 +1,22 @@
+✔ operator listener requires private owned directory and has no public HTTP or WebSocket command (45.418524ms)
+✔ confirmed operator removal closes exact room and directory entry without disclosing private content (15.213147ms)
+✔ address block revokes old token, targets canonical proxy client, rejects fresh connections and expires (11.541768ms)
+✔ changed admission membership invalidates prepared block and malformed commands cannot mutate (9.149057ms)
+✔ confirmation expires, consumes failed targets, and bounds pending requests (1.203537ms)
+✔ a stale transport cannot revoke a session that moved to another connection (0.232999ms)
+✔ CLI presents exact action and cancellation leaves target connected (104.566438ms)
+✔ actual coordinator entry point enables only private operator socket and shuts it down (128.879278ms)
+✔ CLI escapes terminal direction controls in untrusted room labels (208.455351ms)
+✔ trusted proxy preserves per-client admission rather than capping the entire deployment at twenty sockets (33.361727ms)
+✔ one trusted client still hits its address limit and direct clients cannot spoof forwarding identity (26.316353ms)
+✔ trusted path rejects absent, invalid and ambiguous identity instead of guessing a client (4.56231ms)
+✔ proxy trust must be explicit literal addresses, never arbitrary forwarded-header trust (1.238809ms)
+✔ equivalent IPv6 and IPv4-mapped addresses share quota and proxy identities (0.204945ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 681.548451
