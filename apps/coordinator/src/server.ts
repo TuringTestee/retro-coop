@@ -1,4 +1,6 @@
 import {admissionAddress,trustedProxyAddresses} from './admission-address.ts';
+import {randomBytes} from 'node:crypto';
+import {operatorHandler} from './operator.ts';
 import {relayConfig} from './peer.ts';
 import {peerLimits} from '../../../packages/contracts/src/peer.ts';
 import { createServer } from 'node:http';
@@ -16,7 +18,7 @@ export function config(env: NodeJS.ProcessEnv) {
  const trustedProxies=trustedProxyAddresses(env.COORDINATOR_TRUSTED_PROXIES ? env.COORDINATOR_TRUSTED_PROXIES.split(','):[]);
  return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins,trustedProxies };
 }
-export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; trustedProxies?:string[]} = {}) {
+export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; trustedProxies?:string[]; now?:()=>number} = {}) {
  const rooms = options.rooms ?? new Rooms(Date.now,undefined,relayConfig(process.env));
  const origins = new Set(options.origins ?? config({}).origins);
  const trustedProxies=new Set(trustedProxyAddresses(options.trustedProxies ?? []));
@@ -27,23 +29,38 @@ export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; tru
  });
  const sockets = new WebSocketServer({noServer:true,maxPayload:peerLimits.frame,perMessageDeflate:false});
  // The transport peer owns address identity unless an explicit trusted proxy boundary applies.
- const admission = new Map<string,{times:number[];active:number}>();
+ const now=options.now??Date.now;
+ const admission = new Map<string,{id:string;times:number[];clients:Set<WebSocket>;revision:number;blockedUntil:number}>();
+ const revokers=new Map<WebSocket,()=>void>();
+ const sweepAdmission=()=>{for(const [key,item] of admission)if(!item.clients.size && item.blockedUntil<=now() && item.times.every(time=>time<=now()-60_000))admission.delete(key);};
+ const operator=operatorHandler({
+  rooms:()=>rooms.operatorRooms(),remove:id=>rooms.removeRoom(id),
+  subjects:()=>{sweepAdmission();return [...admission].filter(([,item])=>item.clients.size || item.blockedUntil>now()).map(([address,item])=>({id:item.id,address,connections:item.clients.size,revision:item.revision,...(item.blockedUntil>now()?{blockedUntil:item.blockedUntil}:{})}));},
+  block:(id,revision,seconds)=>{
+   const item=[...admission.values()].find(item=>item.id===id);
+   if(!item?.clients.size || item.revision!==revision)throw Error('Admission subject changed; review it again');
+   item.blockedUntil=now()+seconds*1000;
+   for(const ws of item.clients){revokers.get(ws)?.();ws.close(4003,'Admission temporarily blocked');}
+  },
+ },now);
  server.on('upgrade',(request,socket,head) => {
-  const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies),now=Date.now();
+  const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies),timestamp=now();
   if(!address) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
-  for(const [key,item] of admission) if(!item.active && item.times.every(time => time <= now-60_000)) admission.delete(key);
-  const record = admission.get(address) ?? {times:[],active:0};record.times = record.times.filter(time => time > now-60_000);
-  if(!origins.has(request.headers.origin ?? '') || !['/ws','/coordinator/ws'].includes(request.url ?? '') || sockets.clients.size >= limits.connections || record.active >= 20 || record.times.length >= 30 || (!admission.has(address) && admission.size >= 1000)) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
-  record.times.push(now);admission.set(address,record);
-  sockets.handleUpgrade(request,socket,head,ws => {record.active++;ws.once('close',()=>record.active--);sockets.emit('connection',ws);});
+  sweepAdmission();
+  const record = admission.get(address) ?? {id:randomBytes(24).toString('base64url'),times:[],clients:new Set<WebSocket>(),revision:0,blockedUntil:0};record.times=record.times.filter(time=>time>timestamp-60_000);
+  if(!origins.has(request.headers.origin ?? '') || !['/ws','/coordinator/ws'].includes(request.url ?? '') || sockets.clients.size >= limits.connections || record.clients.size >= 20 || record.times.length >= 30 || record.blockedUntil>timestamp || (!admission.has(address) && admission.size >= 1000)) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
+  record.times.push(timestamp);admission.set(address,record);
+  sockets.handleUpgrade(request,socket,head,ws => {record.clients.add(ws);record.revision++;ws.once('close',()=>{record.clients.delete(ws);record.revision++;revokers.delete(ws);});sockets.emit('connection',ws);});
  });
  sockets.on('connection',ws => {
   let token:string|undefined;
   let windowStarted = Date.now(), received = 0;
   const send:Sender = (event:RoomEvent) => {if(ws.readyState !== WebSocket.OPEN) return;if(ws.bufferedAmount > 64*1024) {ws.terminate();return;}ws.send(JSON.stringify(event));};
+  revokers.set(ws,()=>{if(token)rooms.revoke(token,send);});
   const authDeadline = setTimeout(()=>ws.close(1008,'Authenticate first'),5000);authDeadline.unref();
   ws.on('error',()=>{}); // Protocol errors close the socket; content is never logged.
   ws.on('message',(raw,binary) => {
+   if(ws.readyState!==WebSocket.OPEN)return;
    if(Date.now()-windowStarted >= 10_000) {windowStarted = Date.now();received = 0;}
    if(++received > 120) {ws.close(1008,'Message rate exceeded');return;}
    let command;
@@ -65,7 +82,7 @@ export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; tru
  const timer = setInterval(()=>rooms.sweep(),1000);timer.unref();
  const stop = () => {clearInterval(timer);rooms.stop();for(const client of sockets.clients) client.terminate();sockets.close();};
  server.once('close',stop);
- return Object.assign(server,{stopRooms:stop});
+ return Object.assign(server,{stopRooms:stop,operator});
 }
 export async function shutdown(server: ReturnType<typeof createCoordinator>) {
  server.stopRooms();

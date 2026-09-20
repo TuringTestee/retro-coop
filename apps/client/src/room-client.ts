@@ -19,6 +19,7 @@ const messages:Record<string,string> = {
  room_changed:'That room has changed. Review the current room before trying again.',membership_changed:'That guest has left or rejoined. Review the current guest before trying again.',
  host_only:'Only the host can change this room.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
  host_expired:'The host did not return. This room has closed.',host_closed:'The host closed the room.',removed:'The host removed you from this room.',left:'You left the room. Your local game is still available.',
+ operator_removed:'An operator closed this room. Your local game is preserved.',admission_blocked:'Access is temporarily restricted by an operator. Retry later. Your local game is preserved.',
  service_restarted:'The service restarted. Ephemeral rooms have closed.',creation_cancelled:'Room creation cancelled. Your game stays local.',creation_expired:'Room creation timed out. Your game stays local.',cancelled:'Room creation cancelled.',
 };
 export class RoomClient {
@@ -80,11 +81,12 @@ export class RoomClient {
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
    socket.onerror = () => {clearTimeout(deadline);reject(Error('The room service is unavailable. Your local game is preserved.'));};
-   socket.onclose = () => {
+   socket.onclose = ({code}) => {
     if(this.socket !== socket) return;
     this.peer.close('Signaling disconnected. Reconnect the room before retrying peers.');
-    clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error('The room service disconnected. Your local game is preserved.'));}this.pending.clear();
-    this.publish({connected:false,busy:false,...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:'The room service disconnected. Retry for current availability.'}:{}),status:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.'});reject(Error('Room connection lost. Your local game is preserved.'));
+    const status=code===4003?messages.admission_blocked:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.';
+    clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error(status));}this.pending.clear();
+    this.publish({connected:false,busy:false,...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:'The room service disconnected. Retry for current availability.'}:{}),status});reject(Error(status));
    };
   }).finally(()=>{this.connecting = undefined;});
   return this.connecting;

@@ -5,6 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {once} from 'node:events';
 import {createCoordinator,shutdown} from '../../apps/coordinator/src/server.ts';
+import {listenOperator} from '../../apps/coordinator/src/operator.ts';
 const root = resolve('apps/client/dist');
 const gateway = createServer(async(request,response)=>{
  const file = resolve(root,'.'+new URL(request.url!,'http://localhost').pathname.replace(/\/$/,'/index.html'));
@@ -14,6 +15,7 @@ const gateway = createServer(async(request,response)=>{
 gateway.listen(0,'127.0.0.1');await once(gateway,'listening');
 const url = `http://127.0.0.1:${(gateway.address() as {port:number}).port}`;
 const coordinator = createCoordinator({origins:[url]});coordinator.listen(0,'127.0.0.1');await once(coordinator,'listening');
+const operator=process.env.COORDINATOR_OPERATOR_DIR ? await listenOperator(process.env.COORDINATOR_OPERATOR_DIR,coordinator.operator):undefined;
 const coordinatorPort = (coordinator.address() as {port:number}).port;
 const connections = new Set<ReturnType<typeof connect>>();
 gateway.on('upgrade',(request,socket,head)=>{
@@ -24,4 +26,4 @@ gateway.on('upgrade',(request,socket,head)=>{
  connections.add(upstream);upstream.on('close',()=>{connections.delete(upstream);socket.destroy();});upstream.on('error',()=>socket.destroy());socket.on('error',()=>upstream.destroy());socket.on('close',()=>upstream.destroy());
 });
 console.log(JSON.stringify({url}));
-process.on('SIGTERM',()=>{for(const connection of connections) connection.destroy();gateway.closeAllConnections();gateway.close();void shutdown(coordinator);});
+process.on('SIGTERM',()=>{operator?.closeAllConnections();operator?.close();for(const connection of connections) connection.destroy();gateway.closeAllConnections();gateway.close();void shutdown(coordinator);});
