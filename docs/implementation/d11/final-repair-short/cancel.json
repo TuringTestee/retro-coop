@@ -1,0 +1,8 @@
+{
+  "resumed_locally": true,
+  "result": "pass",
+  "scenario": "cancel unacknowledged initial barrier",
+  "host_frames": 0,
+  "seconds": 1.56,
+  "page_errors": []
+}

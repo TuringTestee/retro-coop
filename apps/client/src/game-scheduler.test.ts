@@ -34,7 +34,7 @@ test('ordered checkpoint admission rejects omitted checkpoints and repeats after
  assert.throws(()=>q.receive({kind:'hash',epoch,frame:120,hash:'a'.repeat(64)}),/checkpoint|hash/);
 });
 
-test('fixed input proposal uses observed round trip and actual region rate within approved bounds',async()=>{
+test('fixed input proposal uses observed round trip and worker-reported pacing rate within approved bounds',async()=>{
  const {proposeInputDelay}=await import('./game-scheduler.ts');
  assert.equal(proposeInputDelay(5,60),6);
  assert.equal(proposeInputDelay(80,60),7);

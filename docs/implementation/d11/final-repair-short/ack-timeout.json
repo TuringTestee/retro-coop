@@ -1,0 +1,12 @@
+{
+  "result": "pass",
+  "injection": "drop guest initial barrier acknowledgement",
+  "lease_preserved": true,
+  "host_frames": 0,
+  "seconds": 9.53,
+  "statuses": [
+    "Shared play stopped (network). Your game is preserved.",
+    "Shared play stopped (network). Your game is preserved."
+  ],
+  "page_errors": []
+}

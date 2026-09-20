@@ -1,0 +1,8 @@
+{
+  "summary": "Controlled instrumentation evidence, not release qualification.",
+  "runtime_source": "4fd5f59",
+  "harness_status": "The bounded admission instrumentation was uncommitted during the short diagnostic; its exact source was subsequently committed at5dd0d50. Production runtime was unchanged.",
+  "harness_source": "5dd0d50:scripts/gameplay/fixture.js",
+  "harness_sha256": "55e7f9aedfabd3b61b06c25c31b39b299eaf9b3f1c873296457729996abaef7a",
+  "runtime_identity": "Actual built client and core hashes are retained in gameplay.json."
+}

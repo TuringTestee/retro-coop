@@ -1,0 +1,21 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (22.156459ms)
+✔ a completed old readiness request cannot overwrite a later membership change (4.25807ms)
+✔ explicit host retry submits readiness regardless of guest inspection order (1.31829ms)
+✔ canceling an in-flight readiness offer releases only that operation ownership (1.091559ms)
+✔ current input and completed state hash wake the existing frame owner without polling (4.037904ms)
+✔ two independent delayed schedulers commit identical controller pairs through packet stalls (4.681442ms)
+✔ epochs, bounded windows, duplicates and missing hashes cannot advance a wrong timeline (4.779248ms)
+✔ ordered checkpoint admission rejects omitted checkpoints and repeats after comparison (0.506311ms)
+✔ fixed input proposal uses observed round trip and worker-reported pacing rate within approved bounds (0.366428ms)
+✔ transient disconnect recovers once; failed still terminates transport (10.470631ms)
+✔ transient disconnect recovers once; channel-close still terminates transport (1.257322ms)
+✔ transient disconnect recovers once; channel-error still terminates transport (1.045777ms)
+✔ a replaced connection cannot deliver its delayed readiness or RTT (1.700649ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 154.35143
