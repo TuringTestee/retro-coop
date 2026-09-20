@@ -68,3 +68,22 @@ test('canceling an in-flight readiness offer releases only that operation owners
   await setImmediate();assert.equal(finish.length,2,'retry during preparation invalidated completed readiness');
  }
 });
+
+test('current input and completed state hash wake the existing frame owner without polling',async()=>{
+ const {setImmediate}=await import('node:timers/promises');
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
+ const epoch='e'.repeat(32),peerEpoch='p'.repeat(32),hash='c'.repeat(64),wakes:string[]=[];
+ let driver!:import('./player.ts').GameDriver,finishHash!:(value:{hash:string})=>void;
+ const player={holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(value:string){wakes.push(value);},stateHash:()=>new Promise<{hash:string}>(resolve=>{finishHash=resolve;}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const game=new GameClient(()=>player,async()=>{},()=>{});
+ const channel={readyState:'open',send(){},onmessage:undefined} as unknown as RTCDataChannel;
+ game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:peerEpoch},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+ game.selected(fingerprint);game.ready(channel,peerEpoch);await setImmediate();
+ game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:6});await setImmediate();
+ game.handle({type:'gameStart',peerEpoch,epoch,delay:6});
+ const receive=(frame:number,packetEpoch=epoch)=>channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch:packetEpoch,frame,mask:0})}));
+ receive(0,'z'.repeat(32));assert.deepEqual(wakes,[],'obsolete epoch woke the current frame owner');
+ for(let frame=0;frame<120;frame++){receive(frame);assert.equal(wakes.length,frame+1,'admitted input waited for polling');assert.equal(driver.next(0)?.frame,frame);driver.committed(frame);}
+ assert.equal(driver.next(0),undefined,'frame advanced while its hash was pending');
+ finishHash({hash});await setImmediate();assert.equal(wakes.length,121,'completed hash waited for polling');assert.ok(wakes.every(value=>value===epoch));
+});

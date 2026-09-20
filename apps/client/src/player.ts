@@ -193,6 +193,8 @@ export class LocalPlayer {
   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  };
 
+ wakeGame(epoch:string) {if(this.game?.epoch===epoch)this.pumpGame();}
+
  drainGame() {
   if(!this.game?.draining()||!this.active||this.busy)return;
   const next=this.game.next(0);if(!next)return;this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});

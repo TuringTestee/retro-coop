@@ -81,7 +81,7 @@ export class GameClient {
   const packet=parseGamePacket(raw);if(!packet){this.fail('Invalid gameplay message.','network');return;}
   if(packet.epoch!==this.prepared?.epoch)return;
   try{
-   if(this.scheduler){this.scheduler.receive(packet);if(this.fence!==undefined)this.player()?.drainGame();}
+   if(this.scheduler){this.scheduler.receive(packet);this.player()?.wakeGame(packet.epoch);}
    else {if(this.early.length>=gameplayLimits.inputWindow||packet.frame>gameplayLimits.inputWindow)throw Error('Too much input before start');this.early.push(packet);}
   }catch(error){this.fail(String(error),'mismatch');}
  }
@@ -99,7 +99,7 @@ export class GameClient {
   scheduler.commit();this.publish({frame:scheduler.frame});
   if(this.fence!==undefined&&scheduler.frame===this.fence){void this.finishPause();return;}
   if(scheduler.frame%gameplayLimits.hashInterval===0){this.hashing=true;const serial=this.serial;
-   void this.player()!.stateHash().then(info=>{if(serial!==this.serial)return;scheduler.hash(info.hash);this.publish({hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'mismatch');}).finally(()=>{if(serial===this.serial){this.hashing=false;if(this.fence!==undefined)this.player()?.drainGame();}});
+   void this.player()!.stateHash().then(info=>{if(serial!==this.serial)return;scheduler.hash(info.hash);this.publish({hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'mismatch');}).finally(()=>{if(serial===this.serial){this.hashing=false;this.player()?.wakeGame(scheduler.epoch);}});
   }
  }
  private pause(reason:GameReason){

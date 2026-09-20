@@ -1,0 +1,13 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (20.382067ms)
+✔ a completed old readiness request cannot overwrite a later membership change (4.449786ms)
+✔ explicit host retry submits readiness regardless of guest inspection order (1.86542ms)
+✔ canceling an in-flight readiness offer releases only that operation ownership (1.445224ms)
+✔ current input and completed state hash wake the existing frame owner without polling (5.057229ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 141.85279
