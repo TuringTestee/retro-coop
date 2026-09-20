@@ -1,14 +1,12 @@
 {
-  "pair": "Chrome-Firefox",
+  "pair": "Chrome-Chrome",
   "versions": {
-    "Chrome": "145.0.7632.75",
-    "Firefox": "146.0.1"
+    "Chrome": "145.0.7632.75"
   },
   "route": "direct",
   "firefox_local_turn_loopback_enabled": false,
   "two_way_decoded_audio_energy": true,
   "no_capture_before_enable": true,
-  "native_browser_permission_denial_and_retry": true,
   "blur_mutes_focus_does_not_unmute": true,
   "leave_stops_both_tracks": true,
   "missing_device_selection_allows_default_retry": true,
@@ -27,5 +25,5 @@
   "failed_sender_attachment_retries_without_peer_reset": true,
   "mobile_no_overflow": true,
   "selected_gamepad_push_to_talk_and_unplug_mute": true,
-  "seconds": 10.2
+  "seconds": 4.17
 }

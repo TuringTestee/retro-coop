@@ -48,10 +48,10 @@ The [candidate manifest](evidence/d17/candidate.json) pins source/base, proof pr
 
 | Browser pair | Direct | Local relay |
 |---|---|---|
-| Chrome–Chrome | [3.30s](evidence/d17/voice-Chrome-Chrome-direct.json) | [3.51s](evidence/d17/voice-Chrome-Chrome-relay.json) |
-| Chrome–Firefox | [11.44s](evidence/d17/voice-Chrome-Firefox-direct.json) | [9.43s](evidence/d17/voice-Chrome-Firefox-relay.json) |
-| Firefox–Firefox | [8.03s](evidence/d17/voice-Firefox-Firefox-direct.json) | [8.50s](evidence/d17/voice-Firefox-Firefox-relay.json) |
+| Chrome–Chrome | [3.74s](evidence/d17/voice-Chrome-Chrome-direct.json) | [4.07s](evidence/d17/voice-Chrome-Chrome-relay.json) |
+| Chrome–Firefox | [10.20s](evidence/d17/voice-Chrome-Firefox-direct.json) | [12.15s](evidence/d17/voice-Chrome-Firefox-relay.json) |
+| Firefox–Firefox | [9.30s](evidence/d17/voice-Firefox-Firefox-direct.json) | [8.28s](evidence/d17/voice-Firefox-Firefox-relay.json) |
 
-The complete [foundation/settings/save probe](evidence/d17/foundation.json) passed in 21.34s. The [peer probe](evidence/d17/peer.json) passed in 46.05s, including real 15/20-second timeout recovery; [chat](evidence/d17/chat.json) passed in 21.19s. The manifest identifies the earlier source of those last two unaffected checks; current-head CI runs them again.
+The complete [foundation/settings/save probe](evidence/d17/foundation.json) passed in 21.34s. The [peer probe with the merged ordered handshake](evidence/d17/peer-ordered.json) passed in 68.17s, including real 15/20-second timeout recovery; [chat](evidence/d17/chat.json) passed in 21.19s. The manifest identifies the precise source of these integration checks; current-head CI runs them again.
 
 Inspected matched [before](evidence/d17/before.desktop.png) / [after](evidence/d17/after.desktop.png), [narrow layout](evidence/d17/after.mobile.png), and [Settings voice controls](evidence/d17/after.settings-voice.png) show the actual application. The dialog remains scrollable, labels and buttons remain readable, and the room uses the existing visual style. The screenshot reproduction script is included beside the images.

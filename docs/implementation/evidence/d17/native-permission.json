@@ -1,0 +1,852 @@
+{
+  "failure": [
+    {
+      "diagnostics": {
+        "trace": [
+          {
+            "ms": 677,
+            "kind": "signaling-in",
+            "type": "peerPrepare",
+            "epoch": 1
+          },
+          {
+            "ms": 684,
+            "kind": "signaling-out",
+            "type": "peerAck",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 686,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 704,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 708,
+            "kind": "signaling-in",
+            "type": "peerStart",
+            "epoch": 1
+          },
+          {
+            "ms": 708,
+            "kind": "channel-observed",
+            "id": 0,
+            "state": "connecting"
+          },
+          {
+            "ms": 709,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 711,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "description"
+          },
+          {
+            "ms": 713,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 713,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 713,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 713,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 731,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 736,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 751,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 752,
+            "kind": "channel-open",
+            "id": 0,
+            "state": "open"
+          },
+          {
+            "ms": 752,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 0
+          },
+          {
+            "ms": 752,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 754,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportProbe"
+          },
+          {
+            "ms": 754,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 0
+          },
+          {
+            "ms": 754,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 754,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportReply"
+          },
+          {
+            "ms": 755,
+            "kind": "signaling-out",
+            "type": "peerConnected",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 757,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 759,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connected"
+          }
+        ],
+        "transport": [
+          {
+            "state": "connected",
+            "sctp": "connected",
+            "samples": [
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 166418,
+                  "bytesReceived": 168979
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 167434,
+                  "bytesReceived": 170193
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 169188,
+                  "bytesReceived": 171898
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 170284,
+                  "bytesReceived": 173112
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 172108,
+                  "bytesReceived": 174847
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "peerErrors": [],
+      "iceErrors": [],
+      "candidateShapes": [
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "1",
+          "index": 1
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "1",
+          "index": 1
+        }
+      ],
+      "focus": true,
+      "hidden": false,
+      "microphone": "Transmitting microphone audio",
+      "connection": "Peer transport connected. Shared gameplay is not available yet. Route: direct.",
+      "tracks": [
+        [
+          {
+            "state": "ended",
+            "enabled": true
+          }
+        ],
+        [
+          {
+            "state": "live",
+            "enabled": true
+          }
+        ]
+      ],
+      "peers": [
+        {
+          "state": "connected",
+          "stats": [
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": null,
+              "nominated": true,
+              "state": "succeeded",
+              "dtls": null,
+              "packetsReceived": 2055,
+              "packetsSent": 2051,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": null,
+              "nominated": true,
+              "state": "succeeded",
+              "dtls": null,
+              "packetsReceived": 11,
+              "packetsSent": 14,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "inbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": 1550,
+              "packetsSent": null,
+              "totalAudioEnergy": 0
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "outbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": 1553,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "transport",
+              "kind": null,
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": "connected",
+              "packetsReceived": 2066,
+              "packetsSent": 2065,
+              "totalAudioEnergy": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "diagnostics": {
+        "trace": [
+          {
+            "ms": 155,
+            "kind": "signaling-in",
+            "type": "peerPrepare",
+            "epoch": 1
+          },
+          {
+            "ms": 159,
+            "kind": "signaling-out",
+            "type": "peerAck",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 161,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 161,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 192,
+            "kind": "signaling-in",
+            "type": "peerStart",
+            "epoch": 1
+          },
+          {
+            "ms": 192,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 196,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 196,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 197,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 197,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 197,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 202,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "description"
+          },
+          {
+            "ms": 207,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 207,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 225,
+            "kind": "channel-observed",
+            "id": 0,
+            "state": "open"
+          },
+          {
+            "ms": 225,
+            "kind": "channel-open",
+            "id": 0,
+            "state": "open"
+          },
+          {
+            "ms": 226,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportProbe"
+          },
+          {
+            "ms": 226,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 0
+          },
+          {
+            "ms": 226,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportProbe",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 226,
+            "kind": "channel-send",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 72
+          },
+          {
+            "ms": 226,
+            "kind": "channel-send-return",
+            "id": 0,
+            "type": "transportReply",
+            "state": "open",
+            "buffered": 144
+          },
+          {
+            "ms": 227,
+            "kind": "channel-receive",
+            "id": 0,
+            "type": "transportReply"
+          },
+          {
+            "ms": 228,
+            "kind": "signaling-out",
+            "type": "peerConnected",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 230,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 231,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connected"
+          }
+        ],
+        "transport": [
+          {
+            "state": "connected",
+            "sctp": "connected",
+            "samples": [
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 168979,
+                  "bytesReceived": 166418
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 170193,
+                  "bytesReceived": 167434
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 171898,
+                  "bytesReceived": 169188
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 173112,
+                  "bytesReceived": 170284
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "open",
+                  "messagesSent": 2,
+                  "messagesReceived": 2
+                },
+                {
+                  "type": "transport",
+                  "dtls": "connected",
+                  "ice": "connected",
+                  "bytesSent": 174847,
+                  "bytesReceived": 172108
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "peerErrors": [],
+      "iceErrors": [],
+      "candidateShapes": [
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        },
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        }
+      ],
+      "focus": true,
+      "hidden": false,
+      "microphone": "Transmitting microphone audio",
+      "connection": "Peer transport connected. Shared gameplay is not available yet. Route: direct.",
+      "tracks": [
+        [
+          {
+            "state": "live",
+            "enabled": true
+          }
+        ]
+      ],
+      "peers": [
+        {
+          "state": "connected",
+          "stats": [
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": null,
+              "nominated": true,
+              "state": "succeeded",
+              "dtls": null,
+              "packetsReceived": 14,
+              "packetsSent": 11,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "candidate-pair",
+              "kind": null,
+              "candidateType": null,
+              "selected": null,
+              "nominated": true,
+              "state": "succeeded",
+              "dtls": null,
+              "packetsReceived": 2052,
+              "packetsSent": 2056,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "inbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": 1554,
+              "packetsSent": null,
+              "totalAudioEnergy": 0
+            },
+            {
+              "type": "remote-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "local-candidate",
+              "kind": null,
+              "candidateType": "host",
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": null,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "outbound-rtp",
+              "kind": "audio",
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": null,
+              "packetsReceived": null,
+              "packetsSent": 1551,
+              "totalAudioEnergy": null
+            },
+            {
+              "type": "transport",
+              "kind": null,
+              "candidateType": null,
+              "selected": null,
+              "nominated": null,
+              "state": null,
+              "dtls": "connected",
+              "packetsReceived": 2066,
+              "packetsSent": 2067,
+              "totalAudioEnergy": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "page_errors": [],
+  "turn_error_codes": {}
+}

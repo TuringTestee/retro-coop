@@ -1,24 +1,27 @@
 {
-  "source": "041fb5d8b10198e9c46690c3d1ea2c12da2a9194",
-  "base": "0629cec4f90b9e8b4c335358dbdc5a1f8d4e528e",
+  "source": "66c9ba5fb2d6653b20c1da0481d2735580d126ae",
+  "base": "2c3d1a7986ef7dd76ed788577b1191ba7a59e1f1",
   "approval": {
     "planning_pr": 3,
     "approved_head": "2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965",
     "planning_merge": "ecf6bd4c7443526f0a163b721a351c854ee90fd4"
   },
   "primary_checks": {
-    "voice_matrix": "All six voice-*.json files: Chrome145.0.7632.75 / Playwright Firefox146.0.1, direct and local forcedTURN. Includes rejoin/held-input regression.",
-    "foundation": "foundation.json: current source, complete existing foundation/settings/slots/battery checks.",
-    "peer": "peer.json: source101b9b3 before the later voice-held-input clearing; transport/schema/route/fixture implementation unchanged. Full actual15/20s deadlines retained. CI will rerun current head.",
-    "chat": "chat.json: source101b9b3 before later voice-held-input clearing; chat and RTC wiring unchanged. CI will rerun current head.",
-    "screenshots": "before.* frommain0629cec; after.* fromcurrent source. SameoriginalROM, two members, pausedlocalgame,1280x900 desktop/400x1000 mobile; generated labels/framecounts vary. Voice Settings additionallyscrolledto newcontrols. Inspected desktop/mobile andsettingsvoice."
+    "voice_matrix": "All six voice-*.json files ran source66c9ba5, Chrome145.0.7632.75 / Playwright Firefox146.0.1, direct and local forced TURN. Native Chromium permission denial, explicit removal model and rejoin fresh-input regression included.",
+    "foundation": "foundation.json ran041fb5d,21.34s; later missing-device selector and ordered handshake changes covered by voice/peer probes; current-head CI repeats foundation.",
+    "peer": "peer-ordered.json ran d332ff2,68.17s with merged PR54 ordered handshake; later changes only voice selector/test fixture/docs. Original peer.json retained at101b9b3.",
+    "chat": "chat.json ran101b9b3,21.19s. Chat unchanged; current-head CI repeats integration.",
+    "screenshots": "Matched before.* from main0629cec and after.* from041fb5d: same original ROM, paused game, two members,1280x900/400x1000. Missing selection before d332ff2 / after fa7e353. Current voice-*.png from66c9ba5. All inspected."
   },
   "failures": {
     "ice-marker-before.json": "Actual Firefox completion marker caused signalingdisconnect; 5e7c233 repairs sharedschema.",
     "firefox-localhost-before.json": "Default Firefox excludesloopbackTURN; test-onlyloopbackpref enableslocalfixture, no productionbrowserinstruction.",
     "firefox-route-before.json": "Connected selectedrelay mislabeleddirect;101b9b3 sharedclassifierhandlesFirefoxselectedpair.",
     "rejoin-before.json": "Afterpeerreplacement oldheldPTTkey transmitted onnewoptin;041fb5d clearsallinputonclose.",
-    "settings-selector-before.txt": "Exactintegrationerror excerpt; newlyaddedmicrophonestatus exposedambiguousoldSettingscaptureselector.041fb5d scopesexistingassertionto capturebox."
+    "settings-selector-before.txt": "Exactintegrationerror excerpt; newlyaddedmicrophonestatus exposedambiguousoldSettingscaptureselector.041fb5d scopesexistingassertionto capturebox.",
+    "missing-selection-before-visual.json": "Real browser unavailable-device model leaves misleading Default selection; fa7e353 adds explicit unavailable option.",
+    "removal-harness-before.json": "Firefox ignores untrusted synthetic ended event; fixture now explicitly invokes installed callback. Model only, no physical unplug claim.",
+    "native-permission.json": "Initial test grant_permissions([]) preserved previous grant; fixture clears prior permissions before denying. Native denial/retry then passes."
   },
   "limits": [
     "Fake microphone devices and inbound decoded RTP energy, not human listening or echo/intelligibility proof.",
@@ -27,180 +30,257 @@
     "Issue53 original intermittent native send/policytimeout investigation is not claimed fixed byD17."
   ],
   "files": {
-    "peer.unavailable.png": {
-      "sha256": "75a2a87b8787a7b106c2e8c37d10fa1587879cde53c2692b888dc5ffa292854d"
-    },
-    "voice-Chrome-Chrome-direct.json": {
-      "sha256": "3e33a6332d9512953622ed0c40fcd38bffae21a9a2977c58cca49194adde0737"
-    },
-    "voice-Firefox-Firefox-direct.json": {
-      "sha256": "4ad85ea1169f130fc37dc0450bbc5bdde1e3a02f7bed75d8ba15ae44b51fb994"
-    },
-    "issue-source.json": {
-      "sha256": "5dd5ad68d251c0619f5f518d7a645f91d1b4cda73476fd75ddf3fd9ca565a06d"
-    },
-    "ice-marker-before.json": {
-      "sha256": "485d98b1e40dab535f3f76b72ef2dc42ed37235c529ed6d44994ffb33bb285ec"
-    },
-    "voice-Chrome-Chrome-direct.voice.png": {
-      "sha256": "9dd28008d0a7e104a57da51c64340f0a12fc7096d723ecd2e8aa90ce079190bb"
-    },
-    "foundation.saves-before.png": {
-      "sha256": "3d1d7ff379ea81f95488d13d7d7fcf5d8de064502f25684f2fd22679aefeb78f"
-    },
-    "peer.mobile.png": {
-      "sha256": "6753b59e2f493d7c0f8494e7c62b32510071988a4e01207391cce623d74d6687"
-    },
-    "peer.connecting-timeout.png": {
-      "sha256": "ecfd65982dc7abd65db3b72cf501dfdf2c156162bbcc80fc38ee8b08094bddfa"
-    },
-    "rejoin-before.json": {
-      "sha256": "0a4e4209b9e9bea7edba06b0a52c82ffe2e6baca37bb1cc35d2557470434150a"
-    },
-    "foundation.settings-mobile.png": {
-      "sha256": "afac5d549c067fb0c12e2f314576c5ebc4d8121b6f5d9a6131bb673fd41d856b"
-    },
-    "peer.json": {
-      "sha256": "703a5fda684a3a9444f70142677698a2f361b76e44272036ff5f8e1f334cd897"
-    },
-    "voice-Firefox-Firefox-relay.json": {
-      "sha256": "9c682e0d257be0d49fb9d90fc309e7328d29cb6666de8ede7a22a654eadbd2f2"
-    },
-    "chat.json": {
-      "sha256": "a2dd0c1ca4383a096327f1ec1489ae0220093cc73e162e916094e3802a710bed"
-    },
-    "foundation.settings-before.png": {
-      "sha256": "2a118302e27ee90ce2ab9dc5db887cfb8823b89e93a1d841e67369aee6045595"
-    },
-    "voice-Firefox-Firefox-relay.voice.png": {
-      "sha256": "4a079f0a4b4a1f95a6d7c900a727b0f605a70be7fcec46eeccd570e24186ac12"
-    },
-    "settings-selector-before.txt": {
-      "sha256": "e68533cafd1e126fdf356dd4f13fcdaafca4209859acaff8eed5a841cdcc3d70"
-    },
-    "voice-Chrome-Firefox-relay.voice.png": {
-      "sha256": "e295a3dfadf0a23f3c46731aef383761357bfb88c5b7210ac16e1a717f0d96cd"
-    },
-    "foundation.saves-after.png": {
-      "sha256": "127e3dbaffff7111e1386d72ca7eba0bea757314ed293cef13f8d61c4010f5a8"
-    },
-    "voice-Firefox-Firefox-relay.mobile.png": {
-      "sha256": "614edc77ef5469f8c0690c1a6b8ae83c68747465e1adb80c9cb599663ce2c4ac"
-    },
-    "voice-Firefox-Firefox-direct.voice.png": {
-      "sha256": "7c80638555e461f142fc6a3eb47692bf8a119ceaf74e8859ae1264ccf518bb56"
-    },
-    "after.settings.png": {
-      "sha256": "5e96ad2908f6de1a3546a55bb936f838004d4c956de2ac57320e43b0252568d3"
-    },
-    "peer.before.png": {
-      "sha256": "68106957d997704452ab36f4388ddd35b25ea90ae77ed02256f86bf205078ebe"
-    },
-    "voice-Chrome-Firefox-relay.mobile.png": {
-      "sha256": "cfec31a123bed7139d9900bbd1a4127558ed818523b2384ee47740251598f8fd"
-    },
     "after.desktop.png": {
       "sha256": "018f595aa7a4ab25d527c1c6ddeadd931746eb14955234e1061ae9a3381dfd98"
-    },
-    "foundation.after.png": {
-      "sha256": "af32b40cdff29e4eb9dc1942de24a5cfbb3d4fdc1961c16e6694afbdc4931f8f"
-    },
-    "before.mobile.png": {
-      "sha256": "06868fc6122b5ca3f4d3cc834def5623bb0a3f7d6549405b25e2fabd219e7e68"
-    },
-    "source-preflight.txt": {
-      "sha256": "94d713b1a7f21054caf586d85e4478d521f1c30024a5a79f5163eba431a3cbf1"
-    },
-    "voice-Chrome-Chrome-relay.json": {
-      "sha256": "db57f822701d00e2d7e16774da2a1651bc7fbbd58f1b77bb754e2a4af74c2992"
-    },
-    "before.settings.png": {
-      "sha256": "da322ec8aafadfa1395f018d0541837e3bc927474d4d4ae8eef90b4de59366aa"
-    },
-    "firefox-route-after.json": {
-      "sha256": "683747cddaf4252074d5fe174160cd77461bb10ed413f97cf6a7c339d4e0ef93"
-    },
-    "voice-Chrome-Firefox-relay.json": {
-      "sha256": "9a319af8e98767a9eac5f830c10c3e67b84c8c5b13cfefcc3138891b7c6dc5d9"
-    },
-    "matched-screenshots.py": {
-      "sha256": "ea750277cfc780793294cb4b0c7155288e249e1fd093c171fdbff17cfb2be971"
-    },
-    "ice-marker-after.json": {
-      "sha256": "8b98cf6c25cbdb104a65e9f09887cb9c17836377b1ae6208e49c3e74e048967d"
-    },
-    "foundation.saves-mobile.png": {
-      "sha256": "dfbef1f2f1aec97f2ed18723c210261ff4923833aeda3615b4a224116b4334ec"
-    },
-    "voice-Chrome-Chrome-direct.mobile.png": {
-      "sha256": "d78d9db52372b531df5112315fabd28c41568e1e13bafd95f7b0875ef15d6a93"
-    },
-    "peer.direct.png": {
-      "sha256": "fc75af2d87b8e56069ef56133090eec230c7faaa5b11d6e8b78ccd21b939ae11"
-    },
-    "firefox-route-before.json": {
-      "sha256": "ac9fb6f6b3842a5d53b6d1c3730e66d8c0a09f19e1966c98fb87f42373188ef4"
-    },
-    "foundation.settings-after.png": {
-      "sha256": "b7cd97fa984bb9ed9dc4852bd883c13faa3fa0741deb9f788fcad4a53391bd3a"
-    },
-    "peer.settings.png": {
-      "sha256": "3f98a083a78da716cf8b4ea2bbebc2d8dbb253b34485ed4e4f50356f04a9707a"
-    },
-    "foundation.mobile.png": {
-      "sha256": "76e640b2a2ae61a998906b9d7985b16488c3ca4a4782a1fb831c3eac7d018668"
-    },
-    "foundation.before.png": {
-      "sha256": "37232f292db958658c2295af8e5fe0169ce5a710a9f07d7d68478a62e8ebdbca"
-    },
-    "voice-Chrome-Firefox-direct.mobile.png": {
-      "sha256": "787cbe53583b3af22c6fc77b27718913314bf8e64466b23b76d2baff2b8b0de8"
-    },
-    "after.settings-voice.png": {
-      "sha256": "fe118990795943eb09b43c71627b8d1713764f3bb5628c1f7338d9cc2c10a26c"
-    },
-    "voice-Firefox-Firefox-direct.mobile.png": {
-      "sha256": "12007633cf355856980f5b837a30dd455912719f12d71ddc1edb3bcb0734fcf0"
-    },
-    "voice-Chrome-Chrome-relay.voice.png": {
-      "sha256": "aa12ae19a54fa7a869e9f092e0d9df7d001fc6e240e67a284909b96197818dec"
-    },
-    "rejoin-after.json": {
-      "sha256": "719cd67261eddfa8cb4c61d302f0e8cda97b4e82deedce26e7998756422431ef"
-    },
-    "foundation.json": {
-      "sha256": "2b70c807f06d0fef7a7b25a324f8c414a87e780516067eb11b44e34b75e0a9af"
     },
     "after.mobile.png": {
       "sha256": "3c1f067da8443bcbe9c1cdb074aa0e1224b4e9b1fea726643b9b422ab5a70b72"
     },
-    "chat.chat.png": {
-      "sha256": "c2078a47bcc5bd0f869ffe63f2d0e0faa2bab6ab33c038611c27f7c3d4ee9275"
+    "after.settings-voice.png": {
+      "sha256": "fe118990795943eb09b43c71627b8d1713764f3bb5628c1f7338d9cc2c10a26c"
     },
-    "voice-Chrome-Firefox-direct.voice.png": {
-      "sha256": "e7283e0a72390b7d7266cb9207d414cfbc0b3b7b5f9a41ad37313626bee45cfa"
-    },
-    "voice-Chrome-Firefox-direct.json": {
-      "sha256": "40e8cb34dfed78f61889711a7407c7d06994ef369103f0155f817bd0103c355e"
-    },
-    "peer.capacity.png": {
-      "sha256": "afb62aaf6d82dfff9fdbcccab556f0921168cfcd13fcd23557e52aa42d7ed2bd"
-    },
-    "peer.preparing-timeout.png": {
-      "sha256": "d4d230f1feca354561019bc8bf5f3149854f6a0fae7815553ec3c09af4b547f1"
+    "after.settings.png": {
+      "sha256": "5e96ad2908f6de1a3546a55bb936f838004d4c956de2ac57320e43b0252568d3"
     },
     "before.desktop.png": {
       "sha256": "1935338635ab01db902c3fc8384ef50be878686881096a0a4fdfdc1cfedf4fe9"
     },
-    "peer.relay.png": {
-      "sha256": "88fcebb617662bf368e48e16e987c5ca687d6985070ed5cd13f65762ebb58cb9"
+    "before.mobile.png": {
+      "sha256": "06868fc6122b5ca3f4d3cc834def5623bb0a3f7d6549405b25e2fabd219e7e68"
     },
-    "voice-Chrome-Chrome-relay.mobile.png": {
-      "sha256": "ff5488b70c6430c1504b99f5767b74e085b811cf4a8db29c6dfa02983acad697"
+    "before.settings.png": {
+      "sha256": "da322ec8aafadfa1395f018d0541837e3bc927474d4d4ae8eef90b4de59366aa"
+    },
+    "chat.chat.png": {
+      "sha256": "c2078a47bcc5bd0f869ffe63f2d0e0faa2bab6ab33c038611c27f7c3d4ee9275"
+    },
+    "chat.json": {
+      "sha256": "a2dd0c1ca4383a096327f1ec1489ae0220093cc73e162e916094e3802a710bed"
     },
     "firefox-localhost-before.json": {
       "sha256": "276109460e79c30d2c3344010ef8bf520e8efecf95813eb7d4edbcb79c77aca5"
+    },
+    "firefox-route-after.json": {
+      "sha256": "683747cddaf4252074d5fe174160cd77461bb10ed413f97cf6a7c339d4e0ef93"
+    },
+    "firefox-route-before.json": {
+      "sha256": "ac9fb6f6b3842a5d53b6d1c3730e66d8c0a09f19e1966c98fb87f42373188ef4"
+    },
+    "foundation.after.png": {
+      "sha256": "af32b40cdff29e4eb9dc1942de24a5cfbb3d4fdc1961c16e6694afbdc4931f8f"
+    },
+    "foundation.before.png": {
+      "sha256": "37232f292db958658c2295af8e5fe0169ce5a710a9f07d7d68478a62e8ebdbca"
+    },
+    "foundation.json": {
+      "sha256": "2b70c807f06d0fef7a7b25a324f8c414a87e780516067eb11b44e34b75e0a9af"
+    },
+    "foundation.mobile.png": {
+      "sha256": "76e640b2a2ae61a998906b9d7985b16488c3ca4a4782a1fb831c3eac7d018668"
+    },
+    "foundation.saves-after.png": {
+      "sha256": "127e3dbaffff7111e1386d72ca7eba0bea757314ed293cef13f8d61c4010f5a8"
+    },
+    "foundation.saves-before.png": {
+      "sha256": "3d1d7ff379ea81f95488d13d7d7fcf5d8de064502f25684f2fd22679aefeb78f"
+    },
+    "foundation.saves-mobile.png": {
+      "sha256": "dfbef1f2f1aec97f2ed18723c210261ff4923833aeda3615b4a224116b4334ec"
+    },
+    "foundation.settings-after.png": {
+      "sha256": "b7cd97fa984bb9ed9dc4852bd883c13faa3fa0741deb9f788fcad4a53391bd3a"
+    },
+    "foundation.settings-before.png": {
+      "sha256": "2a118302e27ee90ce2ab9dc5db887cfb8823b89e93a1d841e67369aee6045595"
+    },
+    "foundation.settings-mobile.png": {
+      "sha256": "afac5d549c067fb0c12e2f314576c5ebc4d8121b6f5d9a6131bb673fd41d856b"
+    },
+    "ice-marker-after.json": {
+      "sha256": "8b98cf6c25cbdb104a65e9f09887cb9c17836377b1ae6208e49c3e74e048967d"
+    },
+    "ice-marker-before.json": {
+      "sha256": "485d98b1e40dab535f3f76b72ef2dc42ed37235c529ed6d44994ffb33bb285ec"
+    },
+    "issue-source.json": {
+      "sha256": "5dd5ad68d251c0619f5f518d7a645f91d1b4cda73476fd75ddf3fd9ca565a06d"
+    },
+    "matched-screenshots.py": {
+      "sha256": "ea750277cfc780793294cb4b0c7155288e249e1fd093c171fdbff17cfb2be971"
+    },
+    "missing-selection-after.json": {
+      "sha256": "fa28f0d4c6571ad04a115d46fbc486100a3f86ba1617f1060166505badac4b9c"
+    },
+    "missing-selection-after.png": {
+      "sha256": "491fccab7ea50d84438ee5ebd82744cfe8e0f1093604d370da4956a6d8b15d68"
+    },
+    "missing-selection-before-visual.json": {
+      "sha256": "e6bd4109cc6bf25c4c6de09d5968c56ca32d93a6c062351269fe55c638fce14f"
+    },
+    "missing-selection-before-visual.png": {
+      "sha256": "ed44505cbc81101482044fafb8856662763ad4079d503c783ce6aa1ab50c336f"
+    },
+    "native-permission-after.json": {
+      "sha256": "f1b14280ee5a91351936800b034cd8bb3dd0379f59c6415dda11d5029bc88f0c"
+    },
+    "native-permission.json": {
+      "sha256": "6b1288b129347dad62104797308ba50332c6df9a8e0c7f5b9fca3671c20a54ab"
+    },
+    "peer-ordered.before.png": {
+      "sha256": "6c2a5b6972c5b4b25f903ea133a323f644d6b9e2713caf56fc5d0aa3ac770266"
+    },
+    "peer-ordered.capacity.png": {
+      "sha256": "4d7c3d5921bba7e00f3c7576e67aaf7945f1f7ef69f20f00124c01f606ad27cc"
+    },
+    "peer-ordered.connecting-timeout.png": {
+      "sha256": "2ee6caa6cfe9aa42749c676113ba3265d7d2738636150f031a0e6bdcaa6c172b"
+    },
+    "peer-ordered.direct.png": {
+      "sha256": "f01d958f1f64dfb113588e497b5844aaebc28cbc21928756b8fb0ad564859474"
+    },
+    "peer-ordered.json": {
+      "sha256": "f17caffecdaadf13052caefd1d107678f56d071279cd407203c9fe8a41cefc64"
+    },
+    "peer-ordered.mobile.png": {
+      "sha256": "98083bf04127d246a47cec6cca01a1fa86dfb3b5099ea685535d178084dd379b"
+    },
+    "peer-ordered.policy-failure.png": {
+      "sha256": "bb7e878a5ae91eded29495abad301e3d4466d5999c33202de2e9509ccfe16261"
+    },
+    "peer-ordered.policy-retry.png": {
+      "sha256": "cbbb4c46109378a39c3a2ad18c21f302a28c86756d8d9c9939e600d8c924a2da"
+    },
+    "peer-ordered.preparing-timeout.png": {
+      "sha256": "742c60c811ef1f33f865c07af25dc3a3ae6db497d10cb1c669be651a78389db6"
+    },
+    "peer-ordered.relay.png": {
+      "sha256": "3872f5ec4e81916e3b2f0c4fd065ea07974b0480c5f5b0bf94a51889a7fca70f"
+    },
+    "peer-ordered.settings.png": {
+      "sha256": "276e709318a6313e85dc3f6c398fee9d9e0bfe77d306942d31e76a6219fd7fc1"
+    },
+    "peer-ordered.unavailable.png": {
+      "sha256": "5c36896d8b5199a76b56541686ec79bd051858aa9fc5a028bad0e724d7e6f7a5"
+    },
+    "peer.before.png": {
+      "sha256": "68106957d997704452ab36f4388ddd35b25ea90ae77ed02256f86bf205078ebe"
+    },
+    "peer.capacity.png": {
+      "sha256": "afb62aaf6d82dfff9fdbcccab556f0921168cfcd13fcd23557e52aa42d7ed2bd"
+    },
+    "peer.connecting-timeout.png": {
+      "sha256": "ecfd65982dc7abd65db3b72cf501dfdf2c156162bbcc80fc38ee8b08094bddfa"
+    },
+    "peer.direct.png": {
+      "sha256": "fc75af2d87b8e56069ef56133090eec230c7faaa5b11d6e8b78ccd21b939ae11"
+    },
+    "peer.json": {
+      "sha256": "703a5fda684a3a9444f70142677698a2f361b76e44272036ff5f8e1f334cd897"
+    },
+    "peer.mobile.png": {
+      "sha256": "6753b59e2f493d7c0f8494e7c62b32510071988a4e01207391cce623d74d6687"
+    },
+    "peer.preparing-timeout.png": {
+      "sha256": "d4d230f1feca354561019bc8bf5f3149854f6a0fae7815553ec3c09af4b547f1"
+    },
+    "peer.relay.png": {
+      "sha256": "88fcebb617662bf368e48e16e987c5ca687d6985070ed5cd13f65762ebb58cb9"
+    },
+    "peer.settings.png": {
+      "sha256": "3f98a083a78da716cf8b4ea2bbebc2d8dbb253b34485ed4e4f50356f04a9707a"
+    },
+    "peer.unavailable.png": {
+      "sha256": "75a2a87b8787a7b106c2e8c37d10fa1587879cde53c2692b888dc5ffa292854d"
+    },
+    "rejoin-after.json": {
+      "sha256": "719cd67261eddfa8cb4c61d302f0e8cda97b4e82deedce26e7998756422431ef"
+    },
+    "rejoin-before.json": {
+      "sha256": "0a4e4209b9e9bea7edba06b0a52c82ffe2e6baca37bb1cc35d2557470434150a"
+    },
+    "removal-harness-before.json": {
+      "sha256": "ef337d685217ab58a05b9cc2ab57b75fcc749ae79a5f3277a2c6101c9dd7f7c2"
+    },
+    "removal-model-after.json": {
+      "sha256": "b073d91769605db9bcf0bcdf752d35e5b06e3e4ddb2a3372e71d3e50a97ad6f3"
+    },
+    "settings-selector-before.txt": {
+      "sha256": "e68533cafd1e126fdf356dd4f13fcdaafca4209859acaff8eed5a841cdcc3d70"
+    },
+    "source-preflight.txt": {
+      "sha256": "94d713b1a7f21054caf586d85e4478d521f1c30024a5a79f5163eba431a3cbf1"
+    },
+    "voice-Chrome-Chrome-direct.json": {
+      "sha256": "39b6fa19f76933de2a907665fc49d5dec5ec53efc79310bebd0d804922e62aff"
+    },
+    "voice-Chrome-Chrome-direct.missing-device.png": {
+      "sha256": "301eacf590d1581fe6aa659a6845b898fca9a2cf5d064120c919fa45dbcda3ed"
+    },
+    "voice-Chrome-Chrome-direct.mobile.png": {
+      "sha256": "ddd41e991c280b3eceded0ef40c153cda40645d685335a493c3b771f0f6f41ed"
+    },
+    "voice-Chrome-Chrome-direct.voice.png": {
+      "sha256": "68961ce860bf65134c15e46ef234baa6de0d83dfe66f0b9aa82f9adadb26179e"
+    },
+    "voice-Chrome-Chrome-relay.json": {
+      "sha256": "f24d01699a4453c582ca351894fd7dde39a6492d3fd5aa4ea0d174837fb272b7"
+    },
+    "voice-Chrome-Chrome-relay.missing-device.png": {
+      "sha256": "c6ace11df6348944b7aaed5d24825648303acee1494de7163073a2629471ab05"
+    },
+    "voice-Chrome-Chrome-relay.mobile.png": {
+      "sha256": "b5aa3c8b3089ad554587a6c233ccb9479ada75e206651e07816286de8588d29b"
+    },
+    "voice-Chrome-Chrome-relay.voice.png": {
+      "sha256": "15d7daf9eaecfc30b018eaffd67ca6e7aa91bc7b79fbe92703960cc06124538f"
+    },
+    "voice-Chrome-Firefox-direct.json": {
+      "sha256": "a2ea5ac6e7f62e184d250300e7eb3e2f7cdf03ba374606bf940ec4a0bd10952d"
+    },
+    "voice-Chrome-Firefox-direct.missing-device.png": {
+      "sha256": "d5c2c1e0e010e4742ae37995bc1b5e87744679a5ecdf3d43ffa01832d5fbf69d"
+    },
+    "voice-Chrome-Firefox-direct.mobile.png": {
+      "sha256": "0ef715ca9ef66470a7facb93d1c4f717ba8867cad5a17d667b96b2d7b9de108e"
+    },
+    "voice-Chrome-Firefox-direct.voice.png": {
+      "sha256": "58bf3eb0feda8ed97cf82fdb9015c6dda873c41221b3f46b83802a3e9edc32f1"
+    },
+    "voice-Chrome-Firefox-relay.json": {
+      "sha256": "0b007a12ede55b8ce34adabdc6b2ef951b8e9a2dc46d4677e5baac62560b1ae9"
+    },
+    "voice-Chrome-Firefox-relay.missing-device.png": {
+      "sha256": "07cfcfe1ad8d88a13db1d5ec16d2c3acfa276349e15adf579da9bb7903c4ae70"
+    },
+    "voice-Chrome-Firefox-relay.mobile.png": {
+      "sha256": "1f81a3137f62db59f48ab48c623d572e26d052be5eee7218f82d8dd4c3dac3b4"
+    },
+    "voice-Chrome-Firefox-relay.voice.png": {
+      "sha256": "44892d1b5817ae1cafb8a1dcfb31b9fe5ef59603198ddcb4fe491759249e8973"
+    },
+    "voice-Firefox-Firefox-direct.json": {
+      "sha256": "5f75023c4eaee3a34c90d244d7bca84502084530ccec7b798cd373886e80e24a"
+    },
+    "voice-Firefox-Firefox-direct.missing-device.png": {
+      "sha256": "24ba047ff10000096f055d648c54c08d65b395d2ec8a0db083991e52bfa216a1"
+    },
+    "voice-Firefox-Firefox-direct.mobile.png": {
+      "sha256": "63918a3a566f7bb2cf76f398162bf14dc4852bfd46692d5f7d631d283e3ecca4"
+    },
+    "voice-Firefox-Firefox-direct.voice.png": {
+      "sha256": "e0f922459edde4d775d4091655e0553dee7d5f1b43f762621e33211c55e4eb31"
+    },
+    "voice-Firefox-Firefox-relay.json": {
+      "sha256": "f1d91a15fbe3d58e5390b9c13a0d65415162d029132eeacc537c81332df834ac"
+    },
+    "voice-Firefox-Firefox-relay.missing-device.png": {
+      "sha256": "f3c2b215d17ddd342423ad88193c9e17a6d8831fca640f35f4f3f6f236dea6df"
+    },
+    "voice-Firefox-Firefox-relay.mobile.png": {
+      "sha256": "4fca1e0b75a2bce464cadbf8b3e1f66017783d830aa585956597b259e687d758"
+    },
+    "voice-Firefox-Firefox-relay.voice.png": {
+      "sha256": "d673d01ca0dc0544bc181efd60d1fc18934b32f38d855d20fc4cb9eb0cf50ba6"
     }
-  },
-  "voice_probe_source": "711dbb0b41c4a65191261e236d85080fb493092d"
+  }
 }
