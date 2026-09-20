@@ -1,4 +1,4 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {defaultControllers} from '../../../packages/contracts/src/gameplay.ts';
 import type {RoomView,RoomRole} from '../../../packages/contracts/src/rooms.ts';
 import type {RoomClient} from './room-client.ts';
@@ -12,12 +12,14 @@ export function ControllerOwnership({room}:{room:RoomView}) {
 /** Optional session settings; names identify controller ownership independently of host authority. */
 export function ControllerMode({room,act}:{room:RoomView;act:RoomClient['act']}) {
  const assignment=room.game?.controllers??defaultControllers,proposal=room.game?.controllerProposal;
+ const panel=useRef<HTMLElement>(null);
+ const respond=(command:Parameters<RoomClient['act']>[0])=>{void act(command).then(()=>panel.current?.focus());};
  const [mode,setMode]=useState(assignment.mode),[p1,setP1]=useState<RoomRole>(assignment.p1);
  useEffect(()=>{setMode(assignment.mode);setP1(assignment.p1);},[assignment.mode,assignment.p1]);
  const name=(role:RoomRole)=>playerName(room,role);
  const context={peerEpoch:room.peer.epoch!,...(room.game?.epoch?{epoch:room.game.epoch}:{})};
  const available=!!room.guest&&room.peer.status==='connected'&&['waiting','paused','resume_ready'].includes(room.game?.status??'waiting')&&!proposal;
- return <section className="controller-mode" aria-labelledby="controller-heading" data-testid="controller-mode"><h3 id="controller-heading">Session controllers</h3>
+ return <section ref={panel} tabIndex={-1} className="controller-mode" aria-labelledby="controller-heading" data-testid="controller-mode"><h3 id="controller-heading">Session controllers</h3>
   <p>Separate P1/P2 keeps the game’s native simultaneous or alternating turns. Single-player games do not become co-op. Shared P1 lets you take turns controlling a single-player game; P2 stays neutral.</p>
 
   {room.role==='host'&&<fieldset disabled={!available}><legend>Request controller assignment</legend>
@@ -28,9 +30,9 @@ export function ControllerMode({room,act}:{room:RoomView;act:RoomClient['act']})
   </fieldset>}
   {!proposal&&<p>Changes require both connected players and a waiting or paused game. Both players accept, then prepare to resume; the host resumes shared play.</p>}
   {proposal&&<div role="group" aria-label="Controller request"><p role="status">Requested: {proposal.mode==='shared'?'Shared P1':'Separate P1/P2'}, P1: {name(proposal.p1)}. Both players must accept within 15 seconds. Previous ownership and progress stay intact if declined or cancelled.</p>
-   <button disabled={proposal.accepted.includes(room.role)} onClick={()=>void act({type:'gameControllerRespond',...context,proposalId:proposal.id,accept:true})}>Accept assignment</button>
-   <button onClick={()=>void act({type:'gameControllerRespond',...context,proposalId:proposal.id,accept:false})}>Decline assignment</button>
-   {room.role==='host'&&<button onClick={()=>void act({type:'gameControllerCancel',...context,proposalId:proposal.id})}>Cancel assignment request</button>}
+   <button disabled={proposal.accepted.includes(room.role)} onClick={()=>respond({type:'gameControllerRespond',...context,proposalId:proposal.id,accept:true})}>Accept assignment</button>
+   <button onClick={()=>respond({type:'gameControllerRespond',...context,proposalId:proposal.id,accept:false})}>Decline assignment</button>
+   {room.role==='host'&&<button onClick={()=>respond({type:'gameControllerCancel',...context,proposalId:proposal.id})}>Cancel assignment request</button>}
    <p role="status">Accepted: {proposal.accepted.map(name).join(', ')||'waiting for both players'}. Release held keys and gamepad buttons before resuming.</p>
   </div>}
  </section>;

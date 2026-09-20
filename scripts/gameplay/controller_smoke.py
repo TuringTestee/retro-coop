@@ -17,10 +17,10 @@ def run(host,guest,out,root,errors,source,build_files):
   for page in pages:page.get_by_role('button',name='Accept assignment',exact=True).wait_for()
  def consent(mode,p1):
   before=[page.evaluate('proof.frameCount') for page in pages]
-  host.get_by_role('button',name='Accept assignment',exact=True).focus();host.keyboard.press('Enter')
+  host.get_by_role('button',name='Accept assignment',exact=True).focus();host.keyboard.press('Enter');host.wait_for_function("document.activeElement?.dataset.testid==='controller-mode'")
   assert host.locator('.room-panel').get_by_role('button',name='Ready to resume',exact=True).is_disabled()
   assert host.evaluate('proof.room.game.controllers.mode')!=mode or host.evaluate('proof.room.game.controllers.p1')!=p1
-  guest.get_by_role('button',name='Accept assignment',exact=True).focus();guest.keyboard.press('Enter')
+  guest.get_by_role('button',name='Accept assignment',exact=True).focus();guest.keyboard.press('Enter');guest.wait_for_function("document.activeElement?.dataset.testid==='controller-mode'")
   for page in pages:page.wait_for_function('v=>!proof.room.game.controllerProposal&&proof.room.game.controllers.mode===v[0]&&proof.room.game.controllers.p1===v[1]',arg=[mode,p1],polling=20)
   assert before==[page.evaluate('proof.frameCount') for page in pages]
  def resume():
