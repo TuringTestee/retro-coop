@@ -110,7 +110,26 @@ def verify_persistence(browser,url,rom,worker_path,output):
     assert 'could not be restored' in denied.get_by_test_id('persistence-status').inner_text()
     with denied.expect_download() as download:denied.get_by_role('button',name='Export current battery',exact=True).click()
     assert open(download.value.path(),'rb').read()[:8]==b'RCBAT001'
-    denied.close();assert not errors,errors
+    denied.close()
+    verify_replacement(browser,url,variant)
+    assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result={'v1_slots_preserved_on_upgrade':True,'actual_periodic_nonzero_battery_write':True,'battery_import_before_first_frame':True,'real_cpu_observed_restored_battery_at_boot':True,'preferences_restored_for_exact_game':True,'other_identity_backup_export':True,'corrupt_data_retained_and_play_continues':True,'corrupt_battery_export_delete_and_explicit_retry':True,'stale_battery_delete_preserves_replacement_then_refreshes':True,'clear_confirmation_cancel_preserves_records':True,'cleared_epoch_blocks_other_tab_automatic_write':True,'storage_denial_keeps_play_and_export':True,'mobile_no_overflow':True,'page_errors':errors}
+    result={'v1_slots_preserved_on_upgrade':True,'actual_periodic_nonzero_battery_write':True,'battery_import_before_first_frame':True,'real_cpu_observed_restored_battery_at_boot':True,'preferences_restored_for_exact_game':True,'other_identity_backup_export':True,'corrupt_data_retained_and_play_continues':True,'corrupt_battery_export_delete_and_explicit_retry':True,'stale_battery_delete_preserves_replacement_then_refreshes':True,'clear_confirmation_cancel_preserves_records':True,'cleared_epoch_blocks_other_tab_automatic_write':True,'storage_denial_keeps_play_and_export':True,'same_rom_replacement_captures_before_candidate_restore':True,'mobile_no_overflow':True,'page_errors':errors}
     context.close();return result
+
+
+def verify_replacement(browser,url,rom):
+    page=browser.new_page(accept_downloads=True)
+    page.add_init_script("window.exports=0;const Base=Worker;window.Worker=class extends Base{postMessage(data,...args){if(data.type==='battery-export')exports++;return super.postMessage(data,...args)}}")
+    page.goto(url)
+    def select():
+        page.get_by_label('NES cartridge file').set_input_files({'name':'replacement.nes','mimeType':'application/octet-stream','buffer':bytes(rom)})
+        page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5 && document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
+    select()
+    assert page.evaluate('exports')==0, 'Regression must precede the first periodic/lifecycle capture'
+    select()
+    page.get_by_role('button',name='Saves',exact=True).click()
+    with page.expect_download() as download:page.get_by_role('button',name='Export current save',exact=True).click()
+    machine=json.loads(open(download.value.path(),'rb').read()[72:])
+    assert machine['hardware']['wram'][3]==0x5a, {'restored_boot_byte':machine['hardware']['wram'][3],'expected':0x5a}
+    page.close()

@@ -6,7 +6,7 @@ import {readStored,putBattery,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
 
 type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
-type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;busy:boolean};
+type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;writing?:Promise<void>};
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
@@ -35,7 +35,7 @@ export class LocalPlayer {
   try {
    const reply=await this.fileRequest({type:'battery-info'},worker);
    if(reply.type!=='battery-info' || !isCurrent())return {};
-   session={worker,info:reply.info,generation:0,enabled:false,busy:false};
+   session={worker,info:reply.info,generation:0,enabled:false};
    const stored=await readStored<BatteryRecord>('batteries',reply.info.identity);
    if(!isCurrent())return {};
    session.generation=stored.generation;session.record=stored.record;
@@ -46,9 +46,13 @@ export class LocalPlayer {
    session.enabled=true;return {session};
   } catch(error) {return {session,issue:`Battery progress could not be restored. Your game can still run; existing data is preserved in Local data. ${error instanceof Error ? error.message : 'Storage unavailable.'}`};}
  }
- async persistBattery(session=this.batterySession) {
-  if(!session?.enabled || session.busy || session.worker!==this.active || this.disposed)return;
-  session.busy=true;
+ persistBattery(session=this.batterySession):Promise<void> {
+  if(session?.writing)return session.writing;
+  if(!session?.enabled || session.worker!==this.active || this.disposed)return Promise.resolve();
+  session.writing=this.captureBattery(session).finally(()=>{session.writing=undefined;});
+  return session.writing;
+ }
+ private async captureBattery(session:BatterySession) {
   try {
    const reply=await this.fileRequest({type:'battery-export'},session.worker);
    if(reply.type!=='battery-exported' || session!==this.batterySession)return;
@@ -60,7 +64,7 @@ export class LocalPlayer {
    if(error instanceof DOMException && error.name==='AbortError')return;
    session.enabled=false;
    if(session===this.batterySession)this.publish({storageIssue:`Couldn't save battery progress on this device. Export a backup or open Local data. ${error instanceof Error ? error.message : ''}`});
-  } finally {session.busy=false;}
+  }
  }
  async exportBattery():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'battery-export'});if(reply.type!=='battery-exported')throw Error('Unexpected battery response');return reply.bytes;}
  async batteryInfo():Promise<LocalFileInfo> {const reply=await this.fileRequest({type:'battery-info'});if(reply.type!=='battery-info')throw Error('Unexpected battery response');return reply.info;}
@@ -205,14 +209,15 @@ export class LocalPlayer {
      if(request !== this.generation || this.candidate !== worker) { worker.terminate(); return; }
      const fingerprint:LocalFingerprint = {romSha256,coreSha256:data.coreSha256,localSchema:LOCAL_SCHEMA,settings:LOCAL_SETTINGS,cartridge};
      const isCurrent=()=>request===this.generation && this.candidate===worker && !this.disposed;
-     const battery=data.battery ? await this.prepareBattery(worker,isCurrent) : {};
-     if(!isCurrent()) {worker.terminate();return;}
      try {
       if(approve && !await approve(fingerprint,isCurrent)) {if(isCurrent()) this.cancel();return;}
      }catch {if(isCurrent()) fail('Unable to confirm the room change.');return;}
      if(!isCurrent()) {worker.terminate();return;}
+     // Flush the old game before reading its identity again for a replacement.
      await this.persistBattery();
      if(!isCurrent()){worker.terminate();return;}
+     const battery=data.battery ? await this.prepareBattery(worker,isCurrent) : {};
+     if(!isCurrent()) {worker.terminate();return;}
      this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      const {available} = this.inputDevice();
