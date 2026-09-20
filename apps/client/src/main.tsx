@@ -5,6 +5,7 @@ import { neutralDefaults } from './cartridge.ts';
 import { clientConfig } from './config.ts';
 import './style.css';
 import {RoomPanel, type RoomPanelHandle} from './RoomPanel.tsx';
+import { Saves } from './Saves.tsx';
 import { Settings } from './Settings.tsx';
 import { defaults, type Controls } from './controls.ts';
 
@@ -12,6 +13,7 @@ function App() {
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
  const runtime = useRef<LocalPlayer | null>(null);
  const panel = useRef<HTMLElement>(null);
+ const [saves,setSaves]=useState(false);
  const [controls,setControls] = useState<Controls>(defaults), [settings,setSettings] = useState(false);
  const [filter,setFilter] = useState<'nearest'|'scanlines'>('nearest'), [volume,setVolume] = useState(1);
  const [fullscreen,setFullscreen] = useState(false), [fullscreenIssue,setFullscreenIssue] = useState('');
@@ -35,7 +37,7 @@ function App() {
    <p>{state.loaded ? 'Your local game stays available if the room service cannot connect.' : 'Choose a file, or drop it anywhere in this panel. Your file stays on this device.'}</p>
    <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => load(event.target.files?.[0])}/>
    <div className="controls"><button onClick={choose}>{state.loaded ? 'Choose another file' : 'Choose NES file'}</button>{state.loading && <button onClick={() => {runtime.current?.cancel();rooms.current?.cancelCreation();}}>Cancel loading</button>}<button disabled={!state.loaded || state.loading} onClick={() => state.running ? runtime.current?.pause() : runtime.current?.resume()}>{state.running ? 'Pause' : 'Resume'}</button><button aria-pressed={muted} onClick={() => {const value = !muted;setMuted(value);runtime.current?.setMuted(value);}}>{muted ? 'Unmute' : 'Mute'}</button></div>
-   <div className="controls"><button onClick={()=>setSettings(true)}>Settings</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div>
+   <div className="controls"><button disabled={!state.loaded || state.loading} onClick={()=>setSaves(true)}>Saves</button><button onClick={()=>setSettings(true)}>Settings</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div>
    {fullscreen && <p className="hint">Press Esc or Exit fullscreen to return.</p>}{fullscreenIssue && <p role="status">{fullscreenIssue}</p>}
    {state.inputIssue && <p role="alert">{state.inputIssue} <button onClick={()=>{changeControls({...controls,device:null});runtime.current?.useKeyboard();}}>Use keyboard</button></p>}
    <p role="status" data-testid="player-status" aria-live="polite">{state.status}</p>{state.audioIssue && <p className="hint">{state.audioIssue} <button onClick={() => runtime.current?.retryAudio()}>Retry sound</button></p>}
@@ -46,6 +48,7 @@ function App() {
    <span aria-label="Rendered frames" data-testid="frames">{state.frames} frames</span></div>
    <div className={`screen ${filter}`}><canvas ref={canvas} width="256" height="240" tabIndex={0} aria-label="Local game screen"/>{!state.loaded && <p>YOUR NEXT ADVENTURE<br/><span>starts with a file</span></p>}</div>
   </section>
+  <Saves open={saves && state.loaded && !state.loading} close={()=>setSaves(false)} player={runtime.current} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
   <Settings open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={setFilter} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
   <footer>Your game runs in this browser. Only room names and compatibility metadata go to the room service; your file stays here.</footer>
  </main>;

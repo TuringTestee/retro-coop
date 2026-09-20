@@ -4,6 +4,7 @@ import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import { inspectCartridge, hex } from './cartridge.ts';
 
+type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
@@ -14,7 +15,7 @@ export class LocalPlayer {
  private nextRequest = 0;
  private pending = new Map<number,{worker:Worker;resolve:(value:WorkerResponse)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(Error(message));}this.pending.clear();}
- private fileRequest(message:Omit<Extract<LocalFileRequest,{type:'state-info'}>,'requestId'> | {type:'state-export'} | {type:'state-import'|'state-validate';bytes:ArrayBuffer}):Promise<WorkerResponse> {
+ private fileRequest(message:FileCommand):Promise<WorkerResponse> {
   const worker=this.active;
   if(!worker || this.disposed || this.state.loading)return Promise.reject(Error('Wait for a game to finish loading.'));
   const requestId=++this.nextRequest;
