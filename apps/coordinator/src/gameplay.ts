@@ -13,7 +13,7 @@ export class GameSession {
  private state:GameView={status:'waiting'};
  private now:()=>number;private send:(role:GameRole,event:GameEvent)=>void;
  constructor(now:()=>number,send:(role:GameRole,event:GameEvent)=>void) {this.now=now;this.send=send;}
- view():GameView {return {...this.state};}
+ view():GameView {return {...this.state,ready:[...this.offers.keys()]};}
  private broadcast(event:GameEvent) {this.send('host',event);this.send('guest',event);}
  bind(peerEpoch:string|undefined) {
   if(peerEpoch===this.peerEpoch) return false;
@@ -29,7 +29,7 @@ export class GameSession {
   const host=this.offers.get('host'),guest=this.offers.get('guest');if(!host||!guest) return;
   if(!established&&(!host.fresh||host.frame!==0)) {this.stop('The host has made progress. Shared late join is not available yet; the original game is preserved.','late_join');return;}
   if((!established&&(!guest.fresh||guest.frame!==0))||host.frame!==guest.frame||host.hash!==guest.hash) {this.stop('Initial machine states differ. Choose a fresh matching game or cancel.','failed');return;}
-  if(established){this.state={...this.state,status:'resume_ready'};return;}
+  if(established){this.state={...this.state,status:'resume_ready',reason:undefined};return;}
   this.begin(host,guest);
  }
  resume(role:GameRole,epoch:string) {if(role!=='host'||this.state.status!=='resume_ready'||epoch!==this.state.epoch)throw Error('resume_not_ready');this.begin(this.offers.get('host')!,this.offers.get('guest')!);}

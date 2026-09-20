@@ -6,7 +6,7 @@ import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
-export type RoomPanelHandle = {readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
+export type RoomPanelHandle = {localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
 export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({fingerprint,player,onNickname,policy,changePolicy,onConnection,onHost},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
@@ -25,7 +25,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;pl
  useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peer.status,onConnection]);
  useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
- useImperativeHandle(ref,()=>({readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
+ useImperativeHandle(ref,()=>({localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
   beforeSelection() {
    client.current?.beginSelection();selectedVisibility.current = visibility;return true;
   },approveSelection(fingerprint,isCurrent){return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){client.current?.beginSelection();}
@@ -48,9 +48,11 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;pl
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status} · Host-provided title. Bring your own matching local game file.</p>}
+  {room?.established && <p>Player 1 · {room.host} (host)<br/>Player 2 · {room.guest}</p>}
+  <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
+  <details className="session-settings" open={!room?.established}><summary>Connection and session settings</summary>
   <ConnectionPolicyControl policy={policy} change={changePolicy}/>
   <p className="hint">Player 2 remains reserved until both games acknowledge shared start. Fresh matching games start automatically. Progressed games stay paused until late-join support is available.</p>
-  <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
   {room?.peer.epoch && <button onClick={()=>void client.current?.retryPeer()}>Retry connection</button>}
   {room?.peer.epoch && ['relay_unavailable','relay_capacity','failed'].includes(room.peer.status) && <><button onClick={()=>setStaying(room.peer.epoch)}>Stay in room</button>{staying===room.peer.epoch && <p role="status">You stayed in the room. Your current reservation deadline and local game are unchanged. Retry whenever you are ready.</p>}</>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
@@ -69,8 +71,9 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;pl
     <button onClick={()=>{if(window.confirm('Close this room for both players? Your local game stays available.')) void client.current?.act({type:'close'});}}>Close room</button>
    </details> : <button onClick={()=>{if(!room.established||window.confirm('Leave shared play? The other player will pause; your local game is preserved.'))void client.current?.act({type:'leave',intent:room.reservationIntent!});}}>{room.established?'Leave shared game':'Cancel join'}</button>}
   </div>}
+  </details>
   {room && <section aria-label="Shared gameplay"><p role="status" data-testid="game-status">{room.game?.reason??state.gameplay?.status}</p><p data-testid="game-frame">{state.gameplay?.frame??0} shared frames · delay {state.gameplay?.delay??'negotiating'}</p>
-   {room.established && ['paused','failed','resume_ready'].includes(room.game?.status??'') && <><button onClick={()=>client.current?.readyToResume()}>Ready to resume</button>{room.role==='host' && <button disabled={room.game?.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p>Both players must be ready before the host resumes together.</p></>}
+   {room.established && ['paused','failed','resume_ready'].includes(room.game?.status??'') && <><button onClick={()=>client.current?.readyToResume()}>Ready to resume</button>{room.role==='host' && <button disabled={room.game?.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p role="status">{room.game?.status==='resume_ready' ? `Both players are ready. ${room.role==='host'?'Resume together when ready.':`Waiting for ${room.host} to resume.`}` : `Waiting for ${[!room.game?.ready?.includes('host') && room.host,!room.game?.ready?.includes('guest') && (room.guest??'Player 2')].filter(Boolean).join(' and ')} to resume.`}</p></>}
    {!room.established && ['failed','paused'].includes(room.game?.status??'') && <button onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
   </section>}
   {room && state.chat && <ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/>}

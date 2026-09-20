@@ -17,6 +17,7 @@ export class GameClient {
  enter(room?:RoomView){
   const previous=this.room;
   if(previous && (!room||previous.id!==room.id||previous.role!==room.role||(previous.role==='guest'&&previous.reservationIntent!==room.reservationIntent)))this.clear('Room membership changed. Shared play stopped.',true);
+  if(previous?.role==='host'&&previous.guest&&room?.id===previous.id&&!room.guest)this.clear('Player 2 left. Resume local play whenever you are ready.',true);
   this.room=room;if(!room)return;
   void this.offerGuest();
  }
@@ -62,7 +63,7 @@ export class GameClient {
   if(event.peerEpoch!==this.peerEpoch||!this.eligible())return;
   if(event.type==='gamePrepare'){
    const serial=this.serial;this.prepared={epoch:event.epoch,delay:event.delay};this.early=[];this.publish({status:'Starting together…',busy:true});
-   void this.player()!.holdForGame().then(info=>{if(serial!==this.serial||this.prepared?.epoch!==event.epoch)return;if(info.hash!==event.hash)throw Error('State changed during the start barrier.');return this.send({type:'gameAck',epoch:event.epoch,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'mismatch');});
+   void this.player()!.holdForGame().then(info=>{if(serial!==this.serial||this.prepared?.epoch!==event.epoch)return;if(info.hash!==event.hash){this.fail('State changed during the start barrier.','mismatch');return;}return this.send({type:'gameAck',epoch:event.epoch,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'network');});
   }else if(event.type==='gameStart'){
    if(this.prepared?.epoch!==event.epoch)return;
    const scheduler=new GameScheduler(event.epoch,event.delay,packet=>this.channel!.send(JSON.stringify(packet)));this.scheduler=scheduler;

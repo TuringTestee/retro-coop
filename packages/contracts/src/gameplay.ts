@@ -5,7 +5,7 @@ export type GameRole='host'|'guest';
 const reasons=['focus','device','network','mismatch','cancelled','user'] as const;
 export type GameReason=typeof reasons[number];
 const validReason=(value:unknown):value is GameReason=>typeof value==='string'&&(reasons as readonly string[]).includes(value);
-export type GameView={status:'waiting'|'starting'|'playing'|'pausing'|'resume_ready'|'paused'|'late_join'|'failed';epoch?:string;delay?:number;reason?:string};
+export type GameView={ready?:GameRole[];status:'waiting'|'starting'|'playing'|'pausing'|'resume_ready'|'paused'|'late_join'|'failed';epoch?:string;delay?:number;reason?:string};
 export type GameCommand=
  | {type:'gameReady';requestId:string;peerEpoch:string;frame:number;fresh:boolean;hash:string;delay:number}
  | {type:'gameAck';requestId:string;epoch:string;hash:string}

@@ -16,3 +16,17 @@
 
 .room-list button[aria-disabled="true"]{opacity:.5;cursor:not-allowed}.room-list small{font-weight:400;margin-left:.5rem}
 .saves ul{padding:0;list-style:none}.saves li{padding:16px 0;border-bottom:1px solid #38394d}.saves li time{display:inline-block;margin-right:12px}.saves [role=alertdialog]{border:1px solid #b5a3ff;padding:16px;border-radius:8px}.saves [role=status]{overflow-wrap:anywhere}.saves input{max-width:100%}
+
+/* Shared play keeps the screen, players and conversation in one view. */
+.shared-session{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:24px;max-width:1280px}
+.shared-session>header,.shared-session>footer{grid-column:1/-1}
+.shared-session>.intro,.shared-session>.featured-panel,.shared-session>.directory-panel{display:none}
+.shared-session>.panel{grid-column:1;grid-row:2;display:flex;flex-direction:column;gap:14px;align-self:start;padding:22px}
+.shared-session>.room-panel{grid-column:2;grid-row:2;min-width:0;margin:0;align-self:start;padding:20px}
+.shared-session .screen{order:-1;width:100%;max-width:512px}
+.shared-session .panel .controls{margin:14px 0}
+.shared-session .panel>div:first-child>.hint{display:none}
+.shared-session .session-settings{border-bottom:1px solid #36374c;padding-bottom:12px}
+.shared-session.browsing>.directory-panel{display:block;grid-column:1/-1;grid-row:2}
+.shared-session.browsing>.panel,.shared-session.browsing>.room-panel{grid-row:3}
+@media(max-width:850px){.shared-session{grid-template-columns:minmax(0,1fr)}.shared-session>.panel,.shared-session>.room-panel{grid-column:1;grid-row:auto}.shared-session>.room-panel{order:2}.shared-session>footer{order:3}.shared-session.browsing>.panel,.shared-session.browsing>.room-panel{grid-row:auto}}

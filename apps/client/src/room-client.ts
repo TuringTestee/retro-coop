@@ -137,6 +137,7 @@ export class RoomClient {
  async retryPeer() {this.game.retryConnection();const epoch=this.state.room?.peer.epoch;if(epoch) await this.act({type:'peerRetry',epoch});}
  async reconnect() {try {await this.connect();this.publish({status:this.state.room ? 'Room connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous room or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
  newGuest() {this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.setRoom(undefined);this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
+ localPlayIntent(){this.game.playIntent();}
  selectedGame(file:Fingerprint){this.game.selected(file);}
  isGuest(){return this.state.room?.role==='guest';}
  retryGame(){this.game.retry();}

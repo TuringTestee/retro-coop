@@ -197,11 +197,11 @@ export class LocalPlayer {
   this.release(); this.audio.flush();
   if(this.active) { this.send(this.active,{type:'pause'}); this.publish({running:false,status:'Paused. Resume whenever you’re ready.'}); }
  }
- resume() {
-  if(!this.active || this.state.loading) return;
-  if(this.shared) {this.publish({status:'Shared play is paused. Use the room’s shared controls, or leave the room before resuming locally.'});return;}
-  if(!this.inputDevice().available) { this.publish({inputIssue:disconnectedMessage}); return; }
-  this.activateAudio(); this.last = 0; this.publish({running:true,inputIssue:undefined,status:'Playing locally. Your file stays in this browser.'}); this.canvas.focus();
+ resume():boolean {
+  if(!this.active || this.state.loading) return false;
+  if(this.shared) {this.publish({status:'Shared play is paused. Use the room’s shared controls, or leave the room before resuming locally.'});return false;}
+  if(!this.inputDevice().available) { this.publish({inputIssue:disconnectedMessage}); return false; }
+  this.activateAudio(); this.last = 0; this.publish({running:true,inputIssue:undefined,status:'Playing locally. Your file stays in this browser.'}); this.canvas.focus();return true;
  }
  setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : this.volume; this.audio.flush(); if(!value) this.activateAudio(); }
  retryAudio() { this.activateAudio(); }

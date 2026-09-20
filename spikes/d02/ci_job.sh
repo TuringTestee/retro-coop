@@ -42,7 +42,9 @@ if [ "$D02_JOB" = core ]; then
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
   (cd ../.. && timeout --foreground 120s python3 scripts/peer/browser_smoke.py --output spikes/d02/peer.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/directory_smoke.py --output spikes/d02/directory.local.json)
+  (cd ../.. && timeout --foreground 180s python3 scripts/gameplay/run_smoke.py spikes/d02/gameplay.local)
 elif [ "$D02_JOB" = network ]; then
+  (cd ../.. && npm ci)
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
   cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json
   # This sink exists only on the ephemeral CI runner, never the user's machine.
@@ -58,6 +60,7 @@ elif [ "$D02_JOB" = network ]; then
   python3 ci_resources.py resources-before.local.json
   timeout --foreground 900s sh run_network_probe.sh fixture.local.nes --seconds 600 --pair "$D02_PAIR" --bundled-chromium --firefox-executable /tmp/d02-stock-firefox/firefox/firefox --output pair.local.json
   python3 verify_realtime.py pair.local.json --require-muted
+  (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 750s sh scripts/gameplay/network.sh --seconds 600 --pair "$D02_PAIR")
 else
   echo 'Unknown CI job' >&2
   exit 1

@@ -2,17 +2,20 @@
 import argparse,json,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'spikes/d02'))
-from verify_realtime import require,verify_network_evidence
+from verify_realtime import require,verify_network_evidence,digest,number
 
 def verify(result,seconds):
  require(result['result']=='pass' and not result['page_errors'],'browser failure')
  require(result['target_seconds']==seconds,'wrong workload')
+ require(number(result['active_seconds']) and seconds-1<=result['active_seconds']<=seconds+2,'shared execution did not sustain the real-time workload')
+ require(digest(result['identity']['romSha256']) and result['identity']['coreSha256'] in result['build_files'].values(),'missing actual ROM/core artifact identity')
  peers=result['peers'];require(len(peers)==2,'missing peer')
  require(result['pause'][0]==result['pause'][1] and result['final'][0]==result['final'][1],'pause divergence')
  require(result['final'][0]['frame']>=seconds*60,'short committed workload')
  require(peers[0]['sentHashes']==peers[1]['sentHashes'],'missing or divergent epoch/frame hash')
  hashes=peers[0]['sentHashes'];require(len(hashes)>=seconds*60//120-1,'missing periodic hashes')
  for peer in peers:
+  require(peer.get('scriptedInputs',0)>=max(1,seconds-5),'missing sustained controller transitions')
   require(peer['controllerRam']==[128,64],'both controller ports were not observed by the CPU')
   require(peer['frameCount']>=seconds*60,'short peer execution')
   require(peer['hashes'][0]['fresh'] and peer['hashes'][0]['frame']==0,'not genuine initial state')
