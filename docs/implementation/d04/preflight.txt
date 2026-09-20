@@ -1,4 +1,4 @@
-    Finished `release` profile [optimized] target(s) in 0.35s
+    Finished `release` profile [optimized] target(s) in 0.05s
      Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
 
 running 9 tests
@@ -12,19 +12,19 @@ test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
 test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
 test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
 
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
 
 PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
 PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
 PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
 .......
 ----------------------------------------------------------------------
-Ran 7 tests in 0.080s
+Ran 7 tests in 0.081s
 
 OK
 ..................
 ----------------------------------------------------------------------
-Ran 18 tests in 3.410s
+Ran 18 tests in 3.444s
 
 OK
 
@@ -35,10 +35,10 @@ OK
 > test
 > node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts
 
-✔ health is content-free, other routes reject, shutdown closes listener (31.119176ms)
-✔ configuration is explicit and rejects bad ports/stages (0.366291ms)
-✔ SIGTERM exits a running coordinator cleanly (94.456162ms)
-✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (0.977382ms)
+✔ health is content-free, other routes reject, shutdown closes listener (31.598342ms)
+✔ configuration is explicit and rejects bad ports/stages (0.35456ms)
+✔ SIGTERM exits a running coordinator cleanly (97.516298ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (0.800976ms)
 ℹ tests 4
 ℹ suites 0
 ℹ pass 4
@@ -46,6 +46,6 @@ OK
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 237.354119
+ℹ duration_ms 245.142965
 Pre-flight passed (repository hygiene and D02 codec regression tests).
-elapsed=6.32
+elapsed=6.04

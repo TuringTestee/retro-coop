@@ -34,6 +34,16 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         ''')
         page.goto(f'http://127.0.0.1:{server.server_port}/')
         page.screenshot(path=str(output.with_suffix('.before.png')), full_page=True)
+        held = []
+        page.route('**/retro_coop_d02.wasm', lambda route: held.append(route))
+        with page.expect_request('**/retro_coop_d02.wasm'):
+            page.get_by_role('button', name='Run diagnostic').click()
+        page.get_by_role('button', name='Pause', exact=True).click()
+        assert len(held) == 1
+        held[0].continue_()
+        page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Paused')")
+        assert page.locator('output').inner_text() == '0 frames'
+        page.unroute('**/retro_coop_d02.wasm')
         page.get_by_role('button', name='Run diagnostic').click()
         page.wait_for_function("Number(document.querySelector('output').textContent.split(' ')[0])>10")
         page.wait_for_function('proof.starts>3 && proof.peak>0')
@@ -55,7 +65,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         page.screenshot(path=str(output.with_suffix('.mobile.png')), full_page=True)
         assert not errors, errors
         assert all(method == 'GET' and url.startswith(f'http://127.0.0.1:{server.server_port}/') for method, url in requests), requests
-        result = {'result':'pass', 'browser':browser.version, 'duration_seconds':round(time.monotonic()-started,2), 'audio':proof, 'input_changed_canvas':True, 'paused_canvas_stable':True, 'mobile_no_overflow':True, 'page_errors':errors, 'requests':requests, 'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
+        result = {'result':'pass', 'browser':browser.version, 'duration_seconds':round(time.monotonic()-started,2), 'audio':proof, 'input_changed_canvas':True, 'paused_canvas_stable':True, 'pause_during_load_preserved':True, 'mobile_no_overflow':True, 'page_errors':errors, 'requests':requests, 'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
         output.write_text(json.dumps(result, indent=2)+'\n')
         print(json.dumps(result, indent=2))
         browser.close()

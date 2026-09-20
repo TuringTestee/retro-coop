@@ -18,7 +18,7 @@ Open the URL printed by Vite (normally `http://127.0.0.1:5173`). Click **Run dia
 
 In another terminal, `npm run coordinator` starts the health-only service on loopback port 8787. `curl http://127.0.0.1:8787/health` returns a content-free JSON response. Other routes, including rooms, return 404. SIGINT/SIGTERM stop accepting connections and close outstanding connections within two seconds.
 
-`npm run build` creates a static bundle in `apps/client/dist`; `npm run build:staging` uses staging settings. `npm run preview -w @retro-coop/client` serves that built bundle locally. Builds fail clearly if the prepared WASM/diagnostic assets are absent. The preparation command reuses the pinned Cargo lock and general local-player ABI accepted in PR #40. It does not fetch a third-party game.
+`npm run build` creates a static bundle in `apps/client/dist`; `npm run build:staging` uses staging settings. `npm run preview -w @retro-coop/client` serves that built bundle locally. Builds fail clearly if the prepared WASM/diagnostic assets are absent. The preparation command reuses the pinned Cargo lock and general local-player ABI accepted in PR #40. It does not fetch a third-party game. The built artifact includes the existing emulator notices at `generated/emulator-notices.txt` and Vite-generated dependency license texts at `client-licenses.txt`.
 
 ## Boundaries and reuse
 

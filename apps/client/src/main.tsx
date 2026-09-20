@@ -20,9 +20,9 @@ function App() {
   const worker = new Worker(new URL('./worker.ts',import.meta.url), {type:'module'});
   const context = new AudioContext(); const output = context.createGain(); output.gain.value = muted ? 0 : 1; output.connect(context.destination); gain.current = output;
   const audio = createAudioQueue(() => context, () => true, () => output);
-  let disposed = false, ready = false, busy = false, keys = 0, count = 0, fps = 60, last = 0, animation = 0;
+  let disposed = false, ready = false, initialized = false, paused = false, busy = false, keys = 0, count = 0, fps = 60, last = 0, animation = 0;
   const send = (message: WorkerRequest, transfer: Transferable[] = []) => worker.postMessage(message, transfer);
-  const pause = () => { ready = false; keys = 0; audio.flush(); send({type:'pause'}); setRunning(false); };
+  const pause = () => { paused = true; ready = false; keys = 0; audio.flush(); if(initialized) send({type:'pause'}); setRunning(false); };
   const down = (event: KeyboardEvent) => { const bit = keyMap[event.code as keyof typeof keyMap]; if (bit && document.activeElement === canvas.current) { event.preventDefault(); keys |= bit; } };
   const up = (event: KeyboardEvent) => { keys &= ~(keyMap[event.code as keyof typeof keyMap] ?? 0); };
   const blur = () => { keys = 0; };
@@ -38,7 +38,7 @@ function App() {
   }
   worker.onmessage = ({data}: MessageEvent<WorkerResponse>) => {
    if (disposed) return;
-   if (data.type === 'ready') { fps = data.fps; ready = true; setStatus('Diagnostic running locally'); canvas.current?.focus(); }
+   if (data.type === 'ready') { initialized = true; fps = data.fps; if(paused) send({type:'pause'}); else { ready = true; setStatus('Diagnostic running locally'); canvas.current?.focus(); } }
    else if (data.type === 'frame') {
     busy = false; canvas.current?.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
     if (ready) audio.play(data.audio); setFrames(++count);

@@ -1,41 +1,54 @@
 {
   "result": "pass",
   "browser": "145.0.7632.75",
-  "duration_seconds": 1.53,
+  "duration_seconds": 1.57,
   "audio": {
-    "buffers": 24,
+    "buffers": 20,
     "peak": 0.06666979938745499,
-    "starts": 24,
+    "starts": 20,
     "muted": true
   },
   "input_changed_canvas": true,
   "paused_canvas_stable": true,
+  "pause_during_load_preserved": true,
   "mobile_no_overflow": true,
   "page_errors": [],
   "requests": [
     [
       "GET",
-      "http://127.0.0.1:33259/"
+      "http://127.0.0.1:38779/"
     ],
     [
       "GET",
-      "http://127.0.0.1:33259/assets/index-BzyYgw5g.js"
+      "http://127.0.0.1:38779/assets/index-Dk4WLO_N.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33259/assets/index-CUqnSBRf.css"
+      "http://127.0.0.1:38779/assets/index-CUqnSBRf.css"
     ],
     [
       "GET",
-      "http://127.0.0.1:33259/assets/worker-BP3AB5Dj.js"
+      "http://127.0.0.1:38779/assets/worker-BP3AB5Dj.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33259/generated/diagnostic.nes"
+      "http://127.0.0.1:38779/generated/diagnostic.nes"
     ],
     [
       "GET",
-      "http://127.0.0.1:33259/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38779/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38779/assets/worker-BP3AB5Dj.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38779/generated/diagnostic.nes"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:38779/generated/retro_coop_d02.wasm"
     ]
   ],
   "coordinator_url": "/coordinator"
