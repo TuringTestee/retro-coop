@@ -1,0 +1,22 @@
+{
+  "integratedBase": "0629cec",
+  "productionChange": "Guest sends its initial challenge only after receiving host challenge; host initiates on open.",
+  "before": "ordered-before.json: old protocol times out under deterministic early-send-discard model.",
+  "actualUninjectedFailure": "local-native-send-failure.json: JavaScript send returns and buffer grows, but one native message missing.",
+  "internalCause": "Pinned source ordering supports early native-readiness race inference; native error not captured.",
+  "harnessRepair": {
+    "oldAssertion": "Both peers must attempt a suppressed probe.",
+    "observed": "Guest correctly attempted zero after host initiating probe was withheld; failed status and relay policy were correct.",
+    "correction": "Require host suppressed count >0 and guest count ==0; retain actual timeout, same room/lease, Stay and successful explicit Retry."
+  },
+  "nativeStderrBoundedRun": {
+    "result": "pass",
+    "seconds": 65.17,
+    "causeProven": false
+  },
+  "browser": "Playwright1.58 Chromium145.0.7632.6",
+  "wasmSha256": "fead9b06bc9bb96bed2d5672451e8cf4d55ec655a4a8ad7a1a121d79b01b3ec2",
+  "result": "pass",
+  "seconds": 63.92,
+  "fullWorkload": "Original workloads retained, plus early-send-discard model and controlled policy failure retry."
+}

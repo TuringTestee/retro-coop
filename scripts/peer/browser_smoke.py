@@ -52,26 +52,28 @@ log-file=stdout
   errors=[]
   def page(url):
    page=browser.new_page(viewport={'width':1280,'height':1050});page.on('pageerror',lambda error:errors.append(str(error)))
-   page.add_init_script((root/'scripts/peer/diagnostics.js').read_text()+'''window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
+   page.add_init_script((root/'scripts/peer/diagnostics.js').read_text()+'''
+    const dataSend=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(this.awaitingFirstInbound && window.modelEarlySendLoss && typeof data==='string' && JSON.parse(data).type==='transportProbe'){window.earlySendDrops=(window.earlySendDrops??0)+1;return;}if(window.suppressTransportProbe && typeof data==='string'){try{if(JSON.parse(data).type==='transportProbe'){window.suppressedProbes=(window.suppressedProbes??0)+1;return;}}catch{}}return dataSend.call(this,data)};
+    window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
     const NativeSocket=WebSocket;window.WebSocket=class extends NativeSocket{
      set onmessage(fn){this.deliver=fn;super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='room')peerProof.lastRoom=d.room;if(d.type==='peerStart'&&window.deadlineMode==='connecting')return;if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.started=false;if(window.lowerPolicy){d.policy='standard';e=new MessageEvent('message',{data:JSON.stringify(d)})}};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
      send(raw){const d=JSON.parse(raw);if(d.type==='peerAck'&&window.deadlineMode==='preparing'){queueMicrotask(()=>this.deliver(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:d.requestId,ok:true,data:{}})})));return;}if(d.type==='peerSignal'&&d.signal.kind==='candidate')peerProof.sentCandidates.push(d.signal.candidate.candidate);super.send(raw)}
     };
     const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{
-     constructor(c){super(c);peerProof.pcs.push(this);peerProof.policies.push(c.iceTransportPolicy);this.addEventListener('icecandidateerror',e=>peerProof.ice.push({error:e.errorCode}));this.addEventListener('iceconnectionstatechange',()=>peerProof.ice.push({state:this.iceConnectionState}));this.addEventListener('icecandidate',e=>{if(e.candidate)peerProof.ice.push({candidate:e.candidate.type})})}
+     constructor(c){super(c);this.addEventListener('datachannel',({channel})=>{channel.awaitingFirstInbound=true;channel.addEventListener('message',()=>{channel.awaitingFirstInbound=false},{once:true})});peerProof.pcs.push(this);peerProof.policies.push(c.iceTransportPolicy);this.addEventListener('icecandidateerror',e=>peerProof.ice.push({error:e.errorCode}));this.addEventListener('iceconnectionstatechange',()=>peerProof.ice.push({state:this.iceConnectionState}));this.addEventListener('icecandidate',e=>{if(e.candidate)peerProof.ice.push({candidate:e.candidate.type})})}
      setLocalDescription(d){if(!peerProof.started)peerProof.gatherBeforeStart=true;return super.setLocalDescription(d)}
     };''');page.goto(url);return page
   def host(url,policy='standard'):
    h=page(url);h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True);h.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option(policy)
    h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for()
    return h,h.get_by_label('Room invitation',exact=True).input_value()
-  def join(invite,policy='standard'):
-   g=page(invite);g.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option(policy);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Host-provided title. Bring your own matching local game file.',exact=False).wait_for();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for();return g
+  def join(invite,policy='standard',early_loss=False):
+   g=page(invite);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);g.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option(policy);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Host-provided title. Bring your own matching local game file.',exact=False).wait_for();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for();return g
   def connected(h,g,route):
    try:
-    for tab in [h,g]:tab.wait_for_function("r=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
+    for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peer.status==='connected' && document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
    except Exception:
-    failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
+    failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),earlySendModel:{enabled:window.modelEarlySendLoss===true,count:window.earlySendDrops??0},probeSuppression:{enabled:window.suppressTransportProbe===true,count:window.suppressedProbes??0},errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
      'turn_error_codes':dict(collections.Counter(re.findall(r'error (\d{3})',turn_log.read_text(errors='replace'))))}
     out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True)
     raise
@@ -85,6 +87,16 @@ log-file=stdout
     result.append(data)
    assert 'Player 2 (reserved)' in g.get_by_test_id('room-view').inner_text()
    return result
+  # Model the observed native first-send discard before the remote channel receives data.
+  # This deterministic timing model is not a claim to reproduce Chromium's internal race.
+  modeled=service({'TURN_URLS':'','TURN_SECRET':''});mh,mi=host(modeled);mg=join(mi,early_loss=True)
+  modeled_route=connected(mh,mg,'direct')
+  assert mg.evaluate('window.earlySendDrops??0')==0
+  trace=mg.evaluate('peerDiagnostics().trace')
+  received=next(i for i,e in enumerate(trace) if e['kind']=='channel-receive' and e['type']=='transportProbe')
+  sent=next(i for i,e in enumerate(trace) if e['kind']=='channel-send' and e['type']=='transportProbe')
+  assert received<sent
+  mh.close();mg.close()
   direct=service({'TURN_URLS':'','TURN_SECRET':''});h,invite=host(direct);g=join(invite)
   direct_proof=connected(h,g,'direct');h.screenshot(path=str(out.with_suffix('.direct.png')),full_page=True)
   # Changing either participant to stricter policy tears down direct, and unavailable relay never falls back.
@@ -133,6 +145,30 @@ log-file=stdout
   assert 'Paused' in denied.get_by_test_id('player-status').inner_text()
   denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).scroll_into_view_if_needed()
   denied.screenshot(path=str(out.with_suffix('.settings.png')),full_page=True)
+  # Controlled application-probe loss verifies recovery; it is NOT a reproduction of #53's unknown CI cause.
+  # Preserve the existing successful policy-change workload above, then add a separate failure transition.
+  waiting.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('standard')
+  connected(denied,waiting,'relay')
+  original=waiting.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil,epoch:peerProof.lastRoom.peer.epoch})')
+  original_pixels=denied.locator('canvas').evaluate('canvas=>canvas.toDataURL()')
+  for tab in [denied,waiting]:tab.evaluate('window.suppressTransportProbe=true')
+  waiting.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('relay')
+  for tab in [denied,waiting]:
+   tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('timed out')",timeout=25000)
+   observed=tab.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil,status:peerProof.lastRoom.peer.status,policy:peerProof.lastRoom.peer.policy,epoch:peerProof.lastRoom.peer.epoch,probes:window.suppressedProbes??0})')
+   assert observed['id']==original['id'] and observed['lease']==original['lease'] and observed['epoch']!=original['epoch']
+   assert observed['status']=='failed' and observed['policy']=='relay',observed
+   assert (observed['probes']>0 if tab is denied else observed['probes']==0),observed
+   assert tab.evaluate('peerProof.policies.every(policy=>policy==="relay")')
+  waiting.screenshot(path=str(out.with_suffix('.policy-failure.png')),full_page=True)
+  waiting.get_by_role('button',name='Stay in room',exact=True).click()
+  assert waiting.evaluate('peerProof.lastRoom.reservationUntil')==original['lease']
+  for tab in [denied,waiting]:tab.evaluate('window.suppressTransportProbe=false')
+  waiting.get_by_role('button',name='Retry connection',exact=True).click()
+  policy_retry=connected(denied,waiting,'relay')
+  assert waiting.evaluate('peerProof.lastRoom.id')==original['id'] and waiting.evaluate('peerProof.lastRoom.reservationUntil')==original['lease']
+  assert denied.locator('canvas').evaluate('canvas=>canvas.toDataURL()')==original_pixels
+  waiting.screenshot(path=str(out.with_suffix('.policy-retry.png')),full_page=True)
   waiting.get_by_role('button',name='Cancel join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
   guard=page(invite);guard.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('relay');guard.evaluate('window.lowerPolicy=true')
   guard.get_by_role('button',name='Retry join / Join',exact=True).click()
@@ -162,7 +198,7 @@ log-file=stdout
    deadlines.append({'phase':phase,'both_received_failed_state':True,'stay_and_retry_visible':True,'original_room_and_lease_preserved':True,'retry_route':proof})
    dh.close();dg.close()
   assert not errors,errors
-  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','server_deadlines':deadlines,'page_errors':errors}
+  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'early_guest_send_loss_model':{'connected':True,'guest_waited_for_inbound_probe':True,'discarded_sends':0,'route':modeled_route},'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','policy_change_failure_retry':{'injection':'withheld application transport probes after Standard-to-Relay policy change; not the original CI cause','actual_timeout_preserved':True,'room_and_original_lease_preserved':True,'paused_local_pixels_preserved':True,'effective_policy':'relay','retry_route':policy_retry},'server_deadlines':deadlines,'page_errors':errors}
   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));browser.close()
 finally:
  for proc in reversed(processes):

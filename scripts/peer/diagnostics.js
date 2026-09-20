@@ -9,7 +9,12 @@
   for(const kind of ['open','close','error'])channel.addEventListener(kind,()=>record(`channel-${kind}`,{id,state:channel.readyState}));
   channel.addEventListener('message',event=>record('channel-receive',{id,type:messageType(event.data)}));
   const send=channel.send.bind(channel);
-  channel.send=data=>{record('channel-send',{id,type:messageType(data),state:channel.readyState});return send(data);};
+  channel.send=data=>{
+   const detail={id,type:messageType(data),state:channel.readyState,buffered:channel.bufferedAmount};
+   record('channel-send',detail);
+   try {const result=send(data);record('channel-send-return',{...detail,buffered:channel.bufferedAmount});return result;}
+   catch(error) {record('channel-send-error',{...detail,error:['InvalidStateError','OperationError','TypeError'].includes(error?.name)?error.name:'other'});throw error;}
+  };
  };
  const Socket=WebSocket;
  window.WebSocket=class extends Socket {

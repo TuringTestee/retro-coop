@@ -1,0 +1,616 @@
+{
+  "connection_failure": [
+    {
+      "status": "Connection timed out. Retry or stay in the room.",
+      "states": [
+        "closed",
+        "closed"
+      ],
+      "probeSuppression": {
+        "enabled": false,
+        "count": 0
+      },
+      "errors": [],
+      "ice": [
+        {
+          "candidate": "host"
+        },
+        {
+          "state": "checking"
+        },
+        {
+          "state": "connected"
+        }
+      ],
+      "trace": [
+        {
+          "ms": 1344,
+          "kind": "signaling-in",
+          "type": "peerPrepare",
+          "epoch": 1
+        },
+        {
+          "ms": 1348,
+          "kind": "signaling-out",
+          "type": "peerAck",
+          "epoch": 1,
+          "signal": null
+        },
+        {
+          "ms": 1350,
+          "kind": "room",
+          "epoch": 1,
+          "status": "preparing"
+        },
+        {
+          "ms": 1366,
+          "kind": "room",
+          "epoch": 1,
+          "status": "preparing"
+        },
+        {
+          "ms": 1368,
+          "kind": "signaling-in",
+          "type": "peerStart",
+          "epoch": 1
+        },
+        {
+          "ms": 1368,
+          "kind": "room",
+          "epoch": 1,
+          "status": "connecting"
+        },
+        {
+          "ms": 21622,
+          "kind": "signaling-in",
+          "type": "peerStop",
+          "epoch": null
+        },
+        {
+          "ms": 21623,
+          "kind": "room",
+          "epoch": 1,
+          "status": "failed"
+        },
+        {
+          "ms": 21971,
+          "kind": "signaling-in",
+          "type": "peerStop",
+          "epoch": null
+        },
+        {
+          "ms": 21971,
+          "kind": "signaling-in",
+          "type": "peerPrepare",
+          "epoch": 2
+        },
+        {
+          "ms": 21973,
+          "kind": "signaling-out",
+          "type": "peerAck",
+          "epoch": 2,
+          "signal": null
+        },
+        {
+          "ms": 21973,
+          "kind": "room",
+          "epoch": 2,
+          "status": "preparing"
+        },
+        {
+          "ms": 21981,
+          "kind": "room",
+          "epoch": 2,
+          "status": "preparing"
+        },
+        {
+          "ms": 21989,
+          "kind": "signaling-in",
+          "type": "peerStart",
+          "epoch": 2
+        },
+        {
+          "ms": 21989,
+          "kind": "channel-observed",
+          "id": 1,
+          "state": "connecting"
+        },
+        {
+          "ms": 21991,
+          "kind": "room",
+          "epoch": 2,
+          "status": "connecting"
+        },
+        {
+          "ms": 21991,
+          "kind": "signaling-out",
+          "type": "peerSignal",
+          "epoch": 2,
+          "signal": "description"
+        },
+        {
+          "ms": 21994,
+          "kind": "signaling-out",
+          "type": "peerSignal",
+          "epoch": 2,
+          "signal": "candidate"
+        },
+        {
+          "ms": 21995,
+          "kind": "signaling-in",
+          "type": "peerSignal",
+          "epoch": 2
+        },
+        {
+          "ms": 21997,
+          "kind": "signaling-in",
+          "type": "peerSignal",
+          "epoch": 2
+        },
+        {
+          "ms": 22003,
+          "kind": "channel-open",
+          "id": 1,
+          "state": "open"
+        },
+        {
+          "ms": 22003,
+          "kind": "channel-send",
+          "id": 1,
+          "type": "transportProbe",
+          "state": "open",
+          "buffered": 0
+        },
+        {
+          "ms": 22004,
+          "kind": "channel-send-return",
+          "id": 1,
+          "type": "transportProbe",
+          "state": "open",
+          "buffered": 72
+        },
+        {
+          "ms": 22005,
+          "kind": "channel-receive",
+          "id": 1,
+          "type": "transportReply"
+        },
+        {
+          "ms": 42637,
+          "kind": "signaling-in",
+          "type": "peerStop",
+          "epoch": null
+        },
+        {
+          "ms": 42638,
+          "kind": "channel-close",
+          "id": 1,
+          "state": "closed"
+        },
+        {
+          "ms": 42638,
+          "kind": "room",
+          "epoch": 2,
+          "status": "failed"
+        }
+      ],
+      "transport": [
+        {
+          "state": "closed",
+          "sctp": null,
+          "samples": [
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        {
+          "state": "closed",
+          "sctp": "closed",
+          "samples": [
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1271,
+                "bytesReceived": 1213
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1271,
+                "bytesReceived": 1213
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1271,
+                "bytesReceived": 1213
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1271,
+                "bytesReceived": 1213
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1271,
+                "bytesReceived": 1213
+              }
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "status": "Connection timed out. Retry or stay in the room.",
+      "states": [
+        "closed",
+        "closed"
+      ],
+      "probeSuppression": {
+        "enabled": false,
+        "count": 0
+      },
+      "errors": [],
+      "ice": [
+        {
+          "candidate": "host"
+        },
+        {
+          "state": "checking"
+        },
+        {
+          "state": "connected"
+        }
+      ],
+      "trace": [
+        {
+          "ms": 159,
+          "kind": "signaling-in",
+          "type": "peerPrepare",
+          "epoch": 1
+        },
+        {
+          "ms": 166,
+          "kind": "signaling-out",
+          "type": "peerAck",
+          "epoch": 1,
+          "signal": null
+        },
+        {
+          "ms": 167,
+          "kind": "room",
+          "epoch": 1,
+          "status": "preparing"
+        },
+        {
+          "ms": 168,
+          "kind": "room",
+          "epoch": 1,
+          "status": "preparing"
+        },
+        {
+          "ms": 189,
+          "kind": "signaling-in",
+          "type": "peerStart",
+          "epoch": 1
+        },
+        {
+          "ms": 189,
+          "kind": "room",
+          "epoch": 1,
+          "status": "connecting"
+        },
+        {
+          "ms": 20429,
+          "kind": "signaling-in",
+          "type": "peerStop",
+          "epoch": null
+        },
+        {
+          "ms": 20431,
+          "kind": "room",
+          "epoch": 1,
+          "status": "failed"
+        },
+        {
+          "ms": 20777,
+          "kind": "signaling-out",
+          "type": "peerRetry",
+          "epoch": 1,
+          "signal": null
+        },
+        {
+          "ms": 20792,
+          "kind": "signaling-in",
+          "type": "peerStop",
+          "epoch": null
+        },
+        {
+          "ms": 20793,
+          "kind": "signaling-in",
+          "type": "peerPrepare",
+          "epoch": 2
+        },
+        {
+          "ms": 20794,
+          "kind": "signaling-out",
+          "type": "peerAck",
+          "epoch": 2,
+          "signal": null
+        },
+        {
+          "ms": 20795,
+          "kind": "room",
+          "epoch": 2,
+          "status": "preparing"
+        },
+        {
+          "ms": 20795,
+          "kind": "room",
+          "epoch": 2,
+          "status": "preparing"
+        },
+        {
+          "ms": 20796,
+          "kind": "signaling-in",
+          "type": "peerStart",
+          "epoch": 2
+        },
+        {
+          "ms": 20798,
+          "kind": "room",
+          "epoch": 2,
+          "status": "connecting"
+        },
+        {
+          "ms": 20800,
+          "kind": "signaling-in",
+          "type": "peerSignal",
+          "epoch": 2
+        },
+        {
+          "ms": 20802,
+          "kind": "signaling-out",
+          "type": "peerSignal",
+          "epoch": 2,
+          "signal": "description"
+        },
+        {
+          "ms": 20802,
+          "kind": "signaling-in",
+          "type": "peerSignal",
+          "epoch": 2
+        },
+        {
+          "ms": 20803,
+          "kind": "signaling-out",
+          "type": "peerSignal",
+          "epoch": 2,
+          "signal": "candidate"
+        },
+        {
+          "ms": 20811,
+          "kind": "channel-observed",
+          "id": 1,
+          "state": "open"
+        },
+        {
+          "ms": 20811,
+          "kind": "channel-open",
+          "id": 1,
+          "state": "open"
+        },
+        {
+          "ms": 20811,
+          "kind": "channel-send",
+          "id": 1,
+          "type": "transportProbe",
+          "state": "open",
+          "buffered": 0
+        },
+        {
+          "ms": 20811,
+          "kind": "channel-send-return",
+          "id": 1,
+          "type": "transportProbe",
+          "state": "open",
+          "buffered": 72
+        },
+        {
+          "ms": 20812,
+          "kind": "channel-receive",
+          "id": 1,
+          "type": "transportProbe"
+        },
+        {
+          "ms": 20812,
+          "kind": "channel-send",
+          "id": 1,
+          "type": "transportReply",
+          "state": "open",
+          "buffered": 0
+        },
+        {
+          "ms": 20812,
+          "kind": "channel-send-return",
+          "id": 1,
+          "type": "transportReply",
+          "state": "open",
+          "buffered": 72
+        },
+        {
+          "ms": 41444,
+          "kind": "signaling-in",
+          "type": "peerStop",
+          "epoch": null
+        },
+        {
+          "ms": 41445,
+          "kind": "channel-close",
+          "id": 1,
+          "state": "closed"
+        },
+        {
+          "ms": 41446,
+          "kind": "room",
+          "epoch": 2,
+          "status": "failed"
+        }
+      ],
+      "transport": [
+        {
+          "state": "closed",
+          "sctp": null,
+          "samples": [
+            [],
+            [],
+            [],
+            [],
+            []
+          ]
+        },
+        {
+          "state": "closed",
+          "sctp": "closed",
+          "samples": [
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1213,
+                "bytesReceived": 1271
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1213,
+                "bytesReceived": 1271
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1213,
+                "bytesReceived": 1271
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1213,
+                "bytesReceived": 1271
+              }
+            ],
+            [
+              {
+                "type": "data-channel",
+                "state": "open",
+                "messagesSent": 1,
+                "messagesReceived": 1
+              },
+              {
+                "type": "transport",
+                "dtls": "connected",
+                "ice": "connected",
+                "bytesSent": 1213,
+                "bytesReceived": 1271
+              }
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "turn_error_codes": {
+    "401": 18
+  },
+  "source": {
+    "productionHead": "7cdcaaa657d763d1ad8bd643647b00d7ae173433",
+    "diagnosticChanges": "Added bounded send-return/error/bufferedAmount and explicit suppression state; no production edit.",
+    "browser": "Chromium 145.0.7632.6",
+    "stage": "Retry after actual connection deadline",
+    "result": "Unexpected timeout; stopped run.",
+    "cause": "Native send loss observed; exact internal race remains source-backed inference."
+  }
+}
