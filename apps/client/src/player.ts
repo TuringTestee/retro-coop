@@ -179,6 +179,7 @@ export class LocalPlayer {
  // As in the qualified D02 scheduler, wall time sets an absolute target. Input
  // waits retain debt; each worker request still commits exactly one known frame.
  private pumpGame = () => {
+  clearTimeout(this.gameTimer);
   if(!this.game||this.disposed)return;
   this.gameTimer=setTimeout(this.pumpGame,2);
   if(!this.active||!this.state.running)return;
@@ -289,6 +290,7 @@ export class LocalPlayer {
      this.publish({frames:this.state.frames+1,rewind:data.rewind});
      if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();
+     else if(this.game)this.pumpGame();
     }
    };
    this.send(worker,{type:'load',rom},[rom]);
