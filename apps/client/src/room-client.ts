@@ -31,7 +31,7 @@ export class RoomClient {
  private socket?:WebSocket;
  private policy:ConnectionPolicy='standard';
  private game=new GameClient(()=>this.player(),command=>this.request(command),gameplay=>this.publish({gameplay}));
- private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,media:this.voice,ready:(channel,epoch)=>this.game.ready(channel,epoch),closed:epoch=>this.game.closed(epoch)});
+ private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,media:this.voice,ready:(channel,epoch,roundTripMs)=>this.game.ready(channel,epoch,roundTripMs),closed:epoch=>this.game.closed(epoch)});
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;

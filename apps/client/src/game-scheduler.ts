@@ -1,4 +1,10 @@
 import {gameplayLimits,type GamePacket} from '../../../packages/contracts/src/gameplay.ts';
+/** Keep the fixed proposal within the approved bounds; reserve two frames beyond
+ * the observed transport round trip so uneven worker progress has input headroom. */
+export function proposeInputDelay(roundTripMs:number,fps:number) {
+ if(!Number.isFinite(roundTripMs)||roundTripMs<0||!Number.isFinite(fps)||fps<=0)return gameplayLimits.delayDefault;
+ return Math.min(gameplayLimits.delayMax,Math.max(gameplayLimits.delayDefault,Math.ceil(roundTripMs*fps/1000)+2));
+}
 /** Deterministic frame admission. Missing input never predicts or advances a frame. */
 export class GameScheduler {
  private local=new Map<number,number>();

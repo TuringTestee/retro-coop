@@ -38,6 +38,7 @@ export class LocalPlayer {
   });
  }
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
+ frameRate(){return this.fps;}
  async holdForGame() {if(!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game and reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
  startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game with a connected controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}

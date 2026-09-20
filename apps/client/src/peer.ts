@@ -3,7 +3,7 @@ import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type Pee
 import {connectionRoute} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type PeerMedia={prepare(pc:RTCPeerConnection,role:RoomRole):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
-export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
+export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
 export type ConnectionState={status:string;route?:'direct'|'relay';epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
 export class PeerConnection {
@@ -61,28 +61,28 @@ export class PeerConnection {
  private wire(channel:RTCDataChannel,epoch:string) {
   if(this.channel || channel.label!=='retro-coop-control') {channel.close();this.fail(epoch);return;}
   this.channel=channel;
-  const nonce=crypto.randomUUID();let verified=false,replied=false,announced=false;
-  const complete=()=>{if(verified && replied && !announced) {announced=true;void this.connected(epoch,channel);}};
+  const nonce=crypto.randomUUID();let verified=false,replied=false,announced=false,probeAt=0,roundTripMs=0;
+  const complete=()=>{if(verified && replied && !announced) {announced=true;void this.connected(epoch,channel,roundTripMs);}};
   // Remote channels can announce open before their native send path is ready.
   // The host initiates; an inbound probe proves the guest can send its own challenge.
-  const probe=()=>channel.send(JSON.stringify({type:'transportProbe',nonce}));
+  const probe=()=>{probeAt=performance.now();channel.send(JSON.stringify({type:'transportProbe',nonce}));};
   channel.onopen=()=>{if(this.epoch===epoch && this.role==='host') probe();};
   channel.onmessage=({data})=>{
    if(this.epoch!==epoch || typeof data!=='string' || data.length>256) {this.fail(epoch);return;}
    let message;try {message=JSON.parse(data);}catch {this.fail(epoch);return;}
    if(message.type==='transportProbe' && !replied && typeof message.nonce==='string' && message.nonce.length===36) {replied=true;if(this.role==='guest') probe();channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));complete();}
-   else if(message.type==='transportReply' && message.nonce===nonce && !verified) {verified=true;complete();}
+   else if(message.type==='transportReply' && message.nonce===nonce && !verified) {roundTripMs=performance.now()-probeAt;verified=true;complete();}
    else this.fail(epoch);
   };
   channel.onclose=()=>{if(this.epoch===epoch) this.fail(epoch);};channel.onerror=()=>this.fail(epoch);
  }
- private async connected(epoch:string,channel:RTCDataChannel) {
+ private async connected(epoch:string,channel:RTCDataChannel,roundTripMs:number) {
   clearTimeout(this.timer);
   try {
    const stats=await this.pc!.getStats();if(this.epoch!==epoch) return;
    const route=connectionRoute(stats);
    this.update({status:'Peer transport connected.',route,epoch});
-   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',route,epoch};this.options.media?.connected();this.options.ready?.(channel,epoch);}
+   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',route,epoch};this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);}
   }catch {this.fail(epoch);}
  }
 }

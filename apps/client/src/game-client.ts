@@ -1,13 +1,13 @@
 import {gameplayLimits,parseGamePacket,type GameCommand,type GameEvent,type GamePacket,type GameReason} from '../../../packages/contracts/src/gameplay.ts';
 import {matchesFile,type Fingerprint,type RoomView} from '../../../packages/contracts/src/rooms.ts';
 import type {LocalPlayer} from './player.ts';
-import {GameScheduler} from './game-scheduler.ts';
+import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
 export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean};
 /** Coordinates one installed peer receiver, one worker and one acknowledged timeline. */
 export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private renew=false;
- private channel?:RTCDataChannel;private peerEpoch?:string;private inspect?:string;
+ private roundTripMs=0;private channel?:RTCDataChannel;private peerEpoch?:string;private inspect?:string;
  private scheduler?:GameScheduler;private prepared?:{epoch:string;delay:number};private early:GamePacket[]=[];
  private serial=0;private offeringSerial?:number;private offered?:string;private controlled=false;
  private fence?:number;private awaitingFence=false;private pausedSent=false;private hashing=false;private missingSince=0;
@@ -27,7 +27,8 @@ export class GameClient {
  cancelIntent(){if(!this.room?.established){this.intent=false;++this.serial;this.offered=undefined;}}
  retry(){void this.renewOffer();}
  retryConnection(){this.renew=true;}
- ready(channel:RTCDataChannel,epoch:string){
+ ready(channel:RTCDataChannel,epoch:string,roundTripMs=0){
+  this.roundTripMs=roundTripMs;
   this.channel=channel;this.peerEpoch=epoch;if(this.renew){this.intent=true;this.renew=false;}
   channel.onmessage=({data})=>{if(this.channel===channel&&this.peerEpoch===epoch)this.receive(data);};
   if(this.inspect===epoch){this.inspect=undefined;void this.offer();}else void this.offerGuest();
@@ -46,7 +47,7 @@ export class GameClient {
   this.publish({busy:true,status:'Checking the committed machine state…'});
   try{
    const info=await player.holdForGame();if(serial!==this.serial||!this.eligible())return;
-   await this.send({type:'gameReady',peerEpoch,...info,delay:gameplayLimits.delayDefault});
+   await this.send({type:'gameReady',peerEpoch,...info,delay:proposeInputDelay(this.roundTripMs,player.frameRate())});
    if(serial!==this.serial)return;
    this.publish({busy:false,status:room.established?'Ready to resume. Waiting for the host and other player.':'Waiting for the matching initial-state barrier…'});
   }catch(error){if(serial===this.serial)this.clear(error instanceof Error?error.message:'Shared game could not prepare.',!room.established);}
