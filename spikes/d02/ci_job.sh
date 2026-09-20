@@ -27,6 +27,7 @@ cd spikes/d02
 python3 ci_resources.py resources-before.local.json
 trap 'python3 ci_resources.py resources-after.local.json' EXIT
 if [ "$D02_JOB" = core ]; then
+  (cd ../.. && npm ci)
   python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
   D02_HTTP_PID=$!
   trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
@@ -34,6 +35,7 @@ if [ "$D02_JOB" = core ]; then
   python3 verify_results.py browser-ci.local.json
   timeout --foreground 60s python3 demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
+  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
 elif [ "$D02_JOB" = network ]; then
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
   cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json

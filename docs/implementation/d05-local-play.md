@@ -4,6 +4,8 @@ Audience: Agent
 
 The application now starts a local NES game after one picker or drop action. It generates neutral guest/session names, keeps file bytes in the browser, and preserves the previous game when another selection fails or is cancelled. Online rooms and persistent saves remain later issues.
 
+This records the D05 checkpoint. The subsequent [D08 room guide](d08-rooms.md) describes the current coordinator and hosting flow.
+
 ## Run and verify
 
 Use the README's pinned tools, then `npm ci`, `sh scripts/foundation/prepare.sh`, and `npm run dev`. Open the printed local URL and choose an uncompressed NES cartridge. Arrow keys move, X/Z map to A/B, Enter is Start, Shift is Select; a standard gamepad works while the screen has focus. Game output starts muted; Unmute affects only the application's gain. Window blur/background pauses play. Resume continues the existing worker rather than restarting progress.

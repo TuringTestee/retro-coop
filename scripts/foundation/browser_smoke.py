@@ -39,8 +39,8 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         def select(data=rom, name='unknown-private-title.nes'):
             page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
         def running():
-            page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Playing locally')")
-            page.wait_for_function("Number(document.querySelector('output').textContent.split(' ')[0])>10")
+            page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
+            page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         def fingerprint():
             return page.locator('[data-testid=fingerprint]').inner_text()
         # A single keyboard-accessible picker action goes directly to playable frames.
@@ -56,21 +56,21 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         page.wait_for_function("before=>document.querySelector('canvas').toDataURL()!==before", arg=before)
         page.keyboard.up('ArrowRight')
         page.screenshot(path=str(output.with_suffix('.after.png')), full_page=True)
-        page.locator('summary').click()
+        page.locator('.panel summary').click()
         assert hashlib.sha256(rom).hexdigest() in fingerprint()
         wasm = (root / 'apps/client/dist/generated/retro_coop_d02.wasm').read_bytes()
         assert hashlib.sha256(wasm).hexdigest() in fingerprint()
         assert 'unknown-private-title' not in page.locator('body').inner_text()
-        neutral_title = page.locator('h2').inner_text()
+        neutral_title = page.locator('#player-title').inner_text()
         # Invalid file and invalid hardware leave the valid cartridge and its progress intact.
         old_hash = hashlib.sha256(rom).hexdigest()
         select(b'not a ROM')
-        page.wait_for_function("document.querySelector('[role=status]').textContent.includes('not an NES')")
+        page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('not an NES')")
         assert old_hash in fingerprint()
         broken = bytearray(rom); broken[6] = 240; broken[7] = 240
         select(broken)
-        page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Unable to load:')")
-        assert old_hash in fingerprint() and page.locator('h2').inner_text() == neutral_title
+        page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Unable to load:')")
+        assert old_hash in fingerprint() and page.locator('#player-title').inner_text() == neutral_title
         assert page.get_by_role('button',name='Pause',exact=True).is_enabled()
         # Chooser dismissal is a no-op, rather than a reload or loss of progress.
         page.set_input_files('input[type=file]', [])
@@ -80,7 +80,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
             held = []
             page.route('**/retro_coop_d02.wasm', lambda route: held.append(route))
             select()
-            page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Starting your game')")
+            page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Starting your game')")
             page.wait_for_timeout(100)
             assert len(held) == 1
             if cancel == 'button':
@@ -143,7 +143,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
           AudioContext.prototype.resume=function(){return denySound ? Promise.reject(new Error('denied')) : resume.call(this)};''')
         audio_page.goto(f'http://127.0.0.1:{server.server_port}/')
         audio_page.set_input_files('input[type=file]', {'name':'audio-check.nes','mimeType':'application/octet-stream','buffer':rom})
-        audio_page.wait_for_function("Number(document.querySelector('output').textContent.split(' ')[0])>10")
+        audio_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         assert audio_page.get_by_role('button',name='Retry sound').is_visible()
         audio_page.evaluate('denySound=false')
         audio_page.get_by_role('button',name='Retry sound').click()

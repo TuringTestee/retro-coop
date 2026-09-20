@@ -1,7 +1,16 @@
 {
-  "name": "retro-coop", "private": true, "type": "module",
-  "packageManager": "npm@11.8.0", "engines": {"node": "24.13.1", "npm": "11.8.0"},
-  "workspaces": ["apps/*", "packages/contracts"],
+  "name": "retro-coop",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.8.0",
+  "engines": {
+    "node": "24.13.1",
+    "npm": "11.8.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/contracts"
+  ],
   "scripts": {
     "dev": "npm run dev -w @retro-coop/client",
     "coordinator": "node apps/coordinator/src/main.ts",
@@ -10,5 +19,9 @@
     "build": "npm run typecheck && npm run build -w @retro-coop/client",
     "build:staging": "npm run typecheck && npm run build:staging -w @retro-coop/client"
   },
-  "devDependencies": {"typescript": "7.0.2", "@types/node": "24.13.6"}
+  "devDependencies": {
+    "@types/node": "24.13.6",
+    "@types/ws": "8.18.1",
+    "typescript": "7.0.2"
+  }
 }

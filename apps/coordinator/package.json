@@ -1,1 +1,1 @@
-{"name":"@retro-coop/coordinator","private":true,"type":"module"}
+{"name":"@retro-coop/coordinator","private":true,"type":"module","dependencies":{"ws":"8.21.3"}}

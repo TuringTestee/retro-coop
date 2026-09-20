@@ -87,6 +87,10 @@ jobs:
         with:
           name: foundation-client
           path: apps/client/dist
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        timeout-minutes: 1
+        with:
+          node-version-file: .node-version
       - name: Full core qualification within the shared deadline
         run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh core
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -99,6 +103,7 @@ jobs:
             spikes/d02/*.local.txt
             spikes/d02/*.local.png
             spikes/d02/foundation.local.*.png
+            spikes/d02/rooms.local.*.png
             spikes/d02/.network-runs/**/*.json
             spikes/d02/.network-runs/**/*.log
           include-hidden-files: true

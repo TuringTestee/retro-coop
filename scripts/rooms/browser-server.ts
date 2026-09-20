@@ -1,0 +1,27 @@
+/** Test-only same-origin static gateway; production proxy provisioning belongs to D24. */
+import {createServer} from 'node:http';
+import {connect} from 'node:net';
+import {readFile} from 'node:fs/promises';
+import {resolve,extname} from 'node:path';
+import {once} from 'node:events';
+import {createCoordinator,shutdown} from '../../apps/coordinator/src/server.ts';
+const root = resolve('apps/client/dist');
+const gateway = createServer(async(request,response)=>{
+ const file = resolve(root,'.'+new URL(request.url!,'http://localhost').pathname.replace(/\/$/,'/index.html'));
+ if(!file.startsWith(root+'/')) {response.writeHead(404).end();return;}
+ try {const bytes = await readFile(file);response.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.wasm':'application/wasm'} as Record<string,string>)[extname(file)] ?? 'application/octet-stream');response.end(bytes);}catch{response.writeHead(404).end();}
+});
+gateway.listen(0,'127.0.0.1');await once(gateway,'listening');
+const url = `http://127.0.0.1:${(gateway.address() as {port:number}).port}`;
+const coordinator = createCoordinator({origins:[url]});coordinator.listen(0,'127.0.0.1');await once(coordinator,'listening');
+const coordinatorPort = (coordinator.address() as {port:number}).port;
+const connections = new Set<ReturnType<typeof connect>>();
+gateway.on('upgrade',(request,socket,head)=>{
+ const upstream = connect(coordinatorPort,'127.0.0.1',()=>{
+  upstream.write(`${request.method} ${request.url} HTTP/1.1\r\n${Object.entries(request.headers).map(([key,value])=>`${key}: ${value}`).join('\r\n')}\r\n\r\n`);
+  if(head.length) upstream.write(head);socket.pipe(upstream);upstream.pipe(socket);
+ });
+ connections.add(upstream);upstream.on('close',()=>{connections.delete(upstream);socket.destroy();});upstream.on('error',()=>socket.destroy());socket.on('error',()=>upstream.destroy());socket.on('close',()=>upstream.destroy());
+});
+console.log(JSON.stringify({url}));
+process.on('SIGTERM',()=>{for(const connection of connections) connection.destroy();gateway.closeAllConnections();gateway.close();void shutdown(coordinator);});

@@ -1,6 +1,6 @@
 import { config, createCoordinator, shutdown } from './server.ts';
 const settings = config(process.env);
-const server = createCoordinator();
+const server = createCoordinator({origins:settings.origins});
 server.on('error', error => { console.error(error.message); process.exitCode = 1; });
 server.listen(settings.port, settings.host, () => console.log(JSON.stringify({ event: 'listening', ...settings, port: (server.address() as {port: number}).port })));
 let stopping = false;
