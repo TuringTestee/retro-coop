@@ -1,6 +1,6 @@
 # Retro Coop
 
-Retro Coop is a browser-local NES multiplayer project in feasibility testing. A playable local demo now runs your ROM with keyboard/gamepad input, sound and a save slot. Online rooms remain in development.
+Retro Coop plays local NES games in your browser, with keyboard/gamepad controls, sound and manual saves. Public and unlisted rooms support text chat and optional voice. Synchronized two-player gameplay is still in development.
 
 ## Play the local demo
 
@@ -14,7 +14,7 @@ Then open **http://127.0.0.1:8765/demo/**. Choose your local NES `.nes` file, pr
 
 ## Application
 
-The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The [room coordinator](docs/implementation/d08-rooms.md) now creates anonymous public/unlisted rooms and reserves guest places. Synchronized gameplay and the public directory remain in development.
+The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The [room coordinator](docs/implementation/d08-rooms.md) now creates anonymous public/unlisted rooms and reserves guest places. The public directory lists available rooms. Members can use text chat and [optional voice](docs/implementation/d17-voice.md) while shared gameplay remains in development. [Manual saves](docs/implementation/d06-slots.md) provide three local slots and validated import/export; battery persistence and rewind are still being built.
 
 ## Start working
 
