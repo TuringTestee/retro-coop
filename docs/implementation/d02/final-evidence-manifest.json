@@ -1,0 +1,19 @@
+{
+  "source_head": "72e2668944bf08558a93c96087631dd2c689d208",
+  "merged_revision": "9d7be0d2f37e9dab06d4821009fdbdadde15dcfb",
+  "ci_run": 34786645763,
+  "ci_wall_seconds": 1096,
+  "files": {
+    "browser-final-ci.json": "73c175de9bc93f3e3ac6d09f3c90227cb099807808bf8ff2f79160dfadde1824",
+    "network-final-ci.json": "256b5c87e42023b5d4f470cba406a2d27fe0399e8029d4333e477df814d2ecb8",
+    "stock-firefox-build.json": "31266907b7ee543abe441d1e11d2695d23af177eefcc630cff049930d5a65c22",
+    "demo-final-ci.json": "3b4c30e115119cf48a3080fd8465f8feabee0dc171d98099e785ec51880206b7",
+    "featured-final-network.json": "8656c915ad23828ed8d2d1f1663c26da33cf7edd7764a251f75194c8dc3644f4",
+    "rewind-frame-boundary.json": "27fbfd847958bf94ad3bdafc6782e1373d19fd9cf36fcb5ca92b0b5c6cb6944f",
+    "rewind-frame-boundary.patch": "f21311be28f6bb7a954e185587b5ec1ff84511df8ec8c227abb749bee6c6866a",
+    "rewind-frame-boundary-probe.txt": "f9884e9d6d8dc4acf4b76ac99a4bc04ccd5687ba3baa37c79f1050d68e464bcc",
+    "rewind-frame-boundary-build.json": "15a41e8cb8f80c66fb17219e4483eea8606f61e73b9cdd07946a430ce135d493",
+    "network-shared-runner-failure.json": "51b1b59190924f6c23fdc77a2607db914394d367418dce94e9e74a181ce30085"
+  },
+  "later_ci_failure_run": 34788043988
+}

@@ -1,0 +1,18 @@
+{
+  "browser_version": "145.0.7632.6",
+  "wall_seconds": 1.7118201239999848,
+  "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+  "manual_input_changes_pixels": true,
+  "pause_freezes_pixels": true,
+  "latest_file_selection_wins": true,
+  "save_restore": true,
+  "invalid_rom_preserves_game": true,
+  "narrow_layout_no_overflow": true,
+  "audio": {
+    "buffers": 17,
+    "peak": 0.06652528047561646,
+    "starts": 17
+  },
+  "page_errors": [],
+  "no_upload_requests": true
+}
