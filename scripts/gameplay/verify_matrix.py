@@ -10,7 +10,9 @@ def verify_matrix(directory):
   require(pair not in observed,'duplicate production browser pair');verify(result,600);observed[pair]=result
  require(set(observed)=={'Chrome-Chrome','Chrome-Firefox','Firefox-Firefox'},'missing production browser pair')
  first=observed['Chrome-Chrome']
+ require(set(first['source'])=={'commit','tree'} and all(len(value)==40 for value in first['source'].values()),'missing source provenance')
  for result in observed.values():
+  require(result['source']==first['source'],'production matrix source mismatch')
   require(result['identity']==first['identity'] and result['build_files']==first['build_files'],'production matrix artifact mismatch')
  # Human input and pause timing can differ across runs. Each pair must agree on
  # every actual epoch/frame hash; D02 separately checks a common scripted replay.
