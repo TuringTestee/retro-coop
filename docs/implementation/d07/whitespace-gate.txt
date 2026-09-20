@@ -1,0 +1,10 @@
+Committed whitespace regression: the new gate rejects the prior candidate; the repair removes only an extra empty line from the raw failure log.
+
+Before repair (exit nonzero):
+docs/implementation/d07/disconnected-before.txt:46: new blank line at EOF.
+
+After repair: full preflight passes; see preflight.txt. Explicit PREFLIGHT_BASE_REF=813bc898b9e376a27d4fdb2acae1fa062ca452ad also passes.
+
+Unavailable base (exit nonzero, no silent bypass):
+fatal: Not a valid object name refs/missing-preflight-base
+Pre-flight needs history for refs/missing-preflight-base; fetch the base/history or set PREFLIGHT_BASE_REF to the available PR base.

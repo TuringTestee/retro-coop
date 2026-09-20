@@ -3,6 +3,12 @@ set -eu
 cd "$(dirname "$0")/.."
 
 # Fast repository and deterministic-codec checks; build dependencies before this bounded gate.
+preflight_base=${PREFLIGHT_BASE_REF:-origin/main}
+if ! preflight_merge_base=$(git merge-base HEAD "$preflight_base"); then
+  echo "Pre-flight needs history for $preflight_base; fetch the base/history or set PREFLIGHT_BASE_REF to the available PR base." >&2
+  exit 1
+fi
+git diff --check "$preflight_merge_base" HEAD
 git diff --check
 git diff --cached --check
 sh -n scripts/preflight.sh
