@@ -125,7 +125,9 @@ fn validate_mapper(template: &Value, value: &Value) -> Result<Value, String> {
             ] {
                 validation::bound(state, path, 0, max)?;
             }
-            validation::one_of(state, "/mmc1/last_chr_reg", &[0xa000, 0xc000])?;
+            // Upstream dispatches on addr & 0xe000 but retains the raw mirrored
+            // CHR address. Preserve it: board mapping reads this field directly.
+            validation::bound(state, "/mmc1/last_chr_reg", 0xa000, 0xdfff)?;
             if ![
                 json!("SingleScreenA"), json!("SingleScreenB"),
                 json!("Horizontal"), json!("Vertical"),
@@ -262,6 +264,41 @@ mod tests {
                 assert_eq!(video, deck.frame_buffer_raw());
                 // Both restores start a fresh presentation synth/filter history.
                 assert_eq!(expected, repeated);
+            }
+        }
+    }
+    #[test]
+    fn real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs() {
+        for address in [0xa000u16, 0xa001, 0xbfff, 0xc000, 0xc001, 0xdfff] {
+            let (mut rom, _) = cartridge(1, NesRegion::Ntsc);
+            let mut program = vec![0x78, 0xa9, 0]; // SEI; LDA #0
+            for _ in 0..5 {
+                program.extend([0x8d, address as u8, (address >> 8) as u8, 0xea, 0xea]);
+            }
+            program.extend([0x4c, 0x1c, 0x80]); // Stay after the completed serial write.
+            rom[16..16 + program.len()].copy_from_slice(&program);
+            let mut deck = crate::test_support::load(&rom, NesRegion::Ntsc);
+            let early = codec(&rom, &deck);
+            let _ = deck.clock_frame().unwrap();
+            let mapper = serde_json::to_value(&deck.bus().mapper).unwrap();
+            assert_eq!(mapper["Sxrom"]["mmc1"]["last_chr_reg"], address);
+            let lazy = codec(&rom, &deck);
+            let bytes = early.export(&deck).unwrap();
+            assert_eq!(bytes, lazy.export(&deck).unwrap());
+            let saved = canonical(&deck);
+            let pages = deck.bus().memory.chr_pages().to_vec();
+            let mut twin = crate::test_support::load(&rom, NesRegion::Ntsc);
+            early.restore(&mut twin, &bytes).unwrap();
+            lazy.restore(&mut deck, &bytes).unwrap();
+            assert_eq!(saved, canonical(&deck));
+            assert_eq!(saved, canonical(&twin));
+            assert_eq!(pages, twin.bus().memory.chr_pages());
+            for _ in 0..3 {
+                let _ = deck.clock_frame().unwrap();
+                let _ = twin.clock_frame().unwrap();
+                assert_eq!(canonical(&deck), canonical(&twin));
+                assert_eq!(deck.frame_buffer_raw(), twin.frame_buffer_raw());
+                assert_eq!(deck.audio_samples(), twin.audio_samples());
             }
         }
     }
@@ -444,6 +481,8 @@ mod tests {
             ("/hardware/cpu/pc", json!(65536)),
             ("/hardware/cpu/addr_mode", json!("Unexpected")),
             ("/mapper/Sxrom/mmc1/shift_count", json!(5)),
+            ("/mapper/Sxrom/mmc1/last_chr_reg", json!(0x9fff)),
+            ("/mapper/Sxrom/mmc1/last_chr_reg", json!(0xe000)),
             ("/mapper/Sxrom/mmc1/chr0", json!(32)),
             ("/mapper/Sxrom/mmc1/revision", json!("A")),
             ("/mapper/Sxrom/submapper_num", json!(255)),

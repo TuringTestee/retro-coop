@@ -144,13 +144,6 @@ pub unsafe extern "C" fn local_bind_core(ptr: *mut u8, len: usize) -> u32 {
         Ok(())
     }))
 }
-/// Compatibility alias for the original battery-only worker ABI.
-/// # Safety
-/// Same allocation ownership requirements as local_bind_core.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn local_battery_bind(ptr: *mut u8, len: usize) -> u32 {
-    unsafe { local_bind_core(ptr, len) }
-}
 #[unsafe(no_mangle)]
 pub extern "C" fn local_battery_export() -> u32 {
     result(PLAYER.with_borrow(|slot| {
@@ -294,11 +287,11 @@ mod tests {
         assert_eq!(local_battery_export(), 0, "must bind actual core first");
         unsafe {
             let ptr = local_battery_alloc(31);
-            assert_eq!(local_battery_bind(ptr, 31), 0);
+            assert_eq!(local_bind_core(ptr, 31), 0);
             let ptr = local_battery_alloc(32);
-            assert_eq!(local_battery_bind(ptr, 32), 1);
+            assert_eq!(local_bind_core(ptr, 32), 1);
             let ptr = local_battery_alloc(32);
-            assert_eq!(local_battery_bind(ptr, 32), 0, "cannot rebind identity");
+            assert_eq!(local_bind_core(ptr, 32), 0, "cannot rebind identity");
         }
         assert_eq!(local_battery_export(), 1);
         let bytes = OUTPUT.with_borrow(Clone::clone);

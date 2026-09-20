@@ -9,6 +9,29 @@ def verify_state(browser,url,rom,worker_path):
     variant[16+16384:16+16384]=rom[16:16+16384]
     variant[6]=0x12
     result=page.evaluate('''({rom,workerPath})=>runWorkerProbe(workerPath,async ({ensure,digest,equal,create,ask})=>{
+      // Execute genuine CPU stores through both mirrored MMC1 CHR windows.
+      // A rejected import prepares one codec before those writes; the other is lazy.
+      const mirroredAddresses=[0xa001,0xbfff,0xc001,0xdfff];
+      for(const address of mirroredAddresses) {
+        const mirrored=new Uint8Array(rom),program=[0x78,0xa9,0];
+        for(let i=0;i<5;i++)program.push(0x8d,address&255,address>>8,0xea,0xea);
+        program.push(0x4c,0x1c,0x80);mirrored.set(program,16);
+        const early=create(),lazy=create();
+        for(const target of [early,lazy])ensure((await ask(target,{type:'load',rom:mirrored.buffer})).type==='ready','mirrored ROM load');
+        ensure((await ask(early,{type:'state-import',requestId:40,bytes:new ArrayBuffer(1)})).type==='state-error','early codec preparation rejects malformed import');
+        for(const target of [early,lazy])ensure((await ask(target,{type:'frame',p1:0,p2:0})).type==='frame','mirrored CPU program');
+        const a=await ask(early,{type:'state-export',requestId:41}),b=await ask(lazy,{type:'state-export',requestId:42});
+        ensure(a.type==='state-exported' && b.type==='state-exported','mirrored export '+address+': '+(a.message||b.message));
+        ensure(equal(new Uint8Array(a.bytes),new Uint8Array(b.bytes)),'early and lazy codecs differ');
+        const state=JSON.parse(new TextDecoder().decode(new Uint8Array(a.bytes).slice(72)));
+        ensure(state.mapper.Sxrom.mmc1.last_chr_reg===address,'mirrored address must remain exact');
+        for(const target of [early,lazy])ensure((await ask(target,{type:'state-import',requestId:43,bytes:a.bytes})).type==='state-imported','mirrored import');
+        for(let i=0;i<3;i++) {
+          const a=await ask(early,{type:'frame',p1:0,p2:0}),b=await ask(lazy,{type:'frame',p1:0,p2:0});
+          ensure(a.type==='frame' && b.type==='frame' && equal(new Uint8Array(a.pixels),new Uint8Array(b.pixels)) && equal(new Uint8Array(a.audio),new Uint8Array(b.audio)),'mirrored replay');
+        }
+        early.terminate();lazy.terminate();
+      }
       const worker=create(),other=create();
       for(const target of [worker,other]) ensure((await ask(target,{type:'load',rom:new Uint8Array(rom).buffer})).type==='ready','load');
       const frame={type:'frame',p1:64,p2:0};
@@ -68,6 +91,6 @@ def verify_state(browser,url,rom,worker_path):
       ensure(unsupported.type==='state-error' && unsupported.message.includes('not yet validated'),'clear profile error');
       ensure((await ask(unvalidated,frame)).type==='frame','profile error must not stop play');
       ensure((await ask(unvalidated,{type:'battery-export',requestId:9})).type==='battery-exported','profile error must not block battery');
-      return {bytes:bytes.length,core_owned_limit:cap,matching_identity_across_first_export_and_import:true,restored_video_and_fresh_epoch_pcm_match:true,malformed_cases:malformed.length,live_state_bytes_unchanged_on_failure:true,oversized_rejected_before_wasm_allocation:true,rom_mismatch_rejected:true,unvalidated_profile_keeps_play_and_battery:true,no_audio_presented:true};
+      return {mirrored_cpu_addresses:mirroredAddresses,mirrored_early_and_lazy_export_import_replay:true,bytes:bytes.length,core_owned_limit:cap,matching_identity_across_first_export_and_import:true,restored_video_and_fresh_epoch_pcm_match:true,malformed_cases:malformed.length,live_state_bytes_unchanged_on_failure:true,oversized_rejected_before_wasm_allocation:true,rom_mismatch_rejected:true,unvalidated_profile_keeps_play_and_battery:true,no_audio_presented:true};
     })''',{'rom':list(variant),'workerPath':worker_path})
     return finish_worker_probe(page,requests,url,result)
