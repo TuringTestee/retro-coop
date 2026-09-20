@@ -58,10 +58,18 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         def fingerprint():
             return page.locator('[data-testid=fingerprint]').inner_text()
         # A single keyboard-accessible picker action goes directly to playable frames.
-        picker_result = {'browser':browser.version,'channel':'chrome' if args.chrome else 'default-headless-shell'}
+        picker_result = {'browser':browser.version,'channel':'chrome' if args.chrome else 'default-headless-shell','protocolEvents':[]}
+        # Python's listener subscription is sent without awaiting its protocol reply.
+        # Confirm native-dialog interception before the one user action; keep testing
+        # Enter -> real file chooser -> chosen file, never a direct-selection fallback.
+        picker_protocol = page.context.new_cdp_session(page)
+        picker_protocol.on('Page.fileChooserOpened', lambda event: picker_result['protocolEvents'].append(event))
+        picker_protocol.send('Page.enable', {'enableFileChooserOpenedEvent':True})
         try:
             page.get_by_role('button',name='Choose NES file',exact=True).focus()
             with page.expect_file_chooser() as chooser:
+                picker_protocol.send('Page.setInterceptFileChooserDialog', {'enabled':True})
+                picker_result['interceptionAcknowledged'] = True
                 page.keyboard.press('Enter')
             picker_result['outcome'] = 'chooser received'
         except Exception as error:
@@ -78,6 +86,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
             except Exception as diagnostic_error:
                 picker_result['diagnosticError'] = str(diagnostic_error)
             output.with_name('picker-'+output.name).write_text(json.dumps(picker_result,indent=2)+'\n')
+            picker_protocol.detach()
         chooser.value.set_files({'name':'unknown-private-title.nes','mimeType':'application/octet-stream','buffer':rom})
         running()
         page.wait_for_function('proof.starts>3 && proof.peak>0')

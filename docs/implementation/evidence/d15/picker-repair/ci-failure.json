@@ -1,0 +1,91 @@
+{
+  "browser": "145.0.7632.6",
+  "channel": "default-headless-shell",
+  "outcome": "Timeout 30000ms exceeded while waiting for event \"filechooser\"\n=========================== logs ===========================\nwaiting for event \"filechooser\"\n============================================================",
+  "pageErrors": [],
+  "events": {
+    "events": [
+      {
+        "type": "focusin",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 315.30000000004657
+      },
+      {
+        "type": "keydown",
+        "key": "Enter",
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 322.9000000000233
+      },
+      {
+        "type": "click",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 323.5999999999767
+      },
+      {
+        "type": "click",
+        "key": null,
+        "prevented": false,
+        "target": {
+          "tag": "INPUT",
+          "label": "NES cartridge file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 324
+      },
+      {
+        "type": "keyup",
+        "key": "Enter",
+        "prevented": false,
+        "target": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "active": {
+          "tag": "BUTTON",
+          "label": "Choose NES file"
+        },
+        "activation": true,
+        "time": 325.0999999999767
+      }
+    ],
+    "active": {
+      "tag": "BUTTON",
+      "label": "Choose NES file"
+    },
+    "focused": true,
+    "activation": true
+  }
+}
