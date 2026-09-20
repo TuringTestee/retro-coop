@@ -1,4 +1,5 @@
 import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
+import {connectionRoute} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type PeerMedia={prepare(pc:RTCPeerConnection,role:'host'|'guest'):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
 export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
@@ -66,8 +67,7 @@ export class PeerConnection {
   clearTimeout(this.timer);
   try {
    const stats=await this.pc!.getStats();if(this.epoch!==epoch) return;
-   let route:'direct'|'relay'='direct';
-   stats.forEach(report=>{if(report.type==='transport' && report.selectedCandidatePairId) {const pair=stats.get(report.selectedCandidatePairId);if(stats.get(pair?.localCandidateId)?.candidateType==='relay' || stats.get(pair?.remoteCandidateId)?.candidateType==='relay') route='relay';}});
+   const route=connectionRoute(stats);
    this.update({status:'Peer transport connected. Shared gameplay is not available yet.',route,epoch});
    await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.options.media?.connected();this.options.ready?.(channel,epoch);}
   }catch {this.fail(epoch);}
