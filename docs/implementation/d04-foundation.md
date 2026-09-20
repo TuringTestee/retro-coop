@@ -4,6 +4,8 @@ Audience: Agent
 
 Retro Coop now has a React browser client and a small Node coordinator. The client runs the existing emulator in a worker using an original diagnostic cartridge; the coordinator reports health and shuts down cleanly. This is the D04 foundation, not completed local-play or room functionality.
 
+This document records the D04 checkpoint. For the current file-picker application, follow the [D05 local-player guide](d05-local-play.md); the diagnostic-only UI below is historical.
+
 ## Setup and commands
 
 Use Node **24.13.1**, npm **11.8.0**, and the Rust **1.95.0** toolchain with `wasm32-unknown-unknown` from the README. Each worktree owns its build outputs. From the repository root:

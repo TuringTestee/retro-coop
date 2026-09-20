@@ -1,68 +1,34 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import type { WorkerRequest, WorkerResponse } from '../../../packages/contracts/src/index.ts';
-import { keyMap, gamepadMask } from '../../../spikes/d02/demo/runtime/input.js';
-import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
-import './style.css';
+import { LocalPlayer, type PlayerState } from './player.ts';
+import { neutralDefaults } from './cartridge.ts';
 import { clientConfig } from './config.ts';
+import './style.css';
 
 function App() {
- const canvas = useRef<HTMLCanvasElement>(null);
- const runtime = useRef<{pause():void; dispose():void} | null>(null);
- const [status,setStatus] = useState('Ready to test local emulation.');
- const [running,setRunning] = useState(false);
- const [frames,setFrames] = useState(0);
- const [muted,setMuted] = useState(true);
- const gain = useRef<GainNode | null>(null);
- useEffect(() => () => runtime.current?.dispose(), []);
- async function start() {
-  runtime.current?.dispose(); setRunning(true); setFrames(0); setStatus('Loading the original diagnostic…');
-  const worker = new Worker(new URL('./worker.ts',import.meta.url), {type:'module'});
-  const context = new AudioContext(); const output = context.createGain(); output.gain.value = muted ? 0 : 1; output.connect(context.destination); gain.current = output;
-  const audio = createAudioQueue(() => context, () => true, () => output);
-  let disposed = false, ready = false, initialized = false, paused = false, busy = false, keys = 0, count = 0, fps = 60, last = 0, animation = 0;
-  const send = (message: WorkerRequest, transfer: Transferable[] = []) => worker.postMessage(message, transfer);
-  const pause = () => { paused = true; ready = false; keys = 0; audio.flush(); if(initialized) send({type:'pause'}); setRunning(false); };
-  const down = (event: KeyboardEvent) => { const bit = keyMap[event.code as keyof typeof keyMap]; if (bit && document.activeElement === canvas.current) { event.preventDefault(); keys |= bit; } };
-  const up = (event: KeyboardEvent) => { keys &= ~(keyMap[event.code as keyof typeof keyMap] ?? 0); };
-  const blur = () => { keys = 0; };
-  const hidden = () => { if (document.hidden) pause(); };
-  window.addEventListener('keydown',down); window.addEventListener('keyup',up); window.addEventListener('blur',pause);
-  canvas.current?.addEventListener('blur',blur); document.addEventListener('visibilitychange',hidden);
-  runtime.current = {pause,dispose() { disposed = true; worker.terminate(); cancelAnimationFrame(animation); audio.flush(); void context.close(); window.removeEventListener('keydown',down); window.removeEventListener('keyup',up); window.removeEventListener('blur',pause); canvas.current?.removeEventListener('blur',blur); document.removeEventListener('visibilitychange',hidden); }};
-  function tick(now:number) {
-   animation = requestAnimationFrame(tick);
-   if (!ready || busy || now-last < 1000/fps) return;
-   last = now-(now-last)%(1000/fps); busy = true;
-   send({type:'frame',p1:keys | gamepadMask([...navigator.getGamepads()].find(Boolean)),p2:0});
-  }
-  worker.onmessage = ({data}: MessageEvent<WorkerResponse>) => {
-   if (disposed) return;
-   if (data.type === 'ready') { initialized = true; fps = data.fps; if(paused) send({type:'pause'}); else { ready = true; setStatus('Diagnostic running locally'); canvas.current?.focus(); } }
-   else if (data.type === 'frame') {
-    busy = false; canvas.current?.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
-    if (ready) audio.play(data.audio); setFrames(++count);
-   } else if (data.type === 'paused') setStatus('Paused. Run diagnostic to restart.');
-   else { ready = false; setRunning(false); audio.flush(); setStatus(data.message); }
-  };
-  worker.onerror = () => { ready = false; setRunning(false); audio.flush(); setStatus('Emulator stopped. Run diagnostic to retry.'); };
-  try {
-   await context.resume();
-   const response = await fetch('/generated/diagnostic.nes');
-   if (!response.ok) throw Error('Prepare the diagnostic assets before running.');
-   const rom = await response.arrayBuffer();
-   if (disposed) return; send({type:'load',rom},[rom]); animation = requestAnimationFrame(tick);
-  } catch (error) { if (!disposed) { setStatus(error instanceof Error ? error.message : 'Unable to start'); setRunning(false); runtime.current?.dispose(); } }
- }
+ const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
+ const runtime = useRef<LocalPlayer | null>(null);
+ const [identity] = useState(neutralDefaults);
+ const [state,setState] = useState<PlayerState>({status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0});
+ const [muted,setMuted] = useState(true), [drag,setDrag] = useState(false);
+ useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
+ const choose = () => { picker.current!.value = ''; picker.current!.click(); };
  return <main data-coordinator={clientConfig.coordinatorUrl}>
-  <header><a href="/" className="brand">RETRO COOP</a><span>Local foundation</span></header>
-  <section className="intro"><p className="eyebrow">A place to play together</p><h1>Classic games.<br/>Shared moments.</h1><p>We’re building browser-local NES multiplayer. This early build tests the emulator, controls, and sound.</p></section>
-  <section className="panel" aria-labelledby="diagnostic-title">
-   <div><p className="eyebrow">Development preview</p><h2 id="diagnostic-title">Local diagnostic</h2><p>An original test cartridge checks the player foundation. Online rooms and your game library are coming later.</p>
-   <div className="controls"><button onClick={() => void start()} disabled={running}>Run diagnostic</button><button onClick={() => runtime.current?.pause()} disabled={!running}>Pause</button><button aria-pressed={muted} onClick={() => { const value = !muted; setMuted(value); if(gain.current) gain.current.gain.value = value ? 0 : 1; }}>{muted ? 'Unmute' : 'Mute'}</button></div>
-   <p role="status">{status}</p><p className="hint">Focus the screen. Arrow keys move · X / Z · Enter starts</p><output aria-label="Rendered frames" data-testid="frames">{frames} frames</output></div>
-   <canvas ref={canvas} width="256" height="240" tabIndex={0} aria-label="Local diagnostic screen" />
-  </section><footer>Your game runs in this browser. No account needed.</footer>
+  <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{identity.guest}</span></header>
+  <section className="intro"><p className="eyebrow">Your game. Your browser.</p><h1>Pick a classic.<br/>Press play.</h1><p>Bring an NES cartridge file and jump straight into local play. No account, setup form, or upload.</p></section>
+  <section className={`panel ${drag ? 'drag' : ''}`} aria-labelledby="player-title" onDragOver={event => {event.preventDefault(); setDrag(true);}} onDragLeave={event => {if(!event.currentTarget.contains(event.relatedTarget as Node)) setDrag(false);}} onDrop={event => {event.preventDefault();setDrag(false);if(event.dataTransfer.files.length === 1) void runtime.current?.load(event.dataTransfer.files[0]); else setState(old => ({...old,status:'Choose one NES cartridge at a time.'}));}}>
+   <div><p className="eyebrow">Local play · Player 1</p><h2 id="player-title">{state.loaded ? identity.room : 'Drop your NES game here'}</h2>
+   <p>{state.loaded ? 'A neutral session name, just for this tab. Online rooms are coming next.' : 'Choose a file, or drop it anywhere in this panel. Your file stays on this device.'}</p>
+   <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => void runtime.current?.load(event.target.files?.[0])}/>
+   <div className="controls"><button onClick={choose}>{state.loaded ? 'Choose another file' : 'Choose NES file'}</button>{state.loading && <button onClick={() => runtime.current?.cancel()}>Cancel loading</button>}<button disabled={!state.loaded} onClick={() => state.running ? runtime.current?.pause() : runtime.current?.resume()}>{state.running ? 'Pause' : 'Resume'}</button><button aria-pressed={muted} onClick={() => {const value = !muted;setMuted(value);runtime.current?.setMuted(value);}}>{muted ? 'Unmute' : 'Mute'}</button></div>
+   <p role="status" aria-live="polite">{state.status}</p>
+   <p className="hint">Uncompressed iNES / NES 2.0 cartridges. No title allowlist. Available memory and emulator hardware support determine what can load; archives and disk images cannot.</p>
+   <p className="hint">Experimental compatibility: a loaded game is not a guarantee that every mapper feature works.</p>
+   <details><summary>Controls &amp; local file details</summary><p className="hint">Focus the screen to play. Arrow keys: move · X: A · Z: B · Enter: Start · Shift: Select. Standard gamepad buttons and D-pad work too. Switching windows pauses play.</p>
+   {state.fingerprint && <dl data-testid="fingerprint"><dt>Cartridge</dt><dd>{state.fingerprint.cartridge.format} · mapper {state.fingerprint.cartridge.mapper} / {state.fingerprint.cartridge.submapper} · {state.fingerprint.cartridge.region} · {state.fingerprint.cartridge.bytes} bytes</dd><dt>Exact file SHA-256</dt><dd>{state.fingerprint.romSha256}</dd><dt>Emulator build SHA-256</dt><dd>{state.fingerprint.coreSha256}</dd><dt>Local settings (schema {state.fingerprint.localSchema})</dt><dd>{state.fingerprint.settings}</dd></dl>}</details>
+   <output aria-label="Rendered frames" data-testid="frames">{state.frames} frames</output></div>
+   <div className="screen"><canvas ref={canvas} width="256" height="240" tabIndex={0} aria-label="Local game screen"/>{!state.loaded && <p>YOUR NEXT ADVENTURE<br/><span>starts with a file</span></p>}</div>
+  </section><footer>Your game runs in this browser. Nothing is published or saved to a server.</footer>
  </main>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
