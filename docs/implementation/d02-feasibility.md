@@ -1,3 +1,5 @@
+Audience: Agent
+
 The initial D02 feasibility experiment now supports proceeding with the pinned TetaNES core and NROM prototype. Replay and restore match across the measured browser/OS matrix, checkpoints and rewind fit their limits, and the selected From Below title completed the full impaired two-peer experiment. This permits foundation work after this report is reviewed and integrated; it does not qualify the complete release. Actual timing, audio gaps, hardware limits and historical failures remain below.
 
 # D02 feasibility experiment

@@ -1,3 +1,5 @@
+Audience: Agent
+
 # Browser NES platform delivery plan
 
 Build and test the browser's ability to run the same game in sync before building the full lobby experience. Then connect local play, public discovery, two-player networking, and chat into one tested journey. This plan is revisable; the companion design defines the intended behavior.

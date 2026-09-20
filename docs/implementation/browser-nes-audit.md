@@ -1,3 +1,5 @@
+Audience: Agent
+
 # Journey audit and proposed issue map
 
 This document preserves the original journey audit and issue decomposition. The epic, published child issues and GitHub Project now own live dispatch status. [The two-game catalog amendment](included-games.md) owns current D19 content and UI requirements: Super Tilt Bro first, From Below second, with actual runtime qualification still assigned to D19/D20.
