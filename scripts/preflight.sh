@@ -11,6 +11,8 @@ fi
 git diff --check "$preflight_merge_base" HEAD
 git diff --check
 git diff --cached --check
+python3 scripts/verify_vendor.py
+python3 scripts/foundation/banked_ram_fixture.py all spikes/d02
 sh -n scripts/preflight.sh
 sh -n scripts/demo.sh
 node --check spikes/d02/demo/app.js

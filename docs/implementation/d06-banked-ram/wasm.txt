@@ -1,0 +1,5 @@
+   Compiling tetanes-core v0.17.0 (/tmp/retro-d06-banked-ram/vendor/tetanes-core)
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d06-banked-ram/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 15.21s
+WASM wall seconds: 15.23
+    Finished `release` profile [optimized] target(s) in 0.04s

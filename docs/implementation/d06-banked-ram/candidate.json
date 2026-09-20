@@ -1,0 +1,19 @@
+{
+  "base": "444e6ea95f7365a690b89eef187cc5a6848f1b01",
+  "tested_source": "fb3d4edaa4573e1e0b38597b85a5d929a071a3de",
+  "core_sha256": "5c8bdf0e527aab9e9f74c3163f2dc91cafde27f5ce0e9ec1791a48504f68e557",
+  "browser": "145.0.7632.75",
+  "foundation_seconds": 71.55,
+  "banked_worker_seconds": 40.76,
+  "control_cases": [
+    "banked-controls",
+    "sorom",
+    "single-bank",
+    "large-chr",
+    "mmc1a",
+    "banked-partial",
+    "mirrored",
+    "mirrored-control"
+  ],
+  "regional_peak_bytes": 4403944
+}

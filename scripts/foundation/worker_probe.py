@@ -40,3 +40,38 @@ def finish_worker_probe(page,requests,url,result):
     result['requests']=requests
     page.close()
     return result
+
+
+def run_worker_check(check):
+    """Standalone focused worker check against the built client, with shared CLI/lifecycle."""
+    import argparse
+    import functools
+    import hashlib
+    import http.server
+    import json
+    import threading
+    import time
+    from pathlib import Path
+    from playwright.sync_api import sync_playwright
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--chrome', action='store_true')
+    args = parser.parse_args()
+    dist = Path(__file__).resolve().parents[2] / 'apps/client/dist'
+    started = time.monotonic()
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(dist))
+    with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        with sync_playwright() as p:
+            browser = p.chromium.launch(ignore_default_args=['--mute-audio'], **({'channel': 'chrome'} if args.chrome else {}))
+            try:
+                worker = '/assets/' + next((dist / 'assets').glob('worker-*.js')).name
+                result = check(browser, f'http://127.0.0.1:{server.server_port}/', worker)
+                wasm = next((dist / 'assets').glob('*.wasm'))
+                result.update(browser=browser.version, duration_seconds=round(time.monotonic() - started, 2),
+                              core_sha256=hashlib.sha256(wasm.read_bytes()).hexdigest())
+                args.output.write_text(json.dumps(result, indent=2) + '\n')
+                print(json.dumps(result, indent=2))
+            finally:
+                browser.close()
+        server.shutdown()

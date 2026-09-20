@@ -415,7 +415,6 @@ dependencies = [
 [[package]]
 name = "tetanes-core"
 version = "0.17.0"
-source = "git+https://github.com/lukexor/tetanes.git?rev=a0a6b17f8ba9c5ee451453fb2409753fd06e5a31#a0a6b17f8ba9c5ee451453fb2409753fd06e5a31"
 dependencies = [
  "base64",
  "bincode",
