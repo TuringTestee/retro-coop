@@ -1,4 +1,4 @@
-import {ControllerMode} from './ControllerMode.tsx';
+import {ControllerMode,ControllerOwnership} from './ControllerMode.tsx';
 import type {LocalPlayer} from './player.ts';
 import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceSession,VoiceState} from './voice.ts';
@@ -54,7 +54,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status} · Host-provided title. Bring your own matching local game file.</p>}
-  {room?.established && <p>Host · {room.host}<br/>Guest · {room.guest}</p>}
+  {room && <ControllerOwnership room={room}/>}
   <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
   <details className="session-settings" open={!room?.established}><summary>Connection and session settings</summary>
   <ConnectionPolicyControl policy={policy} change={changePolicy}/>
