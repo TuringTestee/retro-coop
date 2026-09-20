@@ -1,0 +1,30 @@
+(node:620521) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ transient disconnected preserves the established channel and recovers without another ready callback (5.408667ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 123.15392
+
+✖ failing tests:
+
+test at apps/client/src/peer.test.ts:6:1
+✖ transient disconnected preserves the established channel and recovers without another ready callback (5.408667ms)
+  AssertionError [ERR_ASSERTION]: a transient connectivity indication destroyed the live transport
+
+  1 !== 0
+
+      at TestContext.<anonymous> (/tmp/retro-d11-gameplay/apps/client/src/peer.test.ts:31:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -9,12 +9,8 @@ mkdir -p "$D02_EVIDENCE_DIR"
 python3 -c 'import json,os,pathlib; pathlib.Path(os.environ["D02_EVIDENCE_DIR"],"run-id.local.json").write_text(json.dumps({"run_id":os.environ["D02_RUN_ID"]}))'
 exec unshare --user --map-root-user --net sh -c '
 set -eu
-ip link set lo up
-ip link add d02probe type dummy
-ip addr add 10.201.0.1/24 dev d02probe
-ip link set d02probe up
-ip route add default dev d02probe
-tc qdisc add dev lo root netem limit 1000 delay 50ms 10ms loss 1%
+. ./network_profile.sh
+setup_network_profile
 ip -j route get 10.201.0.1 > "$D02_EVIDENCE_DIR/route.local.json"
 tc -j -s qdisc show dev lo > "$D02_EVIDENCE_DIR/netem-before.local.json"
 python3 serve_probe.py "$D02_EVIDENCE_DIR/http-ready" >"$D02_EVIDENCE_DIR/http.log" 2>&1 &

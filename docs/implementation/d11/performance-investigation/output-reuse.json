@@ -1,0 +1,63 @@
+{
+  "frames": 600,
+  "fps": 60,
+  "core": "9434deed035fe2963ea79e0d42c1877fbe0230f2e6a17b3cbdf290d798d7ec93",
+  "mean": {
+    "emulateMs": 10.24,
+    "pixelsMs": 0.7066666666666667,
+    "audioMs": 0.006666666666666667,
+    "workerTotalMs": 11.098333333333333,
+    "previousPostMs": 0.028333333333333332
+  },
+  "steady": {
+    "emulateMs": 10.24375,
+    "pixelsMs": 0.7166666666666667,
+    "audioMs": 0.004166666666666667,
+    "workerTotalMs": 11.1,
+    "previousPostMs": 0.029166666666666667
+  },
+  "pixels": "7eeef9875d73594c0e268c025eb740c5a536baabb40a23600ccbbade52aef773",
+  "audio": "9e241d541f4d247be24f90310be2122e781daddaba8665c88635fb2b46af34fb",
+  "audioNonzero": true,
+  "canonicalPayloads": [
+    "4c2dd672ff11079480cbbd4d34f1230378e68e9e49fe910e88d473fe163cddb2",
+    "0375771d9fd1b2df3c1806596bccf45f98e1f2fb27c7fbb92f4c166478c830ee",
+    "43dbe32a38905d0e0d550463b773b95c1fc4d7ea6c6b0c1153a3b04270a8b652",
+    "8bdf17f50bd9df21102523aefa9206df6466557b46fe6625e6e8f7453905e25d",
+    "60fe26b6007ff08337a3425bf358304aeb40ec20c94e636f7d435dd612ba8d95"
+  ],
+  "seconds": 7.706872593000298,
+  "browser": "146.0.1",
+  "wasm_bytes": 3146046,
+  "source": "dab41c71ba3f45269ac4b978274088dd3cc6ae7a",
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:39995/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39995/assets/index-lmHiJHA9.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39995/assets/index-DPFGCjlq.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39995/coordinator/ws"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39995/generated/diagnostic.nes"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39995/assets/worker-BsUFBixc.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39995/assets/retro_coop_d02-C96dfgfC.wasm"
+    ]
+  ]
+}

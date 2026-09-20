@@ -1,15 +1,14 @@
 """Real-browser controls/presentation checks on the same built client as file-to-play."""
 import hashlib
+from pathlib import Path
 
 
 def verify_settings(browser, url, rom, output):
     page = browser.new_page(viewport={'width':1280,'height':1000})
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
+    page.add_init_script(path=Path(__file__).with_name('gamepad_fixture.js'))
     page.add_init_script('''window.createdWorkers=0;const NativeWorker=Worker;window.Worker=class extends NativeWorker{constructor(...args){super(...args);createdWorkers++}};
-      window.padButtons=[];window.padAxes=[0,0];window.padConnected=true;
-      navigator.getGamepads=()=>padConnected ? [{id:'Diagnostic controller',index:0,connected:true,
-        buttons:Array.from({length:16},(_,i)=>({pressed:padButtons.includes(i),touched:false,value:padButtons.includes(i)?1:0})),axes:padAxes}] : [];
       window.gameGains=[]; const gain=AudioContext.prototype.createGain;
       AudioContext.prototype.createGain=function(){const node=gain.call(this);gameGains.push(node);return node};
     ''')
@@ -120,7 +119,7 @@ def verify_settings(browser, url, rom, output):
     dialog.evaluate('e=>e.scrollTop=0')
     page.screenshot(path=str(output.with_suffix('.settings-mobile.png')),full_page=True)
     page.keyboard.press('Escape');assert not dialog.is_visible()
-    page.locator('summary').click()
+    page.get_by_text('Controls & local file details',exact=True).click()
     assert hashlib.sha256(rom).hexdigest() in page.locator('[data-testid=fingerprint]').inner_text()
     assert page.evaluate('createdWorkers') == 1
     assert not errors,errors

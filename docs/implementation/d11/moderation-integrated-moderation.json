@@ -1,0 +1,17 @@
+{
+  "browser": "145.0.7632.6",
+  "stale_confirmation_preserves_replacement": true,
+  "current_removal_closes_both_peers_and_microphones": true,
+  "removed_session_cannot_rejoin": true,
+  "former_guest_can_rejoin": true,
+  "voice_requires_new_opt_in": true,
+  "host_worker_timeline_unchanged": {
+    "workers": 1,
+    "loads": 1,
+    "imports": 0
+  },
+  "game_muted_in_app": true,
+  "remote_voice_volume_zero_in_app": true,
+  "page_errors": [],
+  "seconds": 2.52
+}

@@ -1,0 +1,31 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (17.034626ms)
+✖ a completed old readiness request cannot overwrite a later membership change (4.132533ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118.184195
+
+✖ failing tests:
+
+test at apps/client/src/game-client.test.ts:18:1
+✖ a completed old readiness request cannot overwrite a later membership change (4.132533ms)
+  AssertionError [ERR_ASSERTION]: old readiness completion changed the current membership status
+  + actual - expected
+
+  + 'Waiting for the matching initial-state barrier…'
+  - 'Room membership changed. Shared play stopped.'
+
+      at TestContext.<anonymous> (file:///tmp/retro-d11-gameplay/apps/client/src/game-client.test.ts:31:9)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Waiting for the matching initial-state barrier…',
+    expected: 'Room membership changed. Shared play stopped.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

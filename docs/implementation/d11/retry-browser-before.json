@@ -1,0 +1,191 @@
+{
+  "source": {
+    "commit": "49a35666d83e10c25cbaf175346728e8a1c6fcdc",
+    "tree": "83c9c14ad422f835844fad1c8f2edfed35a5fe4b"
+  },
+  "run_id": null,
+  "result": "fail",
+  "page_errors": [],
+  "peers": [
+    {
+      "proof": {
+        "hashes": [
+          {
+            "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+            "frame": 0,
+            "fresh": true
+          },
+          {
+            "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+            "frame": 0,
+            "fresh": true
+          }
+        ],
+        "rooms": [
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "starting"
+          },
+          {
+            "established": false,
+            "status": "starting"
+          },
+          {
+            "established": false,
+            "status": "failed"
+          },
+          {
+            "established": false,
+            "status": "failed"
+          }
+        ],
+        "frames": [],
+        "frameCount": 0,
+        "sentHashes": [],
+        "timing": {
+          "workerMs": 0,
+          "workerMax": 0,
+          "frameGaps": [],
+          "waitMs": 0,
+          "waitCount": 0,
+          "delays": []
+        },
+        "fps": 60,
+        "gameReadies": 1
+      },
+      "status": "Shared play stopped (network). Your game is preserved.",
+      "localStatus": "Shared play stopped (network). Your game is preserved.",
+      "game": {
+        "status": "failed",
+        "epoch": "utKLy_AqOK4EMpkdwYmSepfyluIRG_Ya",
+        "delay": 6,
+        "reason": "Shared play stopped (network). Your game is preserved.",
+        "ready": [
+          "guest"
+        ]
+      },
+      "established": false
+    },
+    {
+      "proof": {
+        "hashes": [
+          {
+            "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+            "frame": 0,
+            "fresh": true
+          },
+          {
+            "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+            "frame": 0,
+            "fresh": true
+          },
+          {
+            "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+            "frame": 0,
+            "fresh": true
+          }
+        ],
+        "rooms": [
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "waiting"
+          },
+          {
+            "established": false,
+            "status": "starting"
+          },
+          {
+            "established": false,
+            "status": "starting"
+          },
+          {
+            "established": false,
+            "status": "failed"
+          },
+          {
+            "established": false,
+            "status": "failed"
+          }
+        ],
+        "frames": [],
+        "frameCount": 0,
+        "sentHashes": [],
+        "timing": {
+          "workerMs": 0,
+          "workerMax": 0,
+          "frameGaps": [],
+          "waitMs": 0,
+          "waitCount": 0,
+          "delays": []
+        },
+        "fps": 60,
+        "gameReadies": 2,
+        "droppedAcks": 1
+      },
+      "status": "Shared play stopped (network). Your game is preserved.",
+      "localStatus": "Paused. Resume whenever you\u2019re ready.",
+      "game": {
+        "status": "failed",
+        "epoch": "utKLy_AqOK4EMpkdwYmSepfyluIRG_Ya",
+        "delay": 6,
+        "reason": "Shared play stopped (network). Your game is preserved.",
+        "ready": [
+          "guest"
+        ]
+      },
+      "established": false
+    }
+  ]
+}

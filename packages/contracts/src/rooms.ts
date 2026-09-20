@@ -1,3 +1,4 @@
+import {parseGameCommand,type GameCommand,type GameEvent,type GameView} from './gameplay.ts';
 import {validChatText,type ChatCommand,type ChatEvent,type ChatAck} from './chat.ts';
 import {object,keys,text,token} from './protocol-validation.ts';
 import {parsePeerCommand,validPolicy,type PeerCommand,type PeerEvent,type PeerView,type ConnectionPolicy} from './peer.ts';
@@ -5,15 +6,16 @@ import {publicCode,type DirectoryCommand} from './directory.ts';
 /** Room protocol: bounded control and text chat messages. No binary or arbitrary extension fields. */
 export const ROOM_PROTOCOL = 1;
 export const ROOM_METADATA_BYTES = 4096;
+export type RoomRole = 'host'|'guest';
 export type Visibility = 'public' | 'unlisted';
 import {validFingerprint,type Fingerprint} from './fingerprint.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
-export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; status:'waiting'|'reserved'|'reconnecting'; occupancy:1|2 };
-export type RoomView = RoomPreview & { chatMembership:string; invite:string; role:'host'|'guest'; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2 };
+export type RoomView = RoomPreview & { game?:GameView; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string;policy?:ConnectionPolicy};
-export type RoomCommand = ChatCommand | PeerCommand | DirectoryCommand
+export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
  | { type:'hello'; requestId:string; token?:string; policy?:ConnectionPolicy }
  | { type:'heartbeat'; requestId:string }
  | { type:'preview'; requestId:string; invite:string }
@@ -29,7 +31,7 @@ export type RoomCommand = ChatCommand | PeerCommand | DirectoryCommand
  | { type:'visibility'; requestId:string; roomId:string; visibility:Visibility }
  | { type:'file'; requestId:string; fingerprint:Fingerprint };
 export type RoomData = { chatAck?:ChatAck; session?:SessionInfo; room?:RoomView; preview?:RoomPreview; directory?:RoomPreview[] };
-export type RoomEvent = ChatEvent | PeerEvent
+export type RoomEvent = GameEvent | ChatEvent | PeerEvent
  | { type:'result'; requestId:string; ok:true; data:RoomData }
  | { type:'result'; requestId:string; ok:false; error:string; retryAfterMs?:number }
  | { type:'directory'; rooms:RoomPreview[] }
@@ -38,6 +40,7 @@ export type RoomEvent = ChatEvent | PeerEvent
 
 export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  if(!object(value) || typeof value.type !== 'string' || !token(value.requestId)) return;
+ const game=parseGameCommand(value);if(game) return game;
  const peer=parsePeerCommand(value);if(peer) return peer;
  const base = ['type','requestId'];
  let valid = false;

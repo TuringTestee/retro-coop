@@ -6,4 +6,6 @@ dist/
 apps/client/public/generated/
 *.foundation.local.*
 scripts/foundation/__pycache__/
+scripts/gameplay/__pycache__/
 apps/client/src/generated/
+scripts/peer/__pycache__/

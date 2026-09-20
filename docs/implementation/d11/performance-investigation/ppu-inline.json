@@ -1,0 +1,63 @@
+{
+  "frames": 600,
+  "fps": 60,
+  "core": "4ee00a2db8207b31e6376515675e0a12a474539af381454668372c9a9136699c",
+  "mean": {
+    "emulateMs": 8.083333333333334,
+    "pixelsMs": 0.7116666666666667,
+    "audioMs": 0.006666666666666667,
+    "workerTotalMs": 8.95,
+    "previousPostMs": 0.018333333333333333
+  },
+  "steady": {
+    "emulateMs": 8.054166666666667,
+    "pixelsMs": 0.7,
+    "audioMs": 0.008333333333333333,
+    "workerTotalMs": 8.910416666666666,
+    "previousPostMs": 0.016666666666666666
+  },
+  "pixels": "7eeef9875d73594c0e268c025eb740c5a536baabb40a23600ccbbade52aef773",
+  "audio": "9e241d541f4d247be24f90310be2122e781daddaba8665c88635fb2b46af34fb",
+  "audioNonzero": true,
+  "canonicalPayloads": [
+    "4c2dd672ff11079480cbbd4d34f1230378e68e9e49fe910e88d473fe163cddb2",
+    "0375771d9fd1b2df3c1806596bccf45f98e1f2fb27c7fbb92f4c166478c830ee",
+    "43dbe32a38905d0e0d550463b773b95c1fc4d7ea6c6b0c1153a3b04270a8b652",
+    "8bdf17f50bd9df21102523aefa9206df6466557b46fe6625e6e8f7453905e25d",
+    "60fe26b6007ff08337a3425bf358304aeb40ec20c94e636f7d435dd612ba8d95"
+  ],
+  "seconds": 6.455573211998853,
+  "browser": "146.0.1",
+  "wasm_bytes": 3660299,
+  "source": "dab41c71ba3f45269ac4b978274088dd3cc6ae7a",
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:44827/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44827/assets/index-CpeBiuBM.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44827/assets/index-DPFGCjlq.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44827/coordinator/ws"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44827/generated/diagnostic.nes"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44827/assets/worker-BEz-CU42.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44827/assets/retro_coop_d02-DogeELu8.wasm"
+    ]
+  ]
+}

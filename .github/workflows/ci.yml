@@ -110,8 +110,11 @@ jobs:
             spikes/d02/peer.local.*.png
             spikes/d02/voice-*.local.*.png
             spikes/d02/directory.local.*.png
+            spikes/d02/gameplay.local/**
             spikes/d02/.network-runs/**/*.json
             spikes/d02/.network-runs/**/*.log
+            spikes/d02/.gameplay-runs/**/*.json
+            spikes/d02/.gameplay-runs/**/*.log
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
@@ -137,6 +140,15 @@ jobs:
         with:
           name: d02-build
           path: spikes/d02
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: foundation-client
+          path: apps/client/dist
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        timeout-minutes: 1
+        with:
+          node-version-file: .node-version
       - name: Full network qualification within the shared deadline
         run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh network
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -150,6 +162,8 @@ jobs:
             spikes/d02/*.local.png
             spikes/d02/.network-runs/**/*.json
             spikes/d02/.network-runs/**/*.log
+            spikes/d02/.gameplay-runs/**/*.json
+            spikes/d02/.gameplay-runs/**/*.log
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
@@ -183,4 +197,5 @@ jobs:
       - name: Require all six peers to agree within the original deadline
         run: |
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 spikes/d02/verify_ci_matrix.py /tmp/d02-pair-evidence
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 scripts/gameplay/verify_matrix.py /tmp/d02-pair-evidence
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"

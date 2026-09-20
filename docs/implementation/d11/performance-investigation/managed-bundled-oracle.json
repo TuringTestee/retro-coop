@@ -1,0 +1,35 @@
+{
+  "frames": 600,
+  "fps": 60,
+  "core": "2b19991f0f470929f0c43daaa9fb14ec1c2451c6ea01d2b99b259a18ee9a70fe",
+  "mean": {
+    "emulateMs": 9.708333333333334,
+    "pixelsMs": 0.7183333333333334,
+    "audioMs": 0.015,
+    "workerTotalMs": 10.611666666666666,
+    "previousPostMs": 0.018333333333333333
+  },
+  "steady": {
+    "emulateMs": 9.679166666666667,
+    "pixelsMs": 0.7229166666666667,
+    "audioMs": 0.014583333333333334,
+    "workerTotalMs": 10.564583333333333,
+    "previousPostMs": 0.016666666666666666
+  },
+  "pixels": "7eeef9875d73594c0e268c025eb740c5a536baabb40a23600ccbbade52aef773",
+  "audio": "9e241d541f4d247be24f90310be2122e781daddaba8665c88635fb2b46af34fb",
+  "audioNonzero": true,
+  "canonicalPayloads": [
+    "4c2dd672ff11079480cbbd4d34f1230378e68e9e49fe910e88d473fe163cddb2",
+    "0375771d9fd1b2df3c1806596bccf45f98e1f2fb27c7fbb92f4c166478c830ee",
+    "43dbe32a38905d0e0d550463b773b95c1fc4d7ea6c6b0c1153a3b04270a8b652",
+    "8bdf17f50bd9df21102523aefa9206df6466557b46fe6625e6e8f7453905e25d",
+    "60fe26b6007ff08337a3425bf358304aeb40ec20c94e636f7d435dd612ba8d95"
+  ],
+  "seconds": 7.431,
+  "userAgent": "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0",
+  "driver": "standalone Firefox, no Juggler or WebDriver connection",
+  "binary": "/tmp/d17-browsers/firefox-1509/firefox/firefox",
+  "binary_sha256": "e3767fa34fe73c69859a6c8e0345fea0b84d782bf3461e5a02cabf45defe21ce",
+  "wasm_bytes": 3144842
+}

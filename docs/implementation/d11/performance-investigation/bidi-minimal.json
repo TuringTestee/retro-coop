@@ -1,0 +1,19 @@
+[
+  {
+    "scripts": 0,
+    "errors": []
+  },
+  {
+    "scripts": 1,
+    "errors": [
+      {
+        "message": "Permission denied to access property \"length\"",
+        "stack": "Error: Permission denied to access property \"length\"\nundefined"
+      }
+    ]
+  },
+  {
+    "scripts": 3,
+    "errors": []
+  }
+]

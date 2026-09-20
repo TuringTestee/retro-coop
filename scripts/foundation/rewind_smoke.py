@@ -39,6 +39,7 @@ def verify_rewind_worker(browser,url,rom,worker_path):
         const desired=actualCycles-10*rate;let target=trace.length-1;while(trace[target].cycles>desired)target--;
         const rewound=await ask(worker,{type:'state-rewind',requestId:3,seconds:10});ensure(rewound.type==='state-rewound','rewind '+rewound.message);
         ensure(rewound.info.frame===target,'exact target frame');
+        const liveHash=await ask(worker,{type:'state-hash',requestId:16});ensure(liveHash.type==='state-hash' && !liveHash.info.fresh,'rewind cannot claim a fresh initial state');
         ensure((actualCycles-rewound.info.cycles)/rate>=10,'requested elapsed duration');
         ensure((await ask(reference,{type:'state-import',requestId:4,bytes:first})).type==='state-imported','reference restore');
         let expected;

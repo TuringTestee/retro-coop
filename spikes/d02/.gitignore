@@ -12,3 +12,6 @@
 /.network-runs/
 
 /audio-backend.local.txt
+
+/.gameplay-runs/
+/gameplay.local/

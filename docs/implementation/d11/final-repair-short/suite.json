@@ -1,0 +1,97 @@
+[
+  {
+    "case": "delayed-join",
+    "exit_code": 0,
+    "seconds": 9.99
+  },
+  {
+    "case": "operator-remove",
+    "exit_code": 0,
+    "seconds": 6.18
+  },
+  {
+    "case": "operator-block",
+    "exit_code": 0,
+    "seconds": 6.13
+  },
+  {
+    "case": "kick-playing",
+    "exit_code": 0,
+    "seconds": 6.08
+  },
+  {
+    "case": "shared",
+    "exit_code": 0,
+    "seconds": 10.34
+  },
+  {
+    "case": "relay",
+    "exit_code": 0,
+    "seconds": 10.08
+  },
+  {
+    "case": "progressed",
+    "exit_code": 0,
+    "seconds": 2.32
+  },
+  {
+    "case": "cancel",
+    "exit_code": 0,
+    "seconds": 1.77
+  },
+  {
+    "case": "ack-timeout",
+    "exit_code": 0,
+    "seconds": 9.73
+  },
+  {
+    "case": "retry-guest-first",
+    "exit_code": 0,
+    "seconds": 18.05
+  },
+  {
+    "case": "retry-host-first",
+    "exit_code": 0,
+    "seconds": 18.1
+  },
+  {
+    "case": "delayed-start",
+    "exit_code": 0,
+    "seconds": 9.93
+  },
+  {
+    "case": "drop-input",
+    "exit_code": 0,
+    "seconds": 7.33
+  },
+  {
+    "case": "bad-hash",
+    "exit_code": 0,
+    "seconds": 8.23
+  },
+  {
+    "case": "future-input",
+    "exit_code": 0,
+    "seconds": 6.33
+  },
+  {
+    "case": "duplicate-input",
+    "exit_code": 0,
+    "seconds": 6.23
+  },
+  {
+    "case": "old-epoch",
+    "exit_code": 0,
+    "seconds": 9.93
+  },
+  {
+    "case": "focus",
+    "exit_code": 0,
+    "seconds": 9.93
+  },
+  {
+    "case": "device",
+    "exit_code": 0,
+    "seconds": 10.09
+  }
+]

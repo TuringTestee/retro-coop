@@ -1,0 +1,16 @@
+{
+  "result": "pass",
+  "seconds": 13.75,
+  "browser": "145.0.7632.6",
+  "private_cli_confirmation": [
+    "Remove room \"Lilac Meadow\" (lF2FH2fp26XhUXLAxD6NXT3gG8DXsMzPcjom2C4IQVk) for both players\nType CONFIRM within 30 seconds to apply, or anything else to cancel: Done.\n",
+    "Disconnect and block address 127.0.0.1 (4gppbPtHNti_IXdtc2AtMuClNJUnU-3M, 2 connections) for 10 seconds; this affects everyone sharing that address\nType CONFIRM within 30 seconds to apply, or anything else to cancel: Done.\n"
+  ],
+  "room_removed_and_directory_cleared": true,
+  "both_peer_connections_and_microphones_stopped": true,
+  "no_local_reload_or_import": true,
+  "explicit_operator_and_admission_feedback": true,
+  "retry_fresh_reload_restriction_feedback": true,
+  "expired_block_allows_fresh_session_and_room": true,
+  "page_errors": []
+}

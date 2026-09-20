@@ -49,10 +49,15 @@ try:
         assert 'Player 2 (reserved)' in first.get_by_test_id('room-view').inner_text()
         assert first.get_by_role('button',name='Close room',exact=True).count()==0
         # A reserved guest can choose mismatching and matching files without another ready click.
+        solo_frames=int(host.get_by_test_id('frames').inner_text().split()[0])
         different=bytearray(rom);different.extend(b'header byte identity test')
         first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
-        first.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        first.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded')")
+        assert first.get_by_role('button',name='Resume',exact=True).is_enabled()
+        assert first.get_by_test_id('frames').inner_text()=='0 frames'
+        assert 'Game loaded' in first.get_by_test_id('player-status').inner_text()
         assert 'exact matching file' in first.get_by_test_id('room-view').inner_text()
+        host.wait_for_function("before=>Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>before",arg=solo_frames)
         first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
         first.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)

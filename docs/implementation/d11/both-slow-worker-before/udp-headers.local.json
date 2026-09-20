@@ -1,0 +1,14 @@
+{
+  "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+  "wall_seconds": 79.14136426000186,
+  "flows": {
+    "10.201.0.1:40764>10.201.0.1:37161": {
+      "observations": 7442,
+      "udp_bytes": 770474
+    },
+    "10.201.0.1:37161>10.201.0.1:40764": {
+      "observations": 7590,
+      "udp_bytes": 777723
+    }
+  }
+}

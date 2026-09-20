@@ -1,0 +1,1030 @@
+{
+  "firefox_driver": "Playwright bundled patched Firefox",
+  "controlled_worker_delivery_floor_ms": 0,
+  "recovery_order": "host-first",
+  "source": {
+    "commit": "350f9a960901bd49a8f8183d78a9431970e0755c",
+    "tree": "8bd27004babd882bea141cbe7a663a195b121b8e"
+  },
+  "route": "direct",
+  "turn_error_codes": {},
+  "build_files": {
+    "assets/retro_coop_d02-BATHQAFP.wasm": "2b19991f0f470929f0c43daaa9fb14ec1c2451c6ea01d2b99b259a18ee9a70fe",
+    "assets/worker-CBbDvQ-C.js": "5a5e0d8f9d72e35b8da58952d6f71834af29713e35988864f7e5b22ae33f00e2",
+    "assets/index-DEU8W1E9.js": "8903a9a24672b3c9e7674a60dce262db0daba259ab84e90990be1134dc30e656"
+  },
+  "identity": {
+    "romSha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+    "coreSha256": "2b19991f0f470929f0c43daaa9fb14ec1c2451c6ea01d2b99b259a18ee9a70fe",
+    "localSchema": 1,
+    "settings": "auto-region;zero-ram;48000hz;standard-p1-p2",
+    "cartridge": {
+      "format": "iNES",
+      "mapper": 0,
+      "submapper": 0,
+      "region": "NTSC",
+      "bytes": 24592
+    }
+  },
+  "delayed_start": false,
+  "run_id": null,
+  "result": "pass",
+  "browser_instances": [
+    {
+      "kind": "Chrome",
+      "version": "145.0.7632.6"
+    },
+    {
+      "kind": "Chrome",
+      "version": "145.0.7632.6"
+    }
+  ],
+  "browsers": {
+    "Chrome": "145.0.7632.6"
+  },
+  "pair": "Chrome-Chrome",
+  "injection": "none",
+  "target_seconds": 8,
+  "target_frames": 480,
+  "active_seconds": 8.02,
+  "final": [
+    {
+      "hash": "eb5fb37a355e3cc9835857c24184a304c255f97d185e88122acafdd161edf2f0",
+      "frame": 503,
+      "fresh": false
+    },
+    {
+      "hash": "eb5fb37a355e3cc9835857c24184a304c255f97d185e88122acafdd161edf2f0",
+      "frame": 503,
+      "fresh": false
+    }
+  ],
+  "seconds": 17.99,
+  "pause": [
+    {
+      "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+      "frame": 260,
+      "fresh": false
+    },
+    {
+      "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+      "frame": 260,
+      "fresh": false
+    }
+  ],
+  "peers": [
+    {
+      "hashes": [
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "52e3cbb4194a6f9351cf347b6a6af9e0147a861639ded47dd37cf5fba601989c",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "554577b5b5491e55f7dc3d16e3c51f65c8cc78bf13840e6c873edf531577f533",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+          "frame": 260,
+          "fresh": false
+        },
+        {
+          "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+          "frame": 260,
+          "fresh": false
+        },
+        {
+          "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+          "frame": 260,
+          "fresh": false
+        },
+        {
+          "hash": "cff91c34cf4c4af34d385b230ae0ac2ea59e15437da5d3cc6998da0721ac50af",
+          "frame": 380,
+          "fresh": false
+        },
+        {
+          "hash": "4efc1f13b3c6e89958d4f87f0b366018c5ac2873f50502578a480656c3fbb973",
+          "frame": 500,
+          "fresh": false
+        },
+        {
+          "hash": "eb5fb37a355e3cc9835857c24184a304c255f97d185e88122acafdd161edf2f0",
+          "frame": 503,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "failed"
+        },
+        {
+          "established": false,
+          "status": "failed"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 231
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 232
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 233
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 234
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 235
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 236
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 237
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 238
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 239
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 240
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 241
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 242
+        }
+      ],
+      "frameCount": 503,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "VbDaeYUjp7YV2jNJfGKnmxT0SurOWp-8",
+          "frame": 120,
+          "hash": "52e3cbb4194a6f9351cf347b6a6af9e0147a861639ded47dd37cf5fba601989c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "VbDaeYUjp7YV2jNJfGKnmxT0SurOWp-8",
+          "frame": 240,
+          "hash": "554577b5b5491e55f7dc3d16e3c51f65c8cc78bf13840e6c873edf531577f533"
+        },
+        {
+          "kind": "hash",
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 120,
+          "hash": "cff91c34cf4c4af34d385b230ae0ac2ea59e15437da5d3cc6998da0721ac50af"
+        },
+        {
+          "kind": "hash",
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 240,
+          "hash": "4efc1f13b3c6e89958d4f87f0b366018c5ac2873f50502578a480656c3fbb973"
+        }
+      ],
+      "timing": {
+        "workerMs": 1002.9999999403954,
+        "workerMax": 7.699999995529652,
+        "frameGaps": [
+          null,
+          null,
+          7,
+          3,
+          1,
+          1,
+          null,
+          1,
+          null,
+          null,
+          1,
+          2,
+          2,
+          3,
+          49,
+          169,
+          19,
+          8,
+          16,
+          200,
+          12,
+          1,
+          null,
+          3,
+          1,
+          1,
+          null,
+          1
+        ],
+        "waitMs": 1.1000000014901161,
+        "waitCount": 2,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "events": [
+        {
+          "at": 511,
+          "kind": "icegatheringstatechange",
+          "connection": "new",
+          "ice": "new",
+          "gathering": "gathering"
+        },
+        {
+          "at": 535,
+          "kind": "iceconnectionstatechange",
+          "connection": "new",
+          "ice": "checking",
+          "gathering": "gathering"
+        },
+        {
+          "at": 536,
+          "kind": "connectionstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "gathering"
+        },
+        {
+          "at": 536,
+          "kind": "icegatheringstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "complete"
+        },
+        {
+          "at": 537,
+          "kind": "iceconnectionstatechange",
+          "connection": "connecting",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 537,
+          "kind": "connectionstatechange",
+          "connection": "connected",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 8695,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Shared play stopped (network). Your game is preserved."
+        },
+        {
+          "at": 8866,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 10113,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 1247,
+          "epochFrames": 74
+        },
+        {
+          "at": 13097,
+          "kind": "send",
+          "type": "gamePause",
+          "reason": "user",
+          "frame": 260,
+          "sinceStart": 4231,
+          "epochFrames": 253
+        },
+        {
+          "at": 13109,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 13131,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        },
+        {
+          "at": 13345,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 17296,
+          "kind": "send",
+          "type": "gamePause",
+          "reason": "user",
+          "frame": 243,
+          "sinceStart": 3951,
+          "epochFrames": 236
+        },
+        {
+          "at": 17309,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 17330,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        }
+      ],
+      "pacing": [
+        {
+          "at": 149,
+          "frames": 8
+        },
+        {
+          "at": 1150,
+          "frames": 68
+        },
+        {
+          "at": 2150,
+          "frames": 128
+        },
+        {
+          "at": 3150,
+          "frames": 188
+        },
+        {
+          "at": 4150,
+          "frames": 248
+        },
+        {
+          "at": 670,
+          "frames": 39
+        },
+        {
+          "at": 1672,
+          "frames": 100
+        },
+        {
+          "at": 2672,
+          "frames": 160
+        },
+        {
+          "at": 3670,
+          "frames": 219
+        }
+      ],
+      "admission": {
+        "lead": {
+          "0": 2,
+          "1": 2,
+          "2": 2,
+          "3": 2,
+          "4": 2,
+          "5": 3,
+          "6": 490,
+          "7": 2,
+          "8": 2,
+          "9": 2,
+          "10": 2,
+          "11": 4
+        },
+        "lateInputs": 0,
+        "lateInputWaitMs": 0,
+        "maxInputGapMs": 26.5,
+        "hashMs": 55.5,
+        "hashMaxMs": 13.899999998509884,
+        "hashCount": 12,
+        "nonceRttMs": [
+          9.699999995529652
+        ]
+      },
+      "fps": 60,
+      "gameReadies": 3,
+      "workloadStopped": true,
+      "activeEpoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+      "controllerRam": [
+        128,
+        64
+      ],
+      "localHistory": {
+        "availableSeconds": 0,
+        "budgetBytes": 33554432,
+        "checkpoints": 0,
+        "clockRate": 1789772.625,
+        "cycles": 0,
+        "frame": 0,
+        "inputs": 0,
+        "maxSeconds": 10,
+        "peakBytes": 0,
+        "retainedBytes": 0,
+        "spanSeconds": 0,
+        "issue": null
+      },
+      "scriptedInputs": 4
+    },
+    {
+      "hashes": [
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "b3095c3014019eb5b66fe5898badf5d9298421997f598f08312c249136d3fbe2",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "52e3cbb4194a6f9351cf347b6a6af9e0147a861639ded47dd37cf5fba601989c",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "554577b5b5491e55f7dc3d16e3c51f65c8cc78bf13840e6c873edf531577f533",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+          "frame": 260,
+          "fresh": false
+        },
+        {
+          "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+          "frame": 260,
+          "fresh": false
+        },
+        {
+          "hash": "3e54525fd39884705b0cb01430e76634c7b9e05de8c9c93e46399d283042ab81",
+          "frame": 260,
+          "fresh": false
+        },
+        {
+          "hash": "cff91c34cf4c4af34d385b230ae0ac2ea59e15437da5d3cc6998da0721ac50af",
+          "frame": 380,
+          "fresh": false
+        },
+        {
+          "hash": "4efc1f13b3c6e89958d4f87f0b366018c5ac2873f50502578a480656c3fbb973",
+          "frame": 500,
+          "fresh": false
+        },
+        {
+          "hash": "eb5fb37a355e3cc9835857c24184a304c255f97d185e88122acafdd161edf2f0",
+          "frame": 503,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "failed"
+        },
+        {
+          "established": false,
+          "status": "failed"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 231
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 232
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 233
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 234
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 235
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 236
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 237
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 238
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 239
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 240
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 241
+        },
+        {
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 242
+        }
+      ],
+      "frameCount": 503,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "VbDaeYUjp7YV2jNJfGKnmxT0SurOWp-8",
+          "frame": 120,
+          "hash": "52e3cbb4194a6f9351cf347b6a6af9e0147a861639ded47dd37cf5fba601989c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "VbDaeYUjp7YV2jNJfGKnmxT0SurOWp-8",
+          "frame": 240,
+          "hash": "554577b5b5491e55f7dc3d16e3c51f65c8cc78bf13840e6c873edf531577f533"
+        },
+        {
+          "kind": "hash",
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 120,
+          "hash": "cff91c34cf4c4af34d385b230ae0ac2ea59e15437da5d3cc6998da0721ac50af"
+        },
+        {
+          "kind": "hash",
+          "epoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+          "frame": 240,
+          "hash": "4efc1f13b3c6e89958d4f87f0b366018c5ac2873f50502578a480656c3fbb973"
+        }
+      ],
+      "timing": {
+        "workerMs": 1001.4000000879169,
+        "workerMax": 11.199999995529652,
+        "frameGaps": [
+          null,
+          null,
+          6,
+          5,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          2,
+          6,
+          41,
+          176,
+          23,
+          8,
+          19,
+          198,
+          11,
+          2,
+          null,
+          1
+        ],
+        "waitMs": 1,
+        "waitCount": 1,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "events": [
+        {
+          "at": 98,
+          "kind": "send",
+          "type": "join",
+          "reason": null,
+          "frame": null,
+          "sinceStart": null,
+          "epochFrames": 0
+        },
+        {
+          "at": 147,
+          "kind": "icegatheringstatechange",
+          "connection": "new",
+          "ice": "new",
+          "gathering": "gathering"
+        },
+        {
+          "at": 149,
+          "kind": "iceconnectionstatechange",
+          "connection": "new",
+          "ice": "checking",
+          "gathering": "gathering"
+        },
+        {
+          "at": 149,
+          "kind": "connectionstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "gathering"
+        },
+        {
+          "at": 150,
+          "kind": "iceconnectionstatechange",
+          "connection": "connecting",
+          "ice": "connected",
+          "gathering": "gathering"
+        },
+        {
+          "at": 150,
+          "kind": "icegatheringstatechange",
+          "connection": "connecting",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 151,
+          "kind": "connectionstatechange",
+          "connection": "connected",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 8309,
+          "kind": "send",
+          "type": "gameAbort",
+          "reason": "network",
+          "frame": null,
+          "sinceStart": null,
+          "epochFrames": 0
+        },
+        {
+          "at": 8310,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Shared play stopped (network). Your game is preserved."
+        },
+        {
+          "at": 8481,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 10052,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 1571,
+          "epochFrames": 94
+        },
+        {
+          "at": 12713,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 12746,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        },
+        {
+          "at": 12960,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 16912,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 16945,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        }
+      ],
+      "pacing": [
+        {
+          "at": 528,
+          "frames": 31
+        },
+        {
+          "at": 1527,
+          "frames": 91
+        },
+        {
+          "at": 2527,
+          "frames": 151
+        },
+        {
+          "at": 3527,
+          "frames": 211
+        },
+        {
+          "at": 47,
+          "frames": 2
+        },
+        {
+          "at": 1047,
+          "frames": 62
+        },
+        {
+          "at": 2047,
+          "frames": 122
+        },
+        {
+          "at": 3047,
+          "frames": 182
+        }
+      ],
+      "admission": {
+        "lead": {
+          "0": 2,
+          "1": 2,
+          "2": 10,
+          "3": 4,
+          "4": 4,
+          "5": 7,
+          "6": 486
+        },
+        "lateInputs": 0,
+        "lateInputWaitMs": 0,
+        "maxInputGapMs": 26.600000001490116,
+        "hashMs": 57.50000000745058,
+        "hashMaxMs": 14.200000002980232,
+        "hashCount": 12,
+        "nonceRttMs": [
+          0.7999999970197678
+        ]
+      },
+      "fps": 60,
+      "gameReadies": 3,
+      "droppedAcks": 1,
+      "workloadStopped": true,
+      "activeEpoch": "z6B9SlDePO_OTATRWPSGDGQ0vmrA07uq",
+      "controllerRam": [
+        128,
+        64
+      ],
+      "localHistory": {
+        "availableSeconds": 0,
+        "budgetBytes": 33554432,
+        "checkpoints": 0,
+        "clockRate": 1789772.625,
+        "cycles": 0,
+        "frame": 0,
+        "inputs": 0,
+        "maxSeconds": 10,
+        "peakBytes": 0,
+        "retainedBytes": 0,
+        "spanSeconds": 0,
+        "issue": null
+      },
+      "scriptedInputs": 4
+    }
+  ],
+  "page_errors": []
+}

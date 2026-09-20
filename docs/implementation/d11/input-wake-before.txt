@@ -1,0 +1,32 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (24.22609ms)
+✔ a completed old readiness request cannot overwrite a later membership change (6.271063ms)
+✔ explicit host retry submits readiness regardless of guest inspection order (1.783805ms)
+✔ canceling an in-flight readiness offer releases only that operation ownership (1.601342ms)
+✖ current input and completed state hash wake the existing frame owner without polling (3.269649ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.240369
+
+✖ failing tests:
+
+test at apps/client/src/game-client.test.ts:72:1
+✖ current input and completed state hash wake the existing frame owner without polling (3.269649ms)
+  AssertionError [ERR_ASSERTION]: admitted input waited for polling
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/retro-d11-gameplay/apps/client/src/game-client.test.ts:86:59)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

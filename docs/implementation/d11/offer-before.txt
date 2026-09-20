@@ -1,0 +1,31 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (17.954371ms)
+✔ a completed old readiness request cannot overwrite a later membership change (4.165156ms)
+✔ explicit host retry submits readiness regardless of guest inspection order (1.008216ms)
+✖ canceling an in-flight readiness offer releases only that operation ownership (1.602058ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 122.591574
+
+✖ failing tests:
+
+test at apps/client/src/game-client.test.ts:52:1
+✖ canceling an in-flight readiness offer releases only that operation ownership (1.602058ms)
+  AssertionError [ERR_ASSERTION]: canceled readiness retained its in-flight lock
+
+  1 !== 2
+
+      at TestContext.<anonymous> (file:///tmp/retro-d11-gameplay/apps/client/src/game-client.test.ts:63:58)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

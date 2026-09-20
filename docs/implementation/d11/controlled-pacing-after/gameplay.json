@@ -1,0 +1,1740 @@
+{
+  "controlled_worker_delivery_floor_ms": 14,
+  "recovery_order": null,
+  "source": {
+    "commit": "7aca7ec355a0356af76ac3cce67e0932816dfd47",
+    "tree": "cbe5a505ba69fd7da3b41e53c338032c5e4556b9"
+  },
+  "route": "direct",
+  "turn_error_codes": {},
+  "build_files": {
+    "assets/index-DRKtbuP9.js": "b1ed718e9ee86ce9a2280a03cb109e1b09012453b7f1f6bc7b0f2b8f232311d6",
+    "assets/retro_coop_d02-60KYUrqa.wasm": "83d8deebb6f31e9e42474ca926286502f125690b77986b397af60632a54ca396",
+    "assets/worker-Db4YtqoY.js": "bc65c54adda11a05c74611b067d777d35748a497f46ba9220dcadfc7527529f3"
+  },
+  "identity": {
+    "romSha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+    "coreSha256": "83d8deebb6f31e9e42474ca926286502f125690b77986b397af60632a54ca396",
+    "localSchema": 1,
+    "settings": "auto-region;zero-ram;48000hz;standard-p1-p2",
+    "cartridge": {
+      "format": "iNES",
+      "mapper": 0,
+      "submapper": 0,
+      "region": "NTSC",
+      "bytes": 24592
+    }
+  },
+  "delayed_start": false,
+  "run_id": "3879a9920302450aa34fb47327088775",
+  "result": "pass",
+  "browsers": {
+    "Chrome": "145.0.7632.6",
+    "Firefox": "146.0.1"
+  },
+  "pair": "Chrome-Firefox",
+  "injection": "none",
+  "target_seconds": 30,
+  "target_frames": 1800,
+  "active_seconds": 30.02,
+  "final": [
+    {
+      "hash": "8afdc62eeba2e414e245cae14ea434b496a6d214f7cfc42bba55c4f740626ae5",
+      "frame": 1819,
+      "fresh": false
+    },
+    {
+      "hash": "8afdc62eeba2e414e245cae14ea434b496a6d214f7cfc42bba55c4f740626ae5",
+      "frame": 1819,
+      "fresh": false
+    }
+  ],
+  "seconds": 45.93,
+  "pause": [
+    {
+      "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+      "frame": 262,
+      "fresh": false
+    },
+    {
+      "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+      "frame": 262,
+      "fresh": false
+    }
+  ],
+  "peers": [
+    {
+      "hashes": [
+        {
+          "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "86f6433f51b11ac8eb23c35d61b924af27b02f23e9ad2fc64fade1749f9b8425",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "b7b7b6ee9b52996aa133e821c48001bc10fd2aeac9fffcee21f3a35147f7f46a",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "fc135ba9fe88889ab4e4029e5d45c1cf24c0c7f7e9f90eed89a1b0e406df46bd",
+          "frame": 382,
+          "fresh": false
+        },
+        {
+          "hash": "b1cc36e9c3a92296381ab88ccbf29e829284f453ada4987c7a6f9c8d8a07d2a1",
+          "frame": 502,
+          "fresh": false
+        },
+        {
+          "hash": "032ae401955fe66c23813ad4c7d7482d45163f278009fb917f1b7fd49b370c5c",
+          "frame": 622,
+          "fresh": false
+        },
+        {
+          "hash": "b0cee0fb6b6451358d4da93775cc404d34c89ce261224d730fff8294c3062f37",
+          "frame": 742,
+          "fresh": false
+        },
+        {
+          "hash": "bbfe66f0ff1e7d8d83227b86e5b071be4f5b8c6ecf1f8772eaee89d03a9b969d",
+          "frame": 862,
+          "fresh": false
+        },
+        {
+          "hash": "0b3d407959248122171c28eea7f40e03d3037492de3cf7ce77e9cf9e05101d21",
+          "frame": 982,
+          "fresh": false
+        },
+        {
+          "hash": "5be4ef484628b501412e3d1182d35596737921f1570571c8702c233c5c801929",
+          "frame": 1102,
+          "fresh": false
+        },
+        {
+          "hash": "3a10a4f67b3db495c9b8903da4e182054d8d29f5173e9b61b6c60c6a1d13a157",
+          "frame": 1222,
+          "fresh": false
+        },
+        {
+          "hash": "f099de45f7b3d73fbc3d9de8ee33d8d0e823f77558a15c77d7c64024de77d099",
+          "frame": 1342,
+          "fresh": false
+        },
+        {
+          "hash": "d17b95ab1c9d77cda98587942fe6d6426ee712a249b94cd707fffb8acb5d8430",
+          "frame": 1462,
+          "fresh": false
+        },
+        {
+          "hash": "cbe3face9d819439b6e58664685191ac464991bd43f77a5780c125409f8a2972",
+          "frame": 1582,
+          "fresh": false
+        },
+        {
+          "hash": "bc1993f77e0fb4babe05c497d29863aa2bbb1d1f4935735840b5a394c4cc6498",
+          "frame": 1702,
+          "fresh": false
+        },
+        {
+          "hash": "8afdc62eeba2e414e245cae14ea434b496a6d214f7cfc42bba55c4f740626ae5",
+          "frame": 1819,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1545
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1546
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1547
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1548
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1549
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1550
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1551
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1552
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1553
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1554
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1555
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1556
+        }
+      ],
+      "frameCount": 1819,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "hvUcVr8QoxWG4s8J--qLh1X8iafxnxNN",
+          "frame": 120,
+          "hash": "86f6433f51b11ac8eb23c35d61b924af27b02f23e9ad2fc64fade1749f9b8425"
+        },
+        {
+          "kind": "hash",
+          "epoch": "hvUcVr8QoxWG4s8J--qLh1X8iafxnxNN",
+          "frame": 240,
+          "hash": "b7b7b6ee9b52996aa133e821c48001bc10fd2aeac9fffcee21f3a35147f7f46a"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 120,
+          "hash": "fc135ba9fe88889ab4e4029e5d45c1cf24c0c7f7e9f90eed89a1b0e406df46bd"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 240,
+          "hash": "b1cc36e9c3a92296381ab88ccbf29e829284f453ada4987c7a6f9c8d8a07d2a1"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 360,
+          "hash": "032ae401955fe66c23813ad4c7d7482d45163f278009fb917f1b7fd49b370c5c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 480,
+          "hash": "b0cee0fb6b6451358d4da93775cc404d34c89ce261224d730fff8294c3062f37"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 600,
+          "hash": "bbfe66f0ff1e7d8d83227b86e5b071be4f5b8c6ecf1f8772eaee89d03a9b969d"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 720,
+          "hash": "0b3d407959248122171c28eea7f40e03d3037492de3cf7ce77e9cf9e05101d21"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 840,
+          "hash": "5be4ef484628b501412e3d1182d35596737921f1570571c8702c233c5c801929"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 960,
+          "hash": "3a10a4f67b3db495c9b8903da4e182054d8d29f5173e9b61b6c60c6a1d13a157"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1080,
+          "hash": "f099de45f7b3d73fbc3d9de8ee33d8d0e823f77558a15c77d7c64024de77d099"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1200,
+          "hash": "d17b95ab1c9d77cda98587942fe6d6426ee712a249b94cd707fffb8acb5d8430"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1320,
+          "hash": "cbe3face9d819439b6e58664685191ac464991bd43f77a5780c125409f8a2972"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1440,
+          "hash": "bc1993f77e0fb4babe05c497d29863aa2bbb1d1f4935735840b5a394c4cc6498"
+        }
+      ],
+      "timing": {
+        "workerMs": 3658.499999783933,
+        "workerMax": 12.799999997019768,
+        "frameGaps": [
+          null,
+          null,
+          182,
+          35,
+          48,
+          10,
+          37,
+          12,
+          44,
+          19,
+          37,
+          35,
+          33,
+          65,
+          95,
+          352,
+          32,
+          4,
+          37,
+          457,
+          44,
+          1,
+          1,
+          81,
+          12,
+          2,
+          null,
+          58,
+          11,
+          4,
+          null,
+          14,
+          6,
+          1,
+          null,
+          4,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          1,
+          4,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          3,
+          1,
+          null,
+          null,
+          1,
+          null,
+          1,
+          null,
+          1,
+          2,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          4
+        ],
+        "waitMs": 11956.399999994785,
+        "waitCount": 688,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "events": [
+        {
+          "at": 8571,
+          "kind": "icegatheringstatechange",
+          "connection": "new",
+          "ice": "new",
+          "gathering": "gathering"
+        },
+        {
+          "at": 8698,
+          "kind": "icegatheringstatechange",
+          "connection": "new",
+          "ice": "new",
+          "gathering": "complete"
+        },
+        {
+          "at": 9038,
+          "kind": "iceconnectionstatechange",
+          "connection": "new",
+          "ice": "checking",
+          "gathering": "complete"
+        },
+        {
+          "at": 9038,
+          "kind": "connectionstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "complete"
+        },
+        {
+          "at": 9125,
+          "kind": "iceconnectionstatechange",
+          "connection": "connecting",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 9265,
+          "kind": "connectionstatechange",
+          "connection": "connected",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 10387,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 12364,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 1977,
+          "epochFrames": 116
+        },
+        {
+          "at": 14696,
+          "kind": "send",
+          "type": "gamePause",
+          "reason": "user",
+          "frame": 262,
+          "sinceStart": 4309,
+          "epochFrames": 255
+        },
+        {
+          "at": 14924,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 15140,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        },
+        {
+          "at": 16245,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 22361,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 6116,
+          "epochFrames": 366
+        },
+        {
+          "at": 32362,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 16117,
+          "epochFrames": 966
+        },
+        {
+          "at": 42093,
+          "kind": "send",
+          "type": "gamePause",
+          "reason": "user",
+          "frame": 1557,
+          "sinceStart": 25849,
+          "epochFrames": 1550
+        },
+        {
+          "at": 42292,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 42360,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 26116,
+          "epochFrames": 1557
+        },
+        {
+          "at": 42569,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        }
+      ],
+      "pacing": [
+        {
+          "at": 827,
+          "frames": 44
+        },
+        {
+          "at": 1825,
+          "frames": 109
+        },
+        {
+          "at": 2826,
+          "frames": 169
+        },
+        {
+          "at": 3824,
+          "frames": 228
+        },
+        {
+          "at": 4838,
+          "frames": 262
+        },
+        {
+          "at": 5824,
+          "frames": 262
+        },
+        {
+          "at": 967,
+          "frames": 57
+        },
+        {
+          "at": 1969,
+          "frames": 117
+        },
+        {
+          "at": 2970,
+          "frames": 177
+        },
+        {
+          "at": 3967,
+          "frames": 237
+        },
+        {
+          "at": 4969,
+          "frames": 295
+        },
+        {
+          "at": 5968,
+          "frames": 357
+        },
+        {
+          "at": 6967,
+          "frames": 416
+        },
+        {
+          "at": 7967,
+          "frames": 476
+        },
+        {
+          "at": 8967,
+          "frames": 536
+        },
+        {
+          "at": 9967,
+          "frames": 597
+        },
+        {
+          "at": 10966,
+          "frames": 657
+        },
+        {
+          "at": 11966,
+          "frames": 715
+        },
+        {
+          "at": 12970,
+          "frames": 777
+        },
+        {
+          "at": 13967,
+          "frames": 835
+        },
+        {
+          "at": 14967,
+          "frames": 897
+        },
+        {
+          "at": 15970,
+          "frames": 957
+        },
+        {
+          "at": 16967,
+          "frames": 1017
+        },
+        {
+          "at": 17966,
+          "frames": 1077
+        },
+        {
+          "at": 18967,
+          "frames": 1135
+        },
+        {
+          "at": 19968,
+          "frames": 1196
+        },
+        {
+          "at": 20968,
+          "frames": 1252
+        },
+        {
+          "at": 21970,
+          "frames": 1317
+        },
+        {
+          "at": 22967,
+          "frames": 1377
+        },
+        {
+          "at": 23967,
+          "frames": 1424
+        },
+        {
+          "at": 24968,
+          "frames": 1497
+        },
+        {
+          "at": 25966,
+          "frames": 1550
+        }
+      ],
+      "fps": 60,
+      "gameReadies": 2,
+      "controllerRam": [
+        128,
+        64
+      ],
+      "localHistory": {
+        "availableSeconds": 0,
+        "budgetBytes": 33554432,
+        "checkpoints": 0,
+        "clockRate": 1789772.625,
+        "cycles": 0,
+        "frame": 0,
+        "inputs": 0,
+        "maxSeconds": 10,
+        "peakBytes": 0,
+        "retainedBytes": 0,
+        "spanSeconds": 0,
+        "issue": null
+      },
+      "scriptedInputs": 25
+    },
+    {
+      "hashes": [
+        {
+          "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "9a11f8843c6efe92a7d5c029a45368ff7bd59a25dd87dcd3a32be6b7050f2bf0",
+          "frame": 0,
+          "fresh": true
+        },
+        {
+          "hash": "86f6433f51b11ac8eb23c35d61b924af27b02f23e9ad2fc64fade1749f9b8425",
+          "frame": 120,
+          "fresh": false
+        },
+        {
+          "hash": "b7b7b6ee9b52996aa133e821c48001bc10fd2aeac9fffcee21f3a35147f7f46a",
+          "frame": 240,
+          "fresh": false
+        },
+        {
+          "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "c7dbdb506ba5bb527bc5eedeed9c5abfc56c2d99880d0d572951988bc817e34a",
+          "frame": 262,
+          "fresh": false
+        },
+        {
+          "hash": "fc135ba9fe88889ab4e4029e5d45c1cf24c0c7f7e9f90eed89a1b0e406df46bd",
+          "frame": 382,
+          "fresh": false
+        },
+        {
+          "hash": "b1cc36e9c3a92296381ab88ccbf29e829284f453ada4987c7a6f9c8d8a07d2a1",
+          "frame": 502,
+          "fresh": false
+        },
+        {
+          "hash": "032ae401955fe66c23813ad4c7d7482d45163f278009fb917f1b7fd49b370c5c",
+          "frame": 622,
+          "fresh": false
+        },
+        {
+          "hash": "b0cee0fb6b6451358d4da93775cc404d34c89ce261224d730fff8294c3062f37",
+          "frame": 742,
+          "fresh": false
+        },
+        {
+          "hash": "bbfe66f0ff1e7d8d83227b86e5b071be4f5b8c6ecf1f8772eaee89d03a9b969d",
+          "frame": 862,
+          "fresh": false
+        },
+        {
+          "hash": "0b3d407959248122171c28eea7f40e03d3037492de3cf7ce77e9cf9e05101d21",
+          "frame": 982,
+          "fresh": false
+        },
+        {
+          "hash": "5be4ef484628b501412e3d1182d35596737921f1570571c8702c233c5c801929",
+          "frame": 1102,
+          "fresh": false
+        },
+        {
+          "hash": "3a10a4f67b3db495c9b8903da4e182054d8d29f5173e9b61b6c60c6a1d13a157",
+          "frame": 1222,
+          "fresh": false
+        },
+        {
+          "hash": "f099de45f7b3d73fbc3d9de8ee33d8d0e823f77558a15c77d7c64024de77d099",
+          "frame": 1342,
+          "fresh": false
+        },
+        {
+          "hash": "d17b95ab1c9d77cda98587942fe6d6426ee712a249b94cd707fffb8acb5d8430",
+          "frame": 1462,
+          "fresh": false
+        },
+        {
+          "hash": "cbe3face9d819439b6e58664685191ac464991bd43f77a5780c125409f8a2972",
+          "frame": 1582,
+          "fresh": false
+        },
+        {
+          "hash": "bc1993f77e0fb4babe05c497d29863aa2bbb1d1f4935735840b5a394c4cc6498",
+          "frame": 1702,
+          "fresh": false
+        },
+        {
+          "hash": "8afdc62eeba2e414e245cae14ea434b496a6d214f7cfc42bba55c4f740626ae5",
+          "frame": 1819,
+          "fresh": false
+        }
+      ],
+      "rooms": [
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "waiting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": false,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        },
+        {
+          "established": true,
+          "status": "resume_ready"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "starting"
+        },
+        {
+          "established": true,
+          "status": "playing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "pausing"
+        },
+        {
+          "established": true,
+          "status": "paused"
+        }
+      ],
+      "frames": [
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1545
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1546
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1547
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1548
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1549
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1550
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1551
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1552
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1553
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1554
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1555
+        },
+        {
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1556
+        }
+      ],
+      "frameCount": 1819,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "hvUcVr8QoxWG4s8J--qLh1X8iafxnxNN",
+          "frame": 120,
+          "hash": "86f6433f51b11ac8eb23c35d61b924af27b02f23e9ad2fc64fade1749f9b8425"
+        },
+        {
+          "kind": "hash",
+          "epoch": "hvUcVr8QoxWG4s8J--qLh1X8iafxnxNN",
+          "frame": 240,
+          "hash": "b7b7b6ee9b52996aa133e821c48001bc10fd2aeac9fffcee21f3a35147f7f46a"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 120,
+          "hash": "fc135ba9fe88889ab4e4029e5d45c1cf24c0c7f7e9f90eed89a1b0e406df46bd"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 240,
+          "hash": "b1cc36e9c3a92296381ab88ccbf29e829284f453ada4987c7a6f9c8d8a07d2a1"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 360,
+          "hash": "032ae401955fe66c23813ad4c7d7482d45163f278009fb917f1b7fd49b370c5c"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 480,
+          "hash": "b0cee0fb6b6451358d4da93775cc404d34c89ce261224d730fff8294c3062f37"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 600,
+          "hash": "bbfe66f0ff1e7d8d83227b86e5b071be4f5b8c6ecf1f8772eaee89d03a9b969d"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 720,
+          "hash": "0b3d407959248122171c28eea7f40e03d3037492de3cf7ce77e9cf9e05101d21"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 840,
+          "hash": "5be4ef484628b501412e3d1182d35596737921f1570571c8702c233c5c801929"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 960,
+          "hash": "3a10a4f67b3db495c9b8903da4e182054d8d29f5173e9b61b6c60c6a1d13a157"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1080,
+          "hash": "f099de45f7b3d73fbc3d9de8ee33d8d0e823f77558a15c77d7c64024de77d099"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1200,
+          "hash": "d17b95ab1c9d77cda98587942fe6d6426ee712a249b94cd707fffb8acb5d8430"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1320,
+          "hash": "cbe3face9d819439b6e58664685191ac464991bd43f77a5780c125409f8a2972"
+        },
+        {
+          "kind": "hash",
+          "epoch": "bN4dg6ExUPmW8QU0J2H33bUcdD-lhioJ",
+          "frame": 1440,
+          "hash": "bc1993f77e0fb4babe05c497d29863aa2bbb1d1f4935735840b5a394c4cc6498"
+        }
+      ],
+      "timing": {
+        "workerMs": 25953,
+        "workerMax": 26,
+        "frameGaps": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          42,
+          642,
+          565,
+          240,
+          164,
+          87,
+          23,
+          8,
+          4,
+          2,
+          null,
+          2,
+          2,
+          1,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          1,
+          null,
+          1,
+          null,
+          1,
+          2,
+          1,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          3,
+          null,
+          3,
+          null,
+          null,
+          1,
+          1,
+          null,
+          null,
+          null,
+          2,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          1,
+          2,
+          null,
+          1,
+          null,
+          null,
+          2,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          1
+        ],
+        "waitMs": 2912,
+        "waitCount": 37,
+        "delays": [
+          6,
+          6
+        ]
+      },
+      "events": [
+        {
+          "at": 2574,
+          "kind": "icegatheringstatechange",
+          "connection": "new",
+          "ice": "new",
+          "gathering": "gathering"
+        },
+        {
+          "at": 2575,
+          "kind": "icegatheringstatechange",
+          "connection": "new",
+          "ice": "new",
+          "gathering": "complete"
+        },
+        {
+          "at": 2784,
+          "kind": "iceconnectionstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "complete"
+        },
+        {
+          "at": 2784,
+          "kind": "connectionstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "complete"
+        },
+        {
+          "at": 2881,
+          "kind": "iceconnectionstatechange",
+          "connection": "connecting",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 3006,
+          "kind": "connectionstatechange",
+          "connection": "connected",
+          "ice": "connected",
+          "gathering": "complete"
+        },
+        {
+          "at": 4187,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 8707,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 8932,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        },
+        {
+          "at": 10034,
+          "kind": "receive",
+          "type": "gameStart",
+          "reason": null
+        },
+        {
+          "at": 11147,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 1113,
+          "epochFrames": 60
+        },
+        {
+          "at": 21148,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 11114,
+          "epochFrames": 660
+        },
+        {
+          "at": 31148,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 21114,
+          "epochFrames": 1257
+        },
+        {
+          "at": 36091,
+          "kind": "receive",
+          "type": "gamePauseAt",
+          "reason": "Player 1 requested pause (user)."
+        },
+        {
+          "at": 36357,
+          "kind": "receive",
+          "type": "gameStop",
+          "reason": "Player 1 requested pause (user). Both players are paused at the same frame."
+        }
+      ],
+      "pacing": [
+        {
+          "at": 985,
+          "frames": 53
+        },
+        {
+          "at": 1986,
+          "frames": 118
+        },
+        {
+          "at": 2986,
+          "frames": 178
+        },
+        {
+          "at": 3995,
+          "frames": 237
+        },
+        {
+          "at": 5011,
+          "frames": 262
+        },
+        {
+          "at": 163,
+          "frames": 6
+        },
+        {
+          "at": 1164,
+          "frames": 64
+        },
+        {
+          "at": 2164,
+          "frames": 127
+        },
+        {
+          "at": 3165,
+          "frames": 184
+        },
+        {
+          "at": 4165,
+          "frames": 247
+        },
+        {
+          "at": 5165,
+          "frames": 303
+        },
+        {
+          "at": 6165,
+          "frames": 366
+        },
+        {
+          "at": 7166,
+          "frames": 427
+        },
+        {
+          "at": 8166,
+          "frames": 485
+        },
+        {
+          "at": 9166,
+          "frames": 547
+        },
+        {
+          "at": 10167,
+          "frames": 609
+        },
+        {
+          "at": 11167,
+          "frames": 663
+        },
+        {
+          "at": 12167,
+          "frames": 726
+        },
+        {
+          "at": 13167,
+          "frames": 789
+        },
+        {
+          "at": 14168,
+          "frames": 846
+        },
+        {
+          "at": 15168,
+          "frames": 908
+        },
+        {
+          "at": 16167,
+          "frames": 967
+        },
+        {
+          "at": 17167,
+          "frames": 1029
+        },
+        {
+          "at": 18168,
+          "frames": 1089
+        },
+        {
+          "at": 19168,
+          "frames": 1146
+        },
+        {
+          "at": 20169,
+          "frames": 1202
+        },
+        {
+          "at": 21169,
+          "frames": 1261
+        },
+        {
+          "at": 22169,
+          "frames": 1329
+        },
+        {
+          "at": 23170,
+          "frames": 1384
+        },
+        {
+          "at": 24169,
+          "frames": 1440
+        },
+        {
+          "at": 25170,
+          "frames": 1509
+        },
+        {
+          "at": 26170,
+          "frames": 1557
+        }
+      ],
+      "fps": 60,
+      "gameReadies": 2,
+      "controllerRam": [
+        128,
+        64
+      ],
+      "localHistory": {
+        "availableSeconds": 0,
+        "budgetBytes": 33554432,
+        "checkpoints": 0,
+        "clockRate": 1789772.625,
+        "cycles": 0,
+        "frame": 0,
+        "inputs": 0,
+        "maxSeconds": 10,
+        "peakBytes": 0,
+        "retainedBytes": 0,
+        "spanSeconds": 0,
+        "issue": null
+      },
+      "scriptedInputs": 25
+    }
+  ],
+  "page_errors": [],
+  "network_evidence": {
+    "run_id": "3879a9920302450aa34fb47327088775",
+    "netem_before": [
+      {
+        "kind": "netem",
+        "handle": "8011:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 0,
+        "packets": 0,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "netem_after": [
+      {
+        "kind": "netem",
+        "handle": "8011:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 8606155,
+        "packets": 8452,
+        "drops": 77,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "route": [
+      {
+        "type": "local",
+        "dst": "10.201.0.1",
+        "dev": "lo",
+        "prefsrc": "10.201.0.1",
+        "flags": [],
+        "uid": 0,
+        "cache": [
+          "local"
+        ]
+      }
+    ],
+    "udp_headers": {
+      "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+      "wall_seconds": 47.42558096599896,
+      "flows": {
+        "10.201.0.1:60331>10.201.0.1:39382": {
+          "observations": 3733,
+          "udp_bytes": 375610
+        },
+        "10.201.0.1:60331>10.201.0.1:39826": {
+          "observations": 7,
+          "udp_bytes": 700
+        },
+        "10.201.0.1:39382>10.201.0.1:60331": {
+          "observations": 3708,
+          "udp_bytes": 371655
+        }
+      }
+    }
+  }
+}

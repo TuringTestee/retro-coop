@@ -18,6 +18,11 @@ test('state operations reuse local-file shape and correlation validation', () =>
  for (const data of [{type:'state-info',requestId:-1},{type:'state-validate',requestId:2,bytes:new ArrayBuffer(0)},{type:'state-export',requestId:-1},{type:'state-import',requestId:2,bytes:'file'},{type:'state-import',requestId:2,bytes:new ArrayBuffer(0)}]) assert.equal(isWorkerRequest(data),false);
 });
 
+test('shared worker frames require a valid paired epoch and frame, and hash reuses the local RPC boundary',()=>{
+ assert.equal(isWorkerRequest({type:'state-hash',requestId:12}),true);
+ assert.equal(isWorkerRequest({type:'frame',p1:0,p2:255,epoch:'a'.repeat(24),frame:0}),true);
+ for(const tag of [{epoch:'a'.repeat(24)},{frame:0},{epoch:' '.repeat(24),frame:0},{epoch:'a'.repeat(24),frame:-1}])assert.equal(isWorkerRequest({type:'frame',p1:0,p2:0,...tag}),false);
+});
 test('rewind uses correlated finite-duration commands without a second file-size policy',()=>{
  for(const data of [{type:'state-history',requestId:0},{type:'state-rewind',requestId:1,seconds:10}])assert.equal(isWorkerRequest(data),true);
  for(const seconds of [NaN,Infinity,-1,0,'1'])assert.equal(isWorkerRequest({type:'state-rewind',requestId:1,seconds}),false);

@@ -1,3 +1,4 @@
+import type {RoomRole} from './rooms.ts';
 import {object,keys,token,integer} from './protocol-validation.ts';
 export type ConnectionPolicy = 'standard'|'relay';
 export const validPolicy = (value:unknown):value is ConnectionPolicy => value==='standard' || value==='relay';
@@ -7,7 +8,7 @@ export type IceServer = {urls:string[];username?:string;credential?:string};
 export type PeerView = {epoch?:string;policy:ConnectionPolicy;status:'waiting'|'preparing'|'connecting'|'connected'|'failed'|'relay_unavailable'|'relay_capacity'};
 export type Signal = {kind:'description';description:{type:'offer'|'answer';sdp:string}} | {kind:'candidate';candidate:{candidate:string;sdpMid:string|null;sdpMLineIndex:number|null;usernameFragment?:string|null}};
 export type PeerCommand = {type:'peerPolicy';requestId:string;policy:ConnectionPolicy} | {type:'peerAck'|'peerRetry'|'peerConnected'|'peerFailed';requestId:string;epoch:string} | {type:'peerSignal';requestId:string;epoch:string;signal:Signal};
-export type PeerEvent = {type:'peerPrepare';epoch:string;policy:ConnectionPolicy;role:'host'|'guest';iceServers:IceServer[]} | {type:'peerStart';epoch:string} | {type:'peerSignal';epoch:string;signal:Signal} | {type:'peerStop';reason:string};
+export type PeerEvent = {type:'peerPrepare';epoch:string;policy:ConnectionPolicy;role:RoomRole;iceServers:IceServer[]} | {type:'peerStart';epoch:string} | {type:'peerSignal';epoch:string;signal:Signal} | {type:'peerStop';reason:string};
 export function validSignal(value:unknown):value is Signal {
  if(!object(value)) return false;
  if(value.kind==='description') {const d=value.description;return keys(value,['kind','description']) && object(d) && keys(d,['type','sdp']) && (d.type==='offer'||d.type==='answer') && typeof d.sdp==='string' && d.sdp.startsWith('v=0') && d.sdp.length<=peerLimits.sdp;}
