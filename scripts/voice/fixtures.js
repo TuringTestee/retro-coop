@@ -28,3 +28,12 @@ window.Worker=class extends NativeWorker {
 
 const enumerateMicrophones=navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);
 navigator.mediaDevices.enumerateDevices=()=>window.hideMicrophoneDevices?Promise.resolve([]):enumerateMicrophones();
+
+// Firefox ignores an untrusted MediaStreamTrack ended event. This explicit removal model
+// invokes the installed production callback; actual hardware removal remains a release check.
+const endedCallbacks=new WeakMap(),trackListen=MediaStreamTrack.prototype.addEventListener;
+MediaStreamTrack.prototype.addEventListener=function(kind,callback,...args){
+ if(kind==='ended' && typeof callback==='function'){const callbacks=endedCallbacks.get(this)||[];callbacks.push(callback);endedCallbacks.set(this,callbacks);}
+ return trackListen.call(this,kind,callback,...args);
+};
+window.modelMicrophoneRemoval=track=>{const callbacks=endedCallbacks.get(track);if(!callbacks?.length)throw Error('No microphone removal listener installed');for(const callback of callbacks)callback.call(track,new Event('ended'));};

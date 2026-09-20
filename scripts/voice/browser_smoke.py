@@ -46,7 +46,6 @@ try:
                 ignore_default_args=["--mute-audio"],
                 args=[
                     "--use-fake-device-for-media-stream",
-                    "--use-fake-ui-for-media-stream",
                 ]
             )
             if kind == "Chrome"
@@ -66,7 +65,10 @@ try:
     kinds = iter(args.pair.split("-"))
 
     def page(url):
-        tab = browsers[next(kinds)].new_page()
+        kind = next(kinds)
+        tab = browsers[kind].new_page()
+        if kind == "Chrome":
+            tab.context.grant_permissions(["microphone"])
         pages.append(tab)
         tab.on("pageerror", lambda e: errors.append(str(e)))
         tab.add_init_script(
@@ -158,6 +160,21 @@ try:
     # Permission and device failures do not replace the peer or reset local emulation.
     pc_count = host.evaluate("pcs.length")
     panel.get_by_role("button", name="Disable microphone", exact=True).click()
+    if args.pair.startswith("Chrome"):
+        host.context.clear_permissions()
+        host.context.grant_permissions([])
+        assert (
+            host.evaluate(
+                "async()=>(await navigator.permissions.query({name:'microphone'})).state"
+            )
+            == "denied"
+        )
+        panel.get_by_role("button", name="Enable voice", exact=True).click()
+        panel.get_by_text("Microphone access was denied.", exact=False).wait_for()
+        host.context.grant_permissions(["microphone"])
+        panel.get_by_role("button", name="Try microphone again", exact=True).click()
+        panel.get_by_text("Transmitting microphone audio", exact=True).wait_for()
+        panel.get_by_role("button", name="Disable microphone", exact=True).click()
     host.evaluate("window.denyCapture=true")
     panel.get_by_role("button", name="Enable voice", exact=True).click()
     panel.get_by_text("Microphone access was denied.", exact=False).wait_for()
@@ -187,19 +204,26 @@ try:
         .evaluate_all("options=>options.map(o=>o.value).filter(v=>v!=='default')")
     )
     assert devices
+    device_capture_count = host.evaluate("captures.length")
     panel.get_by_label("Microphone device", exact=True).select_option(devices[0])
+    host.wait_for_function(
+        "n=>captures.length>n && captures.at(-1).getAudioTracks().every(t=>t.readyState==='live')",
+        arg=device_capture_count,
+    )
     panel.get_by_text("Microphone muted", exact=True).wait_for()
     assert host.evaluate(
         "captures.slice(0,-1).every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )
     panel.get_by_role("button", name="Unmute microphone", exact=True).click()
+    panel.get_by_text("Transmitting microphone audio", exact=True).wait_for()
     # Model device removal: keep the missing selection visible so Default is an actual new choice.
     host.evaluate(
-        "hideMicrophoneDevices=true;captures.at(-1).getAudioTracks()[0].dispatchEvent(new Event('ended'));navigator.mediaDevices.dispatchEvent(new Event('devicechange'))"
+        "hideMicrophoneDevices=true;modelMicrophoneRemoval(captures.at(-1).getAudioTracks()[0])"
     )
     panel.get_by_text(
         "Microphone disconnected. Choose a device and try again.", exact=True
     ).wait_for()
+    panel.get_by_role("button", name="Refresh microphones", exact=True).click()
     host.wait_for_function(
         "id=>[...document.querySelector('.room-panel select[id$=device]').options].every(o=>o.value!==id || o.textContent.includes('unavailable'))",
         arg=devices[0],
@@ -292,6 +316,9 @@ try:
         "firefox_local_turn_loopback_enabled": args.relay and "Firefox" in args.pair,
         "two_way_decoded_audio_energy": True,
         "no_capture_before_enable": True,
+        "native_browser_permission_denial_and_retry": (
+            True if args.pair.startswith("Chrome") else None
+        ),
         "blur_mutes_focus_does_not_unmute": True,
         "leave_stops_both_tracks": True,
         "missing_device_selection_allows_default_retry": True,
