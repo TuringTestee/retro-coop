@@ -2,7 +2,7 @@
 import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-parser=argparse.ArgumentParser();parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];build_files={str(p.relative_to(root/'apps/client/dist')):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'apps/client/dist').rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
@@ -28,7 +28,7 @@ try:
    if not args.late_join:assert h.get_by_test_id('frames').inner_text()=='0 frames'
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
-   if args.barrier_timeout or args.cancel_barrier:g.evaluate('window.dropGameAck=true')
+   if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
    g.set_input_files('input[type=file]',{'name':'matching.nes','mimeType':'application/octet-stream','buffer':rom})
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
@@ -38,14 +38,20 @@ try:
     h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
     result={'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
-   if args.barrier_timeout:
+   if args.barrier_timeout or args.retry_barrier:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='failed'",timeout=15000,polling=50)
     assert g.evaluate('proof.droppedAcks')==1
     assert all(not tab.evaluate('proof.room.established') for tab in [h,g])
     assert g.evaluate('proof.room.reservationUntil')==lease
     assert h.get_by_test_id('frames').inner_text()=='0 frames'
     result={'result':'pass','injection':'drop guest initial barrier acknowledgement','lease_preserved':True,'host_frames':0,'seconds':round(time.monotonic()-started,2),'statuses':[tab.get_by_test_id('game-status').inner_text() for tab in [h,g]],'page_errors':errors};assert not errors
-    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+    if not args.retry_barrier:
+     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+    g.evaluate('window.dropGameAck=false')
+    first,second=(g,h) if args.retry_barrier=='guest-first' else (h,g)
+    first.get_by_role('button',name='Retry shared play',exact=True).click();first.wait_for_function('proof.gameReadies===2',polling=50)
+    assert second.evaluate('proof.gameReadies')==1,'background retry renewed the other player intent'
+    second.get_by_role('button',name='Retry shared play',exact=True).click();second.wait_for_function('proof.gameReadies===2',polling=50)
    if args.late_join:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='late_join'",timeout=15000,polling=50)
     observed=h.evaluate('proof.hashes.at(-1)');assert observed['frame']>=30 and not observed['fresh']
@@ -121,7 +127,7 @@ try:
    for tab in [h,g]:assert f'Route: {route}.' in tab.get_by_test_id('connection-status').inner_text()
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
-   result={'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browsers':{kind:b.version for kind,b in browsers.items()},'pair':args.pair,'injection':args.fault,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
+   result={'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browsers':{kind:b.version for kind,b in browsers.items()},'pair':args.pair,'injection':args.fault,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}));[browser.close() for browser in browsers.values()]
   except Exception:
    failure={'source':source,'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}

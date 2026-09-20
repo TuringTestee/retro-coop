@@ -9,7 +9,7 @@ export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private renew=false;
  private channel?:RTCDataChannel;private peerEpoch?:string;private inspect?:string;
  private scheduler?:GameScheduler;private prepared?:{epoch:string;delay:number};private early:GamePacket[]=[];
- private serial=0;private offering=false;private offered?:string;private controlled=false;
+ private serial=0;private offeringSerial?:number;private offered?:string;private controlled=false;
  private fence?:number;private awaitingFence=false;private pausedSent=false;private hashing=false;private missingSince=0;
  private state:GameplayState={status:'Choose matching games to prepare shared play.',frame:0,busy:false};
  private player:()=>LocalPlayer|null;private send:(command:Command)=>Promise<unknown>;private update:(state:GameplayState)=>void;
@@ -25,7 +25,7 @@ export class GameClient {
  selected(file:Fingerprint){this.file=file;this.intent=true;this.offered=undefined;void this.offerGuest();}
  playIntent(){this.intent=true;this.offered=undefined;void this.offerGuest();}
  cancelIntent(){if(!this.room?.established){this.intent=false;++this.serial;this.offered=undefined;}}
- retry(){this.intent=true;this.offered=undefined;void this.offerGuest();}
+ retry(){void this.renewOffer();}
  retryConnection(){this.renew=true;}
  ready(channel:RTCDataChannel,epoch:string){
   this.channel=channel;this.peerEpoch=epoch;if(this.renew){this.intent=true;this.renew=false;}
@@ -34,15 +34,15 @@ export class GameClient {
  }
  closed(epoch?:string){if(epoch&&epoch===this.peerEpoch){this.peerEpoch=undefined;this.channel=undefined;this.clear('Connection changed. Shared play is paused; retry explicitly.');}}
  private clear(status:string,leave=false){
-  ++this.serial;this.intent=false;this.offered=undefined;this.offering=false;this.prepared=undefined;this.scheduler=undefined;this.early=[];this.fence=undefined;this.awaitingFence=false;this.hashing=false;
+  ++this.serial;this.intent=false;this.offered=undefined;this.offeringSerial=undefined;this.prepared=undefined;this.scheduler=undefined;this.early=[];this.fence=undefined;this.awaitingFence=false;this.hashing=false;
   if(this.controlled)this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.controlled=false;this.publish({status,busy:false});
  }
  private eligible(){return !!this.intent&&!!this.room&&!!this.file&&matchesFile(this.room.fingerprint,this.file)&&this.room.matches&&this.channel?.readyState==='open'&&this.peerEpoch===this.room.peer.epoch;}
  private async offerGuest(){if(this.room?.role==='guest'&&!this.room.established&&this.eligible())await this.offer();}
  private async offer(){
-  const room=this.room,peerEpoch=this.peerEpoch,player=this.player();if(!room||!peerEpoch||!player||!this.eligible()||this.offering)return;
+  const room=this.room,peerEpoch=this.peerEpoch,player=this.player();if(!room||!peerEpoch||!player||!this.eligible()||this.offeringSerial===this.serial)return;
   const key=room.id+peerEpoch+this.file!.romSha256;if(this.offered===key)return;
-  this.offered=key;this.offering=true;const serial=this.serial;this.controlled=true;
+  this.offered=key;const serial=this.serial;this.offeringSerial=serial;this.controlled=true;
   this.publish({busy:true,status:'Checking the committed machine state…'});
   try{
    const info=await player.holdForGame();if(serial!==this.serial||!this.eligible())return;
@@ -50,9 +50,10 @@ export class GameClient {
    if(serial!==this.serial)return;
    this.publish({busy:false,status:room.established?'Ready to resume. Waiting for the host and other player.':'Waiting for the matching initial-state barrier…'});
   }catch(error){if(serial===this.serial)this.clear(error instanceof Error?error.message:'Shared game could not prepare.',!room.established);}
-  finally{if(serial===this.serial)this.offering=false;}
+  finally{if(this.offeringSerial===serial)this.offeringSerial=undefined;}
  }
- async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
+ private async renewOffer(){this.intent=true;if(this.offeringSerial===this.serial)return;this.offered=undefined;await this.offer();}
+ async resumeReady(){await this.renewOffer();}
  async resumeTogether(){const epoch=this.room?.game?.epoch,serial=this.serial;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){if(serial===this.serial)this.publish({status:String(error),busy:false});}}
  handle(event:GameEvent){
   if(event.type==='gameInspect') {if(this.peerEpoch!==event.peerEpoch){this.inspect=event.peerEpoch;return;}void this.offer();return;}

@@ -1,0 +1,7 @@
+{
+  "status": "incomplete-review-interruption",
+  "source": "49a35666d83e10c25cbaf175346728e8a1c6fcdc",
+  "reason": "Independent source review proved readiness retry ordering and canceled-offer ownership defects. No complete ten-minute result was produced.",
+  "capture_seconds": 185.53587747399797,
+  "exit_code": 124
+}

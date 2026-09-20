@@ -1,0 +1,30 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (20.459115ms)
+✔ a completed old readiness request cannot overwrite a later membership change (4.640006ms)
+✖ explicit host retry submits readiness regardless of guest inspection order (1.483676ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 136.295961
+
+✖ failing tests:
+
+test at apps/client/src/game-client.test.ts:34:1
+✖ explicit host retry submits readiness regardless of guest inspection order (1.483676ms)
+  AssertionError [ERR_ASSERTION]: guest-first retry did not prepare host
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/retro-d11-gameplay/apps/client/src/game-client.test.ts:47:10)
+      at async Test.run (node:internal/test_runner/test:1110:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

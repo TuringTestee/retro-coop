@@ -1,0 +1,11 @@
+✔ a replaced peer channel cannot change the current game through a delayed message (17.67694ms)
+✔ a completed old readiness request cannot overwrite a later membership change (3.708653ms)
+✔ explicit host retry submits readiness regardless of guest inspection order (1.171456ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124.694823
