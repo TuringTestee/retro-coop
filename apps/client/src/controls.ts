@@ -2,7 +2,7 @@ import { keyMap, defaultPadBindings } from '../../../spikes/d02/demo/runtime/inp
 
 export const actions = ['a','b','select','start','up','down','left','right','pushToTalk'] as const;
 export type Action = typeof actions[number];
-export const labels: Record<Action,string> = {a:'A',b:'B',select:'Select',start:'Start',up:'Up',down:'Down',left:'Left',right:'Right',pushToTalk:'Push to talk (reserved)'};
+export const labels: Record<Action,string> = {a:'A',b:'B',select:'Select',start:'Start',up:'Up',down:'Down',left:'Left',right:'Right',pushToTalk:'Push to talk'};
 export type Bindings = Record<Action,string[]>;
 export type Controls = {keyboard:Bindings; gamepad:Bindings; device:{index:number;id:string}|null};
 export function defaults():Controls {

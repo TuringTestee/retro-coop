@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { actions, labels, defaults, conflict, inputMask, padInputs, bindingLabel, type Action, type Controls } from './controls.ts';
 
 type Props = {
- connection?:ReactNode;
+ connection?:ReactNode;voice?:ReactNode;
  open:boolean; close():void; controls:Controls; change(value:Controls):void;
  filter:'nearest'|'scanlines'; setFilter(value:'nearest'|'scanlines'):void;
  volume:number; setVolume(value:number):void; muted:boolean; audioIssue?:string; audioState?:AudioContextState; retryAudio():void;
@@ -56,7 +56,7 @@ export function Settings(props:Props) {
   <p className="hint">Press a controller button if it is not listed. Disconnecting the selected controller pauses play; reconnect and Resume, or choose Keyboard.</p>
   <label>Edit mappings <select aria-label="Edit mappings" value={source} onChange={event=>{setSource(event.target.value as typeof source);endCapture();}}><option value="keyboard">Keyboard</option><option value="gamepad">Gamepad</option></select></label>
   <div className="mapping-list">{actions.map(action=><div className="mapping" key={action}><span>{labels[action]}</span><span>{props.controls[source][action].map(bindingLabel).join(' / ')}</span><button disabled={!!capture} onClick={event=>{returnFocus.current=event.currentTarget;setConfirm(false);setCapture(action);setBinding(null);}}>Change {labels[action]}</button></div>)}</div>
-  <p className="hint">Push-to-talk reserves a binding for future voice controls. No microphone is activated here.</p>
+  <p className="hint">Push-to-talk uses the same conflict checks as game controls. Enable the microphone explicitly in Voice.</p>
   {capture && <section className="capture" aria-labelledby="capture-title"><h3 id="capture-title">Map {labels[capture]}</h3>
    <div ref={captureBox} tabIndex={0} className="input-test" aria-label="Capture input" onKeyDown={event=>{
     if(event.code==='Escape'){event.preventDefault();event.stopPropagation();endCapture();return;}
@@ -66,10 +66,11 @@ export function Settings(props:Props) {
    <button disabled={!binding || !!duplicate} onClick={()=>{props.change({...props.controls,[source]:{...props.controls[source],[capture]:[binding!]}});endCapture();}}>Apply mapping</button><button onClick={endCapture}>Cancel mapping</button>
   </section>}
   <button onClick={event=>{returnFocus.current=event.currentTarget;endCapture();setConfirm(true);}}>Restore {source} defaults</button>
-  {confirm && <section aria-label="Confirm mapping reset"><p>Replace all {source} mappings, including the reserved push-to-talk binding? Other local settings stay the same.</p><button onClick={()=>{props.change({...props.controls,[source]:defaults()[source]});setConfirm(false);}}>Confirm restore</button><button onClick={()=>setConfirm(false)}>Keep mappings</button></section>}
+  {confirm && <section aria-label="Confirm mapping reset"><p>Replace all {source} mappings, including the push-to-talk binding? Other local settings stay the same.</p><button onClick={()=>{props.change({...props.controls,[source]:defaults()[source]});setConfirm(false);}}>Confirm restore</button><button onClick={()=>setConfirm(false)}>Keep mappings</button></section>}
   <div className="input-test" tabIndex={0} aria-label="Test mapped input" onKeyDown={event=>{if(event.code!=='Tab' && event.code!=='Escape'){event.preventDefault();held.current.add(event.code);}}} onBlur={()=>held.current.clear()}>
    Focus here to test {source} input: <span data-testid="input-test">{actions.slice(0,8).filter((_,index)=>tested & (1<<index)).map(action=>labels[action]).join(', ') || 'None'}</span>
   </div>
+  {props.voice}
   {props.connection && <fieldset><legend>Connection</legend>{props.connection}</fieldset>}
    <fieldset><legend>Picture and sound</legend><label>Display filter <select value={props.filter} onChange={event=>props.setFilter(event.target.value as Props['filter'])}><option value="nearest">Nearest neighbor</option><option value="scanlines">Scanlines</option></select></label>
    <label>Game volume {Math.round(props.volume*100)}% <input type="range" min="0" max="100" value={Math.round(props.volume*100)} onChange={event=>props.setVolume(Number(event.target.value)/100)}/></label>

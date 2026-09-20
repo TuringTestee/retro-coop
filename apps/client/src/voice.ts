@@ -16,6 +16,7 @@ export class VoiceSession {
   navigator.mediaDevices?.addEventListener('devicechange',this.devicesChanged);
   window.addEventListener('keydown',this.down);window.addEventListener('keyup',this.up);this.animation=requestAnimationFrame(this.input);
  }
+ current(){return this.state;}
  private publish(patch:Partial<VoiceState>){if(!this.disposed){this.state={...this.state,...patch};this.update(this.state);}}
  private blur=()=>{this.keys.clear();this.padArmed=false;this.pointerHeld=false;this.microphone.blur();};
  private editable(){const element=document.activeElement;return !!element?.closest('input,textarea,select,[contenteditable="true"],dialog');}
