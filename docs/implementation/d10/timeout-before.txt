@@ -21,9 +21,9 @@
 test at apps/coordinator/src/peer.test.ts:77:57
 ✖ preparing deadline publishes failed state to both members without another command (1.168142ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   0 !== 1
-  
+
       at TestContext.<anonymous> (file:///tmp/retro-d10-peer/apps/coordinator/src/peer.test.ts:86:71)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1103:25)
@@ -42,9 +42,9 @@ test at apps/coordinator/src/peer.test.ts:77:57
 test at apps/coordinator/src/peer.test.ts:77:57
 ✖ connecting deadline publishes failed state to both members without another command (0.574187ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   0 !== 1
-  
+
       at TestContext.<anonymous> (file:///tmp/retro-d10-peer/apps/coordinator/src/peer.test.ts:86:71)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1103:25)
