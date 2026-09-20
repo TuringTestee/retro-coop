@@ -1,0 +1,178 @@
+{
+  "result": "pass",
+  "rom_sha256": "1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555",
+  "rom_bytes": 40976,
+  "wasm_sha256": "681ddf85bdb877933d84996ef2287d8485e092d2b0eee579c7351278a8706728",
+  "browser": "145.0.7632.75",
+  "os": "Linux",
+  "duration_seconds": 28.98,
+  "title_p2_video_matches_idle": true,
+  "modes": [
+    {
+      "mode": "timed",
+      "expected_menu_label": "TIMED",
+      "boot": {
+        "frames": 600,
+        "peak": 0.0946265161037445,
+        "pixel_sha256": "5db62e371daed578a44060d15d4eca8471b72c95cffe28d3a509746d8cd8e7d3",
+        "audio_sha256": "97a1d2270a034587604267ca5d3f2e45a666564ffd54073eeb3d913dc43641af",
+        "video_timeline_sha256": "7404773a13d3fa0bf1643d60fd81a4af71987b74bc445f804fd788ec62202ad8"
+      },
+      "playing": {
+        "frames": 120,
+        "peak": 0.08917009830474854,
+        "pixel_sha256": "95872795613cefb4c23e00040b648a33d6f6a74459a6f10df56285442680d7f0",
+        "audio_sha256": "86d838f1952cfeaa8521879d5fea0c5bf58e0cd39bc9289acc59e2e1689b0ad3",
+        "video_timeline_sha256": "a73a3e81fd49148c2696d377a7d422f2c4d1573ae1267b26b5ea105705ddc9a3"
+      },
+      "menu_p2_video_matches_idle": true,
+      "idle": {
+        "frames": 120,
+        "peak": 0.09050264954566956,
+        "pixel_sha256": "ee701a7caa6fc38784159886db357b012ba225b29c46316a9bc64020d0727194",
+        "audio_sha256": "0c7bcdd91ddd0bb07b43b35ada6b8f595c850d0a2db65bf62a97f8fb1d494d52",
+        "video_timeline_sha256": "1a5b455f5ac25073efd9f413685544ab20aa9e687cf1862ac4a51d346403ac34"
+      },
+      "p2": {
+        "frames": 120,
+        "peak": 0.09009953588247299,
+        "pixel_sha256": "ee701a7caa6fc38784159886db357b012ba225b29c46316a9bc64020d0727194",
+        "audio_sha256": "95607fc364f67e39d5c9d28ccd6889e81113cc5e2925976a42d6e34034ceeafe",
+        "video_timeline_sha256": "1a5b455f5ac25073efd9f413685544ab20aa9e687cf1862ac4a51d346403ac34"
+      },
+      "p1": {
+        "frames": 120,
+        "peak": 0.09030263870954514,
+        "pixel_sha256": "24bad988a50f6a38c15896aaa01f33a6ca2afd41ba22e7dc79aa6ce526dc9be3",
+        "audio_sha256": "b547ca2c854de1d620b76e680d89678334f3594f655490a85420fe61bea409a0",
+        "video_timeline_sha256": "fe34775ac54714c4c4e0830d7e2fc30e88ff03b60be55a6764034786664cd70e"
+      },
+      "restored_p1_replay": {
+        "frames": 120,
+        "peak": 0.09031089395284653,
+        "pixel_sha256": "24bad988a50f6a38c15896aaa01f33a6ca2afd41ba22e7dc79aa6ce526dc9be3",
+        "audio_sha256": "409d4fb99d4f610dbfa8291a5742d7ea9d4036b875d90eb3da421bd4ebcc2c04",
+        "video_timeline_sha256": "fe34775ac54714c4c4e0830d7e2fc30e88ff03b60be55a6764034786664cd70e"
+      }
+    },
+    {
+      "mode": "classic",
+      "expected_menu_label": "CLASSIC",
+      "boot": {
+        "frames": 600,
+        "peak": 0.0946265161037445,
+        "pixel_sha256": "5db62e371daed578a44060d15d4eca8471b72c95cffe28d3a509746d8cd8e7d3",
+        "audio_sha256": "97a1d2270a034587604267ca5d3f2e45a666564ffd54073eeb3d913dc43641af",
+        "video_timeline_sha256": "7404773a13d3fa0bf1643d60fd81a4af71987b74bc445f804fd788ec62202ad8"
+      },
+      "playing": {
+        "frames": 120,
+        "peak": 0.08718090504407883,
+        "pixel_sha256": "3b996953e05b8b090011e9f0a75aed9497948235f3e2eb831625fd462fd98653",
+        "audio_sha256": "9aff8c1c2269df0c0e78b87f70b3bd8c1e6afe14e8676459f0e79a5b189b9e09",
+        "video_timeline_sha256": "5c90eaecb9e6c8ee801c26d2ab75c3c9ecd95da1bcdd51dade365be6d99f45b9"
+      },
+      "menu_p2_video_matches_idle": true,
+      "idle": {
+        "frames": 120,
+        "peak": 0.09963736683130264,
+        "pixel_sha256": "a832d868089002bc228cfc2a8e52fa2f0688634b3eb2fdc4b047c34247c0bdc8",
+        "audio_sha256": "fb634c42f60eb16fa77d2d6d9d84913f7f2bc37f7ad4f753b70263ee17b50c13",
+        "video_timeline_sha256": "07a00f9f55af2a46e24254966481d8956104085cc7504283cb10fa1a48ce335e"
+      },
+      "p2": {
+        "frames": 120,
+        "peak": 0.09917300194501877,
+        "pixel_sha256": "a832d868089002bc228cfc2a8e52fa2f0688634b3eb2fdc4b047c34247c0bdc8",
+        "audio_sha256": "08b854fbd0db93bc8a5905954cdab81127c72afb2643b4f73da1bd9960775992",
+        "video_timeline_sha256": "07a00f9f55af2a46e24254966481d8956104085cc7504283cb10fa1a48ce335e"
+      },
+      "p1": {
+        "frames": 120,
+        "peak": 0.09953556954860687,
+        "pixel_sha256": "8b13a6ae40470314650fe51379b5c73b1b70479af5638b84ce1749e20eab4e2d",
+        "audio_sha256": "d70619a0d2fbd5e2d88c9f58aa34714e1cfa0d74ca7bdb45412ab33d373c91d4",
+        "video_timeline_sha256": "528a19bbbb75158289a379d213376643cf371213365f70fa4c4bc6e4071eee4f"
+      },
+      "restored_p1_replay": {
+        "frames": 120,
+        "peak": 0.099556103348732,
+        "pixel_sha256": "8b13a6ae40470314650fe51379b5c73b1b70479af5638b84ce1749e20eab4e2d",
+        "audio_sha256": "e9f10d7529da927243f147ada3c8a6929591bf515d9094b757d54bcdad4f361d",
+        "video_timeline_sha256": "528a19bbbb75158289a379d213376643cf371213365f70fa4c4bc6e4071eee4f"
+      }
+    },
+    {
+      "mode": "fixed",
+      "expected_menu_label": "FIXED",
+      "boot": {
+        "frames": 600,
+        "peak": 0.0946265161037445,
+        "pixel_sha256": "5db62e371daed578a44060d15d4eca8471b72c95cffe28d3a509746d8cd8e7d3",
+        "audio_sha256": "97a1d2270a034587604267ca5d3f2e45a666564ffd54073eeb3d913dc43641af",
+        "video_timeline_sha256": "7404773a13d3fa0bf1643d60fd81a4af71987b74bc445f804fd788ec62202ad8"
+      },
+      "playing": {
+        "frames": 120,
+        "peak": 0.0888494998216629,
+        "pixel_sha256": "6ea0396725badd0e4d971d010c36b3fec9554ce3538c25ea6f530f8bbcacf5d1",
+        "audio_sha256": "83f8c1f23930c8f81cf35e8d8ba455b5c0a81093810db3f6e120209b18431663",
+        "video_timeline_sha256": "1fd3a31eb62981da9b1e4736618ea03ff46e4d77ceb8a93d3fd386dcd6f866ad"
+      },
+      "menu_p2_video_matches_idle": true,
+      "idle": {
+        "frames": 120,
+        "peak": 0.09957483410835266,
+        "pixel_sha256": "9a17dc8f1d80b0a0fca8a69f76986f4bc6d532cac73a6f13113e85452825d055",
+        "audio_sha256": "e9977a3dbf84a65f3cbcaf71290c2e150d590e2fa29e5c7228d97033f582285d",
+        "video_timeline_sha256": "4592756d6dccf77fd268d3ac91cdca5400513ac9be5b088849e161401fb1bf90"
+      },
+      "p2": {
+        "frames": 120,
+        "peak": 0.09911023825407028,
+        "pixel_sha256": "9a17dc8f1d80b0a0fca8a69f76986f4bc6d532cac73a6f13113e85452825d055",
+        "audio_sha256": "0418b1bcb16a8f8708eece13c81a952142075a5aa2969dcaf38fc81eabab0351",
+        "video_timeline_sha256": "4592756d6dccf77fd268d3ac91cdca5400513ac9be5b088849e161401fb1bf90"
+      },
+      "p1": {
+        "frames": 120,
+        "peak": 0.0994669571518898,
+        "pixel_sha256": "5b9b90c4ef1a3437093fae959851cfb3fcdf11237b193e10c7a6affea1933952",
+        "audio_sha256": "6f947559e3ed1e10292ef7569bcde7ed0df5d82ff72332e530e4065873550016",
+        "video_timeline_sha256": "08a0dfc952b1152baf7c9e0e12ef2dadd15d74b63dd000bbe32a2d26ba9b9205"
+      },
+      "restored_p1_replay": {
+        "frames": 120,
+        "peak": 0.09948723763227463,
+        "pixel_sha256": "5b9b90c4ef1a3437093fae959851cfb3fcdf11237b193e10c7a6affea1933952",
+        "audio_sha256": "ef5bf357e0d661dbeed8e5cfc503146ea906c11b4370065b6463a4f782550bbb",
+        "video_timeline_sha256": "08a0dfc952b1152baf7c9e0e12ef2dadd15d74b63dd000bbe32a2d26ba9b9205"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/"
+    },
+    {
+      "method": "GET",
+      "path": "/demo/worker.js"
+    },
+    {
+      "method": "GET",
+      "path": "/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm"
+    },
+    {
+      "method": "GET",
+      "path": "/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm"
+    },
+    {
+      "method": "GET",
+      "path": "/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm"
+    }
+  ],
+  "page_errors": [],
+  "audio": "Nonzero PCM inspected; no AudioContext/device output created. PCM identity across restore is not asserted because upstream preserves running session synth/filter history.",
+  "scope": "Accelerated local core/worker checks; screenshots require visual inspection; not real-time, network, exhaustive mechanics or final release qualification"
+}
