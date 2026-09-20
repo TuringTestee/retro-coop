@@ -1,0 +1,23 @@
+[
+  {
+    "case": "banked",
+    "fixture_sha256": "76534b568c4e771da341bded33e7ee8d28b6aa5df542127a0b0c452f4248a54c",
+    "returncode": 0,
+    "stdout": "case=banked observed=[17, 34, 51, 68] expected=[17, 34, 51, 68]\n",
+    "stderr": ""
+  },
+  {
+    "case": "mirrored",
+    "fixture_sha256": "f0d2aa5f19e2bf2d2d43bbf5c2684e718e37a215f872f17af1b2c0f6e8bd949d",
+    "returncode": 0,
+    "stdout": "case=mirrored observed=[16] expected=[16]\n",
+    "stderr": ""
+  },
+  {
+    "case": "mirrored-control",
+    "fixture_sha256": "b28c594d12589c297f2c0d116c1094042976a4e36f92cc7967746b4d13fcd4c7",
+    "returncode": 0,
+    "stdout": "case=mirrored-control observed=[16] expected=[16]\n",
+    "stderr": ""
+  }
+]

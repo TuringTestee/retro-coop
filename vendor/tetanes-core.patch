@@ -1,0 +1,20 @@
+--- a/src/mapper/m001_sxrom.rs
++++ b/src/mapper/m001_sxrom.rs
+@@ -86 +86 @@
+-        let extra_reg = if mmc1.last_chr_reg == 0xC000 && mmc1.chr_mode {
++        let extra_reg = if mmc1.last_chr_reg & 0xE000 == 0xC000 && mmc1.chr_mode {
+@@ -145 +145,13 @@
+-            memory.map_prg(0x6000, Self::PRG_RAM_WINDOW, 0, Src::PrgRam);
++            // SOROM/SXROM reuse CHR address lines above their 8K CHR memory.
++            // SOROM uses bit 3 for two RAM banks; SXROM uses bits 2/3 for four.
++            // Geometry is trusted cartridge memory, not a deserialized bank count.
++            let bank = if memory.region_ref(Src::Chr).len() <= 8 * 1024 {
++                match memory.region_ref(Src::PrgRam).len() {
++                    0x4000 => (extra_reg >> 3) & 1,
++                    0x8000 => (extra_reg >> 2) & 3,
++                    _ => 0,
++                }
++            } else {
++                0
++            };
++            memory.map_prg(0x6000, Self::PRG_RAM_WINDOW, i32::from(bank), Src::PrgRam);
