@@ -3,11 +3,18 @@ import argparse,json,math,sys
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'spikes/d02'))
 from verify_realtime import require,verify_network_evidence,digest,number
+import firefox_driver
 
 def verify(result,seconds):
  require(not result.get('controlled_worker_delivery_floor_ms'), 'controlled diagnostic is not qualification')
  require(result['result']=='pass' and not result['page_errors'],'browser failure')
  require(result['target_seconds']==seconds,'wrong workload')
+ if seconds==600 and 'Firefox' in result['pair']:
+  firefox_driver.validate_evidence(result,result['browsers'].get('Firefox'))
+  instances=result.get('browser_instances',[])
+  require([b.get('kind') for b in instances]==result['pair'].split('-'),'missing separate browser instances')
+  for browser in instances:
+   if browser['kind']=='Firefox':firefox_driver.validate_evidence(result,browser.get('version'))
  require(number(result['active_seconds']) and seconds<=result['active_seconds']<=seconds+2,'shared execution did not sustain the real-time workload')
  require(digest(result['identity']['romSha256']) and result['identity']['coreSha256'] in {value for name,value in result['build_files'].items() if name.endswith('.wasm')},'missing actual ROM/core artifact identity')
  peers=result['peers'];require(len(peers)==2,'missing peer')

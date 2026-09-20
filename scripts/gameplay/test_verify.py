@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import unittest
 from verify import verify
+import firefox_driver
+from prepare_stock_firefox import VERSION, URL, ARCHIVE_SHA256, ARCHIVE_BYTES
 
 
 class GameplayEvidenceTests(unittest.TestCase):
@@ -16,6 +18,27 @@ class GameplayEvidenceTests(unittest.TestCase):
         verify(self.record, 30)
         with self.assertRaisesRegex(ValueError, 'wrong workload'):
             verify(self.record, 600)
+
+    def test_full_firefox_workload_requires_official_build(self):
+        record=copy.deepcopy(self.record)
+        record['target_seconds']=600
+        with self.assertRaisesRegex(ValueError,'pinned official build'):
+            verify(record,600)
+
+    def test_official_browser_provenance_has_one_pinned_owner(self):
+        record={'firefox_driver':firefox_driver.DRIVER,
+                'firefox_executable_sha256':'a'*64,
+                'firefox_build':{'version':VERSION,'source':URL,
+                    'archive_sha256':ARCHIVE_SHA256,'archive_bytes':ARCHIVE_BYTES,
+                    'binary_sha256':'a'*64}}
+        firefox_driver.validate_evidence(record,VERSION)
+        for key in ['version','source','archive_sha256','archive_bytes','binary_sha256']:
+            changed=copy.deepcopy(record)
+            changed['firefox_build'][key]='wrong'
+            with self.assertRaises(ValueError):
+                firefox_driver.validate_evidence(changed,VERSION)
+        with self.assertRaises(ValueError):
+            firefox_driver.validate_evidence(record,'unexpected version')
 
     def test_controlled_worker_latency_is_not_qualification(self):
         record=copy.deepcopy(self.record)

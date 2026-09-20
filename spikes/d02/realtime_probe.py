@@ -9,6 +9,7 @@ import platform
 import time
 from pathlib import Path
 from playwright.async_api import async_playwright
+import firefox_driver
 
 async def run():
     parser=argparse.ArgumentParser()
@@ -25,12 +26,10 @@ async def run():
     adapter=hashlib.sha256()
     for filename in ['realtime.js','realtime-worker.js','realtime-audio.js','realtime.html']:
         adapter.update(filename.encode()+b'\0'+Path(filename).read_bytes())
-    result={'run_id':os.environ.get('D02_RUN_ID'),'platform':platform.platform(),'rom_bytes':len(rom),'wasm_bytes':len(wasm),'rom_sha256':hashlib.sha256(rom).hexdigest(),'wasm_sha256':hashlib.sha256(wasm).hexdigest(),'adapter_sha256':adapter.hexdigest(),'pair':args.pair,'seconds':args.seconds,'impairment':'isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback','route':'isolated private host ICE; no STUN/TURN','voice':'synthetic oscillator, not real microphone/speaker listening','chromium_launch':'headless, default --mute-audio removed','firefox_driver':'official Firefox via WebDriver BiDi' if args.firefox_executable else 'Playwright bundled patched Firefox','runs':[]}
+    result={'run_id':os.environ.get('D02_RUN_ID'),'platform':platform.platform(),'rom_bytes':len(rom),'wasm_bytes':len(wasm),'rom_sha256':hashlib.sha256(rom).hexdigest(),'wasm_sha256':hashlib.sha256(wasm).hexdigest(),'adapter_sha256':adapter.hexdigest(),'pair':args.pair,'seconds':args.seconds,'impairment':'isolated kernel netem:50ms+/-10ms delay,1% packet loss on loopback','route':'isolated private host ICE; no STUN/TURN','voice':'synthetic oscillator, not real microphone/speaker listening','chromium_launch':'headless, default --mute-audio removed','firefox_driver':'Playwright bundled patched Firefox','runs':[]}
     if args.firefox_executable:
-        build=json.loads((args.firefox_executable.resolve().parents[1]/'browser-build.json').read_text())
-        result['firefox_build']=build
-        result['firefox_executable_sha256']=hashlib.sha256(args.firefox_executable.read_bytes()).hexdigest()
-        assert result['firefox_executable_sha256']==build['binary_sha256'], 'Prepared Firefox binary changed'
+        result.update(firefox_driver.evidence(args.firefox_executable))
+        build=result['firefox_build']
     identity=json.dumps({'adapter':result['adapter_sha256'],'protocol':'D02-RT1','rom':result['rom_sha256'],'wasm':result['wasm_sha256'],'region':'NTSC','input_lead':12},sort_keys=True,separators=(',',':'))
     async with async_playwright() as p:
         browsers=[];pages=[];page_errors=[]
@@ -40,13 +39,13 @@ async def run():
                     options={} if args.bundled_chromium else {'executable_path':'/usr/bin/google-chrome'}
                     browser=await p.chromium.launch(headless=True,ignore_default_args=['--mute-audio'],**options)
                 elif args.firefox_executable:
-                    browser=await p.firefox.launch(channel='moz-firefox',executable_path=str(args.firefox_executable.resolve()),headless=True)
+                    browser=await p.firefox.launch(**firefox_driver.launch_options(args.firefox_executable))
                 else: browser=await p.firefox.launch(headless=True)
                 browsers.append(browser)
                 if name=='Firefox' and args.firefox_executable:
                     assert browser.version==build['version'], 'Prepared Firefox version changed'
                 # Stock Firefox146 BiDi does not implement screen-size emulation.
-                page=await browser.new_page(no_viewport=True) if name=='Firefox' and args.firefox_executable else await browser.new_page()
+                page=await browser.new_page(**firefox_driver.page_options()) if name=='Firefox' and args.firefox_executable else await browser.new_page()
                 pages.append(page)
                 errors=[];page_errors.append(errors)
                 page.on('pageerror', lambda error, errors=errors: errors.append(str(error)))

@@ -7,15 +7,37 @@ root=Path(__file__).resolve().parents[2];build_files={str(p.relative_to(root/'ap
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
 from fixture import LocalTurn
+sys.path.insert(0,str(root/'spikes/d02'))
+import firefox_driver
+firefox_evidence=firefox_driver.evidence(args.firefox_executable) if args.firefox_executable else {'firefox_driver':'Playwright bundled patched Firefox'}
 stack=contextlib.ExitStack();operator_dir=stack.enter_context(tempfile.TemporaryDirectory(prefix='retro-game-op-')) if args.operator_playing else None;turn=stack.enter_context(LocalTurn(args.turnserver)) if args.relay else None
 service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env={**os.environ,**({'COORDINATOR_OPERATOR_DIR':operator_dir} if operator_dir else {}),**(turn.environment() if turn else {'TURN_URLS':'','TURN_SECRET':''})},stdout=subprocess.PIPE,text=True)
 try:
  url=json.loads(service.stdout.readline())['url'];rom=(root/'apps/client/dist/generated/diagnostic.nes').read_bytes()
- with sync_playwright() as p:
-  browsers={kind:(p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay else {},**({'executable_path':args.firefox_executable} if args.firefox_executable else {}))) for kind in set(args.pair.split('-'))};errors=[];pages=[];kinds=iter(args.pair.split('-'))
+ with sync_playwright() as p, contextlib.ExitStack() as browser_stack:
+  browsers=[]
+  for kind in args.pair.split('-'):
+   browser=p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay else {},**(firefox_driver.launch_options(args.firefox_executable) if args.firefox_executable else {}))
+   browsers.append(browser);browser_stack.callback(browser.close)
+  errors=[];pages=[];kinds=iter(zip(args.pair.split('-'),browsers))
+  if args.firefox_executable:
+   for kind,browser in zip(args.pair.split('-'),browsers):
+    if kind=='Firefox':firefox_driver.validate_evidence(firefox_evidence,browser.version)
+  fixtures={}
+  def install_script(tab,content=None,path=None):
+   script=Path(path).read_text() if path else content
+   if args.firefox_executable:
+    fixtures[tab].append(script)
+   else:tab.add_init_script(script)
   def page():
-   kind=next(kinds);tab=browsers[kind].new_page(viewport={'width':1280,'height':1050});pages.append(tab);tab.set_default_timeout(10000);tab.on('pageerror',lambda e:errors.append(str(e)))
-   tab.add_init_script(path=root/'scripts/gameplay/fixture.js');tab.add_init_script(f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');tab.add_init_script("window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}");tab.goto(url)
+   kind,browser=next(kinds);tab=browser.new_page(**(firefox_driver.page_options() if kind=='Firefox' and args.firefox_executable else {'viewport':{'width':1280,'height':1050}}));pages.append(tab);tab.set_default_timeout(10000);tab.on('pageerror',lambda e:errors.append({'message':str(e),'stack':e.stack,'elapsed':round(time.monotonic()-started,3)}))
+   fixtures[tab]=[]
+   if args.firefox_executable:
+    def document(route):
+     scripts=''.join('<script>(()=>{'+script.replace('</script','<\\/script')+'\n})();</script>' for script in fixtures[tab])
+     route.fulfill(status=200,content_type='text/html',body=(root/'apps/client/dist/index.html').read_text().replace('<head>','<head>'+scripts,1))
+    tab.route(url+'/',document)
+   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}");tab.goto(url)
    if args.relay:tab.get_by_label('Connection privacy',exact=True).first.select_option('relay')
    return tab
   try:
@@ -25,8 +47,8 @@ try:
    if args.late_join:
     h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
    if args.delay_join:
-    g.add_init_script("""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
-   invite=h.get_by_label('Room invitation',exact=True).input_value();g.goto(invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for()
+    install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
+   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for()
    if not args.late_join:assert h.get_by_test_id('frames').inner_text()=='0 frames'
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
@@ -41,7 +63,7 @@ try:
     assert not h.evaluate('proof.room.established') and h.get_by_test_id('frames').inner_text()=='0 frames'
     h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
     result={'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
-    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.barrier_timeout or args.retry_barrier:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='failed'",timeout=15000,polling=50)
     assert g.evaluate('proof.droppedAcks')==1
@@ -50,7 +72,7 @@ try:
     assert h.get_by_test_id('frames').inner_text()=='0 frames'
     result={'result':'pass','injection':'drop guest initial barrier acknowledgement','lease_preserved':True,'host_frames':0,'seconds':round(time.monotonic()-started,2),'statuses':[tab.get_by_test_id('game-status').inner_text() for tab in [h,g]],'page_errors':errors};assert not errors
     if not args.retry_barrier:
-     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
     g.evaluate('window.dropGameAck=false')
     first,second=(g,h) if args.retry_barrier=='guest-first' else (h,g)
     first.get_by_role('button',name='Retry shared play',exact=True).click();first.wait_for_function('proof.gameReadies===2',polling=50)
@@ -62,7 +84,7 @@ try:
     count=h.get_by_test_id('frames').inner_text();h.wait_for_timeout(250);assert h.get_by_test_id('frames').inner_text()==count
     assert all(not tab.evaluate('proof.room.established') for tab in [h,g])
     result={'result':'pass','scenario':'progressed host pauses without reset','host_state':observed,'host_frames':count,'lease_preserved':g.evaluate('proof.room.reservationUntil>Date.now()'),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert result['lease_preserved'] and not errors
-    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    for tab in [h,g]:tab.wait_for_function("proof.room?.established && proof.room.game.status==='playing'",timeout=15000,polling=50)
    fps=h.evaluate('proof.fps');assert fps==g.evaluate('proof.fps');target_frames=max(360,math.ceil(args.seconds*fps))
    play_started=time.monotonic()
@@ -103,7 +125,7 @@ try:
     assert g.evaluate('proof.frameCount')==stopped[1]
     result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
     assert not errors,errors
-    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.screenshots:
     count=h.evaluate('proof.frameCount');h.get_by_label('Chat message',exact=True).press_sequentially('xz shared hello')
     h.get_by_text('Typing in chat · game input released.',exact=False).wait_for()
@@ -148,7 +170,7 @@ try:
      assert all(tab.evaluate('proof.room.established') for tab in [h,g]),'Failure discarded room membership'
      result={'result':'pass','injection':args.fault,'seconds':round(time.monotonic()-started,2),'stopped_frames':stopped,'peers':[tab.evaluate('(({room,...p})=>({...p,game:room.game}))(proof)') for tab in [h,g]],'page_errors':errors}
      assert not errors,errors
-     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','injection':args.fault}));[browser.close() for browser in browsers.values()];raise SystemExit(0)
+     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','injection':args.fault}));raise SystemExit(0)
    for tab in [h,g]:
     tab.wait_for_function("n=>proof.frameCount>=n || proof.workloadStopped || proof.room?.game?.status!=='playing'",arg=target_frames,timeout=(args.seconds+30)*1000,polling=100)
     assert tab.evaluate('proof.frameCount')>=target_frames,'Shared gameplay stopped before the required workload completed'
@@ -163,10 +185,11 @@ try:
    for tab in [h,g]:assert f'Route: {route}.' in tab.get_by_test_id('connection-status').inner_text()
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
-   result={'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browsers':{kind:b.version for kind,b in browsers.items()},'pair':args.pair,'injection':args.fault,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
-   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}));[browser.close() for browser in browsers.values()]
+   if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'
+   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
+   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}))
   except Exception:
-   failure={'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'build_files':build_files,'browsers':{kind:b.version for kind,b in browsers.items()},'pair':args.pair,'source':source,'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}
+   failure={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'build_files':build_files,'browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'source':source,'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}
    out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True);raise
 
 finally:
