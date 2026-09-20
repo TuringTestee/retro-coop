@@ -27,3 +27,16 @@ export function bindingLabel(binding:string) {
  if(binding.startsWith('axis:')) {const [,axis,direction]=binding.split(':');return `Axis ${Number(axis)+1} ${direction==='-1' ? '−' : '+'}`;}
  return binding.replace(/^Key/,'').replace(/^Digit/,'').replace(/([a-z])([A-Z])/g,'$1 $2');
 }
+
+/** Stored controls use the same action/conflict rules as interactive remapping. */
+export function validControls(value:unknown):value is Controls {
+ if(!value || typeof value!=='object')return false;
+ const controls=value as Controls;
+ if(Object.keys(controls).length!==3)return false;
+ for(const source of ['keyboard','gamepad'] as const) {
+  const bindings=controls[source];if(!bindings || Object.keys(bindings).length!==actions.length)return false;
+  for(const action of actions)if(!Array.isArray(bindings[action]) || bindings[action].length>16 || bindings[action].some(binding=>typeof binding!=='string' || !binding.length || binding.length>64))return false;
+  for(const action of actions)if(bindings[action].some(binding=>!!conflict(bindings,action,binding)))return false;
+ }
+ return controls.device===null || !!controls.device && Number.isSafeInteger(controls.device.index) && controls.device.index>=0 && controls.device.index<256 && typeof controls.device.id==='string' && controls.device.id.length>0 && controls.device.id.length<=1024;
+}
