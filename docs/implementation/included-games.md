@@ -17,7 +17,7 @@ Human direction: [Included games and arbitrary NES files](../design/included-gam
 
 Original files stay outside Git. Packaging may include verified distributable copies under the user's supplied-game authorization. No arbitrary URL, user ROM, modified header or newer upstream binary may silently replace either identity. The Super Tilt Bro filename also occurs in newer upstream builds with different cartridge hardware: the inspected supplied bytes, not the filename or current master, define this catalog entry. Creator context: [official game](https://super-tilt-bro.com/about.html), [upstream repository](https://github.com/sgadrat/super-tilt-bro). Neither link establishes that the supplied binary was rebuilt from current source.
 
-[From Below's handoff](featured-from-below.md) owns its existing creator credits and scoped controller evidence. Super Tilt Bro's About initially credits its creator Sylvain Gadrat / sgadrat and retains game-provided credits; verify additional contributors and exact menu wording against the supplied artifact before final presentation. Both display the requested license placeholder. Do not invent SPDX identifiers or replace dependency notices.
+[From Below's handoff](featured-from-below.md) owns its existing creator credits and scoped controller evidence. Super Tilt Bro's About initially credits its creator sgadrat and retains game-provided credits; verify additional contributors and exact menu wording against the supplied artifact before final presentation. Both display the requested license placeholder. Do not invent SPDX identifiers or replace dependency notices.
 
 ## Architecture and reuse
 
