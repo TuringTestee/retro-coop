@@ -1,6 +1,6 @@
 # Retro Coop
 
-Retro Coop plays local NES games in your browser, with keyboard/gamepad controls, sound and manual saves. Public and unlisted rooms support text chat and optional voice. Synchronized two-player gameplay is still in development.
+Retro Coop plays local NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. Two players with matching fresh games can play together in public or unlisted rooms, with text chat and optional voice. Joining an ongoing game and recovering a shared timeline are still being built.
 
 ## Play the local demo
 
@@ -14,7 +14,7 @@ Then open **http://127.0.0.1:8765/demo/**. Choose your local NES `.nes` file, pr
 
 ## Application
 
-The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The [room coordinator](docs/implementation/d08-rooms.md) now creates anonymous public/unlisted rooms and reserves guest places. The public directory lists available rooms. Members can use text chat and [optional voice](docs/implementation/d17-voice.md) while shared gameplay remains in development. [Manual saves](docs/implementation/d06-slots.md) provide three local slots and validated import/export; battery persistence and rewind are still being built.
+The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The [room coordinator](docs/implementation/d08-rooms.md) now creates anonymous public/unlisted rooms and reserves guest places. The public directory lists available rooms. Members can use text chat and [optional voice](docs/implementation/d17-voice.md). [Shared gameplay](docs/implementation/d11.md) starts matching fresh games automatically and supports a common pause and deliberate resume. [Manual saves](docs/implementation/d06-slots.md) provide three local slots and validated import/export; battery progress persists locally, and solo play has up to ten seconds of bounded rewind. Progress-preserving late join, reconnect/resynchronization and shared load/rewind remain later deliveries. Hardware qualification and public-route release testing are separate from the current representative browser evidence.
 
 ## Start working
 
@@ -59,4 +59,4 @@ Pre-flight checks committed whitespace against the merge-base with `origin/main`
 
 CI currently needs no submodule checkout. Future jobs that use shared skills must authenticate with read access to Vaseline and initialize the submodule; the default repository token does not grant cross-repository access.
 
-Peer connection privacy and local direct/relay verification are described in the [connection guide](docs/implementation/d10-peer-connectivity.md). Relay only never silently falls back to a direct connection. Shared gameplay is still a later delivery step.
+Peer connection privacy and local direct/relay verification are described in the [connection guide](docs/implementation/d10-peer-connectivity.md). Relay only never silently falls back to a direct connection. Shared play uses the same privacy policy and never transfers either player’s ROM file.

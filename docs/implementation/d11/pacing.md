@@ -10,4 +10,4 @@ With the fixed offered delay changed to six, within the approved negotiated 3–
 
 The evidence includes exact browser version, timing histograms and a unique run identity bound to packet capture, routing and qdisc sidecars by the existing D02 binder. The common setup and verifier remain single owners shared by both probes. The original PR50 policy-change timeout remains causally unproven; PR54's host-first challenge repair and its observed native-send boundary do not constitute proof of that original cause.
 
-Pending: long Chrome/Firefox matrix, shared failure and focus/device recovery journeys, integrated voice/persistence testing, screenshots, final pre-flight and independent review. This document does not claim delivery acceptance.
+At the time of this development run, the remaining checks were: long Chrome/Firefox matrix, shared failure and focus/device recovery journeys, integrated voice/persistence testing, screenshots, final pre-flight and independent review. This document does not claim delivery acceptance.
