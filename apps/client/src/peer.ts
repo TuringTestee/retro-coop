@@ -53,11 +53,14 @@ export class PeerConnection {
   this.channel=channel;
   const nonce=crypto.randomUUID();let verified=false,replied=false,announced=false;
   const complete=()=>{if(verified && replied && !announced) {announced=true;void this.connected(epoch,channel);}};
-  channel.onopen=()=>{if(this.epoch===epoch) channel.send(JSON.stringify({type:'transportProbe',nonce}));};
+  // Remote channels can announce open before their native send path is ready.
+  // The host initiates; an inbound probe proves the guest can send its own challenge.
+  const probe=()=>channel.send(JSON.stringify({type:'transportProbe',nonce}));
+  channel.onopen=()=>{if(this.epoch===epoch && this.role==='host') probe();};
   channel.onmessage=({data})=>{
    if(this.epoch!==epoch || typeof data!=='string' || data.length>256) {this.fail(epoch);return;}
    let message;try {message=JSON.parse(data);}catch {this.fail(epoch);return;}
-   if(message.type==='transportProbe' && !replied && typeof message.nonce==='string' && message.nonce.length===36) {replied=true;channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));complete();}
+   if(message.type==='transportProbe' && !replied && typeof message.nonce==='string' && message.nonce.length===36) {replied=true;if(this.role==='guest') probe();channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));complete();}
    else if(message.type==='transportReply' && message.nonce===nonce && !verified) {verified=true;complete();}
    else this.fail(epoch);
   };
