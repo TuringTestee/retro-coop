@@ -17,15 +17,15 @@ This handoff advances [D03 / issue #7](https://github.com/TuringTestee/retro-coo
 | Header | iNES; mapper 0 (NROM); 32 KiB PRG ROM; 8 KiB CHR ROM |
 | Creator page | <https://mhughson.itch.io/from-below> |
 | Source repository | <https://github.com/mhughson/mbh-firstnes> |
-| Permission record | User confirms a license and explicitly authorizes this featured placeholder; license details use a placeholder under the latest user direction |
+| Permission record | User confirms a license and explicitly authorizes this catalog entry; license details use a placeholder under the latest user direction |
 
 The file hash identifies the supplied binary, not a reproduced source build. Preserve the original local file outside Git; this documentation change publishes no ROM or download endpoint. A later packaging step must verify the supplied file against this hash. Do not replace it with the Vs. arcade release, a Game Boy game, or a newer build without updating the identity and qualification evidence.
 
 Earlier inspected repository terms did not themselves grant redistribution. The user's later license confirmation is recorded separately; do not infer an SPDX identifier, public-domain status, modification rights, or asset rights from that repository statement. The user subsequently instructed “don’t put license.” The subsequent two-game catalog request supersedes that presentation choice with “License details pending.” Do not request a grant attachment or use it as a delivery blocker. Retain the confirmed content decision, exact artifact identity, credits and runtime qualification. This instruction does not change software dependency notices.
 
-## Game description and credits
+## Game help and credits
 
-Use concise original copy in the featured card: **“Clear falling blocks and hold back the Kraken.”** The supplied creator description identifies these modes:
+Keep the discovery launcher actionable: title, factual single-player label, **Play** and **Show lobbies** only. After the game loads, **Game help** may use the concise original description **“Clear falling blocks and hold back the Kraken.”** and identify these modes:
 
 - **Kraken Battle:** clear lines while timed tentacle attacks push more blocks onto the board.
 - **Classic:** falling-block play without the Kraken attacks.
@@ -33,7 +33,7 @@ Use concise original copy in the featured card: **“Clear falling blocks and ho
 
 The supplied description also lists soft and hard drops, wall kicks, T-spins, and lock delay. These are creator-described features, not independently completed acceptance tests.
 
-Credit Matt Hughson for the game, Tui for music and sound effects, Haller Zoltan for art, and Dejah Payne for box art and the manual. Credits do not authorize importing box art, promotional images, or manual files. Prefer the text card until specific presentation assets are included in the applicable grant.
+Credit Matt Hughson for the game, Tui for music and sound effects, Haller Zoltan for art, and Dejah Payne for box art and the manual in loaded-game **Game help**. Credits do not authorize importing box art, promotional images, or manual files. Use text-only help until specific presentation assets are included in the applicable grant.
 
 ## Multiplayer presentation
 
@@ -43,7 +43,7 @@ Use the already planned optional **shared P1 handoff** for friends taking turns:
 
 ## Included-game journey
 
-The permanent featured entry must remain available with zero active rooms. Starting it creates a guest room with the approved defaults and loads the pinned included artifact in the browser. Joining an existing featured room uses that same artifact automatically, verifies its identity, and follows the existing connection and late-join flow. No local file picker is needed for included content.
+The From Below catalog launcher must remain available with zero active rooms. Starting it creates a guest room with the approved defaults and loads the pinned included artifact in the browser. Joining an existing From Below room uses that same artifact automatically, verifies its identity, and follows the existing connection and late-join flow. No local file picker is needed for included content.
 
 The game retains its own menus and controls. “Start” on the website opens playable emulation; it must not be represented as proof that the game has already skipped its title/menu screens. D19 must measure the actual action count and label the resulting state accurately. Download or validation failure keeps the room recoverable with retry and an actionable error rather than a blank canvas. Game instructions and credits must be reachable without interrupting the shared timeline.
 

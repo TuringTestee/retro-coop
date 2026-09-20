@@ -70,41 +70,11 @@ S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured se
 
 ## U1 — Directory
 
-The following historical wireframe is superseded where it shows one large featured panel. The current U1 wireframe and state rules live in [Included games and arbitrary NES files](included-games.md): compact Play/Show lobbies actions for both included games, compact arbitrary-file hosting, then the live directory as the dominant content. There is no marketing hero, tagline, passive featured-information panel or page scrolling. Overflowing lobby results use pagination.
-
-```text
-RETRO COOP                             Guest Alex [Settings]
-
-+------------------------------------------------------------+
-| FEATURED HOMEBREW · [Title pending]                         |
-| Game included · Always available to start                   |
-| [Start a session]   [Browse its sessions (2)]   [About]      |
-+------------------------------------------------------------+
-
-LIVE SESSIONS (4)                              [Host a game]
-[Find room / host / public code…                         ]
-Game / host                 Status          Players   Action
-------------------------------------------------------------
-Room K7PM4R2X · Alex         Waiting         1 / 2     [Join]
-  Bring your own matching ROM
-Featured game · Jo           Playing solo    1 / 2     [Join]
-  Game included
-Space adventure · Sam        Playing         2 / 2     Full
-  Bring your own matching ROM
-Featured game · Pat          Reconnecting    2 / 2     Reserved
-  Game included
-
-+------------------------------------------------------------+
-| Drop a .nes file here to play, or [Choose file]             |
-| Creates a public room. [ ] Unlisted                         |
-| Your file stays here. Joiners need their own matching copy. |
-| Connection: Standard [Change] — peers may see your IP.      |
-+------------------------------------------------------------+
-```
+[Included games and arbitrary NES files](included-games.md) is the sole full definition and current wireframe for U1. It places compact **Play** and **Show lobbies** actions for Super Tilt Bro and From Below plus compact arbitrary-file hosting above the live directory. The directory is the dominant content. There is no marketing hero, tagline, passive game-information panel, pre-play About action, or page scrolling. Overflowing lobby results use deterministic pagination.
 
 Default listing shows all admitted public sessions, including multiple sessions with the same label. Each row includes host, content source, occupancy, lifecycle status, and an accurate action. The platform does not certify user-entered game labels; an adjacent information label says “Host-provided title.” Do not show private filenames, ROM hashes, third-party download links, private sessions, or auto-generated artwork. Guest identity is a temporary nickname; Settings explains that it is not an account.
 
-Featured “Browse its sessions” filters the directory with a visible “Featured game” chip and [Show all sessions]. With no sessions, show “No sessions yet” and keep [Start a session] active when the catalog asset is configured. Loading the directory uses row placeholders; a failed connection shows “Can't update sessions” and [Retry], marks old rows stale, and disables joining stale rows until refreshed. An empty directory says “No public sessions yet. Start one and invite a friend.” The featured entry and hosting affordance remain visible. Development without authorized content shows “Featured game not configured,” no playable claim, and a disabled Start action.
+Each catalog launcher's **Show lobbies** action filters the directory with a visible game-title chip and **Show all lobbies**. With no matching rooms, show “No lobbies yet” and keep that game's **Play** action active when its catalog asset is configured. Loading the directory uses row placeholders; a failed connection shows “Can't update lobbies” and **Retry**, marks old rows stale, and disables joining stale rows until refreshed. An empty directory says “No public lobbies yet.” Both catalog launchers and arbitrary-file hosting remain visible. Development without an individual configured asset shows that game as unavailable without making a playable claim; the other catalog game and arbitrary-file hosting remain usable.
 
 Show the Standard/Relay only policy beside Join as well as Drop, before peer contact; changing it is optional. Public search matches host/room names or exact public codes, shows no-match feedback and offers Clear search. Codes distinguish duplicate nicknames and are never credentials. Unlisted rooms cannot be found by search or public code.
 
@@ -323,7 +293,7 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S26 | Host moderates membership — U9→U8 | Server rejection; revoked reconnect; no anonymous-ban promise | AC-09–10 |
 | S27 | Operator removes abuse or limits admission — U9→U8/U2 | Authorized tool confirmation/failure, public feedback only | AC-10–11 |
 | S28 | Players understand service restart, capacity, and degraded network — U8/U1 | Loaded game retained; honest retry; no direct privacy fallback | AC-09, AC-11–12 |
-| S29 | Visitor understands content source and featured rights — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
+| S29 | Visitor understands catalog versus user-file content — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
 | S30 | Keyboard/screen-reader user completes the core journey — U1–U9 | Focus restore, announced status, picker alternative, no traps | AC-08, AC-12 |
 | S31 | Player loses focus/device without stuck input or live microphone — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
 | S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–16 |
