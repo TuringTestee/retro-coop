@@ -1,14 +1,14 @@
 """Production worker/barrier proof. The host is held at its genuine power-on state before shared start."""
-import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time
+import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time,tempfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-parser=argparse.ArgumentParser();parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];build_files={str(p.relative_to(root/'apps/client/dist')):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'apps/client/dist').rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
 from fixture import LocalTurn
-stack=contextlib.ExitStack();turn=stack.enter_context(LocalTurn(args.turnserver)) if args.relay else None
-service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env={**os.environ,**(turn.environment() if turn else {'TURN_URLS':'','TURN_SECRET':''})},stdout=subprocess.PIPE,text=True)
+stack=contextlib.ExitStack();operator_dir=stack.enter_context(tempfile.TemporaryDirectory(prefix='retro-game-op-')) if args.operator_playing else None;turn=stack.enter_context(LocalTurn(args.turnserver)) if args.relay else None
+service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env={**os.environ,**({'COORDINATOR_OPERATOR_DIR':operator_dir} if operator_dir else {}),**(turn.environment() if turn else {'TURN_URLS':'','TURN_SECRET':''})},stdout=subprocess.PIPE,text=True)
 try:
  url=json.loads(service.stdout.readline())['url'];rom=(root/'apps/client/dist/generated/diagnostic.nes').read_bytes()
  with sync_playwright() as p:
@@ -70,10 +70,21 @@ try:
     tab.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})");tab.wait_for_function('proof.controllerRam',polling=50);assert tab.evaluate('proof.controllerRam')==[128,64]
     assert tab.get_by_role('button',name='Rewind',exact=True).is_disabled()
     tab.evaluate("currentWorker.postMessage({type:'state-history',requestId:900002})");tab.wait_for_function('proof.localHistory',polling=50);history=tab.evaluate('proof.localHistory');assert history['inputs']==0 and history['checkpoints']==0 and history['retainedBytes']==0
-   if args.kick_playing:
-    h.on('dialog',lambda dialog:dialog.accept())
-    h.get_by_text('Connection and session settings',exact=True).click();h.get_by_text('Session settings',exact=True).click()
-    h.get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+   if args.kick_playing or args.operator_playing:
+    if args.kick_playing:
+     h.on('dialog',lambda dialog:dialog.accept())
+     h.get_by_text('Connection and session settings',exact=True).click();h.get_by_text('Session settings',exact=True).click()
+     h.get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+    else:
+     cli=['node','apps/coordinator/src/operator-cli.ts',operator_dir]
+     listing=json.loads(subprocess.run([*cli,'list'],cwd=root,capture_output=True,text=True,check=True,timeout=5).stdout)
+     action=['remove-room',h.evaluate('proof.room.id')] if args.operator_playing=='remove' else ['block-address',listing['subjects'][0]['id'],'60']
+     applied=subprocess.run([*cli,*action],cwd=root,input='CONFIRM\n',capture_output=True,text=True,check=True,timeout=5)
+     assert 'Done.' in applied.stdout
+     for tab in [h,g]:
+      tab.get_by_test_id('room-view').wait_for(state='detached')
+      tab.get_by_test_id('room-status').filter(has_text='An operator closed' if args.operator_playing=='remove' else 'Access is temporarily restricted').wait_for()
+
     for tab in [h,g]:tab.wait_for_function("gamePeers.length>0 && gamePeers.every(p=>p.connectionState==='closed')")
     stopped=[tab.evaluate('proof.frameCount') for tab in [h,g]]
     local=[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
@@ -84,7 +95,7 @@ try:
     h.get_by_role('button',name='Resume',exact=True).click()
     h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
-    result={'result':'pass','source':source,'scenario':'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
+    result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
     assert not errors,errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
    if args.screenshots:
