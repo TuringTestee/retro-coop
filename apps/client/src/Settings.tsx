@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { actions, labels, defaults, conflict, inputMask, padInputs, bindingLabel, type Action, type Controls } from './controls.ts';
 
 type Props = {
- connection?:ReactNode;
+ connection?:ReactNode; localData?:()=>void;
  open:boolean; close():void; controls:Controls; change(value:Controls):void;
  filter:'nearest'|'scanlines'; setFilter(value:'nearest'|'scanlines'):void;
  volume:number; setVolume(value:number):void; muted:boolean; audioIssue?:string; audioState?:AudioContextState; retryAudio():void;
@@ -48,7 +48,7 @@ export function Settings(props:Props) {
  const duplicate=capture && binding ? conflict(props.controls[source],capture,binding) : undefined;
  return <dialog ref={dialog} className="settings" aria-labelledby="settings-title" onClose={props.close} onCancel={event=>{if(capture || confirm){event.preventDefault();endCapture();setConfirm(false);}}}>
   <button className="settings-close" aria-label="Close settings" onClick={()=>dialog.current?.close()}>Close</button>
-  <h2 id="settings-title">Local settings</h2><p>Controls, picture and sound affect only this browser. Your game keeps its progress.</p>
+  <h2 id="settings-title">Local settings</h2>{props.localData && <button onClick={props.localData}>Local data</button>}<p>Controls, picture and sound affect only this browser. Your game keeps its progress.</p>
   <label>Input device <select aria-label="Input device" value={props.controls.device ? String(props.controls.device.index) : 'keyboard'} onChange={event=>{
    const device=pads.find(pad=>String(pad.index)===event.target.value) ?? null;
    props.change({...props.controls,device});setSource(device ? 'gamepad' : 'keyboard');endCapture();

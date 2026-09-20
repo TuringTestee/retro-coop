@@ -19,3 +19,7 @@ pub(crate) fn identity(
     identity.update(layout);
     identity.finalize().into()
 }
+
+pub(crate) fn info(identity: &[u8; 32]) -> serde_json::Value {
+    serde_json::json!({"identity":identity.iter().map(|byte| format!("{byte:02x}")).collect::<String>(),"limit":LIMIT})
+}

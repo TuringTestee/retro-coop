@@ -1,0 +1,16 @@
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /assets/index-CQII80TX.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /assets/index-YdH-pPHK.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /assets/worker-CH2iC4d6.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /assets/worker-CH2iC4d6.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 04:43:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 04:43:39] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:39] "GET /favicon.ico HTTP/1.1" 404 -
+Actual CPU same-ROM replacement boot-read: PASS

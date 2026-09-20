@@ -1,0 +1,20 @@
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET /assets/index-YdH-pPHK.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET /assets/index-oQNfr10F.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:03] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET /assets/worker-CH2iC4d6.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 04:43:03] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:03] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 04:43:04] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:04] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 04:43:04] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 04:43:04] "GET /favicon.ico HTTP/1.1" 404 -
+Traceback (most recent call last):
+  File "/tmp/d06-replacement-probe.py", line 12, in <module>
+    verify_replacement(browser,f'http://127.0.0.1:{server.server_port}/',rom)
+  File "/tmp/retro-d06-persistence/scripts/foundation/persistence_smoke.py", line 134, in verify_replacement
+    assert machine['hardware']['wram'][3]==0x5a, {'restored_boot_byte':machine['hardware']['wram'][3],'expected':0x5a}
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'restored_boot_byte': 0, 'expected': 90}

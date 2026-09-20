@@ -1,0 +1,15 @@
+✔ all eight NES inputs and reserved talk binding share conflict detection (1.302974ms)
+✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.401239ms)
+✔ default restoration returns independent mapping arrays (1.174432ms)
+✔ stored controls reject malformed shapes and cross-action conflicts without throwing (0.776449ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (1.150342ms)
+✔ battery request shape is correlated; loaded core owns the file-size policy (0.243971ms)
+✔ state operations reuse local-file shape and correlation validation (0.190563ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 148.216062

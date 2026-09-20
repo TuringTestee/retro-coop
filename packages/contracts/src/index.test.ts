@@ -14,6 +14,6 @@ test('battery request shape is correlated; loaded core owns the file-size policy
 });
 
 test('state operations reuse local-file shape and correlation validation', () => {
- for (const data of [{type:'state-info',requestId:1},{type:'state-validate',requestId:2,bytes:new ArrayBuffer(72)},{type:'state-export',requestId:1},{type:'state-import',requestId:2,bytes:new ArrayBuffer(72)}]) assert.equal(isWorkerRequest(data),true);
+ for (const data of [{type:'battery-info',requestId:1},{type:'state-info',requestId:1},{type:'state-validate',requestId:2,bytes:new ArrayBuffer(72)},{type:'state-export',requestId:1},{type:'state-import',requestId:2,bytes:new ArrayBuffer(72)}]) assert.equal(isWorkerRequest(data),true);
  for (const data of [{type:'state-info',requestId:-1},{type:'state-validate',requestId:2,bytes:new ArrayBuffer(0)},{type:'state-export',requestId:-1},{type:'state-import',requestId:2,bytes:'file'},{type:'state-import',requestId:2,bytes:new ArrayBuffer(0)}]) assert.equal(isWorkerRequest(data),false);
 });

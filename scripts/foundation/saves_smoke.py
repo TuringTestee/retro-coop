@@ -27,7 +27,7 @@ def verify_saves(browser,url,rom,output):
     def saved():
         page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Saved in Slot')")
     def rows():
-        return page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves'),q=tx.objectStore('saves').getAll();q.onsuccess=()=>resolve(q.result.map(x=>({...x,bytes:Array.from(new Uint8Array(x.bytes))})));tx.oncomplete=()=>db.close()};r.onerror=()=>reject(r.error)})''')
+        return page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves'),q=tx.objectStore('saves').getAll();q.onsuccess=()=>resolve(q.result.map(x=>({...x,bytes:Array.from(new Uint8Array(x.bytes))})));tx.oncomplete=()=>db.close()};r.onerror=()=>reject(r.error)})''')
     page.goto(url);load();open_saves()
     dialog=page.get_by_role('dialog',name='Saves on this device')
     page.screenshot(path=str(output.with_suffix('.saves-before.png')),full_page=False)
@@ -40,7 +40,7 @@ def verify_saves(browser,url,rom,output):
     dialog.get_by_role('button',name='Cancel',exact=True).click();assert rows()==first
     page.wait_for_function("document.activeElement.textContent==='Save current point'")
     # A second tab can create/change the slot after listing: check-and-put is atomic.
-    page.evaluate("""()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})""")
+    page.evaluate("""()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})""")
     first=rows()
     dialog.get_by_role('button',name='Save current point',exact=True).click();dialog.get_by_role('button',name='Confirm',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('changed in another tab')")
@@ -107,7 +107,7 @@ def verify_saves(browser,url,rom,output):
     assert rows()==preserved
     dialog.get_by_role('button',name='Delete Slot 2',exact=True).click();dialog.get_by_role('button',name='Cancel',exact=True).click();assert rows()==preserved
     dialog.get_by_role('button',name='Delete Slot 2',exact=True).click()
-    page.evaluate("()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result.find(row=>row.slot===2);row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})")
+    page.evaluate("()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result.find(row=>row.slot===2);row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})")
     replaced=rows()
     dialog.get_by_role('button',name='Confirm',exact=True).click()
     page.wait_for_function("/changed in another tab|Deleted Slot 2/.test(document.querySelector('[data-testid=save-status]')?.textContent)")
