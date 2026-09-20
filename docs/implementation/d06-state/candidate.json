@@ -1,0 +1,12 @@
+{
+  "tested_source_head": "5a662bdceb03f7e71d4bf95c4de660c08f125c50",
+  "base": "564bc37ac82d060984a238338fad23f936cf834c",
+  "wasm_sha256": "d9c95e7c993d63336cfb1edb5d7e4656072b4d4e16342c3b523b5d8e97353212",
+  "checks": {
+    "native": "20 tests passed",
+    "worker_browser": "Chrome 145.0.7632.75; foundation duration 16.29 seconds; state + battery actual WASM operations",
+    "preflight": "Elapsed wall seconds: 6.38"
+  },
+  "scope": "Bounded local state ABI; no save UI/persistence/rewind; no complete mapper certification",
+  "visual": "Existing local-player screenshot inspected; room service absent deliberately in static smoke; no visible UI changes"
+}

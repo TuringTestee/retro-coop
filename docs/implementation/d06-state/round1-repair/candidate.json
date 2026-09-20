@@ -1,0 +1,16 @@
+{
+  "tested_source_head": "900191c1f4a75551552e1271f2b526cbf5aa03a1",
+  "base": "564bc37ac82d060984a238338fad23f936cf834c",
+  "wasm_sha256": "b21d9269147efc6193c93fad459cffa2f91070881134f10f34ca80b6cda8ba52",
+  "native_tests": 21,
+  "node_tests": 22,
+  "preflight_seconds": 6.82,
+  "foundation_seconds": 14.65,
+  "regression": "Real CPU mirrored CHR writes; early and lazy codecs export/import/replay; exact address preserved; before-fix native failure retained",
+  "review_round": 1,
+  "repair_causes": [
+    "implementation_correctness: rejected reachable MMC1 mirrored address",
+    "clean_codebase: obsolete binding alias"
+  ],
+  "independent_acceptance": "pending"
+}
