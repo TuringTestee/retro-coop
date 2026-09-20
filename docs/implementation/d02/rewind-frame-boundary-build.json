@@ -1,0 +1,14 @@
+{
+  "base_revision": "9d7be0d2f37e9dab06d4821009fdbdadde15dcfb",
+  "core_revision": "a0a6b17f8ba9c5ee451453fb2409753fd06e5a31",
+  "rust": "1.95.0",
+  "target": "wasm32-unknown-unknown",
+  "profile": "release",
+  "build_seconds": 7.49,
+  "command": "cd spikes/d02 && cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown",
+  "scope": "Isolated experimental constant change only; not applied to shipped runtime",
+  "patch_sha256": "f21311be28f6bb7a954e185587b5ec1ff84511df8ec8c227abb749bee6c6866a",
+  "harness_sha256": "f9884e9d6d8dc4acf4b76ac99a4bc04ccd5687ba3baa37c79f1050d68e464bcc",
+  "experimental_wasm_sha256": "43acae58ad16d3bb9f2137c0d4b1a9b451ddeb04e249d83b8737f0f8783d42fb",
+  "initial_setup_failure": "Launching Cargo outside spikes/d02 missed the existing target getrandom configuration; no artifact accepted. Rebuilt from documented directory."
+}
