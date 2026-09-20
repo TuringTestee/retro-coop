@@ -38,6 +38,7 @@ if [ "$D02_JOB" = core ]; then
   python3 verify_results.py browser-ci.local.json
   timeout --foreground 60s python3 demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
+  (cd ../.. && timeout --foreground 60s python3 scripts/staging/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
   (cd ../.. && timeout --foreground 120s python3 scripts/peer/browser_smoke.py --output spikes/d02/peer.local.json)

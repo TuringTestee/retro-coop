@@ -1,3 +1,4 @@
+import coreUrl from './generated/retro_coop_d02.wasm?url';
 import { hex } from './cartridge.ts';
 import { isLocalFileOperation, localFileKind, isWorkerRequest, type WorkerResponse } from '../../../packages/contracts/src/index.ts';
 // This adapter uses only the local-player ABI. Peer checkpoint exports are not called.
@@ -20,7 +21,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
   if (data.type === 'load') {
    loading = true;
    try {
-    const response = await fetch('/generated/retro_coop_d02.wasm');
+    const response = await fetch(coreUrl);
     if (!response.ok) throw Error('The emulator is unavailable. Reload the page to retry.');
     const bytes = await response.arrayBuffer();
     const coreHash = await crypto.subtle.digest('SHA-256',bytes);
