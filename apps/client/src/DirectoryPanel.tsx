@@ -19,6 +19,7 @@ export function DirectoryPanel({state,onJoin,onRetry}:{state:RoomState;onJoin:(c
   {live && !rooms.length && <p role="status">{query.trim() ? 'No matching public rooms.' : 'No public rooms yet. Host a game to start one.'}</p>}
   {publicCode(query) && live && !rooms.length && <p>Unlisted rooms require an invitation. Public codes are not private invitations.</p>}
   <ul ref={list} className="room-list" aria-label="Public rooms" onBlur={event=>{if(event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) focusedRoom.current=undefined;}}>
+   {state.directoryStatus==='loading' && !state.directory?.length && [0,1,2].map(index=><li key={`loading-${index}`} className="room-placeholder" aria-hidden="true">Loading room…</li>)}
    {rooms.map(room=><li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
     <strong>{room.label}</strong> <span>Hosted by {room.host}</span> <code>{room.code}</code>
     <span>{room.occupancy}/2 places · {room.status}</span>
