@@ -11,7 +11,8 @@
     "foundation": "foundation.json ran041fb5d,21.34s; later missing-device selector and ordered handshake changes covered by voice/peer probes; current-head CI repeats foundation.",
     "peer": "peer-ordered.json ran d332ff2,68.17s with merged PR54 ordered handshake; later changes only voice selector/test fixture/docs. Original peer.json retained at101b9b3.",
     "chat": "chat.json ran101b9b3,21.19s. Chat unchanged; current-head CI repeats integration.",
-    "screenshots": "Matched before.* from main0629cec and after.* from041fb5d: same original ROM, paused game, two members,1280x900/400x1000. Missing selection before d332ff2 / after fa7e353. Current voice-*.png from66c9ba5. All inspected."
+    "screenshots": "Matched before.* from main0629cec and after.* from041fb5d: same original ROM, paused game, two members,1280x900/400x1000. Missing selection before d332ff2 / after fa7e353. Current voice-*.png from66c9ba5. All inspected.",
+    "ci_browser_matrix": "ci-browser-*.json: same six workloads using full Chromium145.0.7632.6 and Firefox146.0.1. Application unchanged from66c9ba5. Test channel repaired after failedCI35500884475; current CI pending."
   },
   "failures": {
     "ice-marker-before.json": "Actual Firefox completion marker caused signalingdisconnect; 5e7c233 repairs sharedschema.",
@@ -21,7 +22,8 @@
     "settings-selector-before.txt": "Exactintegrationerror excerpt; newlyaddedmicrophonestatus exposedambiguousoldSettingscaptureselector.041fb5d scopesexistingassertionto capturebox.",
     "missing-selection-before-visual.json": "Real browser unavailable-device model leaves misleading Default selection; fa7e353 adds explicit unavailable option.",
     "removal-harness-before.json": "Firefox ignores untrusted synthetic ended event; fixture now explicitly invokes installed callback. Model only, no physical unplug claim.",
-    "native-permission.json": "Initial test grant_permissions([]) preserved previous grant; fixture clears prior permissions before denying. Native denial/retry then passes."
+    "native-permission.json": "Initial test grant_permissions([]) preserved previous grant; fixture clears prior permissions before denying. Native denial/retry then passes.",
+    "headless-shell-before.json": "Default bundled headless shell reproduces CI first voice failure. Minimal headless-capture probe returns NotSupportedError for shell, one audio track for full Chromium/Chrome; no application or workload relaxation."
   },
   "limits": [
     "Fake microphone devices and inbound decoded RTP energy, not human listening or echo/intelligibility proof.",
@@ -56,6 +58,24 @@
     },
     "chat.json": {
       "sha256": "a2dd0c1ca4383a096327f1ec1489ae0220093cc73e162e916094e3802a710bed"
+    },
+    "ci-browser-Chrome-Chrome-direct.json": {
+      "sha256": "bec54a5ae99458dacba9e55ad0351a842200a2dca3a09b339f5f837026ebf67d"
+    },
+    "ci-browser-Chrome-Chrome-relay.json": {
+      "sha256": "5b82215413a7e789222d5e50d1e21f88b4b5dd17c54438d710ba48d80020f9a6"
+    },
+    "ci-browser-Chrome-Firefox-direct.json": {
+      "sha256": "d2a8f47ddc747b5f45c1b725c7844718eee49c4a588a1deb0f85c70f51cb3891"
+    },
+    "ci-browser-Chrome-Firefox-relay.json": {
+      "sha256": "afd8a11bc0679cfe592313703377f6c3db301cc34a6505a9392181ad2a345cc6"
+    },
+    "ci-browser-Firefox-Firefox-direct.json": {
+      "sha256": "e3bdc95e256f9d6ee825082580a68a97a54860c9bd80d842bea56dff85338b41"
+    },
+    "ci-browser-Firefox-Firefox-relay.json": {
+      "sha256": "10f3a1e1df13a8193e29ce7f9ffdb654fc5df46ecd9bcfd039996c6ed535c847"
     },
     "firefox-localhost-before.json": {
       "sha256": "276109460e79c30d2c3344010ef8bf520e8efecf95813eb7d4edbcb79c77aca5"
@@ -95,6 +115,15 @@
     },
     "foundation.settings-mobile.png": {
       "sha256": "afac5d549c067fb0c12e2f314576c5ebc4d8121b6f5d9a6131bb673fd41d856b"
+    },
+    "headless-capture-probe.py": {
+      "sha256": "74273f106715074fdf36fe34cae241c95e2852055ff3a208af9a4cc4220d7b34"
+    },
+    "headless-capture-results.txt": {
+      "sha256": "d23f521d396592e18c3d58acbdc386d6a578c887c23cb053e6156c8174f7d6b2"
+    },
+    "headless-shell-before.json": {
+      "sha256": "54ffb1feb3e7286b18e68fd6e9cf3c3b752fb39ecba8b0a9356d81cee7914092"
     },
     "ice-marker-after.json": {
       "sha256": "8b98cf6c25cbdb104a65e9f09887cb9c17836377b1ae6208e49c3e74e048967d"
@@ -282,5 +311,6 @@
     "voice-Firefox-Firefox-relay.voice.png": {
       "sha256": "d673d01ca0dc0544bc181efd60d1fc18934b32f38d855d20fc4cb9eb0cf50ba6"
     }
-  }
+  },
+  "ci_browser_probe_source": "bd55de0"
 }
