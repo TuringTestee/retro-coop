@@ -1,6 +1,7 @@
 //! Trusted-local feasibility probe. Never expose raw upstream snapshots to peers.
 use std::cell::RefCell;
 pub mod checkpoint;
+pub mod local_player;
 pub mod memory_tail;
 use tetanes_core::{
     input::{JoypadBtnState, Player},

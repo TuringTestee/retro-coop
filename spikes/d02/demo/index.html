@@ -6,13 +6,13 @@
 <link rel="stylesheet" href="style.css">
 <header><a class="brand" href="./">RETRO<span>COOP</span></a><span class="badge">PLAYABLE PREVIEW</span><span class="privacy">Your ROM stays in this browser</span></header>
 <main>
-  <section class="intro"><p class="eyebrow">GOOD GAMES. GOOD COMPANY.</p><h1>A little nostalgia.<br>A new game night.</h1><p>Try the local player. Load From Below and hold back the Kraken.</p></section>
+  <section class="intro"><p class="eyebrow">GOOD GAMES. GOOD COMPANY.</p><h1>A little nostalgia.<br>A new game night.</h1><p>Try the local player. Drop your NES game and start playing.</p></section>
   <div class="layout">
     <section class="player" aria-label="Game player">
       <div class="player-top"><span id="title">No game loaded</span><span id="mode">LOCAL DEMO</span></div>
       <div id="screen" tabindex="0" aria-label="Game screen. Arrow keys move, X is A, Z is B, Enter is Start, right Shift is Select.">
         <canvas id="canvas" width="256" height="240" aria-label="NES game image"></canvas>
-        <div id="empty"><div class="cartridge" aria-hidden="true">8<br><small>BIT</small></div><h2>Drop a ROM. Start playing.</h2><p>Choose your local From Below ROM.<br>This prototype supports NROM / NTSC games.</p><button id="choose" class="primary">Choose ROM <span aria-hidden="true">↗</span></button><p class="hint">or drag a .nes file onto this screen</p></div>
+        <div id="empty"><div class="cartridge" aria-hidden="true">8<br><small>BIT</small></div><h2>Drop a ROM. Start playing.</h2><p>Choose a local NES ROM.<br>Your game runs in this browser.</p><button id="choose" class="primary">Choose ROM <span aria-hidden="true">↗</span></button><p class="hint">or drag a .nes file onto this screen</p></div>
       </div>
       <div class="toolbar"><button id="pause" disabled>Pause</button><button id="sound" disabled>Mute</button><button id="fullscreen" disabled>Fullscreen</button><button id="change">Change ROM</button></div>
       <p id="status" role="status" aria-live="polite">Ready when you are. No account needed.</p>
