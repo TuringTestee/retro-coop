@@ -6,7 +6,7 @@ An explicit proxy boundary preserves each browser address for admission limits w
 
 ## One owner and supported topology
 
-`apps/coordinator/src/admission-address.ts` owns literal-address validation, canonical quota keys and the trust decision. `server.ts` uses its result before upgrading a WebSocket; existing origin, socket, session and rate limits are unchanged. `main.ts` passes the validated configuration into the server. No address, forwarding header, invitation or chat content is added to logging.
+`apps/coordinator/src/admission-address.ts` owns literal-address validation, canonical quota keys and the trust decision. `server.ts` uses its result before upgrading a WebSocket; existing origin, socket, session and rate limits are unchanged. `main.ts` passes the validated configuration into the server. No client address, forwarding header, invitation or chat content is added to logging. Startup configuration logging includes the operator-configured trusted proxy addresses.
 
 By default no proxy is trusted: only the transport peer determines the admission address. `COORDINATOR_TRUSTED_PROXIES` accepts comma-separated literal IP addresses, without hostnames, CIDR ranges, wildcards or ports. The peer must match an explicitly configured address before its `X-Forwarded-For` header is used. That trusted path must contain exactly one valid client IP; missing, malformed or chained values fail admission. IPv6 spellings and IPv4-mapped forms normalize to the same quota key. Other forwarding headers grant no authority.
 
