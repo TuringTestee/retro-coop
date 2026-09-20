@@ -54,7 +54,7 @@ Critique: those screens cover arrival, but not what happens after Start. They ne
 
 Added U4–U9, explicit state/action tables, and the story coverage matrix. A pause overlay names the requester and effect, local Save does not imply cloud storage, and shared restore/rewind has acceptance/timeout states. Full-room races return to discovery; reconnect keeps a reservation separate from a newly joinable slot. The interface explains source and privacy where they affect the user's next choice.
 
-Final self-critique: the permanent homebrew entry is now honest with zero players, and every first-release story below has an entry point, feedback, and completion/recovery path. The game-specific title, image, instructions, two-player behavior, and rights remain unknown; these are explicit content gates rather than visual blanks a builder should guess. ASCII cannot validate actual density, contrast, audio/input interactions, or discoverability; the implementation must supply that evidence. Independent local review is recorded on the PR and is separate from this author's critique.
+Historical pass-3 self-critique: the permanent homebrew entry was honest with zero players, but its game-specific title, image, instructions, two-player behavior and rights were still unknown at that time. [The catalog amendment](included-games.md) supersedes that old content status with two fixed identities, text-only launchers/help and assigned runtime qualification. ASCII cannot validate actual density, contrast, audio/input interactions or discoverability; the implementation must supply that evidence.
 
 ### Pass 4: remove setup gates
 
@@ -66,7 +66,7 @@ S04/S08/S33 → duplicate names, slot squatting and a late guest can strand or d
 
 ### Pass 6: voice and compatibility boundaries
 
-S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. Content identity and the measured supported-hardware matrix remain open release gates; no additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
+S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. The catalog identities are fixed by [the catalog amendment](included-games.md); exact-artifact packaging/runtime checks under D19 and the measured supported-hardware matrix under D20 remain release gates. No additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
 
 ## U1 — Directory
 
