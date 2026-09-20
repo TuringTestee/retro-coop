@@ -1,0 +1,16 @@
+const raf=requestAnimationFrame.bind(window),cancel=cancelAnimationFrame.bind(window),pending=new Map();let held=true,id=0;
+    window.requestAnimationFrame=fn=>held?(pending.set(++id,fn),id):raf(fn);
+    window.cancelAnimationFrame=n=>held?pending.delete(n):cancel(n);
+    window.releaseFrames=()=>{held=false;for(const fn of pending.values())raf(fn);pending.clear()};
+    window.proof={hashes:[],rooms:[],frames:[],frameCount:0,sentHashes:[],timing:{workerMs:0,workerMax:0,frameGaps:[],waitMs:0,waitCount:0,delays:[]}};
+    const ds=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(typeof data==='string'){let d=JSON.parse(data);
+      if(d.kind==='input'&&window.gameFault==='drop-input')return;
+      if(d.kind==='hash'&&window.gameFault==='bad-hash'){d={...d,hash:'0'.repeat(64)};data=JSON.stringify(d);window.gameFault=undefined;}
+      if(d.kind==='input'&&window.gameFault==='old-epoch'){ds.call(this,JSON.stringify({...d,epoch:'obsolete'.repeat(4)}));window.gameFault=undefined;}
+      if(d.kind==='input'&&window.gameFault==='future-input'){d={...d,frame:d.frame+121};data=JSON.stringify(d);window.gameFault=undefined;}
+      if(d.kind==='input'&&window.gameFault==='duplicate-input'){ds.call(this,data);window.gameFault=undefined;}
+      if(d.kind==='hash')proof.sentHashes.push(d);}return ds.call(this,data)};
+    let waitStart=0,lastFrame=0,workerStart=0;
+    new MutationObserver(()=>{const waiting=document.querySelector('[data-testid=game-status]')?.textContent.includes('Waiting for the other player’s input');if(waiting&&!waitStart){waitStart=performance.now();proof.timing.waitCount++}else if(!waiting&&waitStart){proof.timing.waitMs+=performance.now()-waitStart;waitStart=0}}).observe(document,{subtree:true,childList:true,characterData:true});
+    const W=Worker;window.Worker=class extends W{postMessage(data,...rest){if(data.type==='frame'&&data.epoch)workerStart=performance.now();return super.postMessage(data,...rest)}constructor(...a){super(...a);window.currentWorker=this;this.addEventListener('message',({data})=>{if(data.type==='state-exported'&&data.requestId===900000)proof.controllerRam=JSON.parse(new TextDecoder().decode(data.bytes.slice(72))).hardware.wram.slice(0,2);if(data.type==='state-hash')proof.hashes.push(data.info);if(data.type==='frame'&&data.epoch){const now=performance.now(),elapsed=now-workerStart;proof.timing.workerMs+=elapsed;proof.timing.workerMax=Math.max(proof.timing.workerMax,elapsed);if(lastFrame){const bucket=Math.min(200,Math.round(now-lastFrame));proof.timing.frameGaps[bucket]=(proof.timing.frameGaps[bucket]||0)+1}lastFrame=now;proof.frameCount++;proof.frames.push({epoch:data.epoch,frame:data.frame});if(proof.frames.length>12)proof.frames.shift()}})}};
+    const S=WebSocket;window.WebSocket=class extends S{constructor(...a){super(...a);this.addEventListener('message',({data})=>{const e=JSON.parse(data);if(e.type==='gameStart'){proof.timing.delays.push(e.delay);lastFrame=0;}if(e.type==='room'){proof.room=e.room;proof.rooms.push({established:e.room.established,status:e.room.game?.status})}})}};

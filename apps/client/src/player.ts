@@ -113,7 +113,8 @@ export class LocalPlayer {
  private pumpGame = () => {
   if(!this.game||this.disposed)return;
   this.gameTimer=setTimeout(this.pumpGame,2);
-  if(!this.active||!this.state.running||this.game.draining())return;
+  if(!this.active||!this.state.running)return;
+  if(this.game.draining()){this.drainGame();return;}
   const {pad,available}=this.inputDevice();
   if(!available||document.hidden||!this.windowFocused){this.pause(available?'focus':'device');return;}
   const elapsed=performance.now()-this.gameStarted;

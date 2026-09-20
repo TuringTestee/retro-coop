@@ -14,6 +14,7 @@ git diff --cached --check
 sh -n scripts/preflight.sh
 sh -n scripts/demo.sh
 node --check spikes/d02/demo/app.js
+node --check scripts/gameplay/fixture.js
 sh -n spikes/d02/run_network_probe.sh
 sh -n spikes/d02/network_profile.sh
 sh -n scripts/gameplay/network.sh
