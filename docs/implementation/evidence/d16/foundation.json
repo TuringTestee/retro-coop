@@ -15,47 +15,47 @@
     "requests": [
       [
         "GET",
-        "http://127.0.0.1:35545/"
+        "http://127.0.0.1:43721/"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/assets/index-Q38cwj22.js"
+        "http://127.0.0.1:43721/assets/index-Ci3J4nnC.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/assets/index-BWt4DK8_.css"
+        "http://127.0.0.1:43721/assets/index-BNpJurAQ.css"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+        "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+        "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+        "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+        "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
       ]
     ]
   },
@@ -85,11 +85,11 @@
     "reconnect_and_keyboard_fallback_require_explicit_resume": true
   },
   "browser": "145.0.7632.75",
-  "duration_seconds": 14.85,
+  "duration_seconds": 14.52,
   "audio": {
-    "buffers": 291,
+    "buffers": 328,
     "peak": 0.06666979938745499,
-    "starts": 291,
+    "starts": 328,
     "muted": true
   },
   "audio_denial_does_not_block_and_retry_recovers": true,
@@ -115,111 +115,111 @@
   "requests": [
     [
       "GET",
-      "http://127.0.0.1:35545/"
+      "http://127.0.0.1:43721/"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/index-Q38cwj22.js"
+      "http://127.0.0.1:43721/assets/index-Ci3J4nnC.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/index-BWt4DK8_.css"
+      "http://127.0.0.1:43721/assets/index-BNpJurAQ.css"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/assets/worker-CjK1BEik.js"
+      "http://127.0.0.1:43721/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35545/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:43721/generated/retro_coop_d02.wasm"
     ]
   ],
   "coordinator_url": "/coordinator"
