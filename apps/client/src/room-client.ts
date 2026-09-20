@@ -76,7 +76,7 @@ export class RoomClient {
     else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);this.publish({busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
    };
    socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(data=>{
-    clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
+    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(this.state.admissionBlocked && !data.room)this.peer.close();this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};

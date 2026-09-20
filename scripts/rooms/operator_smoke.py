@@ -95,6 +95,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             fresh.get_by_role('button', name='Retry directory', exact=True).click()
             fresh.locator('.directory-panel [role=status]').filter(has_text='No public rooms yet').wait_for()
             fresh.get_by_test_id('room-status').filter(has_text='Access restored').wait_for()
+            fresh.get_by_test_id('connection-status').filter(has_text='No peer connection').wait_for()
             fresh.set_input_files('input[type=file]', {'name':'fixture.nes','mimeType':'application/octet-stream','buffer':rom})
             fresh.get_by_test_id('room-view').wait_for()
             fresh.screenshot(path=str(output.with_suffix('.expired.png')), full_page=True, mask=[fresh.get_by_label('Room invitation', exact=True)])
