@@ -1,10 +1,10 @@
 import type { WorkerRequest, WorkerResponse } from '../../../packages/contracts/src/index.ts';
-import { keyMap, gamepadMask } from '../../../spikes/d02/demo/runtime/input.js';
+import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import { inspectCartridge, hex, type Cartridge } from './cartridge.ts';
 
 export type LocalFingerprint = { romSha256: string; coreSha256: string; localSchema: 1; settings: 'auto-region;zero-ram;48000hz;standard-p1-p2'; cartridge: Cartridge };
-export type PlayerState = { status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; fingerprint?: LocalFingerprint };
+export type PlayerState = { status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  private active?: Worker;
@@ -12,7 +12,9 @@ export class LocalPlayer {
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
- private keys = 0;
+ private keys = new Set<string>();
+ private controls: Controls = defaults();
+ private volume = 1;
  private busy = false;
  private last = 0;
  private fps = 60;
@@ -30,18 +32,30 @@ export class LocalPlayer {
  }
  private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
- private release = () => { this.keys = 0; };
- private down = (event: KeyboardEvent) => { const bit = keyMap[event.code as keyof typeof keyMap]; if(bit && document.activeElement === this.canvas && this.state.running) { event.preventDefault(); this.keys |= bit; } };
- private up = (event: KeyboardEvent) => { this.keys &= ~(keyMap[event.code as keyof typeof keyMap] ?? 0); };
+ private release = () => { this.keys.clear(); };
+ private down = (event: KeyboardEvent) => {
+  if(!this.controls.device && document.activeElement === this.canvas && this.state.running && Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code))) {
+   event.preventDefault(); this.keys.add(event.code);
+  }
+ };
+ private up = (event: KeyboardEvent) => { this.keys.delete(event.code); };
+ configureControls(controls: Controls) { this.controls = controls; this.release(); this.publish({inputIssue:undefined}); }
+ useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
+ setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
  private blur = () => { this.pause(); };
  private hidden = () => { if(document.hidden) this.pause(); };
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
+  const selected = this.controls.device;
+  const pad = selected ? navigator.getGamepads()[selected.index] : undefined;
+  if(selected && (!pad || pad.id !== selected.id || !pad.connected)) {
+   if(!this.state.inputIssue) { this.pause(); this.publish({inputIssue:'Controller disconnected. Reconnect it, or use the keyboard.'}); }
+  } else if(this.state.inputIssue) this.publish({inputIssue:undefined,status:'Controller reconnected. Resume whenever you’re ready.'});
   if(!this.active || !this.state.running || this.busy || now-this.last < 1000/this.fps) return;
   this.last = now-(now-this.last)%(1000/this.fps); this.busy = true;
-  // Gamepads obey the same focus boundary as keyboard input, including when editing text.
-  const pad = document.activeElement === this.canvas ? gamepadMask([...navigator.getGamepads()].find(Boolean)) : 0;
-  this.send(this.active,{type:'frame',p1:this.keys | pad,p2:0});
+  const pressed = document.activeElement === this.canvas ? (selected ? padInputs(pad) : this.keys) : new Set<string>();
+  const mask = inputMask(selected ? this.controls.gamepad : this.controls.keyboard,pressed);
+  this.send(this.active,{type:'frame',p1:mask,p2:0});
  };
  private abandonCandidate() { ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
  rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,status:message}); }
@@ -55,14 +69,14 @@ export class LocalPlayer {
   if(this.active) { this.send(this.active,{type:'pause'}); this.publish({running:false,status:'Paused. Resume whenever you’re ready.'}); }
  }
  resume() {
-  if(!this.active || this.state.loading) return;
+  if(!this.active || this.state.loading || this.state.inputIssue) return;
   this.activateAudio(); this.last = 0; this.publish({running:true,status:'Playing locally. Your file stays in this browser.'}); this.canvas.focus();
  }
- setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : 1; this.audio.flush(); if(!value) this.activateAudio(); }
+ setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : this.volume; this.audio.flush(); if(!value) this.activateAudio(); }
  retryAudio() { this.activateAudio(); }
  private activateAudio() {
   try {
-   if(!this.context) { this.context = new AudioContext(); this.gain = this.context.createGain(); this.gain.gain.value = this.muted ? 0 : 1; this.gain.connect(this.context.destination); }
+   if(!this.context) { this.context = new AudioContext(); this.gain = this.context.createGain(); this.gain.gain.value = this.muted ? 0 : this.volume; this.gain.connect(this.context.destination); this.context.onstatechange=()=>this.publish({audioState:this.context?.state}); }
    void this.context.resume().then(() => this.publish({audioIssue:this.context?.state === 'running' ? undefined : 'Sound is blocked. Retry sound to allow it; your game can continue.'})).catch(() => this.publish({audioIssue:'Sound could not start. Retry sound; your game can continue.'}));
   } catch { this.publish({audioIssue:'Sound is unavailable in this browser. Your game can continue.'}); }
  }

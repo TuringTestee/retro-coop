@@ -8,6 +8,7 @@ import threading
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from settings_smoke import verify_settings
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', default='foundation.local.json')
@@ -39,8 +40,8 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         def select(data=rom, name='unknown-private-title.nes'):
             page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
         def running():
-            page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Playing locally')")
-            page.wait_for_function("Number(document.querySelector('output').textContent.split(' ')[0])>10")
+            page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
+            page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         def fingerprint():
             return page.locator('[data-testid=fingerprint]').inner_text()
         # A single keyboard-accessible picker action goes directly to playable frames.
@@ -61,16 +62,16 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         wasm = (root / 'apps/client/dist/generated/retro_coop_d02.wasm').read_bytes()
         assert hashlib.sha256(wasm).hexdigest() in fingerprint()
         assert 'unknown-private-title' not in page.locator('body').inner_text()
-        neutral_title = page.locator('h2').inner_text()
+        neutral_title = page.locator('#player-title').inner_text()
         # Invalid file and invalid hardware leave the valid cartridge and its progress intact.
         old_hash = hashlib.sha256(rom).hexdigest()
         select(b'not a ROM')
-        page.wait_for_function("document.querySelector('[role=status]').textContent.includes('not an NES')")
+        page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('not an NES')")
         assert old_hash in fingerprint()
         broken = bytearray(rom); broken[6] = 240; broken[7] = 240
         select(broken)
-        page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Unable to load:')")
-        assert old_hash in fingerprint() and page.locator('h2').inner_text() == neutral_title
+        page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Unable to load:')")
+        assert old_hash in fingerprint() and page.locator('#player-title').inner_text() == neutral_title
         assert page.get_by_role('button',name='Pause',exact=True).is_enabled()
         # Chooser dismissal is a no-op, rather than a reload or loss of progress.
         page.set_input_files('input[type=file]', [])
@@ -80,7 +81,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
             held = []
             page.route('**/retro_coop_d02.wasm', lambda route: held.append(route))
             select()
-            page.wait_for_function("document.querySelector('[role=status]').textContent.startsWith('Starting your game')")
+            page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Starting your game')")
             page.wait_for_timeout(100)
             assert len(held) == 1
             if cancel == 'button':
@@ -143,16 +144,17 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
           AudioContext.prototype.resume=function(){return denySound ? Promise.reject(new Error('denied')) : resume.call(this)};''')
         audio_page.goto(f'http://127.0.0.1:{server.server_port}/')
         audio_page.set_input_files('input[type=file]', {'name':'audio-check.nes','mimeType':'application/octet-stream','buffer':rom})
-        audio_page.wait_for_function("Number(document.querySelector('output').textContent.split(' ')[0])>10")
+        audio_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         assert audio_page.get_by_role('button',name='Retry sound').is_visible()
         audio_page.evaluate('denySound=false')
         audio_page.get_by_role('button',name='Retry sound').click()
         audio_page.get_by_role('button',name='Retry sound').wait_for(state='detached')
         audio_page.close()
+        settings_proof = verify_settings(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
         assert not errors, errors
         assert all(method == 'GET' and url.startswith(f'http://127.0.0.1:{server.server_port}/') for method,url in requests), requests
         assert not any(name in url for _,url in requests for name in ['private','unknown','drag-'])
-        result = {'result':'pass','browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
+        result = {'result':'pass','settings':settings_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
         output.write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result,indent=2))
         browser.close()

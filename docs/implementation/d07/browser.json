@@ -1,0 +1,160 @@
+{
+  "result": "pass",
+  "settings": {
+    "keyboard_remap_input_pixels": true,
+    "reserved_binding_conflict": true,
+    "cancel_and_defaults_confirmation": true,
+    "gamepad_remap_input_pixels": true,
+    "gamepad_axis_capture": true,
+    "volume_applies_under_mute": true,
+    "reconnect_does_not_resume": true,
+    "focus_releases_gamepad": true,
+    "unplug_pauses_and_keyboard_resumes": true,
+    "presentation_preserves_progress_and_fingerprint": true,
+    "single_worker_through_settings": true,
+    "fullscreen_denial_and_exit": true,
+    "dialog_focus_restore_and_escape": true,
+    "mobile_no_overflow": true,
+    "game_only_muted": true,
+    "page_errors": []
+  },
+  "browser": "145.0.7632.75",
+  "duration_seconds": 9.59,
+  "audio": {
+    "buffers": 249,
+    "peak": 0.06666979938745499,
+    "starts": 249,
+    "muted": true
+  },
+  "audio_denial_does_not_block_and_retry_recovers": true,
+  "input_changed_canvas": true,
+  "paused_canvas_stable": true,
+  "cancel_and_blur_preserve_previous": true,
+  "latest_selection_wins": true,
+  "invalid_header_and_mapper_preserve_previous": true,
+  "chooser_dismissal_preserved": true,
+  "exact_rom_and_core_sha256": true,
+  "unknown_mappers_loaded": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    7
+  ],
+  "nes2_over_8mib_loaded": true,
+  "picker_and_drop_start_automatically": true,
+  "mobile_no_overflow": true,
+  "page_errors": [],
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:44637/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/index-DGDeiEor.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/index-D9qWvOI8.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/assets/worker-kPNNnwrS.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:44637/generated/retro_coop_d02.wasm"
+    ]
+  ],
+  "coordinator_url": "/coordinator"
+}
