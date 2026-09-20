@@ -26,3 +26,5 @@ The [candidate metadata](candidate.json) pins source/base and the rebuilt WASM d
 The immutable [issue snapshot](issue-10.json) and [epic snapshot](epic-2.json) preserve the assigned scope and approval lineage. Native timing and capacity proof above remains applicable; only native test naming changed since those runs. Final full preflight output is linked after the evidence commit.
 
 The first final preflight stopped at Rust formatting after the qualification test name was lengthened ([raw failure](preflight-format-failure.txt), 0.31 seconds). Shortening that test name repairs formatting without changing runtime or test behavior. The repeated complete gate below verifies the repaired candidate.
+
+The complete [final preflight](preflight.txt) passed in **26.52 seconds** at `b9bfe33` with all implementation and browser evidence committed. The final evidence-only commit adds this output; `git diff origin/main...HEAD --check` also passes. No check was skipped or timeout budget increased. Presubmit CI and fresh independent review remain pending.
