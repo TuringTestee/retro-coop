@@ -71,6 +71,7 @@ try:
     assert tab.get_by_role('button',name='Rewind',exact=True).is_disabled()
     tab.evaluate("currentWorker.postMessage({type:'state-history',requestId:900002})");tab.wait_for_function('proof.localHistory',polling=50);history=tab.evaluate('proof.localHistory');assert history['inputs']==0 and history['checkpoints']==0 and history['retainedBytes']==0
    if args.kick_playing or args.operator_playing:
+    if args.screenshots:h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     if args.kick_playing:
      h.on('dialog',lambda dialog:dialog.accept())
      h.get_by_text('Connection and session settings',exact=True).click();h.get_by_text('Session settings',exact=True).click()
@@ -92,6 +93,7 @@ try:
     assert stopped==[tab.evaluate('proof.frameCount') for tab in [h,g]]
     assert local==[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
     assert min(local)>=240
+    if args.screenshots:h.screenshot(path=str(out.with_suffix('.after.png')),full_page=True)
     h.get_by_role('button',name='Resume',exact=True).click()
     h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
@@ -144,7 +146,7 @@ try:
      assert not errors,errors
      out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','injection':args.fault}));[browser.close() for browser in browsers.values()];raise SystemExit(0)
    for tab in [h,g]:
-    tab.wait_for_function("n=>proof.frameCount>=n || proof.room?.game?.status!=='playing'",arg=target_frames,timeout=(args.seconds+30)*1000,polling=100)
+    tab.wait_for_function("n=>proof.frameCount>=n || proof.workloadStopped || proof.room?.game?.status!=='playing'",arg=target_frames,timeout=(args.seconds+30)*1000,polling=100)
     assert tab.evaluate('proof.frameCount')>=target_frames,'Shared gameplay stopped before the required workload completed'
    # This is the measured workload interval, never a guessed startup wait.
    while first_active+time.monotonic()-resumed<args.seconds:h.wait_for_timeout(20)
