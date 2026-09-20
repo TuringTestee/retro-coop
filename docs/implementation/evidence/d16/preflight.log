@@ -1,0 +1,91 @@
+    Finished `release` profile [optimized] target(s) in 0.06s
+     Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 13 tests
+test memory_tail::tests::fragment_contains_only_mutable_tail_and_preserves_local_rom ... ok
+test memory_tail::tests::invalid_fragments_leave_all_memory_untouched ... ok
+test memory_tail::tests::upstream_memory_decoder_accepts_small_payload_requesting_large_arena ... ok
+test battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore ... ok
+test battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact ... ok
+test local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game ... ok
+test realtime_tests::manual_controller_ports_render_and_release ... ok
+test battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay ... ok
+test checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits ... ok
+test checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core ... ok
+test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
+test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
+test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.94s
+
+PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
+PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
+PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.071s
+
+OK
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 3.405s
+
+OK
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts
+
+✔ admission is structural, accepts unknown mapper metadata and large valid files (1.523452ms)
+✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.772256ms)
+✔ neutral defaults depend only on random values, never cartridge data (1.055124ms)
+✔ explicit retry preserves message identity and draft, and membership changes reject late responses (5.474538ms)
+✔ received own message confirms delivery once; stale membership events cannot leak into a rejoin (0.553948ms)
+✔ current-member chat retains at most 100 messages and clears on room closure (3.193775ms)
+✔ all eight NES inputs and reserved talk binding share conflict detection (1.731769ms)
+✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.761546ms)
+✔ default restoration returns independent mapping arrays (1.061099ms)
+✔ chat is membership-scoped, works before a guest ROM and never replays pre-join history (7.293524ms)
+✔ latest retry receipt survives other members messages without rebroadcasting uncertain delivery (1.764528ms)
+✔ chat wire format enforces Unicode character bound and rejects attachments or forged fields (1.098883ms)
+✔ both authenticated members acknowledge effective relay before any signal is forwarded (5.129548ms)
+✔ relay denial never emits preparation; released capacity supports explicit retry (1.415219ms)
+✔ policy and socket changes invalidate epochs; cancellation and expiry remove signaling authority (1.349323ms)
+✔ negotiation timeouts and signaling schema are bounded independently of room lease (1.33782ms)
+✔ hello applies stricter policy before recovering an existing room transport (0.696332ms)
+✔ public-code admission captures the same strict policy before preparing peers (0.503438ms)
+✔ either local policy change renews the epoch even when the other peer keeps relay required (0.703158ms)
+✔ preparing deadline publishes failed state to both members without another command (0.690653ms)
+✔ connecting deadline publishes failed state to both members without another command (0.647439ms)
+✔ creation acknowledgement and cancellation never expose stale invitations (5.004913ms)
+✔ unlisted preview excludes hashes and codes, host alone controls room mutations (1.563238ms)
+✔ two concurrent contenders have one winner and cancellation frees the slot immediately (1.991188ms)
+✔ mismatch, reconnect and retries do not extend the initial 120-second reservation (1.060423ms)
+✔ only host membership receives heartbeat detection and 60-second recovery grace (0.670678ms)
+✔ unused sessions expire, capacity is bounded, rate limits state their retry time (2.298827ms)
+✔ strict metadata schema rejects uploads, arbitrary fields and malformed values (0.649924ms)
+✔ real WebSockets enforce origin/auth/schema and atomic reservations across clients (45.605808ms)
+✔ delayed cancellation cannot release a newer reservation from the same guest (0.583294ms)
+✔ directory publishes admitted public metadata through reservation, visibility and recovery (1.380729ms)
+✔ public-code admission shares invitation slot ownership, deadline and invalid-attempt limits (0.563666ms)
+✔ public-code allocation retries collisions atomically and fails without creating a room (0.37987ms)
+✔ health is content-free, other routes reject, shutdown closes listener (37.556885ms)
+✔ configuration is explicit and rejects bad ports/stages (0.385229ms)
+✔ SIGTERM exits a running coordinator cleanly (145.954692ms)
+✔ directory search preserves distinct same-name rooms and supports names or exact normalized codes (2.538449ms)
+✔ shared fingerprint preserves exact file, emulator, schema and settings identity (1.887327ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (0.911733ms)
+✔ battery request shape is correlated; loaded core owns the file-size policy (0.244476ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 413.659199
+Pre-flight passed (repository hygiene and D02 codec regression tests).
+Elapsed: 6.24 seconds
