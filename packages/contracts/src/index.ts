@@ -17,7 +17,7 @@ export type LocalFileRequest =
 }[LocalFileKind];
 export type WorkerRequest =
   | { type: 'load'; rom: ArrayBuffer }
-  | { type: 'frame'; p1: number; p2: number; epoch?:string; frame?:number; rewind?:RewindInfo }
+  | { type: 'frame'; p1: number; p2: number; epoch?:string; frame?:number }
   | { type: 'pause' }
   | LocalFileRequest;
 export type WorkerResponse =
