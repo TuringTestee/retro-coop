@@ -12,6 +12,7 @@ from battery_smoke import verify_battery
 from state_smoke import verify_state
 from saves_smoke import verify_saves
 from persistence_smoke import verify_persistence
+from rewind_smoke import verify_rewind_worker, verify_rewind_ui
 from settings_smoke import verify_settings, verify_disconnected_load
 
 parser = argparse.ArgumentParser()
@@ -164,8 +165,10 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         assert battery['coreSha256']==hashlib.sha256(wasm).hexdigest()
         state=verify_state(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path)
         saves=verify_saves(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
+        rewind_worker=verify_rewind_worker(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path)
+        rewind_ui=verify_rewind_ui(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
         persistence=verify_persistence(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path,output)
-        result = {'persistence':persistence,'saves':saves,'state':state,'battery':battery,'result':'pass','settings':settings_proof,'disconnected_startup':disconnected_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
+        result = {'rewind_worker':rewind_worker,'rewind_ui':rewind_ui,'persistence':persistence,'saves':saves,'state':state,'battery':battery,'result':'pass','settings':settings_proof,'disconnected_startup':disconnected_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
         output.write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result,indent=2))
         browser.close()
