@@ -31,11 +31,11 @@ test('unlisted preview excludes hashes and codes, host alone controls room mutat
  const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token,'unlisted');
  const preview = t.act(guest.token,{type:'preview',invite:room.invite}).preview!;
  assert.equal(preview.code,undefined);assert.equal(JSON.stringify(preview).includes(fingerprint.romSha256),false);
- t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite});
- for(const command of [{type:'close'},{type:'kick'},{type:'rename',label:'stolen'},{type:'visibility',visibility:'public'}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
- const publicRoom = t.act(host.token,{type:'visibility',visibility:'public'}).room!;assert.ok(publicRoom.code);
- assert.equal(t.act(host.token,{type:'visibility',visibility:'unlisted'}).room!.code,undefined);
- t.act(host.token,{type:'kick'});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
+ const joined=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
+ for(const command of [{type:'close',roomId:room.id},{type:'kick',roomId:room.id,guestMembership:joined.chatMembership},{type:'rename',roomId:room.id,label:'stolen'},{type:'visibility',roomId:room.id,visibility:'public'}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
+ const publicRoom = t.act(host.token,{type:'visibility',roomId:room.id,visibility:'public'}).room!;assert.ok(publicRoom.code);
+ assert.equal(t.act(host.token,{type:'visibility',roomId:room.id,visibility:'unlisted'}).room!.code,undefined);
+ t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
 });
 test('two concurrent contenders have one winner and cancellation frees the slot immediately',async()=>{
  const t = setup(), host = t.guest(), a = t.guest(), b = t.guest(), room = t.host(host.token);
@@ -74,7 +74,7 @@ test('unused sessions expire, capacity is bounded, rate limits state their retry
 test('strict metadata schema rejects uploads, arbitrary fields and malformed values',()=>{
  const requestId = randomUUID(), command = {type:'create',requestId,intent:randomUUID(),visibility:'public',fingerprint};
  assert.ok(parseRoomCommand(command));
- for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
+ for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
 
 test('real WebSockets enforce origin/auth/schema and atomic reservations across clients',async()=>{
@@ -89,7 +89,7 @@ test('real WebSockets enforce origin/auth/schema and atomic reservations across 
  try {
   const rejected = new WebSocket(url,{origin:'https://evil.example'});rejected.on('error',()=>{});const rejection = await once(rejected,'unexpected-response');assert.equal(rejection[1].statusCode,403);rejection[1].destroy();rejected.terminate();
   const host = await connect(), a = await connect(), b = await connect();
-  assert.equal((await request(a,{type:'close'})).ok,false);
+  assert.equal((await request(a,{type:'close',roomId:randomUUID()})).ok,false);
   for(const client of [host,a,b]) assert.equal((await request(client,{type:'hello'})).ok,true);
   const intent = randomUUID();const created = await request(host,{type:'create',intent,visibility:'public',fingerprint});assert.ok(created.ok);
   await request(host,{type:'confirmCreate',intent});const invite = created.data.room!.invite;
@@ -129,15 +129,15 @@ test('directory publishes admitted public metadata through reservation, visibili
  const joined=t.act(joiner.token,{type:'joinCode',code,intent:randomUUID()}).room!;
  assert.equal(latest()[0].occupancy,2);assert.equal(latest()[0].status,'reserved');
  t.act(joiner.token,{type:'leave',intent:joined.reservationIntent!});assert.equal(latest()[0].status,'waiting');
- t.act(host.token,{type:'rename',label:'Same name'});assert.equal(latest()[0].label,'Same name');
+ t.act(host.token,{type:'rename',roomId:provisional.id,label:'Same name'});assert.equal(latest()[0].label,'Same name');
  t.act(host.token,{type:'nickname',nickname:'Local host'});assert.equal(latest()[0].host,'Local host');
  t.advance(30_000);assert.equal(latest()[0].status,'reconnecting');
  t.rooms.attach(host.token,()=>{},()=>{});assert.equal(latest()[0].status,'waiting');
- t.act(host.token,{type:'visibility',visibility:'unlisted'});assert.deepEqual(latest(),[]);
+ t.act(host.token,{type:'visibility',roomId:provisional.id,visibility:'unlisted'});assert.deepEqual(latest(),[]);
  assert.throws(()=>t.act(joiner.token,{type:'lookupCode',code}),/room_unavailable/);
  assert.throws(()=>t.act(joiner.token,{type:'joinCode',code,intent:randomUUID()}),/room_unavailable/);
- t.act(host.token,{type:'visibility',visibility:'public'});assert.equal(latest().length,1);
- t.act(host.token,{type:'close'});assert.deepEqual(latest(),[]);
+ t.act(host.token,{type:'visibility',roomId:provisional.id,visibility:'public'});assert.equal(latest().length,1);
+ t.act(host.token,{type:'close',roomId:provisional.id});assert.deepEqual(latest(),[]);
 });
 
 test('public-code admission shares invitation slot ownership, deadline and invalid-attempt limits',async()=>{
