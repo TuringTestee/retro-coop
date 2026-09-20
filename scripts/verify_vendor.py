@@ -14,4 +14,6 @@ expected |= provenance['patched_files']
 assert actual == expected, 'Vendored core differs from recorded upstream and reviewed patch bytes'
 patch = root / 'vendor/tetanes-core.patch'
 assert hashlib.sha256(patch.read_bytes()).hexdigest() == provenance['patch_sha256'], 'Patch changed'
+for name, source in provenance['supplementary_files'].items():
+    assert hashlib.sha256((root / name).read_bytes()).hexdigest() == source['sha256'], name
 print('PASS: vendored core provenance, exact file inventory and bounded patch bytes')

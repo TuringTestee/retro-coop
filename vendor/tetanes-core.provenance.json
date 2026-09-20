@@ -10,6 +10,16 @@
   },
   "previous_pin": "a0a6b17f8ba9c5ee451453fb2409753fd06e5a31",
   "release_revision": "94e3db3684ced606c6865c51a9a61b0e15bc08fe",
+  "supplementary_files": {
+    "vendor/tetanes-LICENSE-APACHE": {
+      "sha256": "aaff376532ea30a0cd5330b9502ad4a4c8bf769c539c87ffe78819d188a18ebf",
+      "url": "https://raw.githubusercontent.com/lukexor/tetanes/94e3db3684ced606c6865c51a9a61b0e15bc08fe/LICENSE-APACHE"
+    },
+    "vendor/tetanes-LICENSE-MIT": {
+      "sha256": "31c76124b54c86f20be5871fec6eb34738df92bf1aba2469282fa34f2b2fc6b3",
+      "url": "https://raw.githubusercontent.com/lukexor/tetanes/94e3db3684ced606c6865c51a9a61b0e15bc08fe/LICENSE-MIT"
+    }
+  },
   "upstream_files": {
     ".cargo_vcs_info.json": "9ba9ddaf42ee0fd5111fff7962efe98bc6c1ea2bf8d68a4dcaba46e4a730d4fe",
     "CHANGELOG.md": "b38d6fab2b58c5e435cd8a0429d741cfdf30c68f483b1941f05e6d59f2b5ec4e",
