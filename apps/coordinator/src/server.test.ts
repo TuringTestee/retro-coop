@@ -15,7 +15,7 @@ test('health is content-free, other routes reject, shutdown closes listener', as
  await assert.rejects(fetch(url + '/health'));
 });
 test('configuration is explicit and rejects bad ports/stages', () => {
- assert.deepEqual(config({}), {stage:'local', port:8787, host:'127.0.0.1',origins:['http://127.0.0.1:5173','http://localhost:5173']});
+ assert.deepEqual(config({}), {stage:'local', port:8787, host:'127.0.0.1',trustedProxies:[],origins:['http://127.0.0.1:5173','http://localhost:5173']});
  assert.equal(config({COORDINATOR_STAGE:'staging',COORDINATOR_ORIGINS:'https://example.test'}).stage, 'staging');
  for (const port of ['abc','-1','65536','1.5']) assert.throws(() => config({COORDINATOR_PORT:port}));
  assert.throws(() => config({COORDINATOR_STAGE:'production'}));

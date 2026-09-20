@@ -1,3 +1,4 @@
+import {admissionAddress,trustedProxyAddresses} from './admission-address.ts';
 import {relayConfig} from './peer.ts';
 import {peerLimits} from '../../../packages/contracts/src/peer.ts';
 import { createServer } from 'node:http';
@@ -12,21 +13,24 @@ export function config(env: NodeJS.ProcessEnv) {
  if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('Invalid COORDINATOR_PORT');
  const origins = (env.COORDINATOR_ORIGINS ?? (stage === 'local' ? 'http://127.0.0.1:5173,http://localhost:5173' : '')).split(',').filter(Boolean);
  if(!origins.length || origins.some(origin => {try { const url = new URL(origin);return !['http:','https:'].includes(url.protocol) || url.origin !== origin;}catch{return true;}})) throw Error('Set COORDINATOR_ORIGINS to exact allowed client origins');
- return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins };
+ const trustedProxies=trustedProxyAddresses(env.COORDINATOR_TRUSTED_PROXIES ? env.COORDINATOR_TRUSTED_PROXIES.split(','):[]);
+ return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins,trustedProxies };
 }
-export function createCoordinator(options: {origins?:string[]; rooms?:Rooms} = {}) {
+export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; trustedProxies?:string[]} = {}) {
  const rooms = options.rooms ?? new Rooms(Date.now,undefined,relayConfig(process.env));
  const origins = new Set(options.origins ?? config({}).origins);
+ const trustedProxies=new Set(trustedProxyAddresses(options.trustedProxies ?? []));
  const server = createServer((request, response) => {
   response.setHeader('Cache-Control', 'no-store');response.setHeader('Content-Type', 'application/json');response.setHeader('Referrer-Policy','no-referrer');
   if (request.url === '/health' && request.method === 'GET') response.writeHead(200).end(JSON.stringify(health));
   else response.writeHead(404).end(JSON.stringify({ error: 'not_found' }));
  });
  const sockets = new WebSocketServer({noServer:true,maxPayload:peerLimits.frame,perMessageDeflate:false});
- // Address admission is bounded and uses the transport address, never untrusted forwarding headers.
+ // The transport peer owns address identity unless an explicit trusted proxy boundary applies.
  const admission = new Map<string,{times:number[];active:number}>();
  server.on('upgrade',(request,socket,head) => {
-  const address = request.socket.remoteAddress ?? 'unknown', now = Date.now();
+  const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies),now=Date.now();
+  if(!address) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
   for(const [key,item] of admission) if(!item.active && item.times.every(time => time <= now-60_000)) admission.delete(key);
   const record = admission.get(address) ?? {times:[],active:0};record.times = record.times.filter(time => time > now-60_000);
   if(!origins.has(request.headers.origin ?? '') || !['/ws','/coordinator/ws'].includes(request.url ?? '') || sockets.clients.size >= limits.connections || record.active >= 20 || record.times.length >= 30 || (!admission.has(address) && admission.size >= 1000)) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
