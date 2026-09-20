@@ -1,0 +1,13 @@
+{
+  "scope": "Core CI artifact packaging only; application and smoke unchanged",
+  "before_matched_screenshots": 0,
+  "after_matched_screenshots": 3,
+  "added_core_upload_pattern": "spikes/d02/foundation.local.*.png",
+  "produced_paths": [
+    "spikes/d02/foundation.local.before.png",
+    "spikes/d02/foundation.local.after.png",
+    "spikes/d02/foundation.local.mobile.png"
+  ],
+  "method": "Python fnmatchcase against core upload paths read from .github/workflows/ci.yml; old *.local.png rejected every produced path, updated paths accepted all three",
+  "runtime_evidence": "Unchanged browser.json and screenshots remain applicable; actual hosted artifact retention awaits repaired-head CI"
+}

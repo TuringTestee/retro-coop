@@ -18,4 +18,6 @@ node spikes/d02/test_realtime_scheduler.cjs
 node spikes/d02/test_realtime_protocol.cjs
 python3 -m unittest discover -s spikes/d02 -p 'test_verify_realtime.py'
 python3 -m unittest discover -s spikes/d02 -p 'test_ci*.py'
+npm run typecheck
+npm test
 echo 'Pre-flight passed (repository hygiene and D02 codec regression tests).'
