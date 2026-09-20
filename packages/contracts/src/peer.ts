@@ -11,7 +11,7 @@ export type PeerEvent = {type:'peerPrepare';epoch:string;policy:ConnectionPolicy
 export function validSignal(value:unknown):value is Signal {
  if(!object(value)) return false;
  if(value.kind==='description') {const d=value.description;return keys(value,['kind','description']) && object(d) && keys(d,['type','sdp']) && (d.type==='offer'||d.type==='answer') && typeof d.sdp==='string' && d.sdp.startsWith('v=0') && d.sdp.length<=peerLimits.sdp;}
- if(value.kind==='candidate') {const c=value.candidate;return keys(value,['kind','candidate']) && object(c) && keys(c,['candidate','sdpMid','sdpMLineIndex'],['usernameFragment']) && typeof c.candidate==='string' && c.candidate.startsWith('candidate:') && c.candidate.length<=peerLimits.candidate && (c.sdpMid===null || typeof c.sdpMid==='string' && c.sdpMid.length<=32) && (c.sdpMLineIndex===null || integer(c.sdpMLineIndex,0,8)) && (c.usernameFragment===undefined || c.usernameFragment===null || typeof c.usernameFragment==='string' && c.usernameFragment.length<=256);}
+ if(value.kind==='candidate') {const c=value.candidate;return keys(value,['kind','candidate']) && object(c) && keys(c,['candidate','sdpMid','sdpMLineIndex'],['usernameFragment']) && typeof c.candidate==='string' && (c.candidate==='' || c.candidate.startsWith('candidate:')) && c.candidate.length<=peerLimits.candidate && (c.sdpMid===null || typeof c.sdpMid==='string' && c.sdpMid.length<=32) && (c.sdpMLineIndex===null || integer(c.sdpMLineIndex,0,8)) && (c.usernameFragment===undefined || c.usernameFragment===null || typeof c.usernameFragment==='string' && c.usernameFragment.length<=256);}
  return false;
 }
 export function parsePeerCommand(value:unknown):PeerCommand|undefined {
@@ -23,5 +23,5 @@ export function parsePeerCommand(value:unknown):PeerCommand|undefined {
 }
 export function relaySafe(signal:Signal) {
  const candidates=signal.kind==='candidate' ? [signal.candidate.candidate] : signal.description.sdp.split(/\r?\n/).filter(line=>line.startsWith('a=candidate:'));
- return candidates.every(candidate=>{const fields=candidate.trim().split(/\s+/);return fields[6]==='typ' && fields[7]==='relay';});
+ return candidates.every(candidate=>{if(candidate==='')return true;const fields=candidate.trim().split(/\s+/);return fields[6]==='typ' && fields[7]==='relay';});
 }

@@ -106,6 +106,7 @@ jobs:
             spikes/d02/rooms.local.*.png
             spikes/d02/chat.local.*.png
             spikes/d02/peer.local.*.png
+            spikes/d02/voice-*.local.*.png
             spikes/d02/directory.local.*.png
             spikes/d02/gameplay.local/**
             spikes/d02/.network-runs/**/*.json

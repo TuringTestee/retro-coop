@@ -1,6 +1,7 @@
 import {GameClient,type GameplayState} from './game-client.ts';
 import type {GameEvent} from '../../../packages/contracts/src/gameplay.ts';
 import type {LocalPlayer} from './player.ts';
+import {VoiceSession,type VoiceState} from './voice.ts';
 import {ChatClient,type ChatState} from './chat-client.ts';
 import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {ConnectionPolicy,PeerEvent} from '../../../packages/contracts/src/peer.ts';
@@ -8,7 +9,7 @@ import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { gameplay?:GameplayState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
+export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
 export function connectionStatus(state:RoomState) {
  const status=state.room?.peer.status;
  if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
@@ -23,11 +24,12 @@ const messages:Record<string,string> = {
  service_restarted:'The service restarted. Ephemeral rooms have closed.',creation_cancelled:'Room creation cancelled. Your game stays local.',creation_expired:'Room creation timed out. Your game stays local.',cancelled:'Room creation cancelled.',
 };
 export class RoomClient {
+ readonly voice=new VoiceSession(voice=>this.publish({voice}));
  private chat=new ChatClient(chat=>this.publish({chat}),command=>this.request(command));
  private socket?:WebSocket;
  private policy:ConnectionPolicy='standard';
  private game=new GameClient(()=>this.player(),command=>this.request(command),gameplay=>this.publish({gameplay}));
- private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,ready:(channel,epoch)=>this.game.ready(channel,epoch),closed:epoch=>this.game.closed(epoch)});
+ private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,media:this.voice,ready:(channel,epoch)=>this.game.ready(channel,epoch),closed:epoch=>this.game.closed(epoch)});
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;
@@ -39,7 +41,7 @@ export class RoomClient {
  private joining?:string;
  private pending = new Map<string,{kind:Command['type'];resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false};
- constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false,policy:ConnectionPolicy='standard',private player:()=>LocalPlayer|null=()=>null) {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}}
+ constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false,policy:ConnectionPolicy='standard',private player:()=>LocalPlayer|null=()=>null) {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){this.game.enter(room);this.publish({room,chat:this.chat.enter(room)});}
  private apply(data:RoomData) {
@@ -146,5 +148,5 @@ export class RoomClient {
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {this.game.dispose();this.peer.close();this.cancelCreation();this.disposed = true;clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {this.game.dispose();this.peer.close();this.cancelCreation();this.disposed = true;this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }

@@ -1,4 +1,7 @@
 import type {LocalPlayer} from './player.ts';
+import {VoiceControls} from './VoiceControls.tsx';
+import type {VoiceSession,VoiceState} from './voice.ts';
+import type {Controls} from './controls.ts';
 import {ConnectionPolicyControl} from './ConnectionPolicy.tsx';
 import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
@@ -6,8 +9,8 @@ import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
-export type RoomPanelHandle = {localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({fingerprint,player,onNickname,policy,changePolicy,onConnection,onHost},ref) {
+export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
+export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onHost},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
@@ -22,10 +25,12 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;pl
   return ()=>{rooms.dispose();client.current = null;};
  },[invite]);
  useEffect(()=>{void client.current?.setPolicy(policy);},[policy]);
+ useEffect(()=>{client.current?.voice.configureControls(controls);},[controls]);
+ useEffect(()=>{onVoice(state.voice);},[state.voice,onVoice]);
  useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peer.status,onConnection]);
  useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
- useImperativeHandle(ref,()=>({localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
+ useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
   beforeSelection() {
    client.current?.beginSelection();selectedVisibility.current = visibility;return true;
   },approveSelection(fingerprint,isCurrent){return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){client.current?.beginSelection();}
@@ -77,6 +82,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;pl
    {!room.established && ['failed','paused'].includes(room.game?.status??'') && <button onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
   </section>}
   {room && state.chat && <ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/>}
+  {room && <VoiceControls state={state.voice} voice={client.current?.voice}/>}
   <div className="controls">
    {state.busy && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
    {!room && invite && <button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Retry join / Join</button>}

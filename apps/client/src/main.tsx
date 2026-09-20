@@ -1,3 +1,5 @@
+import {VoiceControls} from './VoiceControls.tsx';
+import type {VoiceState} from './voice.ts';
 import {ConnectionPolicyControl,readConnectionPolicy,rememberConnectionPolicy} from './ConnectionPolicy.tsx';
 import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, { useEffect, useRef, useState } from 'react';
@@ -29,6 +31,7 @@ function App() {
  const [identity] = useState(neutralDefaults);
  const [guest,setGuest] = useState(identity.guest);
  const rooms = useRef<RoomPanelHandle>(null);
+ const [voice,setVoice]=useState<VoiceState>();
  const [policy,setPolicy]=useState<ConnectionPolicy>(readConnectionPolicy),[connection,setConnection]=useState('No peer connection.');
  const changePolicy=(value:ConnectionPolicy)=>{runtime.current?.pause();rememberConnectionPolicy(value);setPolicy(value);};
  const load = (file?:File) => {if(file && rooms.current?.beforeSelection() !== false) void runtime.current?.load(file,(fingerprint,isCurrent)=>rooms.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent()),rooms.current?.isGuest()??false);};
@@ -45,7 +48,7 @@ function App() {
  return <main className={state.shared ? `shared-session ${browsing?'browsing':''}` : ''} data-coordinator={clientConfig.coordinatorUrl}>
   <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{guest}</span>{state.shared && <button onClick={()=>setBrowsing(value=>!value)}>{browsing?'Return to game':'All sessions'}</button>}</header>
   <section className="intro"><p className="eyebrow">Your game. Your browser.</p><h1>Pick a classic.<br/>Press play.</h1><p>Bring an NES cartridge file and jump straight into local play. No account, setup form, or upload.</p></section>
-  <RoomPanel ref={rooms} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onHost={()=>{panel.current?.scrollIntoView({behavior:'smooth'});panel.current?.querySelector('button')?.focus();}}/>
+  <RoomPanel ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onHost={()=>{panel.current?.scrollIntoView({behavior:'smooth'});panel.current?.querySelector('button')?.focus();}}/>
   <section ref={panel} className={`panel ${drag ? 'drag' : ''}`} aria-labelledby="player-title" onDragOver={event => {event.preventDefault(); setDrag(true);}} onDragLeave={event => {if(!event.currentTarget.contains(event.relatedTarget as Node)) setDrag(false);}} onDrop={event => {event.preventDefault();setDrag(false);if(event.dataTransfer.files.length === 1) load(event.dataTransfer.files[0]); else runtime.current?.rejectSelection('Choose one NES cartridge at a time. Your previous game is preserved.');}}>
    <div><p className="eyebrow">{state.shared?'Shared play · your controller':'Local practice · your controls'}</p><h2 id="player-title">{state.shared ? (state.running?'Playing together':'Shared game paused') : state.loaded ? 'Your local game' : 'Drop your NES game here'}</h2>
    <p>{state.shared ? 'Your game stays on your device. Saves keep a local copy of your progress.' : state.loaded ? 'Your local game stays available if the room service cannot connect.' : 'Choose a file, or drop it anywhere in this panel. Your file stays on this device.'}</p>
@@ -66,8 +69,8 @@ function App() {
   {state.batteryAvailable && <div className="battery-actions"><button onClick={()=>void batteryAction(async()=>{downloadSave(await runtime.current!.exportBattery(),undefined,'battery');})}>Export current battery</button><button onClick={()=>void batteryAction(()=>runtime.current!.retryBatteryPersistence())}>Retry battery saving</button></div>}
   <LocalData open={localData} close={()=>{setLocalData(false);if(returnSettings)setSettings(true);}} player={runtime.current} preferencesIdentity={preferencesIdentity} beforeClear={()=>{runtime.current?.stopPersistence();preferences.stop();}} afterClear={()=>{preferences.dismiss();setPersistenceMessage('Local data deleted. Current progress remains in memory.');}}/>
   <Saves open={saves && state.loaded && !state.loading} close={()=>setSaves(false)} player={runtime.current} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
-  <Settings localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
-  <footer>Your game runs in this browser. Room metadata, connection signaling and temporary chat go to the service; your game file stays here.</footer>
+  <Settings voice={<VoiceControls state={voice} voice={rooms.current?.voice()}/>} localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
+  <footer>Your game runs in this browser. Room metadata, connection signaling and temporary chat go to the service; your game file stays here. Optional voice goes to the other player through the peer connection.</footer>
  </main>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
