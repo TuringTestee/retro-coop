@@ -1,0 +1,13 @@
+{
+  "result": "pass",
+  "source": "two builds of the current checkout; second has inert custom section",
+  "different_core_bytes_have_different_urls": true,
+  "old_loaded_client_uses_original_core_after_publish": true,
+  "new_client_uses_new_core": true,
+  "rollback_restores_old_client_and_preserves_loaded_new_client": true,
+  "core_sha256": [
+    "5f0b24f626e00f4dba4c4a7cbe08c7b19e514b8d9631a7f81c45f0cd6777efaa",
+    "7b972afbd934afabe2b5d6aacc704a332fb672ebfbf07b4e755bb9607419941d"
+  ],
+  "seconds": 4.64
+}

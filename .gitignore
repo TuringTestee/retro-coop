@@ -6,3 +6,4 @@ dist/
 apps/client/public/generated/
 *.foundation.local.*
 scripts/foundation/__pycache__/
+apps/client/src/generated/

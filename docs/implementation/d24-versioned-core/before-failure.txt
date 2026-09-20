@@ -1,0 +1,6 @@
+  File "/tmp/d24-legacy-reproduction.py", line 83, in <module>
+    load(old, releases[0][2])
+  File "/tmp/d24-legacy-reproduction.py", line 77, in load
+    assert expected in observed, {'expected_core': expected, 'fingerprint': observed}
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'expected_core': '5f0b24f626e00f4dba4c4a7cbe08c7b19e514b8d9631a7f81c45f0cd6777efaa', 'fingerprint': 'CartridgeiNES · mapper 0 / 0 · NTSC · 24592 bytesExact file SHA-25629b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03Emulator build SHA-2567b972afbd934afabe2b5d6aacc704a332fb672ebfbf07b4e755bb9607419941dLocal settings (schema 1)auto-region;zero-ram;48000hz;standard-p1-p2'}

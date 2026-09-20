@@ -64,7 +64,9 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         page.screenshot(path=str(output.with_suffix('.after.png')), full_page=True)
         page.locator('.panel summary').click()
         assert hashlib.sha256(rom).hexdigest() in fingerprint()
-        wasm = (root / 'apps/client/dist/generated/retro_coop_d02.wasm').read_bytes()
+        wasm_files = list((root / 'apps/client/dist/assets').glob('*.wasm'))
+        assert len(wasm_files) == 1, 'The client must contain one versioned emulator asset'
+        wasm = wasm_files[0].read_bytes()
         assert hashlib.sha256(wasm).hexdigest() in fingerprint()
         assert 'unknown-private-title' not in page.locator('body').inner_text()
         neutral_title = page.locator('#player-title').inner_text()
@@ -84,7 +86,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         # Hold candidate WASM: Cancel and window-blur both permanently revoke pending intent.
         for cancel in ['button','blur']:
             held = []
-            page.route('**/retro_coop_d02.wasm', lambda route: held.append(route))
+            page.route('**/*.wasm', lambda route: held.append(route))
             select()
             page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Starting your game')")
             page.wait_for_timeout(100)
@@ -94,7 +96,7 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
             else:
                 page.evaluate("dispatchEvent(new Event('blur'))")
             held[0].continue_()
-            page.unroute('**/retro_coop_d02.wasm')
+            page.unroute('**/*.wasm')
             page.wait_for_timeout(100)
             assert old_hash in fingerprint()
             assert page.get_by_role('button',name='Cancel loading').count() == 0
