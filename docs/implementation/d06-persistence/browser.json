@@ -12,6 +12,9 @@
     "clear_confirmation_cancel_preserves_records": true,
     "cleared_epoch_blocks_other_tab_automatic_write": true,
     "storage_denial_keeps_play_and_export": true,
+    "damaged_timestamp_blocks_automatic_write": true,
+    "damaged_timestamp_export_delete_preserves_unrelated": true,
+    "changed_damaged_timestamp_refuses_stale_delete": true,
     "same_rom_replacement_captures_before_candidate_restore": true,
     "mobile_no_overflow": true,
     "page_errors": []
@@ -62,111 +65,111 @@
     "requests": [
       [
         "GET",
-        "http://127.0.0.1:33823/"
+        "http://127.0.0.1:41761/"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/index-B58ZcJl0.js"
+        "http://127.0.0.1:41761/assets/index-BRml9oPT.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/index-YdH-pPHK.css"
+        "http://127.0.0.1:41761/assets/index-YdH-pPHK.css"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ]
     ]
   },
@@ -186,47 +189,47 @@
     "requests": [
       [
         "GET",
-        "http://127.0.0.1:33823/"
+        "http://127.0.0.1:41761/"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/index-B58ZcJl0.js"
+        "http://127.0.0.1:41761/assets/index-BRml9oPT.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/index-YdH-pPHK.css"
+        "http://127.0.0.1:41761/assets/index-YdH-pPHK.css"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+        "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
       ]
     ]
   },
@@ -256,11 +259,11 @@
     "reconnect_and_keyboard_fallback_require_explicit_resume": true
   },
   "browser": "145.0.7632.75",
-  "duration_seconds": 48.76,
+  "duration_seconds": 50.3,
   "audio": {
-    "buffers": 260,
+    "buffers": 258,
     "peak": 0.06666979938745499,
-    "starts": 260,
+    "starts": 258,
     "muted": true
   },
   "audio_denial_does_not_block_and_retry_recovers": true,
@@ -286,111 +289,111 @@
   "requests": [
     [
       "GET",
-      "http://127.0.0.1:33823/"
+      "http://127.0.0.1:41761/"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/index-B58ZcJl0.js"
+      "http://127.0.0.1:41761/assets/index-BRml9oPT.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/index-YdH-pPHK.css"
+      "http://127.0.0.1:41761/assets/index-YdH-pPHK.css"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/assets/worker-CH2iC4d6.js"
+      "http://127.0.0.1:41761/assets/worker-CH2iC4d6.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:33823/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:41761/generated/retro_coop_d02.wasm"
     ]
   ],
   "coordinator_url": "/coordinator"

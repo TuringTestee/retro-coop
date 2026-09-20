@@ -4,12 +4,12 @@ Audience: Agent
 
 The real browser restored nonzero battery progress before the game executed, preserved old and corrupt backups, restored local preferences, and prevented stale deletion or automatic recreation after clear-all. These are author checks; independent acceptance and presubmit CI remain separate gates.
 
-- Base: `0629cec4f90b9e8b4c335358dbdc5a1f8d4e528e`.
-- Tested application source: `1aab46dbd2e64fee12abe2b103864adfcb251d1b`; later evidence-only commits do not change it.
-- Browser: `python3 scripts/foundation/browser_smoke.py --chrome --output /tmp/d06-persistence-repaired.json` after `npm run build`. [Structured results](browser.json), [raw output](browser.txt), [client build](client-build.txt). The static local server intentionally has no coordinator; its websocket 404s demonstrate local play continues without that service.
+- Base: `2c3d1a7986ef7dd76ed788577b1191ba7a59e1f1`.
+- Tested application source: `be2ba3aa680e8ceb308084a1d9ea4202651cd904`; later evidence-only commits do not change it.
+- Browser: `python3 scripts/foundation/browser_smoke.py --chrome --output /tmp/d06-timestamp-final.json` after `npm run build`. [Structured results](browser.json), [raw output](browser.txt), [client build](client-build.txt). The static local server intentionally has no coordinator; its websocket 404s demonstrate local play continues without that service.
 - Native: all 22 release library tests passed, including the new battery-info ABI and existing mapper/region/adversarial battery/state tests. [Raw output](native.txt), [WASM build](wasm-build.txt). Final full preflight repeats the native tests at the complete candidate.
-- Complete preflight at committed repair evidence `ec3848e` passed in 6.47 seconds, including all 22 native tests and all Node checks with no skips. [Raw preflight](preflight.txt). The original 7.92-second result remains in the earlier evidence commit.
-- WASM SHA-256: `5f0b24f626e00f4dba4c4a7cbe08c7b19e514b8d9631a7f81c45f0cd6777efaa`; complete browser workload: 48.76 seconds.
+- Prior complete preflight passed in 6.47 seconds. A fresh full gate follows this committed round-1 repair evidence; prior results remain in history. [Raw preflight](preflight.txt).
+- WASM SHA-256: `5f0b24f626e00f4dba4c4a7cbe08c7b19e514b8d9631a7f81c45f0cd6777efaa`; complete browser workload: 50.3 seconds.
 - Focused control/contracts tests: [output](focused.txt).
 - Actual inspected UI: [desktop records](local-data-before.png), [desktop after confirmed clear](local-data-after.png), [populated mobile panel](local-data-mobile-before.png), [mobile after clear](local-data-mobile.png). The populated mobile dialog scrolls vertically; there is no horizontal overflow. Game audio uses only the application's gain mute; no browser/OS global mute is applied.
 - Retained harness failures: [wrong CPU field](harness-cpu-field-failure.txt), [single-page context](harness-context-failure.txt), [ambiguous Right selector](harness-selector-failure.txt). These were failed development checks, not product acceptance. The corrected candidate's complete browser results are linked above.
@@ -21,3 +21,11 @@ The browser probe waits for the actual ten-second persistence timer. Its cartrid
 Shared invariants remain single-owned: Rust `local_file` owns compatibility and the trusted cap/info; both codec consumers use it. The existing worker/player request correlation owns all file operations. `saves.ts` owns database transactions, expected-byte comparison and the clear generation. Controls validation reuses the same actions and conflict function as remapping; fingerprint matching and preference identity use `fileIdentity`. No peer NROM admission, mapper save-profile guard, whole-state decoder or file-limit copy was introduced.
 
 D06 remains open for measured ten-second/32-MiB rewind and remaining agreed qualification. Unload persistence is best-effort, browser eviction can erase records, and arbitrary state-restore PCM continuity remains unsupported. Root owns merge after fresh independent acceptance, current CI and integration verification.
+
+## Independent round 1 repair
+
+[Independent round 1](https://github.com/TuringTestee/retro-coop/pull/55#issuecomment-5748797704) returned AgreeButChangesRequested, scores 4/4/2/4, because an unchanged `NaN` battery timestamp could not be deleted. The [local before-fail](timestamp-before.txt) and [after-pass](timestamp-after.txt) use real React/IndexedDB and verify exported bytes plus preservation of an unrelated save. The full current browser additionally proves metadata-only corruption does not block play or trigger automatic export, and that changing `NaN` to `null` during confirmation still refuses stale deletion for battery and preference records.
+
+The shared byte-record comparison now uses `Object.is` for timestamp equality, and battery retry consumes that same comparison instead of its own timestamp-only guard. Preference deletion checks timestamp identity before JSON value comparison. `validSavedAt` is the single normal-timestamp policy used by slot listing, battery autoload and recovery display. Explicit recovery can delete unchanged malformed metadata; automatic battery persistence stays disabled for that metadata.
+
+Main PR #54 was integrated in merge commit `eb8c72f` before final proof; its peer changes do not replace the persistence owners. Prior failures, author repairs and round history remain accessible in earlier commits and the linked review. No independent acceptance is claimed for the repair; root owns fresh review and merge.
