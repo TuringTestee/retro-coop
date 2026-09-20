@@ -2,7 +2,7 @@
 import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-parser=argparse.ArgumentParser();parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];build_files={str(p.relative_to(root/'apps/client/dist')):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'apps/client/dist').rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
@@ -15,7 +15,7 @@ try:
   browsers={kind:(p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay else {},**({'executable_path':args.firefox_executable} if args.firefox_executable else {}))) for kind in set(args.pair.split('-'))};errors=[];pages=[];kinds=iter(args.pair.split('-'))
   def page():
    tab=browsers[next(kinds)].new_page(viewport={'width':1280,'height':1050});pages.append(tab);tab.set_default_timeout(10000);tab.on('pageerror',lambda e:errors.append(str(e)))
-   tab.add_init_script(path=root/'scripts/gameplay/fixture.js');tab.goto(url)
+   tab.add_init_script(path=root/'scripts/gameplay/fixture.js');tab.add_init_script("window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}");tab.goto(url)
    if args.relay:tab.get_by_label('Connection privacy',exact=True).first.select_option('relay')
    return tab
   try:
@@ -70,6 +70,23 @@ try:
     tab.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})");tab.wait_for_function('proof.controllerRam',polling=50);assert tab.evaluate('proof.controllerRam')==[128,64]
     assert tab.get_by_role('button',name='Rewind',exact=True).is_disabled()
     tab.evaluate("currentWorker.postMessage({type:'state-history',requestId:900002})");tab.wait_for_function('proof.localHistory',polling=50);history=tab.evaluate('proof.localHistory');assert history['inputs']==0 and history['checkpoints']==0 and history['retainedBytes']==0
+   if args.kick_playing:
+    h.on('dialog',lambda dialog:dialog.accept())
+    h.get_by_text('Connection and session settings',exact=True).click();h.get_by_text('Session settings',exact=True).click()
+    h.get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+    for tab in [h,g]:tab.wait_for_function("gamePeers.length>0 && gamePeers.every(p=>p.connectionState==='closed')")
+    stopped=[tab.evaluate('proof.frameCount') for tab in [h,g]]
+    local=[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
+    h.wait_for_timeout(250)
+    assert stopped==[tab.evaluate('proof.frameCount') for tab in [h,g]]
+    assert local==[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
+    assert min(local)>=240
+    h.get_by_role('button',name='Resume',exact=True).click()
+    h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
+    assert g.evaluate('proof.frameCount')==stopped[1]
+    result={'result':'pass','source':source,'scenario':'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
+    assert not errors,errors
+    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));[browser.close() for browser in browsers.values()];raise SystemExit(0)
    if args.screenshots:
     count=h.evaluate('proof.frameCount');h.get_by_label('Chat message',exact=True).press_sequentially('xz shared hello')
     h.get_by_text('Typing in chat · game input released.',exact=False).wait_for()

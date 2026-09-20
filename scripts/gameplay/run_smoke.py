@@ -2,7 +2,7 @@
 import argparse,json,subprocess,sys,time
 from pathlib import Path
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('directory',type=Path);args=parser.parse_args();args.directory.mkdir(parents=True,exist_ok=True)
-cases=[('shared',['--screenshots']),('relay',['--relay']),('progressed',['--late-join']),('cancel',['--cancel-barrier']),('ack-timeout',['--barrier-timeout']),('retry-guest-first',['--retry-barrier','guest-first']),('retry-host-first',['--retry-barrier','host-first']),('delayed-start',['--delay-start'])]
+cases=[('kick-playing',['--kick-playing']),('shared',['--screenshots']),('relay',['--relay']),('progressed',['--late-join']),('cancel',['--cancel-barrier']),('ack-timeout',['--barrier-timeout']),('retry-guest-first',['--retry-barrier','guest-first']),('retry-host-first',['--retry-barrier','host-first']),('delayed-start',['--delay-start'])]
 cases.extend((fault,['--fault',fault]) for fault in ['drop-input','bad-hash','future-input','duplicate-input','old-epoch','focus','device'])
 results=[]
 for name,options in cases:
