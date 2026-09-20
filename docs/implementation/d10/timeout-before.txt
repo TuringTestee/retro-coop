@@ -1,0 +1,61 @@
+✔ both authenticated members acknowledge effective relay before any signal is forwarded (4.439937ms)
+✔ relay denial never emits preparation; released capacity supports explicit retry (1.034022ms)
+✔ policy and socket changes invalidate epochs; cancellation and expiry remove signaling authority (1.229988ms)
+✔ negotiation timeouts and signaling schema are bounded independently of room lease (0.953261ms)
+✔ hello applies stricter policy before recovering an existing room transport (0.508134ms)
+✔ public-code admission captures the same strict policy before preparing peers (0.366097ms)
+✔ either local policy change renews the epoch even when the other peer keeps relay required (0.564307ms)
+✖ preparing deadline publishes failed state to both members without another command (1.168142ms)
+✖ connecting deadline publishes failed state to both members without another command (0.574187ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 124.387652
+
+✖ failing tests:
+
+test at apps/coordinator/src/peer.test.ts:77:57
+✖ preparing deadline publishes failed state to both members without another command (1.168142ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/retro-d10-peer/apps/coordinator/src/peer.test.ts:86:71)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at apps/coordinator/src/peer.test.ts:77:57
+✖ connecting deadline publishes failed state to both members without another command (0.574187ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  0 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/retro-d10-peer/apps/coordinator/src/peer.test.ts:86:71)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:785:18)
+      at Test.postRun (node:internal/test_runner/test:1232:19)
+      at Test.run (node:internal/test_runner/test:1160:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:785:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
