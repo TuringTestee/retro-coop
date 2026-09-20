@@ -95,7 +95,7 @@ export class LocalPlayer {
   if(reply.type!=='state-rewound')throw Error('Unexpected rewind response');
   this.audio.flush();this.release();
   this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(reply.pixels),256,240),0,0);
-  this.publish({rewind:reply.info,frames:reply.info.frame+1,status:`Rewound ${seconds} seconds. Resume whenever you’re ready.`});
+  this.publish({rewind:reply.info,frames:reply.info.frame+1,status:`Rewound ${seconds} second${seconds===1 ? '' : 's'}. Resume whenever you’re ready.`});
  }
 
  private candidate?: Worker;

@@ -34,6 +34,7 @@ def verify_rewind_worker(browser,url,rom,worker_path):
         const actualCycles=(last.hardware.cpu.cycle-initial.hardware.cpu.cycle)>>>0;
         ensure(actualCycles===current.rewind.cycles && actualCycles/rate>=12.25,'independent exported CPU timing');
         ensure(current.rewind.availableSeconds===10 && current.rewind.spanSeconds>=10,'ten actual seconds retained');
+        ensure(current.rewind.budgetBytes===32*1024*1024,'approved32MiB budget');
         ensure(current.rewind.retainedBytes<=current.rewind.budgetBytes && current.rewind.peakBytes<=current.rewind.budgetBytes,'real capacity budget');
         const desired=actualCycles-10*rate;let target=trace.length-1;while(trace[target].cycles>desired)target--;
         const rewound=await ask(worker,{type:'state-rewind',requestId:3,seconds:10});ensure(rewound.type==='state-rewound','rewind '+rewound.message);
@@ -64,11 +65,13 @@ def verify_rewind_worker(browser,url,rom,worker_path):
 def verify_rewind_ui(browser,url,rom,output):
     page=browser.new_page(viewport={'width':1280,'height':1000},accept_downloads=True)
     errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
+    page.add_init_script('''window.rewindAudio={buffers:0,finite:true,peak:0};const copy=AudioBuffer.prototype.copyToChannel;
+      AudioBuffer.prototype.copyToChannel=function(samples,...args){rewindAudio.buffers++;for(const value of samples){rewindAudio.finite &&= Number.isFinite(value);rewindAudio.peak=Math.max(rewindAudio.peak,Math.abs(value))}return copy.call(this,samples,...args)};''')
     page.goto(url)
     page.get_by_label('NES cartridge file').set_input_files({'name':'rewind-local.nes','mimeType':'application/octet-stream','buffer':rom})
     page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
     page.get_by_role('button',name='Rewind',exact=True).click();dialog=page.get_by_role('dialog',name='Rewind local game')
-    dialog.get_by_text('Not enough history yet.',exact=False).wait_for();assert dialog.get_by_role('button',name='Rewind 1 seconds',exact=True).is_disabled()
+    dialog.get_by_text('Not enough history yet.',exact=False).wait_for();assert dialog.get_by_role('button',name='Rewind 1 second',exact=True).is_disabled()
     dialog.get_by_role('button',name='Close rewind').click();page.get_by_role('button',name='Resume',exact=True).click()
     # Actual user-visible play: do not accelerate the RAF clock or worker frame loop.
     page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>=650",timeout=25000)
@@ -82,9 +85,12 @@ def verify_rewind_ui(browser,url,rom,output):
     page.screenshot(path=str(output.with_suffix('.rewind-after.png')),full_page=False)
     page.set_viewport_size({'width':390,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     page.screenshot(path=str(output.with_suffix('.rewind-mobile.png')),full_page=False)
+    audio_before=page.evaluate('rewindAudio.buffers')
     dialog.get_by_role('button',name='Close rewind').click();page.get_by_role('button',name='Resume',exact=True).click()
     page.wait_for_function("before=>Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>before+3",arg=int(after.split()[0]))
+    page.wait_for_function('before=>rewindAudio.buffers>before',arg=audio_before)
+    audio=page.evaluate('rewindAudio');assert audio['finite'] and audio['peak']>0
     page.get_by_label('NES cartridge file').set_input_files({'name':'replacement.nes','mimeType':'application/octet-stream','buffer':rom})
     page.get_by_role('button',name='Rewind',exact=True).click();dialog.get_by_text('Not enough history yet.',exact=False).wait_for()
     assert not errors,errors
-    page.close();return {'shortHistoryDisabled':True,'cancelPreservesFrame':True,'before':before,'after':after,'confirmedRewindPaused':True,'explicitResumeWorks':True,'replacementClearsHistory':True,'mobileNoOverflow':True,'pageErrors':errors}
+    page.close();return {'shortHistoryDisabled':True,'cancelPreservesFrame':True,'before':before,'after':after,'confirmedRewindPaused':True,'explicitResumeWorks':True,'replacementClearsHistory':True,'mobileNoOverflow':True,'resumedPcmObserved':audio,'pageErrors':errors}

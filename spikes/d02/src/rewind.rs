@@ -268,6 +268,34 @@ mod tests {
         }
     }
     #[test]
+    fn actual_capacity_at_the_shared_file_limit_leaves_room_for_restore_scratch() {
+        let (_, mut deck) = cartridge(0, NesRegion::Ntsc);
+        let pixels = deck.frame_buffer().len();
+        let mut history = History::new(&deck);
+        history.inputs.reserve_exact(INPUTS);
+        history.checkpoints.reserve_exact(CHECKPOINTS);
+        for frame in 0..CHECKPOINTS {
+            history.checkpoints.push_back(Checkpoint {
+                frame: frame as u64,
+                cycles: 0,
+                bytes: vec![0xa5; crate::local_file::LIMIT],
+                pixels: vec![0x79; pixels],
+            });
+        }
+        let backup = vec![0x51; crate::local_file::LIMIT];
+        let presentation = vec![0x29; pixels];
+        let actual = history.retained_bytes() + backup.capacity() + presentation.capacity();
+        assert!(
+            actual <= BUDGET,
+            "actual retained and restore buffers {actual} exceed {BUDGET}"
+        );
+        assert!(history.retained_bytes() > CHECKPOINTS * crate::local_file::LIMIT);
+        eprintln!(
+            "rewind maximum-file capacity history={} restore_peak={actual} budget={BUDGET}",
+            history.retained_bytes()
+        );
+    }
+    #[test]
     fn wrapped_cpu_cycles_short_history_and_invalid_targets_preserve_state() {
         let (rom, mut deck) = cartridge(0, NesRegion::Ntsc);
         clock_inputs(&mut deck, 0, 0).unwrap();
