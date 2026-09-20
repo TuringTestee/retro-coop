@@ -61,7 +61,7 @@ export class VoiceSession {
   this.microphone.endpoint(audio.sender);this.publish({connectionError:undefined});
  }
  connected(){this.publish({connected:true});}
- close(){this.pc=undefined;this.microphone.endpoint();this.audio.pause();this.audio.srcObject=null;this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
+ close(){this.pc=undefined;this.blur();this.microphone.endpoint();this.audio.pause();this.audio.srcObject=null;this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
  async enable(){
   if(!this.state.connected||this.state.connectionError)return;
   this.publish({listening:true});void this.play();await this.microphone.enable();await this.listDevices();

@@ -26,7 +26,7 @@ def verify_settings(browser, url, rom, output):
     dialog.get_by_role('button',name='Change Right',exact=True).click()
     page.get_by_label('Capture input',exact=True).press('v')
     assert dialog.get_by_role('button',name='Apply mapping').is_disabled()
-    assert 'Push to talk' in dialog.locator('[role=status]').inner_text()
+    assert 'Push to talk' in dialog.locator('.capture [role=status]').inner_text()
     page.get_by_label('Capture input',exact=True).press('l')
     dialog.get_by_role('button',name='Cancel mapping').click()
     assert page.evaluate('document.activeElement.textContent') == 'Change Right'

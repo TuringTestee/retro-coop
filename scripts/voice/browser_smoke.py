@@ -219,12 +219,45 @@ try:
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.evaluate("window.dispatchEvent(new Event('focus'))")
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
+    panel.get_by_role("button", name="Unmute microphone", exact=True).click()
+    panel.get_by_label("Voice mode", exact=True).select_option("push")
+    host.get_by_label("Local game screen", exact=True).focus()
+    host.keyboard.down("KeyV")
+    host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     guest.get_by_role("button", name="Cancel join", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
     for tab in [host, guest]:
         tab.wait_for_function(
             "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
         )
+    # Rejoining must not retain a held push-to-talk key from the previous peer.
+    capture_count = host.evaluate("captures.length")
+    guest.get_by_role("button", name="Retry join / Join", exact=True).click()
+    for tab in [host, guest]:
+        tab.wait_for_function(
+            "document.querySelector('[data-testid=connection-status]').textContent.includes('Route:')"
+        )
+    assert host.evaluate("captures.length") == capture_count
+    panel.get_by_role("button", name="Enable voice", exact=True).click()
+    host.wait_for_function(
+        "n=>captures.length>n && document.querySelector('[data-testid=microphone-status]').textContent!=='Microphone permission pending…'",
+        arg=capture_count,
+    )
+    host.evaluate(
+        "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
+    )
+    assert host.evaluate(
+        "captures.at(-1).getAudioTracks().every(t=>!t.enabled)"
+    ), "replaced peer retained old push-to-talk input"
+    host.keyboard.up("KeyV")
+    host.get_by_label("Local game screen", exact=True).focus()
+    host.keyboard.down("KeyV")
+    host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
+    host.keyboard.up("KeyV")
+    guest.get_by_role("button", name="Cancel join", exact=True).click()
+    host.wait_for_function(
+        "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
+    )
     assert not errors, errors
     result = {
         "pair": args.pair,
@@ -235,6 +268,7 @@ try:
         "no_capture_before_enable": True,
         "blur_mutes_focus_does_not_unmute": True,
         "leave_stops_both_tracks": True,
+        "rejoin_requires_opt_in_and_new_push_to_talk_input": True,
         "remote_volume_zero_via_setting": True,
         "page_errors": errors,
         "push_to_talk_key_button_and_typing_isolation": True,
