@@ -1,6 +1,8 @@
-# Featured placeholder: From Below
+Audience: Agent
 
-Use **From Below (NES, version 1.0)** as the featured placeholder. The user supplied the ROM and confirms they have a license. This document identifies that exact game and its expected presentation; it does not claim browser or network qualification. Thwaite is not selected.
+# Included game: From Below
+
+Keep **From Below (NES, version 1.0)** as the second included choice after Super Tilt Bro, as specified by the [catalog amendment](../design/included-games.md). The user supplied the ROM and confirms they have a license. This document identifies that exact game and its expected presentation; it does not claim browser or network qualification. Thwaite is not selected.
 
 This handoff advances [D03 / issue #7](https://github.com/TuringTestee/retro-coop/issues/7) under [epic #2](https://github.com/TuringTestee/retro-coop/issues/2). The approved [design](../design/browser-nes-platform.md) and [UI stories](../design/browser-nes-ui.md) still govern the platform. D19 owns the included-game implementation after its dependencies are integrated.
 
@@ -15,11 +17,11 @@ This handoff advances [D03 / issue #7](https://github.com/TuringTestee/retro-coo
 | Header | iNES; mapper 0 (NROM); 32 KiB PRG ROM; 8 KiB CHR ROM |
 | Creator page | <https://mhughson.itch.io/from-below> |
 | Source repository | <https://github.com/mhughson/mbh-firstnes> |
-| Permission record | User confirms a license and explicitly authorizes this featured placeholder; license text is omitted at the user’s direction |
+| Permission record | User confirms a license and explicitly authorizes this featured placeholder; license details use a placeholder under the latest user direction |
 
 The file hash identifies the supplied binary, not a reproduced source build. Preserve the original local file outside Git; this documentation change publishes no ROM or download endpoint. A later packaging step must verify the supplied file against this hash. Do not replace it with the Vs. arcade release, a Game Boy game, or a newer build without updating the identity and qualification evidence.
 
-Earlier inspected repository terms did not themselves grant redistribution. The user's later license confirmation is recorded separately; do not infer an SPDX identifier, public-domain status, modification rights, or asset rights from that repository statement. The user subsequently instructed “don’t put license.” Omit featured-game license text and do not request its attachment or use it as a delivery blocker. Retain the confirmed content decision, exact artifact identity, credits and runtime qualification. This instruction does not change software dependency notices.
+Earlier inspected repository terms did not themselves grant redistribution. The user's later license confirmation is recorded separately; do not infer an SPDX identifier, public-domain status, modification rights, or asset rights from that repository statement. The user subsequently instructed “don’t put license.” The subsequent two-game catalog request supersedes that presentation choice with “License details pending.” Do not request a grant attachment or use it as a delivery blocker. Retain the confirmed content decision, exact artifact identity, credits and runtime qualification. This instruction does not change software dependency notices.
 
 ## Game description and credits
 
@@ -55,4 +57,4 @@ The game retains its own menus and controls. “Start” on the website opens pl
 | Shared P1 handoff and accurate single-player labels | D15 and D19 |
 | Combined internet gameplay/voice and measured startup journey | D21 |
 
-D03 stays open until its remaining provenance and runtime acceptance are evidenced. This document is a completed specification slice, not permission to bypass D02, D19, or the release gates.
+D03 runtime work has been accepted through its linked issue and PR evidence. D19 and the release qualification owners still require their assigned actual integration checks.
