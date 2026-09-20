@@ -1,0 +1,82 @@
+[
+  {
+    "case": "kick-playing",
+    "exit_code": 0,
+    "seconds": 6.03
+  },
+  {
+    "case": "shared",
+    "exit_code": 0,
+    "seconds": 10.29
+  },
+  {
+    "case": "relay",
+    "exit_code": 0,
+    "seconds": 10.03
+  },
+  {
+    "case": "progressed",
+    "exit_code": 0,
+    "seconds": 2.22
+  },
+  {
+    "case": "cancel",
+    "exit_code": 0,
+    "seconds": 1.77
+  },
+  {
+    "case": "ack-timeout",
+    "exit_code": 0,
+    "seconds": 9.74
+  },
+  {
+    "case": "retry-guest-first",
+    "exit_code": 0,
+    "seconds": 18.1
+  },
+  {
+    "case": "retry-host-first",
+    "exit_code": 0,
+    "seconds": 18.1
+  },
+  {
+    "case": "delayed-start",
+    "exit_code": 0,
+    "seconds": 9.93
+  },
+  {
+    "case": "drop-input",
+    "exit_code": 0,
+    "seconds": 7.28
+  },
+  {
+    "case": "bad-hash",
+    "exit_code": 0,
+    "seconds": 8.18
+  },
+  {
+    "case": "future-input",
+    "exit_code": 0,
+    "seconds": 6.23
+  },
+  {
+    "case": "duplicate-input",
+    "exit_code": 0,
+    "seconds": 6.28
+  },
+  {
+    "case": "old-epoch",
+    "exit_code": 0,
+    "seconds": 9.93
+  },
+  {
+    "case": "focus",
+    "exit_code": 0,
+    "seconds": 9.93
+  },
+  {
+    "case": "device",
+    "exit_code": 0,
+    "seconds": 10.03
+  }
+]

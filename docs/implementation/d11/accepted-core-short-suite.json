@@ -1,0 +1,72 @@
+[
+  {
+    "case": "foundation",
+    "exit_code": 0,
+    "seconds": 71.56
+  },
+  {
+    "case": "banked",
+    "exit_code": 0,
+    "seconds": 40.94
+  },
+  {
+    "case": "assets",
+    "exit_code": 0,
+    "seconds": 2.97
+  },
+  {
+    "case": "rooms",
+    "exit_code": 0,
+    "seconds": 6.68
+  },
+  {
+    "case": "moderation",
+    "exit_code": 0,
+    "seconds": 3.72
+  },
+  {
+    "case": "chat",
+    "exit_code": 0,
+    "seconds": 20.76
+  },
+  {
+    "case": "peer",
+    "exit_code": 0,
+    "seconds": 66.26
+  },
+  {
+    "case": "voice-Chrome-Chrome-direct",
+    "exit_code": 0,
+    "seconds": 5.38
+  },
+  {
+    "case": "voice-Chrome-Chrome-relay",
+    "exit_code": 0,
+    "seconds": 6.13
+  },
+  {
+    "case": "voice-Chrome-Firefox-direct",
+    "exit_code": 0,
+    "seconds": 11.49
+  },
+  {
+    "case": "voice-Chrome-Firefox-relay",
+    "exit_code": 0,
+    "seconds": 11.99
+  },
+  {
+    "case": "voice-Firefox-Firefox-direct",
+    "exit_code": 0,
+    "seconds": 9.64
+  },
+  {
+    "case": "voice-Firefox-Firefox-relay",
+    "exit_code": 0,
+    "seconds": 9.28
+  },
+  {
+    "case": "directory",
+    "exit_code": 0,
+    "seconds": 2.87
+  }
+]
