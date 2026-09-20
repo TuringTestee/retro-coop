@@ -50,8 +50,11 @@ test('host actions target the confirmed room, not a newer room belonging to the 
 });
 test('host mutation wire schema requires exact targets and rejects public authority extensions',()=>{
  const requestId=randomUUID(),roomId=randomUUID(),guestMembership=randomUUID();
- for(const type of ['close','kick','rename','visibility'])assert.equal(parseRoomCommand({type,requestId}),undefined);
- assert.ok(parseRoomCommand({type:'kick',requestId,roomId,guestMembership}));
+ for(const command of [{type:'close'},{type:'kick',guestMembership},{type:'rename',label:'Current name'},{type:'visibility',visibility:'unlisted'}]) {
+  assert.equal(parseRoomCommand({...command,requestId}),undefined);
+  assert.ok(parseRoomCommand({...command,requestId,roomId}));
+ }
+ assert.equal(parseRoomCommand({type:'kick',requestId,roomId}),undefined);
  assert.equal(parseRoomCommand({type:'kick',requestId,roomId,guestMembership,operator:true}),undefined);
  assert.equal(parseRoomCommand({type:'close',requestId,roomId,guestMembership}),undefined);
 });

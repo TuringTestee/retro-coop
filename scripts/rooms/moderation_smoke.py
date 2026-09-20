@@ -72,6 +72,8 @@ try:
             voice(tab)
         for tab in [host, replacement]:
             tab.wait_for_function("async()=>{const stats=await pcs.at(-1).getStats();return [...stats.values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.totalAudioEnergy>0)}")
+        host.screenshot(path=str(output.with_suffix('.before.png')), full_page=True,
+                        mask=[host.get_by_label('Room invitation', exact=True)])
         host.evaluate('releaseKick();window.holdKick=false')
         host.get_by_test_id('room-status').filter(has_text='That guest has left or rejoined').wait_for()
         assert replacement.get_by_test_id('room-view').count() == 1
