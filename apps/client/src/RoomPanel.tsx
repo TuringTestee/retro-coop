@@ -1,21 +1,26 @@
+import {ConnectionPolicyControl} from './ConnectionPolicy.tsx';
+import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
-import {RoomClient, type RoomState} from './room-client.ts';
+import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 export type RoomPanelHandle = {beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void;onHost:()=>void}>(function RoomPanel({fingerprint,onNickname,onHost},ref) {
+export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({fingerprint,onNickname,policy,changePolicy,onConnection,onHost},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
+ const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
  const [invite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
  const client = useRef<RoomClient|null>(null), selectedVisibility = useRef<Visibility>('public');
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
  useEffect(()=>{
-  const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'));client.current = rooms;
+  const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'),policy);client.current = rooms;
   void rooms.watchDirectory();
   if(invite) void rooms.preview(invite);
   return ()=>{rooms.dispose();client.current = null;};
  },[invite]);
+ useEffect(()=>{void client.current?.setPolicy(policy);},[policy]);
+ useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peer.status,onConnection]);
  useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useImperativeHandle(ref,()=>({
@@ -36,12 +41,16 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
  },[fingerprint,state.room?.id,state.room?.role]);
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
- return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2><p>Featured game not configured. You can play your own local NES game below.</p><button disabled>Included game unavailable</button></section><DirectoryPanel state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
+ return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2><p>Featured game not configured. You can play your own local NES game below.</p><button disabled>Included game unavailable</button></section><DirectoryPanel connection={<ConnectionPolicyControl policy={policy} change={changePolicy}/>} state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
   {!room && !invite && <button onClick={onHost}>Host a game</button>}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
-  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}</p>}
-  <p className="hint">This build supports rooms and reservations. Shared gameplay and peer connections are coming next.</p>
+  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status} · Host-provided title. Bring your own matching local game file.</p>}
+  <ConnectionPolicyControl policy={policy} change={changePolicy}/>
+  <p className="hint">This build connects peers while keeping Player 2 reserved. Shared gameplay is not available yet.</p>
+  <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
+  {room?.peer.epoch && <button onClick={()=>void client.current?.retryPeer()}>Retry connection</button>}
+  {room?.peer.epoch && ['relay_unavailable','relay_capacity','failed'].includes(room.peer.status) && <><button onClick={()=>setStaying(room.peer.epoch)}>Stay in room</button>{staying===room.peer.epoch && <p role="status">You stayed in the room. Your current reservation deadline and local game are unchanged. Retry whenever you are ready.</p>}</>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
   {state.retryAfterMs && <p>Wait at least {Math.ceil(state.retryAfterMs/1000)} seconds before retrying.</p>}
   {room && <div data-testid="room-view">
