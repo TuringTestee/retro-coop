@@ -5,10 +5,10 @@ Audience: Agent
 The real browser restored nonzero battery progress before the game executed, preserved old and corrupt backups, restored local preferences, and prevented stale deletion or automatic recreation after clear-all. These are author checks; independent acceptance and presubmit CI remain separate gates.
 
 - Base: `0629cec4f90b9e8b4c335358dbdc5a1f8d4e528e`.
-- Tested application source: `1aab46d`; later evidence-only commits do not change it.
+- Tested application source: `1aab46dbd2e64fee12abe2b103864adfcb251d1b`; later evidence-only commits do not change it.
 - Browser: `python3 scripts/foundation/browser_smoke.py --chrome --output /tmp/d06-persistence-repaired.json` after `npm run build`. [Structured results](browser.json), [raw output](browser.txt), [client build](client-build.txt). The static local server intentionally has no coordinator; its websocket 404s demonstrate local play continues without that service.
 - Native: all 22 release library tests passed, including the new battery-info ABI and existing mapper/region/adversarial battery/state tests. [Raw output](native.txt), [WASM build](wasm-build.txt). Final full preflight repeats the native tests at the complete candidate.
-- The original complete preflight passed in 7.92 seconds; a fresh complete preflight follows this committed repair evidence. [Raw preflight](preflight.txt).
+- Complete preflight at committed repair evidence `ec3848e` passed in 6.47 seconds, including all 22 native tests and all Node checks with no skips. [Raw preflight](preflight.txt). The original 7.92-second result remains in the earlier evidence commit.
 - WASM SHA-256: `5f0b24f626e00f4dba4c4a7cbe08c7b19e514b8d9631a7f81c45f0cd6777efaa`; complete browser workload: 48.76 seconds.
 - Focused control/contracts tests: [output](focused.txt).
 - Actual inspected UI: [desktop records](local-data-before.png), [desktop after confirmed clear](local-data-after.png), [populated mobile panel](local-data-mobile-before.png), [mobile after clear](local-data-mobile.png). The populated mobile dialog scrolls vertically; there is no horizontal overflow. Game audio uses only the application's gain mute; no browser/OS global mute is applied.
