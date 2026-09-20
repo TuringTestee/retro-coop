@@ -1,3 +1,42 @@
+127.0.0.1 - - [20/Sep/2026 01:29:07] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:07] "GET /assets/index-CsBB4MAB.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:07] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 01:29:08] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:09] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:09] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:09] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:09] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:09] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:09] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:10] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:10] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:10] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:10] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:13] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:13] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /assets/index-CsBB4MAB.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /assets/index-CsBB4MAB.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:14] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET /assets/index-CsBB4MAB.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:29:15] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
 {
   "result": "pass",
   "settings": {

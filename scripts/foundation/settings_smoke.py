@@ -74,8 +74,7 @@ def verify_settings(browser, url, rom, output):
     page.evaluate('padButtons=[];padAxes=[0,0]')
     # Let a released observation pass before issuing the new edge.
     page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
-    dialog.get_by_role('button',name='Cancel mapping').click()
-    dialog.get_by_role('button',name='Change Right',exact=True).click()
+    # The same capture stays open: a conflict must be replaceable without cancelling.
     page.evaluate('padButtons=[3]')
     page.wait_for_function("document.querySelector('.capture [role=status]').textContent.includes('Button 4')")
     dialog.get_by_role('button',name='Apply mapping').click()
@@ -125,9 +124,51 @@ def verify_settings(browser, url, rom, output):
     assert hashlib.sha256(rom).hexdigest() in page.locator('[data-testid=fingerprint]').inner_text()
     assert page.evaluate('createdWorkers') == 1
     assert not errors,errors
-    result={'keyboard_remap_input_pixels':True,'reserved_binding_conflict':True,'cancel_and_defaults_confirmation':True,
+    result={'keyboard_remap_input_pixels':True,'reserved_binding_conflict':True,'gamepad_conflict_replaced_without_reopening':True,'cancel_and_defaults_confirmation':True,
             'gamepad_remap_input_pixels':True,'gamepad_axis_capture':True,'volume_applies_under_mute':True,'reconnect_does_not_resume':True,'focus_releases_gamepad':True,'unplug_pauses_and_keyboard_resumes':True,
             'presentation_preserves_progress_and_fingerprint':True,'single_worker_through_settings':True,'fullscreen_denial_and_exit':True,
             'dialog_focus_restore_and_escape':True,'mobile_no_overflow':True,'game_only_muted':True,'page_errors':errors}
     page.close()
     return result
+
+
+def verify_disconnected_load(browser, url, rom):
+    page = browser.new_page()
+    page.add_init_script("""window.connected=true;
+      navigator.getGamepads=()=>connected ? [{id:'Startup controller',index:0,connected:true,buttons:[],axes:[0,0]}] : [];
+    """)
+    page.goto(url)
+    page.get_by_role('button',name='Settings',exact=True).click()
+    dialog=page.get_by_role('dialog',name='Local settings')
+    dialog.get_by_label('Input device',exact=True).select_option('0')
+    dialog.get_by_role('button',name='Done',exact=True).click()
+    page.evaluate('connected=false')
+    page.get_by_role('button',name='Use keyboard',exact=True).wait_for()
+    count="Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])"
+    for attempt in range(2):
+        candidate=rom if attempt==0 else rom+b'replacement'
+        page.set_input_files('input[type=file]',{'name':'disconnected.nes','mimeType':'application/octet-stream','buffer':candidate})
+        page.wait_for_function("document.querySelector('[data-testid=fingerprint]')!==null")
+        expected=hashlib.sha256(candidate).hexdigest()
+        page.wait_for_function('hash=>document.querySelector("[data-testid=fingerprint]").textContent.includes(hash)',arg=expected)
+        assert page.get_by_role('button',name='Resume',exact=True).is_enabled(), 'Disconnected load must remain paused'
+        assert page.evaluate(count)==0, 'Disconnected load must not schedule any frame'
+        page.get_by_role('button',name='Resume',exact=True).click()
+        assert page.get_by_role('button',name='Resume',exact=True).is_enabled()
+        assert page.evaluate(count)==0
+        page.evaluate('connected=true')
+        page.get_by_role('button',name='Use keyboard',exact=True).wait_for(state='detached')
+        assert page.evaluate(count)==0
+        assert page.get_by_role('button',name='Resume',exact=True).is_enabled()
+        if attempt==1:
+            page.evaluate('connected=false')
+            page.get_by_role('button',name='Use keyboard',exact=True).click()
+            assert page.evaluate(count)==0
+        page.get_by_role('button',name='Resume',exact=True).click()
+        page.wait_for_function(count+'>5')
+        if attempt==0:
+            page.evaluate('connected=false')
+            page.get_by_role('button',name='Use keyboard',exact=True).wait_for()
+    page.close()
+    return {'first_and_replacement_load_wait_for_valid_input':True,'resume_requires_current_device':True,
+            'reconnect_and_keyboard_fallback_require_explicit_resume':True}

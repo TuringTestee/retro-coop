@@ -29,7 +29,7 @@ export function Settings(props:Props) {
    setPads(old=>JSON.stringify(old)===JSON.stringify(available.map(({index,id})=>({index,id}))) ? old : available.map(({index,id})=>({index,id})));
    const pad=available.find(pad=>pad.index===props.controls.device?.index && pad.id===props.controls.device?.id);
    const pressed=padInputs(pad);
-   if(capture && source==='gamepad' && !binding) {
+   if(capture && source==='gamepad') {
     const next=[...pressed].find(input=>!previousPad.current.has(input));
     if(next) setBinding(next);
    }
@@ -43,7 +43,7 @@ export function Settings(props:Props) {
   const keyup=(event:KeyboardEvent)=>held.current.delete(event.code);
   window.addEventListener('keyup',keyup);window.addEventListener('blur',release);
   return ()=>{cancelAnimationFrame(animation);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',release);};
- },[props.open,props.controls,source,capture,binding]);
+ },[props.open,props.controls,source,capture]);
  const duplicate=capture && binding ? conflict(props.controls[source],capture,binding) : undefined;
  return <dialog ref={dialog} className="settings" aria-labelledby="settings-title" onClose={props.close} onCancel={event=>{if(capture || confirm){event.preventDefault();endCapture();setConfirm(false);}}}>
   <button className="settings-close" aria-label="Close settings" onClick={()=>dialog.current?.close()}>Close</button>
