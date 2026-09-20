@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {setImmediate} from 'node:timers/promises';
 import {PeerConnection} from './peer.ts';
 
-test('transient disconnected preserves the established channel and recovers without another ready callback',async()=>{
+for(const terminal of ['failed','channel-close','channel-error'])test(`transient disconnect recovers once; ${terminal} still terminates transport`,async()=>{
  const original=globalThis.RTCPeerConnection;
  const sent:any[]=[],wire:any[]=[],updates:any[]=[];let ready=0,closed=0,pc:any;
  class FakePeer {
@@ -33,7 +33,9 @@ test('transient disconnected preserves the established channel and recovers with
   pc.connectionState='connected';pc.onconnectionstatechange();await setImmediate();
   assert.equal(ready,1);assert.equal(wire.length,before,'recovery sent another transport challenge');
   assert.equal(updates.at(-1).status,'Peer transport connected.');
-  pc.connectionState='failed';pc.onconnectionstatechange();
+  if(terminal==='failed'){pc.connectionState='failed';pc.onconnectionstatechange();}
+  else if(terminal==='channel-close')pc.channel.onclose();
+  else pc.channel.onerror();
   assert.equal(pc.closed,1);assert.equal(closed,1);assert.equal(sent.filter(x=>x.type==='peerFailed').length,1);
  } finally {peer.close();globalThis.RTCPeerConnection=original;}
 });
