@@ -12,6 +12,10 @@ sh scripts/demo.sh
 
 Then open **http://127.0.0.1:8765/demo/**. Choose your local NES `.nes` file, press Enter to start, and use the arrow keys with X/Z. Sound starts enabled for normal play; the Mute button controls only the game. No ROM is bundled or uploaded. See [setup and controls](spikes/d02/demo/README.md) for prerequisites and testing.
 
+## Application foundation
+
+The React client and Node coordinator now have a runnable foundation. See the [setup and verification guide](docs/implementation/d04-foundation.md) to run the original diagnostic and service health endpoint.
+
 ## Start working
 
 Open this repository in your agent and ask:
@@ -45,12 +49,12 @@ cargo +1.95.0 test --locked --release --lib --no-run
 cd ../..
 ```
 
-Then run from the repository root:
+Install the pinned Node dependencies with `npm ci` at the repository root. Then run:
 
 ```sh
 timeout 60s sh scripts/preflight.sh
 ```
 
-Pre-flight checks whitespace, shell/Python/Rust syntax and the focused codec tests using an original generated diagnostic. CI also builds the pinned WASM artifact and runs the browser probe on that original fixture. The featured ROM is never committed or fetched by CI. See [D02 reproduction and remaining gates](docs/implementation/d02-feasibility.md). Pre-flight must finish in under one minute; presubmit CI has a 30-minute hard limit. Separate post-submit tests may run for hours.
+Pre-flight checks whitespace, shell/Python/Rust syntax, TypeScript contracts, coordinator lifecycle and the focused codec tests using an original generated diagnostic. CI also builds the pinned WASM artifact and runs the browser probe on that original fixture. The featured ROM is never committed or fetched by CI. See [D02 reproduction and remaining gates](docs/implementation/d02-feasibility.md). Pre-flight must finish in under one minute; presubmit CI has a 30-minute hard limit. Separate post-submit tests may run for hours.
 
 CI currently needs no submodule checkout. Future jobs that use shared skills must authenticate with read access to Vaseline and initialize the submodule; the default repository token does not grant cross-repository access.

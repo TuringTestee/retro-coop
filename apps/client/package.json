@@ -1,0 +1,6 @@
+{
+ "name": "@retro-coop/client", "private": true, "type": "module",
+ "scripts": {"dev": "vite --host 127.0.0.1", "build": "vite build", "build:staging": "vite build --mode staging", "preview": "vite preview --host 127.0.0.1"},
+ "dependencies": {"react": "19.3.0", "react-dom": "19.3.0"},
+ "devDependencies": {"vite": "8.3.0", "@vitejs/plugin-react": "6.1.1", "@types/react": "19.3.0", "@types/react-dom": "19.3.0"}
+}

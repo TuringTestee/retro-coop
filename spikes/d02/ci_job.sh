@@ -13,6 +13,9 @@ if [ "$D02_JOB" = build ]; then
    python3 original_fixture.py fixture.local.nes
    cargo +1.95.0 test --locked --release --lib --no-run
    cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown)
+  npm ci
+  sh scripts/foundation/prepare.sh
+  npm run build:staging
   timeout --foreground 60s sh scripts/preflight.sh
   exit
 fi
@@ -30,6 +33,7 @@ if [ "$D02_JOB" = core ]; then
   timeout --foreground 1200s python3 browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
   python3 verify_results.py browser-ci.local.json
   timeout --foreground 60s python3 demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
+  (cd ../.. && timeout --foreground 90s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
 elif [ "$D02_JOB" = network ]; then
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
   cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json

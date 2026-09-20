@@ -1,1 +1,7 @@
 /.agents/preferences.local.json
+node_modules/
+dist/
+.env.local
+.env.*.local
+apps/client/public/generated/
+*.foundation.local.*
