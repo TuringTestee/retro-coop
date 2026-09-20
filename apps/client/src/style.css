@@ -12,3 +12,5 @@
 .directory-panel label{display:grid;gap:.5rem}.directory-panel input{width:100%;box-sizing:border-box;padding:.7rem;color:inherit;background:#101119;border:1px solid #58617b;border-radius:6px;font:inherit}
 
 .room-placeholder{min-height:4rem;color:transparent;background:#191b2a}
+
+.room-list button[aria-disabled="true"]{opacity:.5;cursor:not-allowed}.room-list small{font-weight:400;margin-left:.5rem}

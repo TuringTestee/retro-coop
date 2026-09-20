@@ -1,18 +1,20 @@
 {
   "empty": true,
   "duplicate_names_distinct_codes": [
-    "JC55JF4X",
-    "T8D7TVJ4"
+    "TUGGZHWS",
+    "97DYZE95"
   ],
   "case_insensitive_search": true,
   "live_focus_retained": true,
+  "occupancy_change_retains_button_focus": true,
+  "clear_search_and_source_disclosure": true,
   "reserve_before_file": true,
   "matching_guest_file": true,
   "full_room_disabled": true,
   "unlisted_removed_and_focus_recovered": true,
   "stale_rows_disabled_retry_recovers": true,
-  "directory_payloads_metadata_only": 36,
+  "directory_payloads_metadata_only": 37,
   "private_filenames_never_sent": true,
   "page_errors": [],
-  "elapsedSeconds": 2.92
+  "elapsedSeconds": 3.13
 }
