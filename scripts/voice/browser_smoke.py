@@ -22,6 +22,8 @@ fixture = LocalTurn(args.turnserver) if args.relay else contextlib.nullcontext()
 stack = contextlib.ExitStack()
 server = None
 pages = []
+errors = []
+turn = None
 try:
     turn = stack.enter_context(fixture)
     server = subprocess.Popen(
@@ -42,7 +44,7 @@ try:
     for kind in set(args.pair.split("-")):
         browsers[kind] = (
             p.chromium.launch(
-                **({"channel": "chrome"} if args.chrome else {}),
+                channel="chrome" if args.chrome else "chromium",
                 ignore_default_args=["--mute-audio"],
                 args=[
                     "--use-fake-device-for-media-stream",
@@ -61,7 +63,6 @@ try:
                 }
             )
         )
-    errors = []
     kinds = iter(args.pair.split("-"))
 
     def page(url):
