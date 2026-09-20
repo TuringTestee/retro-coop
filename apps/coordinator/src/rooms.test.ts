@@ -113,3 +113,49 @@ test('delayed cancellation cannot release a newer reservation from the same gues
  t.act(guest.token,{type:'leave',intent:b});
  assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
 });
+
+test('directory publishes admitted public metadata through reservation, visibility and recovery',()=>{
+ const t=setup(),watcher=t.guest(),host=t.guest(),hidden=t.guest(),joiner=t.guest();
+ assert.deepEqual(t.act(watcher.token,{type:'directory'}).directory,[]);
+ const intent=randomUUID(),provisional=t.act(host.token,{type:'create',intent,visibility:'public',fingerprint}).room!;
+ t.host(hidden.token,'unlisted');assert.deepEqual(t.act(watcher.token,{type:'directory'}).directory,[]);
+ t.act(host.token,{type:'confirmCreate',intent});
+ const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms;
+ assert.equal(latest().length,1);assert.equal(latest()[0].id,provisional.id);
+ assert.deepEqual(Object.keys(latest()[0]).sort(),['code','host','id','label','occupancy','status','visibility']);
+ const code=provisional.code!;
+ assert.equal(t.act(joiner.token,{type:'lookupCode',code}).preview!.id,provisional.id);
+ const joined=t.act(joiner.token,{type:'joinCode',code,intent:randomUUID()}).room!;
+ assert.equal(latest()[0].occupancy,2);assert.equal(latest()[0].status,'reserved');
+ t.act(joiner.token,{type:'leave',intent:joined.reservationIntent!});assert.equal(latest()[0].status,'waiting');
+ t.act(host.token,{type:'rename',label:'Same name'});assert.equal(latest()[0].label,'Same name');
+ t.act(host.token,{type:'nickname',nickname:'Local host'});assert.equal(latest()[0].host,'Local host');
+ t.advance(30_000);assert.equal(latest()[0].status,'reconnecting');
+ t.rooms.attach(host.token,()=>{},()=>{});assert.equal(latest()[0].status,'waiting');
+ t.act(host.token,{type:'visibility',visibility:'unlisted'});assert.deepEqual(latest(),[]);
+ assert.throws(()=>t.act(joiner.token,{type:'lookupCode',code}),/room_unavailable/);
+ assert.throws(()=>t.act(joiner.token,{type:'joinCode',code,intent:randomUUID()}),/room_unavailable/);
+ t.act(host.token,{type:'visibility',visibility:'public'});assert.equal(latest().length,1);
+ t.act(host.token,{type:'close'});assert.deepEqual(latest(),[]);
+});
+
+test('public-code admission shares invitation slot ownership, deadline and invalid-attempt limits',async()=>{
+ const t=setup(),host=t.guest(),a=t.guest(),b=t.guest(),room=t.host(host.token);
+ const results=await Promise.allSettled([
+  Promise.resolve().then(()=>t.act(a.token,{type:'joinCode',code:room.code!,intent:randomUUID()})),
+  Promise.resolve().then(()=>t.act(b.token,{type:'join',invite:room.invite,intent:randomUUID()})),
+ ]);
+ assert.equal(results.filter(result=>result.status==='fulfilled').length,1);
+ const winner=results.find(result=>result.status==='fulfilled')!;assert.equal(winner.value.room!.reservationUntil,121000);
+ const attacker=t.guest();for(let i=0;i<5;i++) assert.throws(()=>t.act(attacker.token,{type:'joinCode',code:'ZZZZZZZZ',intent:randomUUID()}),/room_unavailable/);
+ assert.throws(()=>t.act(attacker.token,{type:'join',invite:room.invite,intent:randomUUID()}),/rate_limited/);
+});
+
+test('public-code allocation retries collisions atomically and fails without creating a room',()=>{
+ const candidates=['AAAAAAAA','AAAAAAAA','BBBBBBBB'];
+ const rooms=new Rooms(()=>1000,()=>candidates.shift() ?? 'AAAAAAAA');
+ const host=()=>rooms.attach(undefined,()=>{},()=>{}).token;
+ const create=(token:string)=>rooms.handle(token,{type:'create',requestId:randomUUID(),intent:randomUUID(),visibility:'public',fingerprint});
+ assert.equal(create(host()).room!.code,'AAAAAAAA');assert.equal(create(host()).room!.code,'BBBBBBBB');
+ const token=host();assert.throws(()=>create(token),/capacity/);assert.equal(rooms.attach(token,()=>{},()=>{}).data.room,undefined);
+});
