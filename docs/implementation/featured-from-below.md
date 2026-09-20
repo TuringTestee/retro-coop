@@ -15,11 +15,11 @@ This handoff advances [D03 / issue #7](https://github.com/TuringTestee/retro-coo
 | Header | iNES; mapper 0 (NROM); 32 KiB PRG ROM; 8 KiB CHR ROM |
 | Creator page | <https://mhughson.itch.io/from-below> |
 | Source repository | <https://github.com/mhughson/mbh-firstnes> |
-| Permission record | User confirms a license and explicitly authorizes this featured placeholder; license text/terms are not yet attached to release provenance |
+| Permission record | User confirms a license and explicitly authorizes this featured placeholder; license text is omitted at the user’s direction |
 
 The file hash identifies the supplied binary, not a reproduced source build. Preserve the original local file outside Git; this documentation change publishes no ROM or download endpoint. A later packaging step must verify the supplied file against this hash. Do not replace it with the Vs. arcade release, a Game Boy game, or a newer build without updating the identity and qualification evidence.
 
-Earlier inspected repository terms did not themselves grant redistribution. The user's later license confirmation is recorded separately; do not infer an SPDX identifier, public-domain status, modification rights, or asset rights from that repository statement. Attach the applicable license and preserve its required notices in the release records before public release. This does not require another title decision for placeholder work.
+Earlier inspected repository terms did not themselves grant redistribution. The user's later license confirmation is recorded separately; do not infer an SPDX identifier, public-domain status, modification rights, or asset rights from that repository statement. The user subsequently instructed “don’t put license.” Omit featured-game license text and do not request its attachment or use it as a delivery blocker. Retain the confirmed content decision, exact artifact identity, credits and runtime qualification. This instruction does not change software dependency notices.
 
 ## Game description and credits
 
@@ -49,7 +49,7 @@ The game retains its own menus and controls. “Start” on the website opens pl
 
 | Evidence still needed | Owner |
 |---|---|
-| Applicable license document, required notices, scope of any bundled presentation assets | Content owner / D03 |
+| Exact artifact identity, credits and scoped mode/controller qualification | D03 |
 | Exact artifact boot, audio, controls, save/restore and rewind in selected core and supported browsers | D02 initial feasibility; D20 final qualification |
 | Included download identity, zero-room start, friend join and recovery UI | D19 |
 | Shared P1 handoff and accurate single-player labels | D15 and D19 |
