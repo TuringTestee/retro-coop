@@ -1,0 +1,7 @@
+{
+  "status": "incomplete-author-interruption",
+  "source": "b9c5ce53be3a2d3258b2687d8d6806a55ba7cd60",
+  "reason": "A separately proven stale-channel callback race requires an additive runtime repair. No complete ten-minute result was produced.",
+  "capture_seconds": 191.7386578049991,
+  "exit_code": 124
+}

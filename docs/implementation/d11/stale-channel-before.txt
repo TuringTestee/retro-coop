@@ -1,0 +1,33 @@
+(node:543759) ExperimentalWarning: Transform Types is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ a replaced peer channel cannot change the current game through a delayed message (21.649182ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 167.547526
+
+✖ failing tests:
+
+test at apps/client/src/game-client.test.ts:5:1
+✖ a replaced peer channel cannot change the current game through a delayed message (21.649182ms)
+  AssertionError [ERR_ASSERTION]: stale callback cleared the current game
+
+  1 !== 0
+
+      at TestContext.<anonymous> (/tmp/retro-d11-gameplay/apps/client/src/game-client.test.ts:13:9)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1103:25)
+      at Test.start (node:internal/test_runner/test:1000:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

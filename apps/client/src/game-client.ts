@@ -12,7 +12,8 @@ export class GameClient {
  private serial=0;private offering=false;private offered?:string;private controlled=false;
  private fence?:number;private awaitingFence=false;private pausedSent=false;private hashing=false;private missingSince=0;
  private state:GameplayState={status:'Choose matching games to prepare shared play.',frame:0,busy:false};
- constructor(private player:()=>LocalPlayer|null,private send:(command:Command)=>Promise<unknown>,private update:(state:GameplayState)=>void){}
+ private player:()=>LocalPlayer|null;private send:(command:Command)=>Promise<unknown>;private update:(state:GameplayState)=>void;
+ constructor(player:()=>LocalPlayer|null,send:(command:Command)=>Promise<unknown>,update:(state:GameplayState)=>void){this.player=player;this.send=send;this.update=update;}
  private publish(patch:Partial<GameplayState>){this.state={...this.state,...patch};this.update(this.state);}
  enter(room?:RoomView){
   const previous=this.room;
@@ -28,7 +29,7 @@ export class GameClient {
  retryConnection(){this.renew=true;}
  ready(channel:RTCDataChannel,epoch:string){
   this.channel=channel;this.peerEpoch=epoch;if(this.renew){this.intent=true;this.renew=false;}
-  channel.onmessage=({data})=>this.receive(data);
+  channel.onmessage=({data})=>{if(this.channel===channel&&this.peerEpoch===epoch)this.receive(data);};
   if(this.inspect===epoch){this.inspect=undefined;void this.offer();}else void this.offerGuest();
  }
  closed(epoch?:string){if(epoch&&epoch===this.peerEpoch){this.peerEpoch=undefined;this.channel=undefined;this.clear('Connection changed. Shared play is paused; retry explicitly.');}}
