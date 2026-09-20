@@ -6,9 +6,9 @@ test('worker accepts transferable ROMs and controller bytes, rejects malformed i
  for (const data of [null,{}, {type:'load',rom:'url'}, {type:'load',rom:new ArrayBuffer(0)}, {type:'frame',p1:-1,p2:0}, {type:'frame',p1:1.2,p2:0}, {type:'frame',p1:0,p2:256}]) assert.equal(isWorkerRequest(data),false);
 });
 
-test('battery requests are correlated and bounded before WASM allocation', () => {
+test('battery request shape is correlated; loaded core owns the file-size policy', () => {
  assert.equal(isWorkerRequest({type:'battery-export',requestId:0}),true);
  assert.equal(isWorkerRequest({type:'battery-import',requestId:3,bytes:new ArrayBuffer(8192)}),true);
  for (const requestId of [-1, 1.1, Infinity, Number.MAX_SAFE_INTEGER+1, '1', undefined]) assert.equal(isWorkerRequest({type:'battery-export',requestId}),false);
- for (const bytes of [new ArrayBuffer(0),new ArrayBuffer(2*1024*1024+1),'file']) assert.equal(isWorkerRequest({type:'battery-import',requestId:0,bytes}),false);
+ for (const bytes of [new ArrayBuffer(0),'file']) assert.equal(isWorkerRequest({type:'battery-import',requestId:0,bytes}),false);
 });

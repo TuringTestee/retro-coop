@@ -3,7 +3,7 @@ import { isBatteryOperation, isWorkerRequest, type WorkerResponse } from '../../
 // This adapter uses only the local-player ABI. Peer checkpoint exports are not called.
 type Core = WebAssembly.Exports & {
  memory: WebAssembly.Memory; local_alloc(size:number):number; local_initialize(ptr:number,size:number):number;
- local_battery_alloc(size:number):number; local_battery_bind(ptr:number,size:number):number;
+ local_battery_limit():number; local_battery_alloc(size:number):number; local_battery_bind(ptr:number,size:number):number;
  local_battery_export():number; local_battery_import(ptr:number,size:number):number;
  local_frame(p1:number,p2:number):number; local_fps():number; local_output(kind:number):number; local_output_len():number;
 };
@@ -46,6 +46,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     check(core.local_battery_export()); const bytes=copy(0);
     send({type:'battery-exported',requestId:data.requestId,bytes},[bytes]);
    } else {
+    if (data.bytes.byteLength > core.local_battery_limit()) throw Error('Battery file exceeds the import limit');
     const ptr=core.local_battery_alloc(data.bytes.byteLength);
     if (!ptr) throw Error('Battery file exceeds the import limit');
     new Uint8Array(core.memory.buffer,ptr,data.bytes.byteLength).set(new Uint8Array(data.bytes));

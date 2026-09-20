@@ -2,7 +2,10 @@
   "battery": {
     "mapper": 1,
     "bytes": 32844,
-    "coreSha256": "77abe074a1ec0dc0bcce28de83b246c455583e252dc3e3c9b440e3985fff516d",
+    "core_owned_limit": 2097152,
+    "exact_limit_reaches_validator": true,
+    "oversized_rejected_before_wasm_allocation": true,
+    "coreSha256": "68c2054642c530957b55c9a32272efa09b276e63c630237a4c43a54537f7771a",
     "correlated_roundtrip": true,
     "malformed_cases": 9,
     "failed_import_preserves_battery_and_future_pixels_pcm": true,
@@ -12,47 +15,47 @@
     "requests": [
       [
         "GET",
-        "http://127.0.0.1:35341/"
+        "http://127.0.0.1:38173/"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/assets/index-VkXaMSB6.js"
+        "http://127.0.0.1:38173/assets/index-CNH2uPaT.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/assets/index-D9qWvOI8.css"
+        "http://127.0.0.1:38173/assets/index-D9qWvOI8.css"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+        "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+        "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+        "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+        "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
       ],
       [
         "GET",
-        "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+        "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
       ]
     ]
   },
@@ -82,11 +85,11 @@
     "reconnect_and_keyboard_fallback_require_explicit_resume": true
   },
   "browser": "145.0.7632.75",
-  "duration_seconds": 11.21,
+  "duration_seconds": 11.64,
   "audio": {
-    "buffers": 257,
+    "buffers": 254,
     "peak": 0.06666979938745499,
-    "starts": 257,
+    "starts": 254,
     "muted": true
   },
   "audio_denial_does_not_block_and_retry_recovers": true,
@@ -112,111 +115,111 @@
   "requests": [
     [
       "GET",
-      "http://127.0.0.1:35341/"
+      "http://127.0.0.1:38173/"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/index-VkXaMSB6.js"
+      "http://127.0.0.1:38173/assets/index-CNH2uPaT.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/index-D9qWvOI8.css"
+      "http://127.0.0.1:38173/assets/index-D9qWvOI8.css"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/assets/worker-BZC7QEYv.js"
+      "http://127.0.0.1:38173/assets/worker-CjK1BEik.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:35341/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38173/generated/retro_coop_d02.wasm"
     ]
   ],
   "coordinator_url": "/coordinator"

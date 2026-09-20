@@ -106,6 +106,11 @@ pub extern "C" fn local_restore() -> u32 {
         Ok(())
     }))
 }
+/// The Rust format owns the limit; the worker queries it before copying imports.
+#[unsafe(no_mangle)]
+pub extern "C" fn local_battery_limit() -> usize {
+    crate::battery::LIMIT
+}
 /// Bounded allocation for battery imports and the fixed 32-byte core identity.
 /// A zero pointer means rejection; no allocation occurs for invalid lengths.
 #[unsafe(no_mangle)]
@@ -206,7 +211,17 @@ mod tests {
         rom[6] |= 2;
         PLAYER.with_borrow_mut(|slot| *slot = Some(load(&rom).unwrap()));
         assert!(local_battery_alloc(0).is_null());
-        assert!(local_battery_alloc(crate::battery::LIMIT + 1).is_null());
+        assert_eq!(local_battery_limit(), crate::battery::LIMIT);
+        assert!(local_battery_alloc(local_battery_limit() + 1).is_null());
+        unsafe {
+            let ptr = local_battery_alloc(local_battery_limit());
+            assert!(!ptr.is_null(), "exact limit allocation is allowed");
+            assert_eq!(
+                local_battery_import(ptr, local_battery_limit()),
+                0,
+                "size allowance does not bypass file validation"
+            );
+        }
         assert_eq!(local_battery_export(), 0, "must bind actual core first");
         unsafe {
             let ptr = local_battery_alloc(31);
