@@ -1,0 +1,122 @@
+127.0.0.1 - - [20/Sep/2026 03:47:17] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:17] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:17] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:17] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:17] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:17] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:17] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:18] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:18] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:18] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:18] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:18] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:18] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:19] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:19] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:19] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:19] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:19] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:19] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:20] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:20] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:20] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:20] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:20] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:20] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:23] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:23] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:23] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:23] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:24] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:24] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:25] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:25] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:27] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:28] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:29] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /assets/index-DfA37xhV.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /assets/index-CSs7Rjvf.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /assets/worker-CjUNbswz.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 03:47:30] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:30] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:33] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 03:47:33] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:33] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 03:47:33] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 03:47:33] "GET /coordinator/ws HTTP/1.1" 404 -
+Traceback (most recent call last):
+  File "/tmp/retro-d06-slots/scripts/foundation/browser_smoke.py", line 165, in <module>
+    saves=verify_saves(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/retro-d06-slots/scripts/foundation/saves_smoke.py", line 114, in verify_saves
+    assert 'changed in another tab' in page.locator('[data-testid=save-status]').inner_text(), 'stale delete reported success'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: stale delete reported success

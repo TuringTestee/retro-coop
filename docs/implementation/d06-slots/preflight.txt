@@ -1,0 +1,95 @@
+    Finished `release` profile [optimized] target(s) in 0.14s
+     Running unittests src/lib.rs (target/release/deps/retro_coop_d02-5664440c6be2a5de)
+
+running 22 tests
+test battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore ... ok
+test battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact ... ok
+test local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game ... ok
+test local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode ... ok
+test local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery ... ok
+test local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry ... ok
+test memory_tail::tests::fragment_contains_only_mutable_tail_and_preserves_local_rom ... ok
+test memory_tail::tests::invalid_fragments_leave_all_memory_untouched ... ok
+test memory_tail::tests::upstream_memory_decoder_accepts_small_payload_requesting_large_arena ... ok
+test local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save ... ok
+test local_state::tests::validation_only_uses_restore_decoder_without_replacing_progress ... ok
+test realtime_tests::manual_controller_ports_render_and_release ... ok
+test battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay ... ok
+test checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits ... ok
+test local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional ... ok
+test checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core ... ok
+test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
+test local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs ... ok
+test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
+test local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid ... ok
+test local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay ... ok
+test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.22s
+
+PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
+PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
+PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.071s
+
+OK
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 3.405s
+
+OK
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts
+
+✔ admission is structural, accepts unknown mapper metadata and large valid files (1.376461ms)
+✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.670753ms)
+✔ neutral defaults depend only on random values, never cartridge data (0.996364ms)
+✔ all eight NES inputs and reserved talk binding share conflict detection (1.164787ms)
+✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.533544ms)
+✔ default restoration returns independent mapping arrays (0.740891ms)
+✔ both authenticated members acknowledge effective relay before any signal is forwarded (6.330298ms)
+✔ relay denial never emits preparation; released capacity supports explicit retry (1.816432ms)
+✔ policy and socket changes invalidate epochs; cancellation and expiry remove signaling authority (1.485201ms)
+✔ negotiation timeouts and signaling schema are bounded independently of room lease (1.358994ms)
+✔ hello applies stricter policy before recovering an existing room transport (0.882189ms)
+✔ public-code admission captures the same strict policy before preparing peers (0.586878ms)
+✔ either local policy change renews the epoch even when the other peer keeps relay required (0.780115ms)
+✔ preparing deadline publishes failed state to both members without another command (0.819777ms)
+✔ connecting deadline publishes failed state to both members without another command (0.711991ms)
+✔ creation acknowledgement and cancellation never expose stale invitations (3.018545ms)
+✔ unlisted preview excludes hashes and codes, host alone controls room mutations (2.021926ms)
+✔ two concurrent contenders have one winner and cancellation frees the slot immediately (0.670147ms)
+✔ mismatch, reconnect and retries do not extend the initial 120-second reservation (0.729846ms)
+✔ only host membership receives heartbeat detection and 60-second recovery grace (0.443253ms)
+✔ unused sessions expire, capacity is bounded, rate limits state their retry time (1.8263ms)
+✔ strict metadata schema rejects uploads, arbitrary fields and malformed values (0.666451ms)
+✔ real WebSockets enforce origin/auth/schema and atomic reservations across clients (44.724202ms)
+✔ delayed cancellation cannot release a newer reservation from the same guest (0.834346ms)
+✔ directory publishes admitted public metadata through reservation, visibility and recovery (1.345413ms)
+✔ public-code admission shares invitation slot ownership, deadline and invalid-attempt limits (0.559075ms)
+✔ public-code allocation retries collisions atomically and fails without creating a room (0.378975ms)
+✔ health is content-free, other routes reject, shutdown closes listener (31.157635ms)
+✔ configuration is explicit and rejects bad ports/stages (0.383723ms)
+✔ SIGTERM exits a running coordinator cleanly (140.475138ms)
+✔ directory search preserves distinct same-name rooms and supports names or exact normalized codes (2.725448ms)
+✔ shared fingerprint preserves exact file, emulator, schema and settings identity (1.534416ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (1.419055ms)
+✔ battery request shape is correlated; loaded core owns the file-size policy (0.393138ms)
+✔ state operations reuse local-file shape and correlation validation (0.245852ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 430.552275
+Pre-flight passed (repository hygiene and D02 codec regression tests).
+Elapsed wall seconds: 6.65

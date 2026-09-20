@@ -16,3 +16,4 @@
 
 .room-list button[aria-disabled="true"]{opacity:.5;cursor:not-allowed}.room-list small{font-weight:400;margin-left:.5rem}
 .voice-panel{margin-top:18px;padding:16px;border:1px solid #52536e;border-radius:10px}.voice-panel label{display:block;margin-top:12px}.voice-panel select{max-width:100%;padding:8px;border:1px solid #77758d;border-radius:6px;background:#303146;color:inherit;font:inherit}.voice-panel input[type=range]{width:100%;max-width:500px}.voice-panel p{overflow-wrap:anywhere}
+.saves ul{padding:0;list-style:none}.saves li{padding:16px 0;border-bottom:1px solid #38394d}.saves li time{display:inline-block;margin-right:12px}.saves [role=alertdialog]{border:1px solid #b5a3ff;padding:16px;border-radius:8px}.saves [role=status]{overflow-wrap:anywhere}.saves input{max-width:100%}

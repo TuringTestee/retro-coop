@@ -1,0 +1,20 @@
+{
+  "tested_source_head": "8636ba9f53bc81a6d21f705a78f15c8037f169c0",
+  "base": "bc78fcf7c610965a2d192e2a56dd719472a51e44",
+  "wasm_sha256": "fead9b06bc9bb96bed2d5672451e8cf4d55ec655a4a8ad7a1a121d79b01b3ec2",
+  "native_tests": 22,
+  "foundation_seconds": 19.76,
+  "screenshots_inspected": [
+    "saves-before.png",
+    "saves-after.png",
+    "saves-mobile.png"
+  ],
+  "initial_failures": "Missing generated native fixture; fault-injection setup returned throwing function to Playwright. Both corrected, raw logs preserved.",
+  "remaining_D06": [
+    "battery and preferences persistence",
+    "cross-version Local data management",
+    "remaining mapper qualification",
+    "actual-ten-second measured-32-MiB rewind"
+  ],
+  "preflight": "Run after this evidence commit; separate raw log follows."
+}

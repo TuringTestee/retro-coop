@@ -1,0 +1,9 @@
+{
+  "tested_source_head": "8f133f0bc03bfa61ac35e45a63cee5339399a919",
+  "base": "bc78fcf7c610965a2d192e2a56dd719472a51e44",
+  "foundation_seconds": 21.36,
+  "independent_round": 1,
+  "repair_cause": "implementation_correctness: stale deletion bypassed the expected-record comparison",
+  "result": "shared changeSlot owner now checks overwrite, imported replacement and delete atomically; newer record survives stale confirmation; fresh confirmation succeeds",
+  "native_and_worker": "Unchanged from prior reviewed candidate; final full preflight follows evidence commit."
+}

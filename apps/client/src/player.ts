@@ -1,9 +1,10 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-import type { WorkerRequest, WorkerResponse } from '../../../packages/contracts/src/index.ts';
+import type { WorkerRequest, WorkerResponse, LocalFileRequest, StateInfo } from '../../../packages/contracts/src/index.ts';
 import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import { inspectCartridge, hex } from './cartridge.ts';
 
+type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
@@ -11,6 +12,29 @@ export type PlayerState = { status: string; loading: boolean; running: boolean; 
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  private active?: Worker;
+ private nextRequest = 0;
+ private pending = new Map<number,{worker:Worker;resolve:(value:WorkerResponse)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
+ private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(Error(message));}this.pending.clear();}
+ private fileRequest(message:FileCommand):Promise<WorkerResponse> {
+  const worker=this.active;
+  if(!worker || this.disposed || this.state.loading)return Promise.reject(Error('Wait for a game to finish loading.'));
+  const requestId=++this.nextRequest;
+  return new Promise((resolve,reject)=>{
+   const timer=setTimeout(()=>{this.pending.delete(requestId);reject(Error('The save operation timed out. Try again.'));},10000);
+   this.pending.set(requestId,{worker,resolve,reject,timer});
+   try {this.send(worker,{...message,requestId} as LocalFileRequest);} catch(error){clearTimeout(timer);this.pending.delete(requestId);reject(error);}
+  });
+ }
+ async saveInfo():Promise<StateInfo> {const reply=await this.fileRequest({type:'state-info'});if(reply.type!=='state-info')throw Error('Unexpected save response');return reply.info;}
+ async exportSave():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'state-export'});if(reply.type!=='state-exported')throw Error('Unexpected save response');return reply.bytes;}
+ async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
+ async loadSave(bytes:ArrayBuffer) {
+  if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
+  this.pause();
+  await this.fileRequest({type:'state-import',bytes});
+  this.audio.flush();this.release();this.publish({status:'Save loaded. Resume whenever you’re ready.'});
+ }
+
  private candidate?: Worker;
  private reader?: FileReader;
  private generation = 0;
@@ -68,7 +92,7 @@ export class LocalPlayer {
   const mask = inputMask(selected ? this.controls.gamepad : this.controls.keyboard,pressed);
   this.send(this.active,{type:'frame',p1:mask,p2:0});
  };
- private abandonCandidate() { ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
+ private abandonCandidate() { this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
  rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,status:message}); }
  cancel() {
   this.abandonCandidate();
@@ -117,11 +141,16 @@ export class LocalPlayer {
    const fail = (message: string) => {
     if(this.disposed) return;
     if(this.candidate === worker) { this.candidate = undefined; worker.terminate(); this.publish({loading:false,status:`Unable to load: ${message} Choose another file.${this.state.loaded ? ' Your previous game is preserved.' : ''}`}); }
-    else if(this.active === worker) { this.active = undefined; worker.terminate(); this.busy = false; this.audio.flush(); this.publish({loaded:false,running:false,status:`The emulator stopped: ${message} Choose another file to retry.`}); }
+    else if(this.active === worker) { this.rejectPending('The emulator stopped.'); this.active = undefined; worker.terminate(); this.busy = false; this.audio.flush(); this.publish({loaded:false,running:false,status:`The emulator stopped: ${message} Choose another file to retry.`}); }
    };
    worker.onerror = () => fail('This cartridge could not run in the emulator.');
    worker.onmessage = async ({data}: MessageEvent<WorkerResponse>) => {
     if(this.disposed) return;
+    if('requestId' in data) {
+     const pending=this.pending.get(data.requestId);
+     if(pending?.worker===worker) {clearTimeout(pending.timer);this.pending.delete(data.requestId);if(data.type.endsWith('-error'))pending.reject(Error('message' in data ? data.message : 'Save failed'));else pending.resolve(data);}
+     return;
+    }
     if(data.type === 'error') { fail(data.message); return; }
     if(data.type === 'ready') {
      if(request !== this.generation || this.candidate !== worker) { worker.terminate(); return; }

@@ -1,0 +1,8 @@
+{
+  "tested_source_head": "03a007904ff730d736b26b0e4a303656ca4ffc80",
+  "base": "bc78fcf7c610965a2d192e2a56dd719472a51e44",
+  "foundation_seconds": 20.4,
+  "author_repair": "Listing gate plus atomic expected-slot check; synchronous quota rejection handled without page error",
+  "before_failure": "Prior draft build failed delayed-database regression at is_disabled assertion",
+  "independent_review_rounds": 0
+}
