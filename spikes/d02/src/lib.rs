@@ -2,8 +2,13 @@
 use std::cell::RefCell;
 mod battery;
 pub mod checkpoint;
+mod local_file;
 pub mod local_player;
+mod local_state;
 pub mod memory_tail;
+mod state_validation;
+#[cfg(test)]
+mod test_support;
 use tetanes_core::{
     input::{JoypadBtnState, Player},
     prelude::*,
