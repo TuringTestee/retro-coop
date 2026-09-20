@@ -14,6 +14,8 @@ These are observed development runs, including failures and repaired outcomes. T
 | `device-short.json` | Controlled gamepad removal pauses both clients. An unresolved device cannot acknowledge readiness; keyboard fallback and both readiness acknowledgements permit a new epoch. |
 | `cancel-short.json` | Canceling an unacknowledged initial barrier preserves frame zero and membership rules; explicit local Resume then runs the host’s preserved game. |
 | `shared-chat-short.json` | Both controller ports reach CPU WRAM; typing chat releases only the typing player’s game input, while shared play and actual message delivery continue. |
+| `asset-suite.json` | All 13 production browser journeys pass with the approved hashed-core asset path integrated. Full individual output remains in the eventual CI artifact. |
+| `before.png` | Actual main `31713b0` at the same desktop viewport, with matching local files and connected transport before D11. Both pages are held at true initial state; no synchronized gameplay exists in this baseline. |
 | `initial.png`, `playing.png`, `paused.png`, `paused-mobile.png` | Inspected real-product states at matching desktop widths and a narrow viewport. The plain gray image is the repository’s original diagnostic cartridge output. Voice remains off; hidden invite inputs are excluded from screenshot masks. |
 
 The final harness additionally requires a full measured active interval and derives its frame target from the worker-reported region rate. Earlier short samples predate that stricter duration check and are intentionally labeled development evidence. Source/core artifact hashes in the later samples identify what actually ran; uncommitted author repairs are not retroactively credited with these results.

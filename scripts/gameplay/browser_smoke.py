@@ -11,9 +11,9 @@ service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env
 try:
  url=json.loads(service.stdout.readline())['url'];rom=(root/'apps/client/dist/generated/diagnostic.nes').read_bytes()
  with sync_playwright() as p:
-  browsers={kind:(p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay else {},**({'executable_path':args.firefox_executable} if args.firefox_executable else {}))) for kind in set(args.pair.split('-'))};errors=[];kinds=iter(args.pair.split('-'))
+  browsers={kind:(p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay else {},**({'executable_path':args.firefox_executable} if args.firefox_executable else {}))) for kind in set(args.pair.split('-'))};errors=[];pages=[];kinds=iter(args.pair.split('-'))
   def page():
-   tab=browsers[next(kinds)].new_page(viewport={'width':1280,'height':1050});tab.set_default_timeout(10000);tab.on('pageerror',lambda e:errors.append(str(e)))
+   tab=browsers[next(kinds)].new_page(viewport={'width':1280,'height':1050});pages.append(tab);tab.set_default_timeout(10000);tab.on('pageerror',lambda e:errors.append(str(e)))
    tab.add_init_script(path=root/'scripts/gameplay/fixture.js');tab.goto(url)
    if args.relay:tab.get_by_label('Connection privacy',exact=True).first.select_option('relay')
    return tab
@@ -121,7 +121,7 @@ try:
    result={'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browsers':{kind:b.version for kind,b in browsers.items()},'pair':args.pair,'injection':args.fault,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}));[browser.close() for browser in browsers.values()]
   except Exception:
-   failure={'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in [h,g]]}
+   failure={'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}
    out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True);raise
 
 finally:
