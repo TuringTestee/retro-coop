@@ -1,0 +1,9 @@
+Exact error excerpt from the initial integration run; unrelated server requests and local environment paths omitted.
+
+playwright._impl._errors.Error: Locator.inner_text: Error: strict mode violation: get_by_role("dialog", name="Local settings").locator("[role=status]") resolved to 2 elements:
+    1) <p role="status">V is already used for Push to talk. Choose anothe…</p> aka get_by_text("V is already used for Push to")
+    2) <p role="status" data-testid="microphone-status">Microphone off</p> aka get_by_test_id("microphone-status")
+
+Call log:
+  - waiting for get_by_role("dialog", name="Local settings").locator("[role=status]")
+

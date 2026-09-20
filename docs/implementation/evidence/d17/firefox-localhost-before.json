@@ -1,0 +1,351 @@
+{
+  "failure": [
+    {
+      "diagnostics": {
+        "trace": [
+          {
+            "ms": 111,
+            "kind": "signaling-out",
+            "type": "peerPolicy",
+            "epoch": null,
+            "signal": null
+          },
+          {
+            "ms": 5461,
+            "kind": "signaling-in",
+            "type": "peerPrepare",
+            "epoch": 1
+          },
+          {
+            "ms": 5465,
+            "kind": "signaling-out",
+            "type": "peerAck",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 5467,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 5484,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 5487,
+            "kind": "signaling-in",
+            "type": "peerStart",
+            "epoch": 1
+          },
+          {
+            "ms": 5487,
+            "kind": "channel-observed",
+            "id": 0,
+            "state": "connecting"
+          },
+          {
+            "ms": 5488,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 5490,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "description"
+          },
+          {
+            "ms": 5514,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 5518,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 5542,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 10515,
+            "kind": "signaling-in",
+            "type": "peerStop",
+            "epoch": null
+          },
+          {
+            "ms": 10517,
+            "kind": "channel-close",
+            "id": 0,
+            "state": "closed"
+          },
+          {
+            "ms": 10517,
+            "kind": "room",
+            "epoch": 1,
+            "status": "failed"
+          }
+        ],
+        "transport": [
+          {
+            "state": "closed",
+            "sctp": "closed",
+            "samples": [
+              [
+                {
+                  "type": "data-channel",
+                  "state": "connecting",
+                  "messagesSent": 0,
+                  "messagesReceived": 0
+                },
+                {
+                  "type": "transport",
+                  "dtls": "new",
+                  "ice": "new",
+                  "bytesSent": 0,
+                  "bytesReceived": 0
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "connecting",
+                  "messagesSent": 0,
+                  "messagesReceived": 0
+                },
+                {
+                  "type": "transport",
+                  "dtls": "new",
+                  "ice": "new",
+                  "bytesSent": 0,
+                  "bytesReceived": 0
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "connecting",
+                  "messagesSent": 0,
+                  "messagesReceived": 0
+                },
+                {
+                  "type": "transport",
+                  "dtls": "new",
+                  "ice": "new",
+                  "bytesSent": 0,
+                  "bytesReceived": 0
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "connecting",
+                  "messagesSent": 0,
+                  "messagesReceived": 0
+                },
+                {
+                  "type": "transport",
+                  "dtls": "new",
+                  "ice": "new",
+                  "bytesSent": 0,
+                  "bytesReceived": 0
+                }
+              ],
+              [
+                {
+                  "type": "data-channel",
+                  "state": "connecting",
+                  "messagesSent": 0,
+                  "messagesReceived": 0
+                },
+                {
+                  "type": "transport",
+                  "dtls": "new",
+                  "ice": "new",
+                  "bytesSent": 0,
+                  "bytesReceived": 0
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "peerErrors": [],
+      "iceErrors": [],
+      "candidateShapes": [
+        {
+          "keys": [
+            "candidate",
+            "sdpMid",
+            "sdpMLineIndex",
+            "usernameFragment"
+          ],
+          "empty": false,
+          "prefix": true,
+          "mid": "0",
+          "index": 0
+        }
+      ],
+      "focus": true,
+      "hidden": false,
+      "microphone": "Microphone off",
+      "connection": "Connection failed. Retry or stay in the room.",
+      "tracks": [],
+      "peers": [
+        {
+          "state": "closed",
+          "stats": []
+        }
+      ]
+    },
+    {
+      "diagnostics": {
+        "trace": [
+          {
+            "ms": 2287,
+            "kind": "signaling-in",
+            "type": "peerPrepare",
+            "epoch": 1
+          },
+          {
+            "ms": 2294,
+            "kind": "signaling-out",
+            "type": "peerAck",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 2294,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 2320,
+            "kind": "room",
+            "epoch": 1,
+            "status": "preparing"
+          },
+          {
+            "ms": 2324,
+            "kind": "signaling-in",
+            "type": "peerStart",
+            "epoch": 1
+          },
+          {
+            "ms": 2324,
+            "kind": "room",
+            "epoch": 1,
+            "status": "connecting"
+          },
+          {
+            "ms": 2331,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 2339,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "description"
+          },
+          {
+            "ms": 2342,
+            "kind": "signaling-out",
+            "type": "peerSignal",
+            "epoch": 1,
+            "signal": "candidate"
+          },
+          {
+            "ms": 2371,
+            "kind": "signaling-in",
+            "type": "peerSignal",
+            "epoch": 1
+          },
+          {
+            "ms": 7341,
+            "kind": "signaling-out",
+            "type": "peerFailed",
+            "epoch": 1,
+            "signal": null
+          },
+          {
+            "ms": 7348,
+            "kind": "signaling-in",
+            "type": "peerStop",
+            "epoch": null
+          },
+          {
+            "ms": 7348,
+            "kind": "room",
+            "epoch": 1,
+            "status": "failed"
+          }
+        ],
+        "transport": [
+          {
+            "state": "closed",
+            "sctp": "connecting",
+            "samples": [
+              [],
+              [],
+              [],
+              [],
+              []
+            ]
+          }
+        ]
+      },
+      "peerErrors": [
+        {
+          "operation": "getStats",
+          "name": "InvalidStateError"
+        }
+      ],
+      "iceErrors": [],
+      "candidateShapes": [
+        {
+          "keys": [
+            "candidate",
+            "sdpMLineIndex",
+            "sdpMid",
+            "usernameFragment"
+          ],
+          "empty": true,
+          "prefix": false,
+          "mid": "0",
+          "index": 0
+        }
+      ],
+      "focus": true,
+      "hidden": false,
+      "microphone": "Microphone off",
+      "connection": "Connection failed. Retry or stay in the room.",
+      "tracks": [],
+      "peers": [
+        {
+          "state": "closed",
+          "stats": []
+        }
+      ]
+    }
+  ],
+  "page_errors": [],
+  "turn_error_codes": {
+    "401": 1
+  }
+}

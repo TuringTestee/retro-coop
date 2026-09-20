@@ -37,3 +37,17 @@ Run `python scripts/voice/browser_smoke.py --chrome --pair Chrome-Firefox --outp
 Focused tests cover canceled and late permission results, blur/mute/push-to-talk, device replacement/end and denial. The real application probe covers two-way decoded audio, no implicit capture, keyboard/button push-to-talk and text isolation, remote mute/volume, explicit permission/device/attachment/playback retry, preserved peer and frame progress, late canceled capture, device replacement starting muted, narrow layout and teardown. Current results and inspected paired screenshots are linked in the PR evidence. Run the complete committed-candidate gate with `timeout 60s sh scripts/preflight.sh`; CI retains its shared 30-minute deadline.
 
 Release validation still needs actual speakers/headphones and game audio, two independent networks, direct and forced-provider relay, supported Windows/macOS browser versions, 30-minute simultaneous gameplay/voice, kick/expiry/reconnect during gameplay and the planned startup samples. The developer/operator owns those #25/#27 gates before public launch. No green local smoke substitutes for them.
+
+## Current author evidence
+
+The [candidate manifest](evidence/d17/candidate.json) pins source/base, proof provenance and retained failures. These are author results, not independent acceptance. All six short voice cells passed, including explicit rejoin and fresh push-to-talk input:
+
+| Browser pair | Direct | Local relay |
+|---|---|---|
+| Chrome–Chrome | [3.30s](evidence/d17/voice-Chrome-Chrome-direct.json) | [3.51s](evidence/d17/voice-Chrome-Chrome-relay.json) |
+| Chrome–Firefox | [11.44s](evidence/d17/voice-Chrome-Firefox-direct.json) | [9.43s](evidence/d17/voice-Chrome-Firefox-relay.json) |
+| Firefox–Firefox | [8.03s](evidence/d17/voice-Firefox-Firefox-direct.json) | [8.50s](evidence/d17/voice-Firefox-Firefox-relay.json) |
+
+The complete [foundation/settings/save probe](evidence/d17/foundation.json) passed in 21.34s. The [peer probe](evidence/d17/peer.json) passed in 46.05s, including real 15/20-second timeout recovery; [chat](evidence/d17/chat.json) passed in 21.19s. The manifest identifies the earlier source of those last two unaffected checks; current-head CI runs them again.
+
+Inspected matched [before](evidence/d17/before.desktop.png) / [after](evidence/d17/after.desktop.png), [narrow layout](evidence/d17/after.mobile.png), and [Settings voice controls](evidence/d17/after.settings-voice.png) show the actual application. The dialog remains scrollable, labels and buttons remain readable, and the room uses the existing visual style. The screenshot reproduction script is included beside the images.

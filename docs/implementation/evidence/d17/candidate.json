@@ -1,0 +1,205 @@
+{
+  "source": "041fb5d8b10198e9c46690c3d1ea2c12da2a9194",
+  "base": "0629cec4f90b9e8b4c335358dbdc5a1f8d4e528e",
+  "approval": {
+    "planning_pr": 3,
+    "approved_head": "2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965",
+    "planning_merge": "ecf6bd4c7443526f0a163b721a351c854ee90fd4"
+  },
+  "primary_checks": {
+    "voice_matrix": "All six voice-*.json files: Chrome145.0.7632.75 / Playwright Firefox146.0.1, direct and local forcedTURN. Includes rejoin/held-input regression.",
+    "foundation": "foundation.json: current source, complete existing foundation/settings/slots/battery checks.",
+    "peer": "peer.json: source101b9b3 before the later voice-held-input clearing; transport/schema/route/fixture implementation unchanged. Full actual15/20s deadlines retained. CI will rerun current head.",
+    "chat": "chat.json: source101b9b3 before later voice-held-input clearing; chat and RTC wiring unchanged. CI will rerun current head.",
+    "screenshots": "before.* frommain0629cec; after.* fromcurrent source. SameoriginalROM, two members, pausedlocalgame,1280x900 desktop/400x1000 mobile; generated labels/framecounts vary. Voice Settings additionallyscrolledto newcontrols. Inspected desktop/mobile andsettingsvoice."
+  },
+  "failures": {
+    "ice-marker-before.json": "Actual Firefox completion marker caused signalingdisconnect; 5e7c233 repairs sharedschema.",
+    "firefox-localhost-before.json": "Default Firefox excludesloopbackTURN; test-onlyloopbackpref enableslocalfixture, no productionbrowserinstruction.",
+    "firefox-route-before.json": "Connected selectedrelay mislabeleddirect;101b9b3 sharedclassifierhandlesFirefoxselectedpair.",
+    "rejoin-before.json": "Afterpeerreplacement oldheldPTTkey transmitted onnewoptin;041fb5d clearsallinputonclose.",
+    "settings-selector-before.txt": "Exactintegrationerror excerpt; newlyaddedmicrophonestatus exposedambiguousoldSettingscaptureselector.041fb5d scopesexistingassertionto capturebox."
+  },
+  "limits": [
+    "Fake microphone devices and inbound decoded RTP energy, not human listening or echo/intelligibility proof.",
+    "Local Linux browsers/loopbackTURN, not Windows/macOS/public-provider/network qualification.",
+    "AC16 30-minute concurrent gameplay/voice and startup distributions remain issues25/27.",
+    "Issue53 original intermittent native send/policytimeout investigation is not claimed fixed byD17."
+  ],
+  "files": {
+    "peer.unavailable.png": {
+      "sha256": "75a2a87b8787a7b106c2e8c37d10fa1587879cde53c2692b888dc5ffa292854d"
+    },
+    "voice-Chrome-Chrome-direct.json": {
+      "sha256": "7b145aa0818de95fe536085fa260f5986f477c9cf9abddecdba2b191bc6cdb9b"
+    },
+    "voice-Firefox-Firefox-direct.json": {
+      "sha256": "18c7daab3b9cc9ed865f063e71bb841912c339076caf26f3c0b8287613cc89fd"
+    },
+    "issue-source.json": {
+      "sha256": "5dd5ad68d251c0619f5f518d7a645f91d1b4cda73476fd75ddf3fd9ca565a06d"
+    },
+    "ice-marker-before.json": {
+      "sha256": "485d98b1e40dab535f3f76b72ef2dc42ed37235c529ed6d44994ffb33bb285ec"
+    },
+    "voice-Chrome-Chrome-direct.voice.png": {
+      "sha256": "212766adf871ba1a3adee495cdad9c6bc46327bf0aa8da758aec8214dcea4073"
+    },
+    "foundation.saves-before.png": {
+      "sha256": "3d1d7ff379ea81f95488d13d7d7fcf5d8de064502f25684f2fd22679aefeb78f"
+    },
+    "peer.mobile.png": {
+      "sha256": "6753b59e2f493d7c0f8494e7c62b32510071988a4e01207391cce623d74d6687"
+    },
+    "peer.connecting-timeout.png": {
+      "sha256": "ecfd65982dc7abd65db3b72cf501dfdf2c156162bbcc80fc38ee8b08094bddfa"
+    },
+    "rejoin-before.json": {
+      "sha256": "0a4e4209b9e9bea7edba06b0a52c82ffe2e6baca37bb1cc35d2557470434150a"
+    },
+    "foundation.settings-mobile.png": {
+      "sha256": "afac5d549c067fb0c12e2f314576c5ebc4d8121b6f5d9a6131bb673fd41d856b"
+    },
+    "peer.json": {
+      "sha256": "703a5fda684a3a9444f70142677698a2f361b76e44272036ff5f8e1f334cd897"
+    },
+    "voice-Firefox-Firefox-relay.json": {
+      "sha256": "702783c2266a09f5a4fe7e7994eddab561ee7730b43d28d8cfacaba8241ec8b4"
+    },
+    "chat.json": {
+      "sha256": "a2dd0c1ca4383a096327f1ec1489ae0220093cc73e162e916094e3802a710bed"
+    },
+    "foundation.settings-before.png": {
+      "sha256": "2a118302e27ee90ce2ab9dc5db887cfb8823b89e93a1d841e67369aee6045595"
+    },
+    "voice-Firefox-Firefox-relay.voice.png": {
+      "sha256": "664e21251756f9243ada5ca64b03285ce141b4988d5ca63fa315f1bd4f6d4c53"
+    },
+    "settings-selector-before.txt": {
+      "sha256": "f2f36f4a7216a26bbb95caa1341fd196414c802f1f4b96346f979abe061d8fb4"
+    },
+    "voice-Chrome-Firefox-relay.voice.png": {
+      "sha256": "8caa870f217971eb34ccd46e2e49907e94014a8917154793c3f6b3f018944d86"
+    },
+    "foundation.saves-after.png": {
+      "sha256": "127e3dbaffff7111e1386d72ca7eba0bea757314ed293cef13f8d61c4010f5a8"
+    },
+    "voice-Firefox-Firefox-relay.mobile.png": {
+      "sha256": "c0d6616cbeaa1697bd87d6a6cf0fe68e1d22c2556ae7e65df0c97ba2856c86e2"
+    },
+    "voice-Firefox-Firefox-direct.voice.png": {
+      "sha256": "53fdded263e3950fabaad7c3fa8ad88eca267f3599bf23bee41982ba22149d6a"
+    },
+    "after.settings.png": {
+      "sha256": "5e96ad2908f6de1a3546a55bb936f838004d4c956de2ac57320e43b0252568d3"
+    },
+    "peer.before.png": {
+      "sha256": "68106957d997704452ab36f4388ddd35b25ea90ae77ed02256f86bf205078ebe"
+    },
+    "voice-Chrome-Firefox-relay.mobile.png": {
+      "sha256": "665d835e1c2d2973ee2ef1f8522ec5c660d57b7f21922309dc3e9a5c147f4c0b"
+    },
+    "after.desktop.png": {
+      "sha256": "018f595aa7a4ab25d527c1c6ddeadd931746eb14955234e1061ae9a3381dfd98"
+    },
+    "foundation.after.png": {
+      "sha256": "af32b40cdff29e4eb9dc1942de24a5cfbb3d4fdc1961c16e6694afbdc4931f8f"
+    },
+    "before.mobile.png": {
+      "sha256": "06868fc6122b5ca3f4d3cc834def5623bb0a3f7d6549405b25e2fabd219e7e68"
+    },
+    "source-preflight.txt": {
+      "sha256": "94d713b1a7f21054caf586d85e4478d521f1c30024a5a79f5163eba431a3cbf1"
+    },
+    "voice-Chrome-Chrome-relay.json": {
+      "sha256": "a786f8bb30faad56a13b87abfa1e2d4f42f776a31b1400ed821079608f0809fb"
+    },
+    "before.settings.png": {
+      "sha256": "da322ec8aafadfa1395f018d0541837e3bc927474d4d4ae8eef90b4de59366aa"
+    },
+    "firefox-route-after.json": {
+      "sha256": "683747cddaf4252074d5fe174160cd77461bb10ed413f97cf6a7c339d4e0ef93"
+    },
+    "voice-Chrome-Firefox-relay.json": {
+      "sha256": "ee05963066ec65a6d44387a9e331d17bf5090c4cb950e3e077a0ef95517ccf03"
+    },
+    "matched-screenshots.py": {
+      "sha256": "ea750277cfc780793294cb4b0c7155288e249e1fd093c171fdbff17cfb2be971"
+    },
+    "ice-marker-after.json": {
+      "sha256": "8b98cf6c25cbdb104a65e9f09887cb9c17836377b1ae6208e49c3e74e048967d"
+    },
+    "foundation.saves-mobile.png": {
+      "sha256": "dfbef1f2f1aec97f2ed18723c210261ff4923833aeda3615b4a224116b4334ec"
+    },
+    "voice-Chrome-Chrome-direct.mobile.png": {
+      "sha256": "784580e9f106feca1d17f2f1403b3a19a7af3b35786e680b2668ee046469ef74"
+    },
+    "peer.direct.png": {
+      "sha256": "fc75af2d87b8e56069ef56133090eec230c7faaa5b11d6e8b78ccd21b939ae11"
+    },
+    "firefox-route-before.json": {
+      "sha256": "ac9fb6f6b3842a5d53b6d1c3730e66d8c0a09f19e1966c98fb87f42373188ef4"
+    },
+    "foundation.settings-after.png": {
+      "sha256": "b7cd97fa984bb9ed9dc4852bd883c13faa3fa0741deb9f788fcad4a53391bd3a"
+    },
+    "peer.settings.png": {
+      "sha256": "3f98a083a78da716cf8b4ea2bbebc2d8dbb253b34485ed4e4f50356f04a9707a"
+    },
+    "foundation.mobile.png": {
+      "sha256": "76e640b2a2ae61a998906b9d7985b16488c3ca4a4782a1fb831c3eac7d018668"
+    },
+    "foundation.before.png": {
+      "sha256": "37232f292db958658c2295af8e5fe0169ce5a710a9f07d7d68478a62e8ebdbca"
+    },
+    "voice-Chrome-Firefox-direct.mobile.png": {
+      "sha256": "a2aac4b6b6c03e16edc001ee2a24e085b83a0959458628c52e0239edd233db31"
+    },
+    "after.settings-voice.png": {
+      "sha256": "fe118990795943eb09b43c71627b8d1713764f3bb5628c1f7338d9cc2c10a26c"
+    },
+    "voice-Firefox-Firefox-direct.mobile.png": {
+      "sha256": "86975d580ff02f30a96506f893de43b0a193a32dc5800221b42673ebf1c20353"
+    },
+    "voice-Chrome-Chrome-relay.voice.png": {
+      "sha256": "38501ec9de15e0615f7dd59a68d900c88d925f10d27f821d23c5dad1c71fcb16"
+    },
+    "rejoin-after.json": {
+      "sha256": "719cd67261eddfa8cb4c61d302f0e8cda97b4e82deedce26e7998756422431ef"
+    },
+    "foundation.json": {
+      "sha256": "2b70c807f06d0fef7a7b25a324f8c414a87e780516067eb11b44e34b75e0a9af"
+    },
+    "after.mobile.png": {
+      "sha256": "3c1f067da8443bcbe9c1cdb074aa0e1224b4e9b1fea726643b9b422ab5a70b72"
+    },
+    "chat.chat.png": {
+      "sha256": "c2078a47bcc5bd0f869ffe63f2d0e0faa2bab6ab33c038611c27f7c3d4ee9275"
+    },
+    "voice-Chrome-Firefox-direct.voice.png": {
+      "sha256": "691255ed68afc0aeb0b287143564e7c8005f4f7763ee2f889c7d06c77507c155"
+    },
+    "voice-Chrome-Firefox-direct.json": {
+      "sha256": "00659072090f1ac26b6c520b51f96c215b180696ca51e05fc470355a10b49892"
+    },
+    "peer.capacity.png": {
+      "sha256": "afb62aaf6d82dfff9fdbcccab556f0921168cfcd13fcd23557e52aa42d7ed2bd"
+    },
+    "peer.preparing-timeout.png": {
+      "sha256": "d4d230f1feca354561019bc8bf5f3149854f6a0fae7815553ec3c09af4b547f1"
+    },
+    "before.desktop.png": {
+      "sha256": "1935338635ab01db902c3fc8384ef50be878686881096a0a4fdfdc1cfedf4fe9"
+    },
+    "peer.relay.png": {
+      "sha256": "88fcebb617662bf368e48e16e987c5ca687d6985070ed5cd13f65762ebb58cb9"
+    },
+    "voice-Chrome-Chrome-relay.mobile.png": {
+      "sha256": "117b5b8530f7c399ab6a4474cef4b4659d92fabf1827f41f3d716f36b421acb4"
+    },
+    "firefox-localhost-before.json": {
+      "sha256": "276109460e79c30d2c3344010ef8bf520e8efecf95813eb7d4edbcb79c77aca5"
+    }
+  }
+}
