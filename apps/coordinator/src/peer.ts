@@ -62,5 +62,9 @@ export class PeerBroker {
   } else {const count=(round.candidates.get(token)??0)+1;if(count>peerLimits.candidates) throw new PeerError('peer_candidate_limit');round.candidates.set(token,count);}
   (host?round.pair.guest:round.pair.host).send!({type:'peerSignal',epoch:round.epoch,signal});
  }
- sweep() {for(const round of this.rounds.values()) if(['preparing','connecting'].includes(round.status) && this.now()>=round.deadline) {round.status='failed';round.relay=false;this.stop(round,'Connection timed out. Retry or stay in the room.');}}
+ sweep():string[] {
+  const changed:string[]=[];
+  for(const [id,round] of this.rounds) if(['preparing','connecting'].includes(round.status) && this.now()>=round.deadline) {round.status='failed';round.relay=false;this.stop(round,'Connection timed out. Retry or stay in the room.');changed.push(id);}
+  return changed;
+ }
 }

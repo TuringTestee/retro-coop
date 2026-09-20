@@ -137,7 +137,9 @@ export class Rooms {
   return {};
  }
  sweep() {
-  const now = this.now();this.peers.sweep();
+  const now = this.now();
+  // Rooms is the sole publisher of membership plus peer state, including timer transitions.
+  for(const id of this.peers.sweep()) {const room=this.rooms.get(id);if(room) this.publish(room,false);}
   for(const room of this.rooms.values()) {
    if(!room.confirmed && now-room.created >= 5000) {this.close(room,'creation_expired');continue;}
    for(const token of room.kicked) if(!this.sessions.has(token)) room.kicked.delete(token);

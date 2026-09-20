@@ -51,8 +51,8 @@ log-file=stdout
    page=browser.new_page(viewport={'width':1280,'height':1050});page.on('pageerror',lambda error:errors.append(str(error)))
    page.add_init_script('''window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
     const NativeSocket=WebSocket;window.WebSocket=class extends NativeSocket{
-     set onmessage(fn){super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.started=false;if(window.lowerPolicy){d.policy='standard';e=new MessageEvent('message',{data:JSON.stringify(d)})}};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
-     send(raw){const d=JSON.parse(raw);if(d.type==='peerSignal'&&d.signal.kind==='candidate')peerProof.sentCandidates.push(d.signal.candidate.candidate);super.send(raw)}
+     set onmessage(fn){this.deliver=fn;super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='room')peerProof.lastRoom=d.room;if(d.type==='peerStart'&&window.deadlineMode==='connecting')return;if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.started=false;if(window.lowerPolicy){d.policy='standard';e=new MessageEvent('message',{data:JSON.stringify(d)})}};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
+     send(raw){const d=JSON.parse(raw);if(d.type==='peerAck'&&window.deadlineMode==='preparing'){queueMicrotask(()=>this.deliver(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:d.requestId,ok:true,data:{}})})));return;}if(d.type==='peerSignal'&&d.signal.kind==='candidate')peerProof.sentCandidates.push(d.signal.candidate.candidate);super.send(raw)}
     };
     const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{
      constructor(c){super(c);peerProof.pcs.push(this);peerProof.policies.push(c.iceTransportPolicy);this.addEventListener('icecandidateerror',e=>peerProof.ice.push({error:e.errorCode}));this.addEventListener('iceconnectionstatechange',()=>peerProof.ice.push({state:this.iceConnectionState}));this.addEventListener('icecandidate',e=>{if(e.candidate)peerProof.ice.push({candidate:e.candidate.type})})}
@@ -133,8 +133,31 @@ log-file=stdout
   guard.get_by_role('button',name='Retry join / Join',exact=True).click()
   guard.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('failed')")
   assert guard.evaluate('peerProof.pcs.length')==0
+  # Exercise real coordinator wall-clock deadlines, without extending or accelerating them.
+  # Suppress only preparation acknowledgement or Start delivery; answer a withheld request
+  # locally so the unrelated 8-second client request timer cannot mask the server deadline.
+  deadlines=[]
+  for phase in ['preparing','connecting']:
+   dh,di=host(direct);dg=page(di)
+   for tab in [dh,dg]:tab.evaluate('(mode)=>window.deadlineMode=mode',phase)
+   dg.get_by_role('button',name='Retry join / Join',exact=True).click();dg.get_by_test_id('room-view').wait_for()
+   original=dg.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil})')
+   for tab in [dh,dg]:
+    tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('timed out')",timeout=25000)
+    observed=tab.evaluate('({status:peerProof.lastRoom.peer.status,id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil})')
+    assert observed=={'status':'failed',**original},observed
+    assert tab.get_by_role('button',name='Retry connection',exact=True).count()==1
+    assert tab.get_by_role('button',name='Stay in room',exact=True).count()==1
+   dg.get_by_role('button',name='Stay in room',exact=True).click()
+   assert dg.evaluate('peerProof.lastRoom.reservationUntil')==original['lease']
+   dg.screenshot(path=str(out.with_suffix(f'.{phase}-timeout.png')),full_page=True)
+   for tab in [dh,dg]:tab.evaluate('window.deadlineMode=undefined')
+   dg.get_by_role('button',name='Retry connection',exact=True).click();proof=connected(dh,dg,'direct')
+   assert dg.evaluate('peerProof.lastRoom.reservationUntil')==original['lease']
+   deadlines.append({'phase':phase,'both_received_failed_state':True,'stay_and_retry_visible':True,'original_room_and_lease_preserved':True,'retry_route':proof})
+   dh.close();dg.close()
   assert not errors,errors
-  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','page_errors':errors}
+  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','server_deadlines':deadlines,'page_errors':errors}
   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));browser.close()
 finally:
  for proc in reversed(processes):
