@@ -5,6 +5,8 @@ use crate::{snapshot, *};
 struct LocalPlayer {
     deck: ControlDeck,
     saved: Option<(Vec<u8>, bool)>,
+    rom_sha256: [u8; 32],
+    core_sha256: Option<[u8; 32]>,
 }
 thread_local! {
     static PLAYER: RefCell<Option<LocalPlayer>> = const { RefCell::new(None) };
@@ -30,7 +32,13 @@ fn load(rom: &[u8]) -> Result<LocalPlayer, String> {
     deck.load_rom("local-game", &mut std::io::Cursor::new(rom))
         .map_err(|error| error.to_string())?;
     deck.set_sample_rate(48_000.0);
-    Ok(LocalPlayer { deck, saved: None })
+    use sha2::{Digest, Sha256};
+    Ok(LocalPlayer {
+        deck,
+        saved: None,
+        rom_sha256: Sha256::digest(rom).into(),
+        core_sha256: None,
+    })
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn local_alloc(len: usize) -> *mut u8 {
@@ -98,6 +106,67 @@ pub extern "C" fn local_restore() -> u32 {
         Ok(())
     }))
 }
+/// The Rust format owns the limit; the worker queries it before copying imports.
+#[unsafe(no_mangle)]
+pub extern "C" fn local_battery_limit() -> usize {
+    crate::battery::LIMIT
+}
+/// Bounded allocation for battery imports and the fixed 32-byte core identity.
+/// A zero pointer means rejection; no allocation occurs for invalid lengths.
+#[unsafe(no_mangle)]
+pub extern "C" fn local_battery_alloc(len: usize) -> *mut u8 {
+    if len == 0 || len > crate::battery::LIMIT {
+        return std::ptr::null_mut();
+    }
+    local_alloc(len)
+}
+/// Bind the trusted worker's actual WASM digest once per loaded cartridge.
+/// # Safety
+/// Pointer/length must describe a live local_battery_alloc allocation, consumed once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn local_battery_bind(ptr: *mut u8, len: usize) -> u32 {
+    let bytes = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        let hash: [u8; 32] = bytes
+            .as_ref()
+            .try_into()
+            .map_err(|_| "Invalid core identity")?;
+        if player.core_sha256.is_some() {
+            return Err("Core identity already bound".into());
+        }
+        player.core_sha256 = Some(hash);
+        Ok(())
+    }))
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_battery_export() -> u32 {
+    result(PLAYER.with_borrow(|slot| {
+        let player = slot.as_ref().ok_or("No game loaded")?;
+        let core = player
+            .core_sha256
+            .as_ref()
+            .ok_or("Core identity not bound")?;
+        let battery = crate::battery::Battery::new(&player.deck, &player.rom_sha256, core)?;
+        OUTPUT.with_borrow_mut(|output| *output = battery.export(&player.deck));
+        Ok(())
+    }))
+}
+/// # Safety
+/// Pointer/length must describe a live local_battery_alloc allocation, consumed once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn local_battery_import(ptr: *mut u8, len: usize) -> u32 {
+    let bytes = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        let core = player
+            .core_sha256
+            .as_ref()
+            .ok_or("Core identity not bound")?;
+        let battery = crate::battery::Battery::new(&player.deck, &player.rom_sha256, core)?;
+        battery.restore(&mut player.deck, &bytes)
+    }))
+}
 #[unsafe(no_mangle)]
 pub extern "C" fn local_fps() -> f64 {
     PLAYER.with_borrow(|slot| match slot.as_ref().unwrap().deck.region() {
@@ -105,7 +174,7 @@ pub extern "C" fn local_fps() -> f64 {
         _ => 60.0,
     })
 }
-// Only pixels, PCM and error text are exposed; upstream saves may contain ROM bytes.
+// Pixels, PCM, error text and validated battery files only; no upstream snapshots.
 #[unsafe(no_mangle)]
 pub extern "C" fn local_output(kind: u32) -> *const u8 {
     OUTPUT.with_borrow_mut(|output| {
@@ -136,6 +205,52 @@ pub extern "C" fn local_output_len() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn battery_abi_bounds_binding_and_failure_preserve_loaded_game() {
+        let mut rom = std::fs::read("fixture.local.nes").unwrap();
+        rom[6] |= 2;
+        PLAYER.with_borrow_mut(|slot| *slot = Some(load(&rom).unwrap()));
+        assert!(local_battery_alloc(0).is_null());
+        assert_eq!(local_battery_limit(), crate::battery::LIMIT);
+        assert!(local_battery_alloc(local_battery_limit() + 1).is_null());
+        unsafe {
+            let ptr = local_battery_alloc(local_battery_limit());
+            assert!(!ptr.is_null(), "exact limit allocation is allowed");
+            assert_eq!(
+                local_battery_import(ptr, local_battery_limit()),
+                0,
+                "size allowance does not bypass file validation"
+            );
+        }
+        assert_eq!(local_battery_export(), 0, "must bind actual core first");
+        unsafe {
+            let ptr = local_battery_alloc(31);
+            assert_eq!(local_battery_bind(ptr, 31), 0);
+            let ptr = local_battery_alloc(32);
+            assert_eq!(local_battery_bind(ptr, 32), 1);
+            let ptr = local_battery_alloc(32);
+            assert_eq!(local_battery_bind(ptr, 32), 0, "cannot rebind identity");
+        }
+        assert_eq!(local_battery_export(), 1);
+        let bytes = OUTPUT.with_borrow(Clone::clone);
+        let before = PLAYER.with_borrow(|slot| canonical(&slot.as_ref().unwrap().deck));
+        unsafe {
+            let ptr = local_battery_alloc(bytes.len());
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr, bytes.len());
+            *ptr ^= 1;
+            assert_eq!(local_battery_import(ptr, bytes.len()), 0);
+        }
+        assert_eq!(
+            before,
+            PLAYER.with_borrow(|slot| canonical(&slot.as_ref().unwrap().deck))
+        );
+        assert_eq!(local_frame(0, 0), 1);
+        assert_eq!(
+            local_battery_export(),
+            1,
+            "failed import leaves worker usable"
+        );
+    }
     #[test]
     fn non_nrom_local_save_replay_and_errors() {
         let original = std::fs::read("fixture.local.nes").unwrap();
