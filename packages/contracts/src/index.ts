@@ -1,3 +1,4 @@
+import {token,integer} from './protocol-validation.ts';
 // ROM, local save files and PCM buffers cross only the browser's dedicated worker boundary.
 const localFileKinds = ['battery','state'] as const;
 export type LocalFileKind = typeof localFileKinds[number];
@@ -40,6 +41,6 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
     return (value.type==='state-info' || value.type==='state-hash' || value.type.endsWith('-export')) || ('bytes' in value && value.bytes instanceof ArrayBuffer && value.bytes.byteLength > 0);
   }
   if (value.type === 'pause') return true;
-  const tagged=!('epoch' in value) && !('frame' in value) || 'epoch' in value && typeof value.epoch==='string' && value.epoch.length>=16 && value.epoch.length<=128 && 'frame' in value && typeof value.frame==='number' && Number.isSafeInteger(value.frame) && value.frame>=0;
+  const tagged=!('epoch' in value) && !('frame' in value) || 'epoch' in value && token(value.epoch) && 'frame' in value && integer(value.frame,0,Number.MAX_SAFE_INTEGER);
   return tagged && value.type === 'frame' && 'p1' in value && 'p2' in value && [value.p1, value.p2].every(v => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 255);
 }

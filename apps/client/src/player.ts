@@ -31,8 +31,8 @@ export class LocalPlayer {
   });
  }
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
- async holdForGame() {if(!this.inputDevice().available||document.hidden)throw Error('Return to the game and reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
- startGame(driver:GameDriver) {if(!this.active||this.state.loading)throw Error('Game is not ready');this.game=driver;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();}
+ async holdForGame() {if(!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game and reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
+ startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game with a connected controller before starting.');this.game=driver;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
  stopGame(status:string,leave=false) {this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
  async saveInfo():Promise<StateInfo> {const reply=await this.fileRequest({type:'state-info'});if(reply.type!=='state-info')throw Error('Unexpected save response');return reply.info;}
@@ -50,6 +50,7 @@ export class LocalPlayer {
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
+ private windowFocused=true;
  private keys = new Set<string>();
  private controls: Controls = defaults();
  private volume = 1;
@@ -64,7 +65,7 @@ export class LocalPlayer {
  private state: PlayerState = {status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
  constructor(private canvas: HTMLCanvasElement, private update: (state: PlayerState) => void) {
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
-  window.addEventListener('blur',this.blur); document.addEventListener('visibilitychange',this.hidden);
+  window.addEventListener('blur',this.blur);window.addEventListener('focus',this.focus); document.addEventListener('visibilitychange',this.hidden);
   canvas.addEventListener('blur',this.canvasBlur);
   this.animation = requestAnimationFrame(this.tick);
  }
@@ -81,7 +82,8 @@ export class LocalPlayer {
  useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
  private canvasBlur = () => {this.release();};
- private blur = () => { this.pause('focus'); };
+ private focus = () => {this.windowFocused=true;};
+ private blur = () => { this.windowFocused=false;this.pause('focus'); };
  private hidden = () => { if(document.hidden) this.pause('focus'); };
  private inputDevice() {
   const selected = this.controls.device;
@@ -209,6 +211,6 @@ export class LocalPlayer {
  }
  dispose() {
   this.disposed = true; this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
-  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur); document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
+  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('focus',this.focus); document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
  }
 }
