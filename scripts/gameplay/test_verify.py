@@ -10,7 +10,7 @@ class GameplayEvidenceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.record = json.loads((Path(__file__).resolve().parents[2] /
-            'docs/agent/d11/firefox-short.json').read_text())
+            'docs/implementation/d11/firefox-short.json').read_text())
 
     def test_actual_short_capture_is_not_ten_minute_qualification(self):
         verify(self.record, 30)
