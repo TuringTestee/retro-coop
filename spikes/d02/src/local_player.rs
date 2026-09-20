@@ -145,6 +145,28 @@ pub unsafe extern "C" fn local_bind_core(ptr: *mut u8, len: usize) -> u32 {
     }))
 }
 #[unsafe(no_mangle)]
+pub extern "C" fn local_has_battery() -> u32 {
+    PLAYER.with_borrow(|slot| {
+        u32::from(
+            slot.as_ref()
+                .is_some_and(|player| player.deck.cart_battery_backed() == Some(true)),
+        )
+    })
+}
+#[unsafe(no_mangle)]
+pub extern "C" fn local_battery_info() -> u32 {
+    result(PLAYER.with_borrow(|slot| {
+        let player = slot.as_ref().ok_or("No game loaded")?;
+        let core = player
+            .core_sha256
+            .as_ref()
+            .ok_or("Core identity not bound")?;
+        let battery = crate::battery::Battery::new(&player.deck, &player.rom_sha256, core)?;
+        OUTPUT.with_borrow_mut(|output| *output = serde_json::to_vec(&battery.info()).unwrap());
+        Ok(())
+    }))
+}
+#[unsafe(no_mangle)]
 pub extern "C" fn local_battery_export() -> u32 {
     result(PLAYER.with_borrow(|slot| {
         let player = slot.as_ref().ok_or("No game loaded")?;
@@ -332,6 +354,12 @@ mod tests {
                 "size allowance does not bypass file validation"
             );
         }
+        assert_eq!(local_has_battery(), 1);
+        assert_eq!(
+            local_battery_info(),
+            0,
+            "metadata also requires actual core binding"
+        );
         assert_eq!(local_battery_export(), 0, "must bind actual core first");
         unsafe {
             let ptr = local_battery_alloc(31);
@@ -341,6 +369,11 @@ mod tests {
             let ptr = local_battery_alloc(32);
             assert_eq!(local_bind_core(ptr, 32), 0, "cannot rebind identity");
         }
+        assert_eq!(local_battery_info(), 1);
+        let info: serde_json::Value =
+            OUTPUT.with_borrow(|bytes| serde_json::from_slice(bytes).unwrap());
+        assert_eq!(info["limit"], crate::local_file::LIMIT);
+        assert_eq!(info["identity"].as_str().unwrap().len(), 64);
         assert_eq!(local_battery_export(), 1);
         let bytes = OUTPUT.with_borrow(Clone::clone);
         let before = PLAYER.with_borrow(|slot| canonical(&slot.as_ref().unwrap().deck));

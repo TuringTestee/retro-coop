@@ -1,16 +1,18 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-import type { WorkerRequest, WorkerResponse, LocalFileRequest, StateInfo, StateHash } from '../../../packages/contracts/src/index.ts';
+import type { WorkerRequest, WorkerResponse, LocalFileRequest, LocalFileInfo, StateHash } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
 import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
+import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
 
 type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
+type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;writing?:Promise<void>};
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean};
-export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; fingerprint?: LocalFingerprint };
+export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  private active?: Worker;
@@ -19,12 +21,15 @@ export class LocalPlayer {
  private gameStarted=0;private gameFrames=0;
  private shared=false;
  private expectedFrame?:{epoch:string;frame:number};
+ private batterySession?:BatterySession;
+ private persistenceTimer=0;
+ private pagehide=()=>{void this.persistBattery();};
  private nextRequest = 0;
  private pending = new Map<number,{worker:Worker;resolve:(value:WorkerResponse)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
- private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(Error(message));}this.pending.clear();}
- private fileRequest(message:FileCommand):Promise<WorkerResponse> {
-  const worker=this.active;
-  if(!worker || this.disposed || this.state.loading)return Promise.reject(Error('Wait for a game to finish loading.'));
+ private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(new DOMException(message,'AbortError'));}this.pending.clear();}
+ private fileRequest(message:FileCommand,target?:Worker):Promise<WorkerResponse> {
+  const worker=target ?? this.active;
+  if(!worker || this.disposed || !target && this.state.loading || worker!==this.active && worker!==this.candidate)return Promise.reject(Error('Wait for a game to finish loading.'));
   const requestId=++this.nextRequest;
   return new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>{this.pending.delete(requestId);reject(Error('The save operation timed out. Try again.'));},10000);
@@ -37,7 +42,54 @@ export class LocalPlayer {
  startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game with a connected controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
  stopGame(status:string,leave=false) {clearTimeout(this.gameTimer);this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
- async saveInfo():Promise<StateInfo> {const reply=await this.fileRequest({type:'state-info'});if(reply.type!=='state-info')throw Error('Unexpected save response');return reply.info;}
+ private async prepareBattery(worker:Worker,isCurrent:()=>boolean):Promise<{session?:BatterySession;issue?:string}> {
+  let session:BatterySession|undefined;
+  try {
+   const reply=await this.fileRequest({type:'battery-info'},worker);
+   if(reply.type!=='battery-info' || !isCurrent())return {};
+   session={worker,info:reply.info,generation:0,enabled:false};
+   const stored=await readStored<BatteryRecord>('batteries',reply.info.identity);
+   if(!isCurrent())return {};
+   session.generation=stored.generation;session.record=stored.record;
+   if(stored.record) {
+    if(!validSavedAt(stored.record.savedAt) || !(stored.record.bytes instanceof ArrayBuffer) || stored.record.bytes.byteLength>reply.info.limit)throw Error('Stored battery data is invalid.');
+    await this.fileRequest({type:'battery-import',bytes:stored.record.bytes},worker);
+   }
+   session.enabled=true;return {session};
+  } catch(error) {return {session,issue:`Battery progress could not be restored. Your game can still run; existing data is preserved in Local data. ${error instanceof Error ? error.message : 'Storage unavailable.'}`};}
+ }
+ persistBattery(session=this.batterySession):Promise<void> {
+  if(session?.writing)return session.writing;
+  if(!session?.enabled || session.worker!==this.active || this.disposed)return Promise.resolve();
+  session.writing=this.captureBattery(session).finally(()=>{session.writing=undefined;});
+  return session.writing;
+ }
+ private async captureBattery(session:BatterySession) {
+  try {
+   const reply=await this.fileRequest({type:'battery-export'},session.worker);
+   if(reply.type!=='battery-exported' || session!==this.batterySession)return;
+   const record={identity:session.info.identity,savedAt:Date.now(),bytes:reply.bytes};
+   await putBattery(record,session.record,session.generation);
+   session.record=record;
+   if(session===this.batterySession)this.publish({storageIssue:undefined});
+  } catch(error) {
+   if(error instanceof DOMException && error.name==='AbortError')return;
+   session.enabled=false;
+   if(session===this.batterySession)this.publish({storageIssue:`Couldn't save battery progress on this device. Export a backup or open Local data. ${error instanceof Error ? error.message : ''}`});
+  }
+ }
+ async exportBattery():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'battery-export'});if(reply.type!=='battery-exported')throw Error('Unexpected battery response');return reply.bytes;}
+ async batteryInfo():Promise<LocalFileInfo> {const reply=await this.fileRequest({type:'battery-info'});if(reply.type!=='battery-info')throw Error('Unexpected battery response');return reply.info;}
+ async retryBatteryPersistence() {
+  const session=this.batterySession;if(!session || session.worker!==this.active)return;
+  const stored=await readStored<BatteryRecord>('batteries',session.info.identity);
+  if(session!==this.batterySession)return;
+  // Never replace a corrupt/conflicting existing record merely by retrying.
+  if(stored.record && (!sameRecord(stored.record,session.record) || !session.enabled))throw Error('Existing battery data needs attention. Export or delete it in Local data, then retry.');
+  session.generation=stored.generation;session.record=stored.record;session.enabled=true;await this.persistBattery(session);
+ }
+ stopPersistence() {if(this.batterySession)this.batterySession.enabled=false;}
+ async saveInfo():Promise<LocalFileInfo> {const reply=await this.fileRequest({type:'state-info'});if(reply.type!=='state-info')throw Error('Unexpected save response');return reply.info;}
  async exportSave():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'state-export'});if(reply.type!=='state-exported')throw Error('Unexpected save response');return reply.bytes;}
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
  async loadSave(bytes:ArrayBuffer) {
@@ -66,6 +118,7 @@ export class LocalPlayer {
  private audio = createAudioQueue(() => this.context, () => this.state.running, () => this.gain);
  private state: PlayerState = {status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
  constructor(private canvas: HTMLCanvasElement, private update: (state: PlayerState) => void) {
+  this.persistenceTimer=window.setInterval(()=>{void this.persistBattery();},10000);window.addEventListener('pagehide',this.pagehide);
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
   window.addEventListener('blur',this.blur);window.addEventListener('focus',this.focus); document.addEventListener('visibilitychange',this.hidden);
   canvas.addEventListener('blur',this.canvasBlur);
@@ -85,8 +138,8 @@ export class LocalPlayer {
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
  private canvasBlur = () => {this.release();};
  private focus = () => {this.windowFocused=true;};
- private blur = () => { this.windowFocused=false;this.pause('focus'); };
- private hidden = () => { if(document.hidden) this.pause('focus'); };
+ private blur = () => { this.windowFocused=false;this.pause('focus'); void this.persistBattery(); };
+ private hidden = () => { if(document.hidden) {this.pause('focus');void this.persistBattery();} void this.persistBattery(); };
  private inputDevice() {
   const selected = this.controls.device;
   const pad = selected ? navigator.getGamepads()[selected.index] : undefined;
@@ -202,10 +255,15 @@ export class LocalPlayer {
       if(approve && !await approve(fingerprint,isCurrent)) {if(isCurrent()) this.cancel();return;}
      }catch {if(isCurrent()) fail('Unable to confirm the room change.');return;}
      if(!isCurrent()) {worker.terminate();return;}
-     this.active?.terminate(); this.active = worker; this.candidate = undefined;
+     // Flush the old game before reading its identity again for a replacement.
+     await this.persistBattery();
+     if(!isCurrent()){worker.terminate();return;}
+     const battery=data.battery ? await this.prepareBattery(worker,isCurrent) : {};
+     if(!isCurrent()) {worker.terminate();return;}
+     this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      const {available} = this.inputDevice();
-     this.publish({loading:false,loaded:true,running:available&&!startPaused,frames:0,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Preparing shared play…' : available ? 'Playing locally. Your file stays in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint});
+     this.publish({loading:false,loaded:true,running:available&&!startPaused,frames:0,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Preparing shared play…' : available ? 'Playing locally. Your file stays in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint});
      this.canvas.focus(); return;
     }
     if(this.active !== worker) return;
@@ -226,6 +284,7 @@ export class LocalPlayer {
   }
  }
  dispose() {
+  clearInterval(this.persistenceTimer);window.removeEventListener('pagehide',this.pagehide);
   this.disposed = true; clearTimeout(this.gameTimer); this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
   window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('focus',this.focus); document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
  }

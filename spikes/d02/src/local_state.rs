@@ -76,7 +76,7 @@ impl Codec {
         validate_mapper(&self.template["mapper"], &value["mapper"]).map(|_| ())
     }
     pub(crate) fn info(&self) -> Value {
-        json!({"identity":self.identity.iter().map(|b| format!("{b:02x}")).collect::<String>(),"limit":local_file::LIMIT})
+        local_file::info(&self.identity)
     }
     pub(crate) fn validate_file(&self, bytes: &[u8]) -> Result<(), String> {
         self.candidate(bytes).map(|_| ())

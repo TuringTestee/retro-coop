@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {actions,defaults,conflict,inputMask,padInputs} from './controls.ts';
+import {actions,defaults,conflict,inputMask,padInputs,validControls} from './controls.ts';
 import {gamepadMask} from '../../../spikes/d02/demo/runtime/input.js';
 test('all eight NES inputs and reserved talk binding share conflict detection',()=>{
  const settings=defaults();
@@ -23,4 +23,12 @@ test('gamepad axes/buttons use the demo-owned defaults and custom assignments',(
 test('default restoration returns independent mapping arrays',()=>{
  const one=defaults(),two=defaults();one.keyboard.a[0]='KeyQ';one.gamepad.up.push('button:3');
  assert.deepEqual(two.keyboard.a,['KeyX']);assert.equal(two.gamepad.up.includes('button:3'),false);
+});
+
+test('stored controls reject malformed shapes and cross-action conflicts without throwing',()=>{
+ assert.equal(validControls(defaults()),true);
+ for(const value of [null,{}, {keyboard:{a:['KeyX']},gamepad:{},device:null}])assert.equal(validControls(value),false);
+ const duplicate=defaults();duplicate.keyboard.a=['KeyV'];assert.equal(validControls(duplicate),false);
+ const missing=defaults();delete (missing.keyboard as Partial<typeof missing.keyboard>).b;assert.equal(validControls(missing),false);
+ const disconnected=defaults();disconnected.device={id:'Saved controller',index:1};assert.equal(validControls(disconnected),true);
 });

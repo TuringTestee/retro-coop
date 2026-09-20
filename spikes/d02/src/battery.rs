@@ -32,6 +32,9 @@ impl Battery {
             len,
         })
     }
+    pub(crate) fn info(&self) -> serde_json::Value {
+        crate::local_file::info(&self.identity)
+    }
     pub(crate) fn export(&self, deck: &ControlDeck) -> Vec<u8> {
         // Sync EEPROM/other mapper extensions on a trusted clone; capture never changes
         // the live CPU, mapper registers, input, frame, or staged battery memory.

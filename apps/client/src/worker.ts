@@ -3,8 +3,8 @@ import { isLocalFileOperation, localFileKind, isWorkerRequest, type WorkerRespon
 // This adapter uses only the local-player ABI. Peer checkpoint exports are not called.
 type Core = WebAssembly.Exports & {
  memory: WebAssembly.Memory; local_alloc(size:number):number; local_initialize(ptr:number,size:number):number;
- local_battery_limit():number; local_battery_alloc(size:number):number; local_bind_core(ptr:number,size:number):number;
- local_state_info():number; local_state_validate(ptr:number,size:number):number; local_state_hash():number; local_state_limit():number; local_state_alloc(size:number):number; local_state_export():number; local_state_import(ptr:number,size:number):number;
+ local_has_battery():number; local_battery_info():number; local_battery_limit():number; local_battery_alloc(size:number):number; local_bind_core(ptr:number,size:number):number;
+ local_state_hash():number; local_state_info():number; local_state_validate(ptr:number,size:number):number; local_state_limit():number; local_state_alloc(size:number):number; local_state_export():number; local_state_import(ptr:number,size:number):number;
  local_battery_export():number; local_battery_import(ptr:number,size:number):number;
  local_frame(p1:number,p2:number):number; local_fps():number; local_output(kind:number):number; local_output_len():number;
 };
@@ -39,7 +39,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     if (!identityPtr) throw Error('Cannot allocate core identity');
     new Uint8Array(core.memory.buffer, identityPtr, coreHash.byteLength).set(new Uint8Array(coreHash));
     check(core.local_bind_core(identityPtr,coreHash.byteLength));
-    frame=0;fresh=true;send({type:'ready',fps:core.local_fps(),coreSha256});
+    frame=0;fresh=true;send({type:'ready',fps:core.local_fps(),coreSha256,battery:!!core.local_has_battery()});
    } finally { loading = false; }
   } else if (!core) throw Error('Load the emulator first');
   else if (isLocalFileOperation(data)) {
@@ -48,8 +48,8 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     ? {limit:core.local_battery_limit,alloc:core.local_battery_alloc,export:core.local_battery_export,import:core.local_battery_import}
     : {limit:core.local_state_limit,alloc:core.local_state_alloc,export:core.local_state_export,import:core.local_state_import};
    if(data.type==='state-hash') {check(core.local_state_hash());send({type:'state-hash',requestId:data.requestId,info:{hash:hex(copy(0)),frame,fresh}});}
-   else if(data.type==='state-info') {
-    check(core.local_state_info());send({type:'state-info',requestId:data.requestId,info:JSON.parse(new TextDecoder().decode(copy(0)))});
+   else if(data.type==='state-info' || data.type==='battery-info') {
+    check(kind==='state' ? core.local_state_info() : core.local_battery_info());send({type:`${kind}-info`,requestId:data.requestId,info:JSON.parse(new TextDecoder().decode(copy(0)))});
    } else if (data.type === 'battery-export' || data.type === 'state-export') {
     check(api.export()); const bytes=copy(0);
     send({type:`${kind}-exported`,requestId:data.requestId,bytes},[bytes]);

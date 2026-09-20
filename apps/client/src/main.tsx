@@ -7,6 +7,10 @@ import { neutralDefaults } from './cartridge.ts';
 import { clientConfig } from './config.ts';
 import './style.css';
 import {RoomPanel, type RoomPanelHandle} from './RoomPanel.tsx';
+import {LocalData} from './LocalData.tsx';
+import {usePreferences} from './preferences.ts';
+import {fileIdentity} from '../../../packages/contracts/src/fingerprint.ts';
+import {downloadSave} from './saves.ts';
 import { Saves } from './Saves.tsx';
 import { Settings } from './Settings.tsx';
 import { defaults, type Controls } from './controls.ts';
@@ -15,12 +19,12 @@ function App() {
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
  const runtime = useRef<LocalPlayer | null>(null);
  const panel = useRef<HTMLElement>(null);
- const [saves,setSaves]=useState(false);
+ const [saves,setSaves]=useState(false),[localData,setLocalData]=useState(false),[returnSettings,setReturnSettings]=useState(false),[persistenceMessage,setPersistenceMessage]=useState('');
  const [controls,setControls] = useState<Controls>(defaults), [settings,setSettings] = useState(false);
  const [filter,setFilter] = useState<'nearest'|'scanlines'>('nearest'), [volume,setVolume] = useState(1);
  const [fullscreen,setFullscreen] = useState(false), [fullscreenIssue,setFullscreenIssue] = useState('');
  useEffect(()=>{const changed=()=>setFullscreen(!!document.fullscreenElement);document.addEventListener('fullscreenchange',changed);return ()=>document.removeEventListener('fullscreenchange',changed);},[]);
- const changeControls=(value:Controls)=>{setControls(value);runtime.current?.configureControls(value);};
+ const changeControls=(value:Controls)=>{setControls(value);runtime.current?.configureControls(value);preferences.remember({controls:value,filter,volume});};
  const toggleFullscreen=async()=>{try{setFullscreenIssue('');if(document.fullscreenElement) await document.exitFullscreen();else await panel.current?.requestFullscreen();}catch{setFullscreenIssue('Fullscreen was declined. You can keep playing in this window.');}};
  const [identity] = useState(neutralDefaults);
  const [guest,setGuest] = useState(identity.guest);
@@ -30,6 +34,11 @@ function App() {
  const load = (file?:File) => {if(file && rooms.current?.beforeSelection() !== false) void runtime.current?.load(file,(fingerprint,isCurrent)=>rooms.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent()),rooms.current?.isGuest()??false);};
  const [state,setState] = useState<PlayerState>({status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0});
  const [muted,setMuted] = useState(true), [drag,setDrag] = useState(false);
+ const preferencesIdentity=state.fingerprint ? fileIdentity(state.fingerprint) : undefined;
+ const preferences=usePreferences(preferencesIdentity,value=>{setControls(value.controls);runtime.current?.configureControls(value.controls);setFilter(value.filter);setVolume(value.volume);runtime.current?.setVolume(value.volume);});
+ const openLocalData=(fromSettings=false)=>{setReturnSettings(fromSettings);setSettings(false);setLocalData(true);};
+ const batteryAction=async(action:()=>Promise<void>)=>{try{await action();setPersistenceMessage('');}catch(error){setPersistenceMessage(error instanceof Error ? error.message : 'Battery operation failed.');}};
+
  useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
  const choose = () => { picker.current!.value = ''; picker.current!.click(); };
  return <main data-coordinator={clientConfig.coordinatorUrl}>
@@ -52,8 +61,11 @@ function App() {
    <span aria-label="Rendered frames" data-testid="frames">{state.frames} frames</span></div>
    <div className={`screen ${filter}`}><canvas ref={canvas} width="256" height="240" tabIndex={0} aria-label="Local game screen"/>{!state.loaded && <p>YOUR NEXT ADVENTURE<br/><span>starts with a file</span></p>}</div>
   </section>
+  {(state.storageIssue || preferences.issue || persistenceMessage) && <p role="status" data-testid="persistence-status">{state.storageIssue || preferences.issue || persistenceMessage} <button onClick={()=>openLocalData()}>Manage local data</button></p>}
+  {state.batteryAvailable && <div className="battery-actions"><button onClick={()=>void batteryAction(async()=>{downloadSave(await runtime.current!.exportBattery(),undefined,'battery');})}>Export current battery</button><button onClick={()=>void batteryAction(()=>runtime.current!.retryBatteryPersistence())}>Retry battery saving</button></div>}
+  <LocalData open={localData} close={()=>{setLocalData(false);if(returnSettings)setSettings(true);}} player={runtime.current} preferencesIdentity={preferencesIdentity} beforeClear={()=>{runtime.current?.stopPersistence();preferences.stop();}} afterClear={()=>{preferences.dismiss();setPersistenceMessage('Local data deleted. Current progress remains in memory.');}}/>
   <Saves open={saves && state.loaded && !state.loading} close={()=>setSaves(false)} player={runtime.current} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
-  <Settings connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={setFilter} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
+  <Settings localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
   <footer>Your game runs in this browser. Room metadata, connection signaling and temporary chat go to the service; your game file stays here.</footer>
  </main>;
 }
