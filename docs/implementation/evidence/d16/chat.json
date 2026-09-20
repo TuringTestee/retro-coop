@@ -1,0 +1,15 @@
+{
+  "pre_rom_chat": true,
+  "no_pre_join_history": true,
+  "plain_text_not_html": true,
+  "typing_releases_game_input": true,
+  "oversize_disabled": true,
+  "rate_limit_retains_text_countdown_and_explicit_retry": true,
+  "socket_loss_no_automatic_duplicate": true,
+  "lost_event_and_ack_retry_has_no_duplicate": true,
+  "narrow_no_overflow": true,
+  "peer_relay_denial_keeps_chat_usable": true,
+  "rejoin_clears_chat": true,
+  "page_errors": [],
+  "elapsedSeconds": 21.3
+}

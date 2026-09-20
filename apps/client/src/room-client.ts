@@ -1,11 +1,12 @@
 import {VoiceSession,type VoiceState} from './voice.ts';
+import {ChatClient,type ChatState} from './chat-client.ts';
 import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {ConnectionPolicy,PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { voice?:VoiceState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
+export type RoomState = { voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
 export function connectionStatus(state:RoomState) {
  const status=state.room?.peer.status;
  if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
@@ -21,6 +22,7 @@ const messages:Record<string,string> = {
 };
 export class RoomClient {
  readonly voice=new VoiceSession(voice=>this.publish({voice}));
+ private chat=new ChatClient(chat=>this.publish({chat}),command=>this.request(command));
  private socket?:WebSocket;
  private policy:ConnectionPolicy='standard';
  private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),undefined,()=>this.policy,this.voice);
@@ -33,22 +35,23 @@ export class RoomClient {
  private generation = 0;
  private replacement?:{room:string;fingerprint:Fingerprint};
  private joining?:string;
- private pending = new Map<string,{resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
+ private pending = new Map<string,{kind:Command['type'];resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false};
  constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false,policy:ConnectionPolicy='standard') {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
+ private setRoom(room?:RoomView){this.publish({room,chat:this.chat.enter(room)});}
  private apply(data:RoomData) {
   if(data.session) {this.token = data.session.token;try {sessionStorage.setItem('retro-coop-guest',this.token);}catch{}this.publish({session:data.session});}
   if(data.directory) this.publish({directory:data.directory,directoryStatus:'live',directoryError:undefined});
   if(data.preview) this.publish({preview:data.preview});
-  if(data.room) this.publish({room:data.room});
+  if(data.room) this.setRoom(data.room);
  }
  private request(command:Command):Promise<RoomData> {
   if(this.socket?.readyState !== WebSocket.OPEN) return Promise.reject(Error('The room service is disconnected. Your local game is preserved.'));
   const requestId = crypto.randomUUID();
   return new Promise((resolve,reject)=>{
    const timer = setTimeout(()=>{this.pending.delete(requestId);reject(Error('The room service did not respond. Retry or cancel; your local game is preserved.'));},8000);
-   this.pending.set(requestId,{resolve,reject,timer});this.socket!.send(JSON.stringify({...command,requestId}));
+   this.pending.set(requestId,{kind:command.type,resolve,reject,timer});this.socket!.send(JSON.stringify({...command,requestId}));
   });
  }
  private async connect() {
@@ -63,14 +66,15 @@ export class RoomClient {
     let event:RoomEvent;try {event = JSON.parse(data);}catch{return;}
     if(event.type === 'result') {
      const pending = this.pending.get(event.requestId);if(!pending) return;clearTimeout(pending.timer);this.pending.delete(event.requestId);
-     if(event.ok) pending.resolve(event.data);else {this.publish({retryAfterMs:event.retryAfterMs,needsNewGuest:event.error === 'session_expired'});pending.reject(Error(messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'));}
-    } else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
+     if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'),{retryAfterMs:event.retryAfterMs}));}
+    } else if(event.type==='chat') this.chat.receive(event);
+    else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
     else if(event.type === 'directory') this.publish({directory:event.rooms,directoryStatus:'live',directoryError:undefined});
-    else if(event.type === 'room') this.publish({room:event.room});
-    else if(event.type === 'ended') {this.peer.close();this.publish({room:undefined,busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
+    else if(event.type === 'room') this.setRoom(event.room);
+    else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);this.publish({busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
    };
    socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(data=>{
-    clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.publish({room:data.room});this.apply(data);this.publish({connected:true});
+    clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.setRoom(data.room);this.apply(data);this.publish({connected:true});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
@@ -128,6 +132,9 @@ export class RoomClient {
  async setPolicy(policy:ConnectionPolicy) {if(policy===this.policy) return;this.policy=policy;this.peer.close(this.state.room?.peer.epoch ? 'Connection policy changed. Preparing a new connection…':'Connection preference saved. Choose a game or join a room.');if(this.state.connected) await this.act({type:'peerPolicy',policy});}
  async retryPeer() {const epoch=this.state.room?.peer.epoch;if(epoch) await this.act({type:'peerRetry',epoch});}
  async reconnect() {try {await this.connect();this.publish({status:this.state.room ? 'Room connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous room or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
- newGuest() {this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
+ newGuest() {this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.setRoom(undefined);this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
+ chatDraft(text:string){this.chat.draft(text);}
+ async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
+ discardChat(){this.chat.discard();}
  dispose() {this.peer.close();this.cancelCreation();this.disposed = true;this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }

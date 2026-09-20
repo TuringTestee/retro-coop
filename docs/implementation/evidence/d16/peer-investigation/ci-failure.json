@@ -1,0 +1,66 @@
+{
+  "connection_failure": [
+    {
+      "status": "Connection timed out. Retry or stay in the room.",
+      "states": [
+        "closed",
+        "closed"
+      ],
+      "errors": [
+        "stale_peer"
+      ],
+      "ice": [
+        {
+          "candidate": "relay"
+        },
+        {
+          "state": "checking"
+        },
+        {
+          "state": "connected"
+        },
+        {
+          "candidate": "relay"
+        },
+        {
+          "state": "checking"
+        },
+        {
+          "state": "connected"
+        }
+      ]
+    },
+    {
+      "status": "Connection timed out. Retry or stay in the room.",
+      "states": [
+        "closed",
+        "closed"
+      ],
+      "errors": [],
+      "ice": [
+        {
+          "state": "checking"
+        },
+        {
+          "candidate": "relay"
+        },
+        {
+          "state": "connected"
+        },
+        {
+          "state": "checking"
+        },
+        {
+          "candidate": "relay"
+        },
+        {
+          "state": "connected"
+        }
+      ]
+    }
+  ],
+  "run": "https://github.com/TuringTestee/retro-coop/actions/runs/35496346710",
+  "head": "ac17d599d1477e1907d4742e320007bb37e0b5b4",
+  "location": "scripts/peer/browser_smoke.py:120 after guest privacy changes from standard to relay",
+  "chat_elapsed_seconds": 20.71
+}

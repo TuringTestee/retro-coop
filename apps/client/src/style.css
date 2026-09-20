@@ -8,6 +8,7 @@
 
 .room-panel .controls:empty{display:none}
 
+.chat-panel{margin-top:1rem;border-top:1px solid #58617b;padding-top:1rem}.chat-panel ol{max-height:16rem;overflow:auto;list-style:none;padding:0}.chat-panel li p{white-space:pre-wrap;overflow-wrap:anywhere;margin:.25rem 0 .75rem}.chat-panel textarea{display:block;width:100%;box-sizing:border-box;min-height:4rem;font:inherit;color:inherit;background:#101119;border:1px solid #58617b;border-radius:6px;padding:.5rem}
 .directory-panel,.featured-panel{margin:1rem 0;padding:1rem;border:1px solid #58617b;border-radius:12px}.room-list{list-style:none;padding:0;display:grid;gap:.75rem}.room-list li{display:flex;flex-wrap:wrap;align-items:center;gap:.75rem;padding:.8rem;border:1px solid #58617b;border-radius:8px}.room-list li strong{flex-basis:100%}.room-list code{font-size:1rem}.room-list button{margin-left:auto}.directory-panel input{max-width:100%}
 .directory-panel label{display:grid;gap:.5rem}.directory-panel input{width:100%;box-sizing:border-box;padding:.7rem;color:inherit;background:#101119;border:1px solid #58617b;border-radius:6px;font:inherit}
 
