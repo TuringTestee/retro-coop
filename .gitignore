@@ -5,3 +5,4 @@ dist/
 .env.*.local
 apps/client/public/generated/
 *.foundation.local.*
+scripts/foundation/__pycache__/

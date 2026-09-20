@@ -1,0 +1,45 @@
+127.0.0.1 - - [20/Sep/2026 01:27:41] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:41] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:41] "GET /assets/index-DGDeiEor.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:41] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:41] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:42] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:42] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /assets/index-DGDeiEor.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /assets/index-DGDeiEor.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /assets/index-D9qWvOI8.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /assets/worker-kPNNnwrS.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 01:27:48] "GET /generated/retro_coop_d02.wasm HTTP/1.1" 200 -
+Traceback (most recent call last):
+  File "/tmp/retro-d07-controls/scripts/foundation/browser_smoke.py", line 153, in <module>
+    disconnected_proof = verify_disconnected_load(browser,f'http://127.0.0.1:{server.server_port}/',rom)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/retro-d07-controls/scripts/foundation/settings_smoke.py", line 154, in verify_disconnected_load
+    assert page.get_by_role('button',name='Resume',exact=True).is_enabled(), 'Disconnected load must remain paused'
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/sync_api/_generated.py", line 17241, in is_enabled
+    self._sync(self._impl_obj.is_enabled(timeout=timeout))
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_locator.py", line 516, in is_enabled
+    return await self._frame.is_enabled(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_frame.py", line 398, in is_enabled
+    return await self._channel.send(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/haoxuw/workspace/covariant-backend/.venv/lib/python3.12/site-packages/playwright/_impl/_connection.py", line 559, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TimeoutError: Locator.is_enabled: Timeout 30000ms exceeded.
+Call log:
+  - waiting for get_by_role("button", name="Resume", exact=True)
