@@ -1,3 +1,5 @@
+Audience: Agent
+
 # D02 playable local demo
 
 The feasibility core now has a local player: choose a ROM, use the keyboard or a gamepad, hear audio, and save or restore one state in the current tab. This gives the user a playable demonstration while D02's browser/network qualification continues. It does not complete the online platform or release D04's prerequisite.

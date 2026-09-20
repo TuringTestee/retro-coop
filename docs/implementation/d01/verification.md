@@ -1,3 +1,5 @@
+Audience: Agent
+
 # D01 evidence verification
 
 The inventory can be checked against the exact upstream source and fixture bytes without running a game. This verifies metadata and source enumeration, not emulator correctness, browser behavior or netplay.
