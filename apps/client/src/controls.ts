@@ -40,3 +40,10 @@ export function validControls(value:unknown):value is Controls {
  }
  return controls.device===null || !!controls.device && Number.isSafeInteger(controls.device.index) && controls.device.index>=0 && controls.device.index<256 && typeof controls.device.id==='string' && controls.device.id.length>0 && controls.device.id.length<=1024;
 }
+
+/** Suppress every held physical pad input until that input is observed released. */
+export class ReleasedInputs {
+ private blocked=new Set<string>();
+ release(pressed:ReadonlySet<string>){for(const input of pressed)this.blocked.add(input);}
+ sample(pressed:ReadonlySet<string>){for(const input of this.blocked)if(!pressed.has(input))this.blocked.delete(input);return new Set([...pressed].filter(input=>!this.blocked.has(input)));}
+}
