@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 git diff --check
 git diff --cached --check
 sh -n scripts/preflight.sh
+sh -n scripts/demo.sh
+node --check spikes/d02/demo/app.js
 sh -n spikes/d02/run_network_probe.sh
 bash -n spikes/d02/ci_job.sh
 node --check spikes/d02/realtime-worker.js
