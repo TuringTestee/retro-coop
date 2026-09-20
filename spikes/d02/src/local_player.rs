@@ -197,6 +197,38 @@ pub extern "C" fn local_state_alloc(len: usize) -> *mut u8 {
     allocate_file(len)
 }
 #[unsafe(no_mangle)]
+pub extern "C" fn local_state_info() -> u32 {
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        let codec = player
+            .state_codec
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .map_err(Clone::clone)?;
+        OUTPUT.with_borrow_mut(|output| *output = serde_json::to_vec(&codec.info()).unwrap());
+        Ok(())
+    }))
+}
+/// # Safety
+/// Pointer/length must describe a live local_state_alloc allocation, consumed once.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn local_state_validate(ptr: *mut u8, len: usize) -> u32 {
+    let bytes = unsafe { Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)) };
+    result(PLAYER.with_borrow_mut(|slot| {
+        let player = slot.as_mut().ok_or("No game loaded")?;
+        prepare_state(player)?;
+        player
+            .state_codec
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .map_err(Clone::clone)?
+            .validate_file(&bytes)
+    }))
+}
+#[unsafe(no_mangle)]
 pub extern "C" fn local_state_export() -> u32 {
     result(PLAYER.with_borrow_mut(|slot| {
         let player = slot.as_mut().ok_or("No game loaded")?;
