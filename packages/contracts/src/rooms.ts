@@ -3,6 +3,7 @@ import {parsePeerCommand,validPolicy,type PeerCommand,type PeerEvent,type PeerVi
 import {publicCode,type DirectoryCommand} from './directory.ts';
 /** Coordinator protocol: deliberately metadata-only. No binary or arbitrary extension fields. */
 export const ROOM_PROTOCOL = 1;
+export const ROOM_METADATA_BYTES = 4096;
 export type Visibility = 'public' | 'unlisted';
 import {validFingerprint,type Fingerprint} from './fingerprint.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';

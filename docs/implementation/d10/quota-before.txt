@@ -1,0 +1,7 @@
+Historical failing local relay fixture, before bandwidth quota alignment.
+{"connection_failure": [{"status": "Connection timed out. Retry or stay in the room.", "states": ["closed", "closed"], "errors": ["stale_peer"], "ice": [{"candidate": "relay"}, {"state": "checking"}, {"state": "connected"}, {"error": 486}]}, {"status": "Connection timed out. Retry or stay in the room.", "states": ["closed", "closed"], "errors": [], "ice": [{"state": "checking"}, {"candidate": "relay"}, {"state": "connected"}, {"error": 486}]}]}
+Coturn diagnostic (redacted): error 486: Allocation Bandwidth Quota Reached.
+Initial per-allocation max-bps 1000000; global bps-capacity 4000000.
+Corrected: max-bps 100000; bps-capacity 1600000; total-quota 16; user-quota 4.
+The same repeated recovery/policy-change workload passes in peer.json; no test was removed.
+Raw temporary coturn logs omitted because they include generated authentication/address metadata.

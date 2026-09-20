@@ -41,3 +41,21 @@ Primary API references: [W3C WebRTC](https://www.w3.org/TR/webrtc/) defines ICE 
 Source authority: epic #2 and D10 #14; approved plan head `2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965`, merged planning PR #3 `ecf6bd4c7443526f0a163b721a351c854ee90fd4`; D08 merged `c82957f`, integrated base `564bc37`. Scope is S09/S28 and AC-10/11 connectivity; public launch and gameplay synchronization remain separately gated.
 
 During development, rapid policy changes hit coturn's allocation bandwidth quota (ICE 486). Coturn reserves each allocation's configured maximum bandwidth, including briefly overlapping replaced allocations: the initial fixture reserved 1 MB/s each against a 4 MB/s global allowance. The corrected fixture aligns 16 allocations with 100 KB/s each and a 1.6 MB/s global bound, 4 allocations per credential, 50 relay ports and one relay thread. Application room admission remains one in the capacity test. This preserves the denied-admission workload and makes the test infrastructure limits consistent; it does not raise public capacity or any operating budget.
+
+
+## Candidate evidence and UI trace
+
+The checked candidate integrates directory PR48 through `73aa6c6230dbef3ef2e450d1e5b5d407375e3fd4`; that PR's independent acceptance and merge remain prerequisites at author handoff. [Preflight](d10/preflight.txt), [build](d10/build.txt), [peer route results](d10/peer.json), [room regressions](d10/rooms.json), [directory](d10/directory.json), and [player/settings](d10/foundation.json) are retained here. All four browser suites ran against the same built app. Browser scripts mute only the app's game gain. Screenshots contain disposable loopback invitations, not live credentials or production rooms.
+
+| Approved UI clause | Implementation and observed proof |
+| --- | --- |
+| U1/U2 privacy beside Join and Drop, visible choice used without Connect | Shared inline control in DirectoryPanel and RoomPanel; browser public-code join and invite join use it before any peer exists. [Before](d10/peer.before.png). |
+| U2 address exposure, relay capacity and operator metadata disclosure | One ConnectionPolicyControl owns the copy for inline and Settings; inspected desktop and [mobile](d10/peer.mobile.png). |
+| U2 stricter choice before candidates, no direct fallback | Both peers acknowledge the effective policy before gathering; real selected [direct](d10/peer.direct.png) and [relay](d10/peer.relay.png) routes and positive bytes are recorded in peer.json. |
+| U2 denial Retry or Stay in room | [Unavailable](d10/peer.unavailable.png) and [capacity](d10/peer.capacity.png) show explicit actions; tests prove Stay preserves the room/lease and Retry succeeds after capacity release. |
+| U2 policy change pauses and reconnects | Browser changes either inline choice and then Settings, observes replacement relay transport and paused local player. Shared resume remains D11. |
+| U3 invite identity/source/policy before contact; join automatically connects | Preview identifies host-provided title and required local file; test asserts zero peer objects before Join, then a real channel with no separate Connect. |
+| U3 failure preserves valid work; cancel frees reservation | Existing room suite proves local state survives errors and cancellation; peer retry/reload preserves the original lease. Player 2 remains explicitly reserved. |
+| U7 shared connection choice and current status | [Settings](d10/peer.settings.png) uses the same policy owner and status formatter; browser changes Settings and observes the inline control and selected relay route. |
+
+[Historical quota failure](d10/quota-before.txt) preserves the failed workload and root cause. The current peer result includes that same repeated policy-change/reload workload with aligned local coturn limits. Public NAT/provider load, operating budget and launch qualification remain unverified here.

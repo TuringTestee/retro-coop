@@ -7,6 +7,7 @@ import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms
 export type RoomPanelHandle = {beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
 export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({fingerprint,onNickname,policy,changePolicy,onConnection,onHost},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
+ const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
  const [invite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
@@ -44,11 +45,12 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
   {!room && !invite && <button onClick={onHost}>Host a game</button>}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
-  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}</p>}
+  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status} · Host-provided title. Bring your own matching local game file.</p>}
   <ConnectionPolicyControl policy={policy} change={changePolicy}/>
   <p className="hint">This build connects peers while keeping Player 2 reserved. Shared gameplay is not available yet.</p>
   <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
   {room?.peer.epoch && <button onClick={()=>void client.current?.retryPeer()}>Retry connection</button>}
+  {room?.peer.epoch && ['relay_unavailable','relay_capacity','failed'].includes(room.peer.status) && <><button onClick={()=>setStaying(room.peer.epoch)}>Stay in room</button>{staying===room.peer.epoch && <p role="status">You stayed in the room. Your current reservation deadline and local game are unchanged. Retry whenever you are ready.</p>}</>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
   {state.retryAfterMs && <p>Wait at least {Math.ceil(state.retryAfterMs/1000)} seconds before retrying.</p>}
   {room && <div data-testid="room-view">

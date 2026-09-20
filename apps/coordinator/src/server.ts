@@ -3,7 +3,7 @@ import {peerLimits} from '../../../packages/contracts/src/peer.ts';
 import { createServer } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { health } from '../../../packages/contracts/src/index.ts';
-import { parseRoomCommand, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
+import { parseRoomCommand, ROOM_METADATA_BYTES, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
 import { Rooms, RoomError, limits, type Sender } from './rooms.ts';
 export function config(env: NodeJS.ProcessEnv) {
  const stage = env.COORDINATOR_STAGE ?? 'local';
@@ -42,9 +42,9 @@ export function createCoordinator(options: {origins?:string[]; rooms?:Rooms} = {
   ws.on('message',(raw,binary) => {
    if(Date.now()-windowStarted >= 10_000) {windowStarted = Date.now();received = 0;}
    if(++received > 120) {ws.close(1008,'Message rate exceeded');return;}
-   if(raw.toString().length>4096 && !raw.toString().includes('"peerSignal"')) {ws.close(1009,'Message too large');return;}
    let command;
    try {if(!binary) command = parseRoomCommand(JSON.parse(raw.toString()));}catch{}
+   if(Buffer.byteLength(raw.toString())>ROOM_METADATA_BYTES && command?.type!=='peerSignal') {ws.close(1009,'Message too large');return;}
    if(!command) {ws.close(1008,'Invalid room message');return;}
    try {
     let data;

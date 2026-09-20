@@ -63,7 +63,7 @@ log-file=stdout
    h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for()
    return h,h.get_by_label('Room invitation',exact=True).input_value()
   def join(invite,policy='standard'):
-   g=page(invite);g.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option(policy);g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for();return g
+   g=page(invite);g.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option(policy);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Host-provided title. Bring your own matching local game file.',exact=False).wait_for();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for();return g
   def connected(h,g,route):
    try:
     for tab in [h,g]:tab.wait_for_function("r=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
@@ -88,6 +88,9 @@ log-file=stdout
   assert h.evaluate("peerProof.pcs.every(pc=>pc.connectionState==='closed')")
   before=g.evaluate('peerProof.pcs.length');g.get_by_role('button',name='Retry connection',exact=True).click()
   assert g.evaluate('peerProof.pcs.length')==before
+  lease=g.get_by_test_id('room-view').inner_text();g.get_by_role('button',name='Stay in room',exact=True).click()
+  assert g.get_by_test_id('room-view').inner_text()==lease and g.evaluate('peerProof.pcs.length')==before
+  g.get_by_text('You stayed in the room.',exact=False).wait_for()
   g.screenshot(path=str(out.with_suffix('.unavailable.png')),full_page=True);h.close();g.close()
   relay=service({'TURN_URLS':f'turn:127.0.0.1:{port}?transport=udp','TURN_SECRET':secret,'TURN_ROOM_LIMIT':'1'})
   h,invite=host(relay);g=join(invite,'relay');relay_proof=connected(h,g,'relay')
@@ -119,6 +122,11 @@ log-file=stdout
   connected(denied,waiting,'relay')
   # Settings reflects and changes the same privacy owner; shared gameplay is never promoted.
   denied.get_by_role('button',name='Settings',exact=True).click();assert denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).input_value()=='standard'
+  denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).select_option('relay')
+  connected(denied,waiting,'relay')
+  assert denied.locator('.room-panel').get_by_label('Connection privacy',exact=True).input_value()=='relay'
+  assert 'Paused' in denied.get_by_test_id('player-status').inner_text()
+  denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).scroll_into_view_if_needed()
   denied.screenshot(path=str(out.with_suffix('.settings.png')),full_page=True)
   waiting.get_by_role('button',name='Cancel join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
   guard=page(invite);guard.locator('.room-panel').get_by_label('Connection privacy',exact=True).select_option('relay');guard.evaluate('window.lowerPolicy=true')
@@ -126,7 +134,7 @@ log-file=stdout
   guard.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('failed')")
   assert guard.evaluate('peerProof.pcs.length')==0
   assert not errors,errors
-  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','page_errors':errors}
+  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','page_errors':errors}
   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));browser.close()
 finally:
  for proc in reversed(processes):
