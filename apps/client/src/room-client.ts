@@ -16,6 +16,7 @@ export function connectionStatus(state:RoomState) {
 const messages:Record<string,string> = {
  capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'That place was just taken. Try joining again when it becomes available.',
  room_unavailable:'This room is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
+ room_changed:'That room has changed. Review the current room before trying again.',membership_changed:'That guest has left or rejoined. Review the current guest before trying again.',
  host_only:'Only the host can change this room.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
  host_expired:'The host did not return. This room has closed.',host_closed:'The host closed the room.',removed:'The host removed you from this room.',left:'You left the room. Your local game is still available.',
  service_restarted:'The service restarted. Ephemeral rooms have closed.',creation_cancelled:'Room creation cancelled. Your game stays local.',creation_expired:'Room creation timed out. Your game stays local.',cancelled:'Room creation cancelled.',
@@ -105,13 +106,14 @@ export class RoomClient {
   this.publish({busy:true,status:'Creating your room…',retryAfterMs:undefined});
   try {
    await this.connect();if(this.intent !== intent || generation !== this.generation) return;
-   if(this.state.room) {
-    if(this.state.room.role !== 'host') {this.intent = undefined;this.publish({busy:false});return;}
-    if(matchesFile(this.state.room.fingerprint,fingerprint)) {this.intent = undefined;this.publish({busy:false,status:'Your local file matches the existing room. Its guest reservation is preserved.'});return;}
-    const approved=this.replacement?.room===this.state.room.id && matchesFile(this.replacement.fingerprint,fingerprint);
+   const currentRoom=this.state.room;
+   if(currentRoom) {
+    if(currentRoom.role !== 'host') {this.intent = undefined;this.publish({busy:false});return;}
+    if(matchesFile(currentRoom.fingerprint,fingerprint)) {this.intent = undefined;this.publish({busy:false,status:'Your local file matches the existing room. Its guest reservation is preserved.'});return;}
+    const approved=this.replacement?.room===currentRoom.id && matchesFile(this.replacement.fingerprint,fingerprint);
     if(!approved && !this.confirmReplacement()) {this.intent=undefined;this.publish({busy:false,status:'Room replacement cancelled. Your existing room is preserved.'});return;}
     this.replacement=undefined;
-    await this.request({type:'close'});if(this.intent !== intent) return;
+    await this.request({type:'close',roomId:currentRoom.id});if(this.intent !== intent) return;
    }
    await this.request({type:'create',intent,visibility,fingerprint,policy:this.policy});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
