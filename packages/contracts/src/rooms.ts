@@ -7,7 +7,7 @@ export type Fingerprint = {
  cartridge: { format:'iNES'|'NES 2.0'; mapper:number; submapper:number; region:string; bytes:number };
 };
 export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; status:'waiting'|'reserved'|'reconnecting'; occupancy:1|2 };
-export type RoomView = RoomPreview & { invite:string; role:'host'|'guest'; slot:1|2; guest?:string; reservationUntil?:number; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+export type RoomView = RoomPreview & { invite:string; role:'host'|'guest'; slot:1|2; guest?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type RoomCommand =
  | { type:'hello'; requestId:string; token?:string }
@@ -16,8 +16,8 @@ export type RoomCommand =
  | { type:'create'; requestId:string; intent:string; visibility:Visibility; fingerprint:Fingerprint }
  | { type:'confirmCreate'; requestId:string; intent:string }
  | { type:'cancelCreate'; requestId:string; intent:string }
- | { type:'join'; requestId:string; invite:string }
- | { type:'leave'; requestId:string }
+ | { type:'join'; requestId:string; invite:string; intent:string }
+ | { type:'leave'; requestId:string; intent:string }
  | { type:'close'; requestId:string }
  | { type:'kick'; requestId:string }
  | { type:'rename'; requestId:string; label:string }
@@ -47,8 +47,10 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  let valid = false;
  switch(value.type) {
   case 'hello': valid = keys(value,base,['token']) && (value.token === undefined || token(value.token)); break;
-  case 'heartbeat': case 'leave': case 'close': case 'kick': valid = keys(value,base); break;
-  case 'preview': case 'join': valid = keys(value,[...base,'invite']) && token(value.invite); break;
+  case 'heartbeat': case 'close': case 'kick': valid = keys(value,base); break;
+  case 'preview': valid = keys(value,[...base,'invite']) && token(value.invite); break;
+  case 'join': valid = keys(value,[...base,'invite','intent']) && token(value.invite) && token(value.intent); break;
+  case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'create': valid = keys(value,[...base,'intent','visibility','fingerprint']) && token(value.intent) && ['public','unlisted'].includes(value.visibility as string) && validFingerprint(value.fingerprint); break;
   case 'confirmCreate': case 'cancelCreate': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'rename': valid = keys(value,[...base,'label']) && text(value.label,80); break;

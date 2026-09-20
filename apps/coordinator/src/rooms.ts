@@ -4,7 +4,7 @@ import { matchesFile } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
 type Session = { token:string; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
-type Room = { id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
+type Room = { id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
 export type Sender = (event:RoomEvent)=>void;
 export class RoomError extends Error { code:string;retryAfterMs?:number;constructor(code:string,retryAfterMs?:number) { super(code);this.code = code;this.retryAfterMs = retryAfterMs; } }
 const secret = () => randomBytes(32).toString('base64url');
@@ -32,9 +32,9 @@ export class Rooms {
   throw new RoomError('capacity');
  }
  private preview(room:Room): RoomPreview { return {id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil ? 'reconnecting' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1}; }
- private view(room:Room,session:Session): RoomView { return {...this.preview(room),invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
+ private view(room:Room,session:Session): RoomView { return {...this.preview(room),invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,...(room.guest ? {guest:room.guest.nickname,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
  private publish(room:Room) { for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)}); }
- private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
+ private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
   this.rooms.delete(room.id); this.invites.delete(room.invite); if(room.code) this.codes.delete(room.code);
   for(const session of [room.host,room.guest]) if(session) {session.room = undefined;session.send?.({type:'ended',reason});}
@@ -87,10 +87,15 @@ export class Rooms {
     if(room.reconnectUntil) throw new RoomError('host_reconnecting');
     if(session.room) throw new RoomError('already_in_room');
     if(room.guest) throw new RoomError('place_taken');
-    room.guest = session;room.reservationUntil = this.now()+limits.reservation;session.room = room.id;
+    room.guest = session;room.guestIntent = command.intent;room.reservationUntil = this.now()+limits.reservation;session.room = room.id;
     this.publish(room);return {room:this.view(room,session)};
    }
-   case 'leave': { const room = this.room(session); if(room.host === session) this.close(room,'host_closed'); else this.releaseGuest(room,'left'); return {}; }
+   case 'leave': {
+    // Cancellation belongs to one attempt, never whichever reservation this session has now.
+    const room = session.room && this.rooms.get(session.room);
+    if(room && room.guest === session && room.guestIntent === command.intent) this.releaseGuest(room,'left');
+    return {};
+   }
    case 'close': this.close(this.hosted(session),'host_closed');return {};
    case 'kick': { const room = this.hosted(session);if(room.guest) room.kicked.add(room.guest.token); this.releaseGuest(room,'removed');return {room:this.view(room,session)}; }
    case 'visibility': { const room = this.hosted(session);if(room.visibility !== command.visibility) {if(command.visibility === 'public') room.code = this.code();else if(room.code) {this.codes.delete(room.code);room.code = undefined;}room.visibility = command.visibility;this.publish(room);}return {room:this.view(room,session)}; }

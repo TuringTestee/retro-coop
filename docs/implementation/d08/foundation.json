@@ -1,11 +1,35 @@
 {
   "result": "pass",
+  "settings": {
+    "keyboard_remap_input_pixels": true,
+    "reserved_binding_conflict": true,
+    "gamepad_conflict_replaced_without_reopening": true,
+    "cancel_and_defaults_confirmation": true,
+    "gamepad_remap_input_pixels": true,
+    "gamepad_axis_capture": true,
+    "volume_applies_under_mute": true,
+    "reconnect_does_not_resume": true,
+    "focus_releases_gamepad": true,
+    "unplug_pauses_and_keyboard_resumes": true,
+    "presentation_preserves_progress_and_fingerprint": true,
+    "single_worker_through_settings": true,
+    "fullscreen_denial_and_exit": true,
+    "dialog_focus_restore_and_escape": true,
+    "mobile_no_overflow": true,
+    "game_only_muted": true,
+    "page_errors": []
+  },
+  "disconnected_startup": {
+    "first_and_replacement_load_wait_for_valid_input": true,
+    "resume_requires_current_device": true,
+    "reconnect_and_keyboard_fallback_require_explicit_resume": true
+  },
   "browser": "145.0.7632.75",
-  "duration_seconds": 7.3,
+  "duration_seconds": 11.1,
   "audio": {
-    "buffers": 251,
+    "buffers": 272,
     "peak": 0.06666979938745499,
-    "starts": 251,
+    "starts": 272,
     "muted": true
   },
   "audio_denial_does_not_block_and_retry_recovers": true,
@@ -31,111 +55,111 @@
   "requests": [
     [
       "GET",
-      "http://127.0.0.1:44621/"
+      "http://127.0.0.1:38009/"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/index-Bd4Ve6am.js"
+      "http://127.0.0.1:38009/assets/index-Dl5s2who.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/index-CCpPnFNv.css"
+      "http://127.0.0.1:38009/assets/index-Bb8drE23.css"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/assets/worker-kPNNnwrS.js"
+      "http://127.0.0.1:38009/assets/worker-kPNNnwrS.js"
     ],
     [
       "GET",
-      "http://127.0.0.1:44621/generated/retro_coop_d02.wasm"
+      "http://127.0.0.1:38009/generated/retro_coop_d02.wasm"
     ]
   ],
   "coordinator_url": "/coordinator"

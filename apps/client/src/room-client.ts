@@ -18,7 +18,7 @@ export class RoomClient {
  private token?:string;
  private intent?:string;
  private generation = 0;
- private joining = false;
+ private joining?:string;
  private pending = new Map<string,{resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false};
  constructor(private update:(state:RoomState)=>void) {try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}}
@@ -85,8 +85,8 @@ export class RoomClient {
  }
  cancelCreation() {++this.generation;const intent = this.intent;this.intent = undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,status:'Room creation cancelled. Your game stays local.'});}}
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Player 2 for 120 seconds. You will need your own matching file.'});}catch(error){if(generation === this.generation) this.failure(error);}}
- async join(invite:string) {const generation = ++this.generation;this.joining = true;this.publish({busy:true,status:'Reserving Player 2…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'join',invite});if(generation !== this.generation) {void this.request({type:'leave'}).catch(()=>{});return;}this.apply(data);this.publish({busy:false,status:'Player 2 reserved for 120 seconds. Choose your matching file. Shared gameplay is not available in this build yet.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{this.joining = false;}}
- cancelPending() {this.cancelCreation();if(this.joining) void this.request({type:'leave'}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
+ async join(invite:string) {const generation = ++this.generation,intent = crypto.randomUUID();this.joining = intent;this.publish({busy:true,status:'Reserving Player 2…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'join',invite,intent});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.publish({busy:false,status:'Player 2 reserved for 120 seconds. Choose your matching file. Shared gameplay is not available in this build yet.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
+ cancelPending() {this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {try {await this.connect();this.apply(await this.request(command));}catch(error){this.failure(error);}}
  async reconnect() {try {await this.connect();this.publish({status:this.state.room ? 'Room connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous room or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
  newGuest() {this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}

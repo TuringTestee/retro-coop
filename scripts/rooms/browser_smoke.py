@@ -93,6 +93,33 @@ try:
         unlisted.set_input_files('input[type=file]',{'name':'PRIVATE-UNLISTED.nes','mimeType':'application/octet-stream','buffer':rom})
         unlisted.get_by_test_id('room-view').wait_for()
         assert 'Unlisted · invite only' in unlisted.get_by_test_id('room-view').inner_text()
+        # A cancelled join's delayed response must not release a newer reservation.
+        raced=page()
+        raced.add_init_script("""const Native=WebSocket;let holdFirstJoin=true;
+          window.WebSocket=class extends Native {
+            set onmessage(handler){super.onmessage=event=>{let data;try{data=JSON.parse(event.data)}catch{};
+              if(holdFirstJoin && data?.type==='result' && data.ok && data.data?.room?.role==='guest'){
+                holdFirstJoin=false;window.releaseJoinA=()=>handler(event);
+              }else handler(event);};}
+          };""")
+        race_invite=unlisted.get_by_label('Room invitation',exact=True).input_value()
+        raced.goto(race_invite)
+        raced.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Join reserves')")
+        raced.get_by_role('button',name='Retry join / Join',exact=True).click()
+        raced.wait_for_function('typeof releaseJoinA === "function"')
+        raced.get_by_role('button',name='Cancel pending room action',exact=True).click()
+        raced.get_by_test_id('room-view').wait_for(state='detached')
+        raced.get_by_role('button',name='Retry join / Join',exact=True).click()
+        raced.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Player 2 reserved')")
+        raced.evaluate('releaseJoinA()')
+        competing=page();competing.goto(race_invite)
+        competing.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Join reserves')")
+        competing.get_by_role('button',name='Retry join / Join',exact=True).click()
+        competing.wait_for_function("document.querySelector('[data-testid=room-view]') || document.querySelector('[data-testid=room-status]').textContent.includes('place was just taken')")
+        assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
+        assert raced.get_by_test_id('room-view').count()==1
+        raced.get_by_role('button',name='Cancel join',exact=True).click()
+        raced.get_by_test_id('room-view').wait_for(state='detached')
         # Hold the create reply at the browser boundary. Cancellation must close the provisional room,
         # and releasing the stale response must never confirm it.
         cancelled=page()
@@ -132,7 +159,7 @@ try:
         assert not any(key in command for command in frames for key in ['rom','filename','save','state'])
         # Raw tokens are intentionally excluded from published evidence.
         counts={kind:sum(command['type']==kind for command in frames) for kind in sorted({command['type'] for command in frames})}
-        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'host_file_to_room_no_extra_form':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_browser_race':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
+        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'host_file_to_room_no_extra_form':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_browser_race':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'stale_join_cannot_release_newer_reservation':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
         browser.close()
 finally:

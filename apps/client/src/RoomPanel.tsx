@@ -54,7 +54,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{fingerprint?:Fingerprint;on
     <label className="visibility"><input type="checkbox" checked={room.visibility === 'unlisted'} onChange={event=>{const visibility = event.target.checked ? 'unlisted':'public';if(visibility === 'public' && !window.confirm('Make this room public? Its room name and host nickname will be discoverable.')) return;void client.current?.act({type:'visibility',visibility});}}/> Unlisted · invitation only</label>
     {room.guest && <button onClick={()=>{if(window.confirm(`Remove ${room.guest}? Their reservation and reconnect permission will be revoked.`)) void client.current?.act({type:'kick'});}}>Remove guest</button>}
     <button onClick={()=>{if(window.confirm('Close this room for both players? Your local game stays available.')) void client.current?.act({type:'close'});}}>Close room</button>
-   </details> : <button onClick={()=>void client.current?.act({type:'leave'})}>Cancel join</button>}
+   </details> : <button onClick={()=>void client.current?.act({type:'leave',intent:room.reservationIntent!})}>Cancel join</button>}
   </div>}
   <div className="controls">
    {state.busy && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}

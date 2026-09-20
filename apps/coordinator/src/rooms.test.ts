@@ -25,49 +25,49 @@ test('creation acknowledgement and cancellation never expose stale invitations',
  assert.throws(()=>t.act(host.token,{type:'create',intent,visibility:'public',fingerprint}),/cancelled/);
  const provisional = t.act(host.token,{type:'create',intent:randomUUID(),visibility:'public',fingerprint}).room!;
  t.advance(5000);
- assert.throws(()=>t.act(viewer.token,{type:'join',invite:provisional.invite}),/room_unavailable/);
+ assert.throws(()=>t.act(viewer.token,{type:'join',intent:randomUUID(),invite:provisional.invite}),/room_unavailable/);
 });
 test('unlisted preview excludes hashes and codes, host alone controls room mutations',()=>{
  const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token,'unlisted');
  const preview = t.act(guest.token,{type:'preview',invite:room.invite}).preview!;
  assert.equal(preview.code,undefined);assert.equal(JSON.stringify(preview).includes(fingerprint.romSha256),false);
- t.act(guest.token,{type:'join',invite:room.invite});
+ t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite});
  for(const command of [{type:'close'},{type:'kick'},{type:'rename',label:'stolen'},{type:'visibility',visibility:'public'}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
  const publicRoom = t.act(host.token,{type:'visibility',visibility:'public'}).room!;assert.ok(publicRoom.code);
  assert.equal(t.act(host.token,{type:'visibility',visibility:'unlisted'}).room!.code,undefined);
- t.act(host.token,{type:'kick'});assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite}),/room_unavailable/);
+ t.act(host.token,{type:'kick'});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
 });
 test('two concurrent contenders have one winner and cancellation frees the slot immediately',async()=>{
  const t = setup(), host = t.guest(), a = t.guest(), b = t.guest(), room = t.host(host.token);
- const results = await Promise.allSettled([a,b].map(guest=>Promise.resolve().then(()=>t.act(guest.token,{type:'join',invite:room.invite}))));
+ const results = await Promise.allSettled([a,b].map(guest=>Promise.resolve().then(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}))));
  assert.equal(results.filter(result=>result.status === 'fulfilled').length,1);
  assert.equal(results.filter(result=>result.status === 'rejected').length,1);
- t.act(a.token,{type:'leave'});assert.equal(t.act(b.token,{type:'join',invite:room.invite}).room!.slot,2);
+ t.act(a.token,{type:'leave',intent:t.rooms.attach(a.token,()=>{},()=>{}).data.room!.reservationIntent!});assert.equal(t.act(b.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!.slot,2);
 });
 test('mismatch, reconnect and retries do not extend the initial 120-second reservation',()=>{
  const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token);
- const reserved = t.act(guest.token,{type:'join',invite:room.invite}).room!;
+ const reserved = t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
  t.advance(25_000);t.act(host.token,{type:'heartbeat'});
  const mismatch = t.act(guest.token,{type:'file',fingerprint:{...fingerprint,romSha256:'c'.repeat(64)}}).room!;assert.equal(mismatch.matches,false);assert.equal(mismatch.reservationUntil,reserved.reservationUntil);
  const restored = t.rooms.attach(guest.token,()=>{},()=>{}).data.room!;assert.equal(restored.reservationUntil,reserved.reservationUntil);
- assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite}),/already_in_room/);
+ assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/already_in_room/);
  for(let i=0;i<4;i++) {t.advance(24_000);t.act(host.token,{type:'heartbeat'});}
  assert.throws(()=>t.act(guest.token,{type:'file',fingerprint}),/not_in_room/);
  assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
- const retry = t.act(guest.token,{type:'join',invite:room.invite}).room!;assert.ok(retry.reservationUntil! > reserved.reservationUntil!);
+ const retry = t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;assert.ok(retry.reservationUntil! > reserved.reservationUntil!);
 });
 test('only host membership receives heartbeat detection and 60-second recovery grace',()=>{
  const t = setup(), host = t.guest(), watcher = t.guest(), room = t.host(host.token);
  t.advance(30_000);assert.equal(t.act(watcher.token,{type:'preview',invite:room.invite}).preview!.status,'reconnecting');
- assert.throws(()=>t.act(watcher.token,{type:'join',invite:room.invite}),/host_reconnecting/);
+ assert.throws(()=>t.act(watcher.token,{type:'join',intent:randomUUID(),invite:room.invite}),/host_reconnecting/);
  t.advance(59_000);const recovered = t.rooms.attach(host.token,()=>{},()=>{}).data.room!;assert.equal(recovered.status,'waiting');
  t.advance(90_000);assert.throws(()=>t.act(watcher.token,{type:'preview',invite:room.invite}),/room_unavailable/);
 });
 test('unused sessions expire, capacity is bounded, rate limits state their retry time',()=>{
  const t = setup(), guest = t.guest();t.advance(limits.sessionIdle);assert.throws(()=>t.rooms.attach(guest.token,()=>{},()=>{}),/session_expired/);
  const host = t.guest(), room = t.host(host.token), contender = t.guest();
- for(let i=0;i<5;i++) {t.act(contender.token,{type:'join',invite:room.invite});t.act(contender.token,{type:'leave'});}
- assert.throws(()=>t.act(contender.token,{type:'join',invite:room.invite}),error=>error instanceof RoomError && error.code === 'rate_limited' && error.retryAfterMs! > 0);
+ for(let i=0;i<5;i++) {const reservation=t.act(contender.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;t.act(contender.token,{type:'leave',intent:reservation.reservationIntent!});}
+ assert.throws(()=>t.act(contender.token,{type:'join',intent:randomUUID(),invite:room.invite}),error=>error instanceof RoomError && error.code === 'rate_limited' && error.retryAfterMs! > 0);
  for(let i=1;i<limits.rooms;i++) t.host(t.guest().token);
  assert.throws(()=>t.host(t.guest().token),/capacity/);
 });
@@ -93,10 +93,23 @@ test('real WebSockets enforce origin/auth/schema and atomic reservations across 
   for(const client of [host,a,b]) assert.equal((await request(client,{type:'hello'})).ok,true);
   const intent = randomUUID();const created = await request(host,{type:'create',intent,visibility:'public',fingerprint});assert.ok(created.ok);
   await request(host,{type:'confirmCreate',intent});const invite = created.data.room!.invite;
-  const race = await Promise.all([a,b].map(socket=>request(socket,{type:'join',invite})));assert.equal(race.filter(result=>result.ok).length,1);
+  const race = await Promise.all([a,b].map(socket=>request(socket,{type:'join',intent:randomUUID(),invite})));assert.equal(race.filter(result=>result.ok).length,1);
   const attacker = await connect(), closed = once(attacker,'close');attacker.send(Buffer.from('binary ROM'));assert.equal((await closed)[0],1008);
   const forged = await connect(), invalid = once(forged,'close');forged.send(JSON.stringify({type:'hello',requestId:randomUUID(),filename:'private.nes'}));assert.equal((await invalid)[0],1008);
   const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<121;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
   const large = await connect(), over = once(large,'close');large.send('x'.repeat(5000));assert.equal((await over)[0],1009);
  } finally {for(const client of clients) client.terminate();await shutdown(server);}
+});
+
+test('delayed cancellation cannot release a newer reservation from the same guest',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token),a=randomUUID(),b=randomUUID();
+ t.act(guest.token,{type:'join',invite:room.invite,intent:a});
+ t.act(guest.token,{type:'leave',intent:a});
+ const second=t.act(guest.token,{type:'join',invite:room.invite,intent:b}).room!;
+ t.act(guest.token,{type:'leave',intent:a});
+ t.act(host.token,{type:'leave',intent:b}); // Knowing an intent does not confer guest authority.
+ const restored=t.rooms.attach(guest.token,()=>{},()=>{}).data.room!;
+ assert.equal(restored.reservationIntent,b);assert.equal(restored.reservationUntil,second.reservationUntil);
+ t.act(guest.token,{type:'leave',intent:b});
+ assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
 });
