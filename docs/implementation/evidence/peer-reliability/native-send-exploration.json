@@ -1,0 +1,461 @@
+{
+  "sourceHead": "0ef308acecb4aab86b8fdbb3effac212ad3e385d",
+  "browser": "Chromium 145.0.7632.6",
+  "bound": 10,
+  "completed": 10,
+  "nativeSendFailures": 0,
+  "setup": "One coordinator per pair; unchanged admission limits. Earlier four-pair exploration stopped at host admission limit, not transport failure.",
+  "result": "No causal reproduction. Temporary instrumentation observes native send bufferedAmount and captures native stderr.",
+  "pairs": [
+    {
+      "attempt": 0,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 1,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 3,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 4,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 5,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 6,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 7,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 8,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    },
+    {
+      "attempt": 9,
+      "peers": [
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "connecting"
+          ],
+          "connected": true
+        },
+        {
+          "nativeSends": [
+            {
+              "type": "transportProbe",
+              "before": 0,
+              "after": 72,
+              "state": "open"
+            },
+            {
+              "type": "transportReply",
+              "before": 72,
+              "after": 144,
+              "state": "open"
+            }
+          ],
+          "observedStates": [
+            "open"
+          ],
+          "connected": true
+        }
+      ]
+    }
+  ]
+}

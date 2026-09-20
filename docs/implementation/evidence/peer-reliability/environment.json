@@ -1,0 +1,13 @@
+{
+  "production_base": "4e9ef75e0242094edb6155bdcd9420a610e3c7ec",
+  "runner": "Local Linux 7.0.0-31-generic x86_64; loopback same-origin gateway and authenticated coturn",
+  "browser": "Playwright 1.58.0 Chromium headless 145.0.7632.6 (CI revision)",
+  "node": "v24.13.1",
+  "coturn": "4.6.1",
+  "wasm_sha256": "b21d9269147efc6193c93fad459cffa2f91070881134f10f34ca80b6cda8ba52",
+  "sample_bound": 1,
+  "unexpected_failures": 0,
+  "expected_injected_policy_failure": 1,
+  "injection": "Suppress outbound application transportProbe messages after a Standard-to-Relay change on a relay-required room; preserve real timeout and retry",
+  "audio": "Application game gain muted; browser mute-audio default disabled"
+}
