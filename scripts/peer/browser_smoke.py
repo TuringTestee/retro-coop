@@ -1,5 +1,5 @@
 """Local direct and authenticated coturn route evidence; not public-network qualification."""
-import argparse, json, os, secrets, socket, subprocess, tempfile, time
+import argparse, collections, json, os, re, secrets, socket, subprocess, tempfile, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 parser=argparse.ArgumentParser()
@@ -37,7 +37,10 @@ no-software-attribute
 pidfile={tmp}/turn.pid
 log-file=stdout
 ''');config.chmod(0o600)
-  turn=subprocess.Popen([args.turnserver,'-c',str(config)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);processes.append(turn)
+  turn_log=Path(tmp)/'turn.log'
+  with turn_log.open('w') as log:
+   turn=subprocess.Popen([args.turnserver,'-v','-c',str(config)],stdout=log,stderr=subprocess.STDOUT)
+  processes.append(turn)
   deadline=time.monotonic()+10
   while True:
    assert turn.poll() is None,'coturn stopped during startup'
@@ -49,7 +52,7 @@ log-file=stdout
   errors=[]
   def page(url):
    page=browser.new_page(viewport={'width':1280,'height':1050});page.on('pageerror',lambda error:errors.append(str(error)))
-   page.add_init_script('''window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
+   page.add_init_script((root/'scripts/peer/diagnostics.js').read_text()+'''window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
     const NativeSocket=WebSocket;window.WebSocket=class extends NativeSocket{
      set onmessage(fn){this.deliver=fn;super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='room')peerProof.lastRoom=d.room;if(d.type==='peerStart'&&window.deadlineMode==='connecting')return;if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.started=false;if(window.lowerPolicy){d.policy='standard';e=new MessageEvent('message',{data:JSON.stringify(d)})}};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
      send(raw){const d=JSON.parse(raw);if(d.type==='peerAck'&&window.deadlineMode==='preparing'){queueMicrotask(()=>this.deliver(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:d.requestId,ok:true,data:{}})})));return;}if(d.type==='peerSignal'&&d.signal.kind==='candidate')peerProof.sentCandidates.push(d.signal.candidate.candidate);super.send(raw)}
@@ -68,7 +71,9 @@ log-file=stdout
    try:
     for tab in [h,g]:tab.wait_for_function("r=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
    except Exception:
-    print(json.dumps({'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),errors:peerProof.errors,ice:peerProof.ice})") for tab in [h,g]]}),flush=True)
+    failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
+     'turn_error_codes':dict(collections.Counter(re.findall(r'error (\d{3})',turn_log.read_text(errors='replace'))))}
+    out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True)
     raise
    result=[]
    for tab in [h,g]:
