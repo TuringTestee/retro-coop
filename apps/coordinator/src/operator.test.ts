@@ -73,7 +73,9 @@ test('address block revokes old token, targets canonical proxy client, rejects f
   const preview=await operatorRequest(t.directory,{type:'block-address',subjectId:subject.id,seconds:60});
   const closed=once(blocked.ws,'close');await operatorRequest(t.directory,{type:'confirm',confirmation:confirmation(preview)});assert.equal((await closed)[0],4003);
   assert.equal((await other.command({type:'heartbeat'})).ok,true);
-  await assert.rejects(t.open('192.0.2.1'),/403/);
+  const retry=await t.open('192.0.2.1'),denied=once(retry.ws,'close');
+  retry.ws.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await denied)[0],4003);assert.deepEqual(retry.events,[]);
+  const subjects=await operatorRequest(t.directory,{type:'list'});assert.ok('subjects' in subjects);assert.equal(subjects.subjects.find(s=>s.id===subject.id)?.connections,0);
   t.advance(60_001);
   const after=await t.open('192.0.2.1');assert.equal((await after.command({type:'hello',token})).error,'session_expired');
   assert.equal((await after.command({type:'hello'})).ok,true);

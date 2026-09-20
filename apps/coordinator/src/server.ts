@@ -48,9 +48,13 @@ export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; tru
   if(!address) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
   sweepAdmission();
   const record = admission.get(address) ?? {id:randomBytes(24).toString('base64url'),times:[],clients:new Set<WebSocket>(),revision:0,blockedUntil:0};record.times=record.times.filter(time=>time>timestamp-60_000);
-  if(!origins.has(request.headers.origin ?? '') || !['/ws','/coordinator/ws'].includes(request.url ?? '') || sockets.clients.size >= limits.connections || record.clients.size >= 20 || record.times.length >= 30 || record.blockedUntil>timestamp || (!admission.has(address) && admission.size >= 1000)) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
+  if(!origins.has(request.headers.origin ?? '') || !['/ws','/coordinator/ws'].includes(request.url ?? '') || sockets.clients.size >= limits.connections || record.clients.size >= 20 || record.times.length >= 30 || (!admission.has(address) && admission.size >= 1000)) {socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');return;}
   record.times.push(timestamp);admission.set(address,record);
-  sockets.handleUpgrade(request,socket,head,ws => {record.clients.add(ws);record.revision++;ws.once('close',()=>{record.clients.delete(ws);record.revision++;revokers.delete(ws);});sockets.emit('connection',ws);});
+  sockets.handleUpgrade(request,socket,head,ws => {
+   // A completed upgrade carries an explicit browser-readable denial, without authenticating or admitting a session.
+   if(record.blockedUntil>timestamp){ws.on('error',()=>{});ws.close(4003,'Admission temporarily blocked');return;}
+   record.clients.add(ws);record.revision++;ws.once('close',()=>{record.clients.delete(ws);record.revision++;revokers.delete(ws);});sockets.emit('connection',ws);
+  });
  });
  sockets.on('connection',ws => {
   let token:string|undefined;

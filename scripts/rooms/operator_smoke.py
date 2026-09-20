@@ -75,15 +75,36 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             writes = host.evaluate('timelineWrites')
             subject = request({'type':'list'})['subjects'][0]
             assert subject['address'] == '127.0.0.1' and subject['connections'] == 2
-            block = confirm('block-address',subject['id'],60)
+            block = confirm('block-address',subject['id'],10)
             for tab in [host,guest]: stopped(tab,'Access is temporarily restricted')
             assert host.evaluate('timelineWrites') == writes
             host.screenshot(path=str(output.with_suffix('.blocked.png')), full_page=True)
+            host.get_by_role('button', name='Retry directory', exact=True).click()
+            host.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()
+            host.get_by_test_id('room-status').filter(has_text='Access is temporarily restricted').wait_for()
+            assert host.evaluate('timelineWrites') == writes
+            fresh = page(url)
+            fresh.get_by_test_id('room-status').filter(has_text='Access is temporarily restricted').wait_for()
+            fresh.reload()
+            fresh.get_by_test_id('room-status').filter(has_text='Access is temporarily restricted').wait_for()
+            fresh.screenshot(path=str(output.with_suffix('.retry.png')), full_page=True)
+            expiry_deadline = time.monotonic() + 15
+            while any(s.get('blockedUntil') for s in request({'type':'list'})['subjects']):
+                assert time.monotonic() < expiry_deadline, 'temporary block did not expire'
+                time.sleep(0.05)
+            fresh.get_by_role('button', name='Retry directory', exact=True).click()
+            fresh.locator('.directory-panel [role=status]').filter(has_text='No public rooms yet').wait_for()
+            fresh.get_by_test_id('room-status').filter(has_text='Access restored').wait_for()
+            fresh.set_input_files('input[type=file]', {'name':'fixture.nes','mimeType':'application/octet-stream','buffer':rom})
+            fresh.get_by_test_id('room-view').wait_for()
+            fresh.screenshot(path=str(output.with_suffix('.expired.png')), full_page=True, mask=[fresh.get_by_label('Room invitation', exact=True)])
+            fresh.close()
             assert errors == []
             result = {'result':'pass','seconds':round(time.monotonic()-started,2),'browser':browser.version,
                 'private_cli_confirmation':[removal,block],'room_removed_and_directory_cleared':True,
                 'both_peer_connections_and_microphones_stopped':True,'no_local_reload_or_import':True,
-                'explicit_operator_and_admission_feedback':True,'page_errors':errors}
+                'explicit_operator_and_admission_feedback':True,'retry_fresh_reload_restriction_feedback':True,
+                'expired_block_allows_fresh_session_and_room':True,'page_errors':errors}
             output.write_text(json.dumps(result,indent=2)+'\n')
             print(json.dumps(result))
             browser.close()

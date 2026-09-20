@@ -6,7 +6,7 @@ import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
+export type RoomState = { voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
 export function connectionStatus(state:RoomState) {
  const status=state.room?.peer.status;
  if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
@@ -76,7 +76,7 @@ export class RoomClient {
     else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);this.publish({busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
    };
    socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(data=>{
-    clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.setRoom(data.room);this.apply(data);this.publish({connected:true});
+    clearTimeout(deadline);if(this.disposed) {socket.close();return;}this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
@@ -86,7 +86,7 @@ export class RoomClient {
     this.peer.close('Signaling disconnected. Reconnect the room before retrying peers.');
     const status=code===4003?messages.admission_blocked:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.';
     clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error(status));}this.pending.clear();
-    this.publish({connected:false,busy:false,...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:'The room service disconnected. Retry for current availability.'}:{}),status});reject(Error(status));
+    this.publish({connected:false,busy:false,admissionBlocked:code===4003,...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:code===4003?status:'The room service disconnected. Retry for current availability.'}:{}),status});reject(Error(status));
    };
   }).finally(()=>{this.connecting = undefined;});
   return this.connecting;
