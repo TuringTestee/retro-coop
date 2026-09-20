@@ -5,15 +5,15 @@ use tetanes_core::prelude::*;
 
 const MAGIC: &[u8; 8] = b"RCBAT001";
 const HEADER: usize = 8 + 32 + 4 + 32;
-pub const LIMIT: usize = 2 * 1024 * 1024;
+pub(crate) const LIMIT: usize = 2 * 1024 * 1024;
 
-pub struct Battery {
+pub(crate) struct Battery {
     identity: [u8; 32],
     len: usize,
 }
 impl Battery {
     /// `core` is the SHA-256 of the actual loaded WASM bytes, computed by the worker.
-    pub fn new(deck: &ControlDeck, rom: &[u8; 32], core: &[u8; 32]) -> Result<Self, String> {
+    pub(crate) fn new(deck: &ControlDeck, rom: &[u8; 32], core: &[u8; 32]) -> Result<Self, String> {
         let len = deck.bus().memory.sram().len();
         if deck.cart_battery_backed() != Some(true) || len == 0 {
             return Err("This cartridge has no battery data".into());
@@ -33,7 +33,7 @@ impl Battery {
             len,
         })
     }
-    pub fn export(&self, deck: &ControlDeck) -> Vec<u8> {
+    pub(crate) fn export(&self, deck: &ControlDeck) -> Vec<u8> {
         // Sync EEPROM/other mapper extensions on a trusted clone; capture never changes
         // the live CPU, mapper registers, input, frame, or staged battery memory.
         let mut bus = deck.bus().clone();
@@ -46,7 +46,7 @@ impl Battery {
         bytes.extend_from_slice(data);
         bytes
     }
-    pub fn restore(&self, deck: &mut ControlDeck, bytes: &[u8]) -> Result<(), String> {
+    pub(crate) fn restore(&self, deck: &mut ControlDeck, bytes: &[u8]) -> Result<(), String> {
         // All admission checks precede cloning/decoding/mutation. The locally loaded
         // cartridge alone supplies allocation sizes and board mappings.
         if bytes.len() != HEADER + self.len || bytes.len() > LIMIT {

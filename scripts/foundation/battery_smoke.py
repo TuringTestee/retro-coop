@@ -2,6 +2,8 @@
 
 def verify_battery(browser, url, rom, worker_path):
     page = browser.new_page()
+    requests=[]
+    page.on('request',lambda request: requests.append((request.method,request.url)))
     page.goto(url)
     variant=bytearray(rom)
     variant[4]=2
@@ -39,7 +41,7 @@ def verify_battery(browser, url, rom, worker_path):
         }
         const invalid=[];
         for(const offset of [0,8,40,44,header]) {const bytes=battery.slice();bytes[offset]^=1;invalid.push(bytes.buffer)}
-        invalid.push(battery.slice(0,-1).buffer,new Uint8Array([...battery,0]).buffer,new ArrayBuffer(2*1024*1024+1));
+        invalid.push(new ArrayBuffer(0),battery.slice(0,-1).buffer,new Uint8Array([...battery,0]).buffer,new ArrayBuffer(2*1024*1024+1));
         for(const bytes of invalid) {
           const result=await ask(worker,{type:'battery-import',requestId:3,bytes});
           ensure(result.type==='battery-error' && result.requestId===3,'malformed battery accepted');
@@ -62,5 +64,7 @@ def verify_battery(browser, url, rom, worker_path):
         return {mapper:1,bytes:battery.length,coreSha256:identity,correlated_roundtrip:true,malformed_cases:invalid.length,failed_import_preserves_battery_and_future_pixels_pcm:true,exact_rom_mismatch_rejected:true,no_battery_error:true,audio_presented:false};
       } finally {workers.forEach(worker=>worker.terminate())}
     }''',{'rom':list(variant),'workerPath':worker_path})
+    assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
+    result['requests']=requests
     page.close()
     return result
