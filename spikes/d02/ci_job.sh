@@ -66,9 +66,10 @@ elif [ "$D02_JOB" = network ]; then
   pactl list short sinks >> audio-backend.local.txt
   sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
   python3 ci_resources.py resources-before.local.json
+  # Fail on production regressions before spending time on the independent spike.
+  (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 750s sh scripts/gameplay/network.sh --seconds 600 --pair "$D02_PAIR")
   timeout --foreground 900s sh run_network_probe.sh fixture.local.nes --seconds 600 --pair "$D02_PAIR" --bundled-chromium --firefox-executable /tmp/d02-stock-firefox/firefox/firefox --output pair.local.json
   python3 verify_realtime.py pair.local.json --require-muted
-  (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 750s sh scripts/gameplay/network.sh --seconds 600 --pair "$D02_PAIR")
 else
   echo 'Unknown CI job' >&2
   exit 1
