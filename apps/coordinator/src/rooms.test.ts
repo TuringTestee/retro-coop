@@ -96,6 +96,7 @@ test('real WebSockets enforce origin/auth/schema and atomic reservations across 
   const race = await Promise.all([a,b].map(socket=>request(socket,{type:'join',invite})));assert.equal(race.filter(result=>result.ok).length,1);
   const attacker = await connect(), closed = once(attacker,'close');attacker.send(Buffer.from('binary ROM'));assert.equal((await closed)[0],1008);
   const forged = await connect(), invalid = once(forged,'close');forged.send(JSON.stringify({type:'hello',requestId:randomUUID(),filename:'private.nes'}));assert.equal((await invalid)[0],1008);
+  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<121;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
   const large = await connect(), over = once(large,'close');large.send('x'.repeat(5000));assert.equal((await over)[0],1009);
  } finally {for(const client of clients) client.terminate();await shutdown(server);}
 });

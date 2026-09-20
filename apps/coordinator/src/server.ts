@@ -33,10 +33,13 @@ export function createCoordinator(options: {origins?:string[]; rooms?:Rooms} = {
  });
  sockets.on('connection',ws => {
   let token:string|undefined;
+  let windowStarted = Date.now(), received = 0;
   const send:Sender = (event:RoomEvent) => {if(ws.readyState !== WebSocket.OPEN) return;if(ws.bufferedAmount > 64*1024) {ws.terminate();return;}ws.send(JSON.stringify(event));};
   const authDeadline = setTimeout(()=>ws.close(1008,'Authenticate first'),5000);authDeadline.unref();
   ws.on('error',()=>{}); // Protocol errors close the socket; content is never logged.
   ws.on('message',(raw,binary) => {
+   if(Date.now()-windowStarted >= 10_000) {windowStarted = Date.now();received = 0;}
+   if(++received > 120) {ws.close(1008,'Message rate exceeded');return;}
    let command;
    try {if(!binary) command = parseRoomCommand(JSON.parse(raw.toString()));}catch{}
    if(!command) {ws.close(1008,'Invalid room message');return;}

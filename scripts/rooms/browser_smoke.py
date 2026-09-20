@@ -56,6 +56,14 @@ try:
         first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
         first.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)
+        # Reloading the host and choosing the same file preserves the room and original guest lease.
+        original_reservation=first.get_by_test_id('room-view').inner_text().split('Reservation expires at ')[1].split('.')[0]
+        host.reload()
+        host.set_input_files('input[type=file]',{'name':'PRIVATE-RELOADED.nes','mimeType':'application/octet-stream','buffer':rom})
+        host.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('existing room')")
+        assert host.get_by_label('Room invitation',exact=True).input_value()==invitation
+        assert original_reservation in host.get_by_test_id('room-view').inner_text()
+        assert first.get_by_test_id('room-view').count()==1
         first.get_by_role('button',name='Cancel join',exact=True).click()
         first.get_by_test_id('room-view').wait_for(state='detached')
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
@@ -124,7 +132,7 @@ try:
         assert not any(key in command for command in frames for key in ['rom','filename','save','state'])
         # Raw tokens are intentionally excluded from published evidence.
         counts={kind:sum(command['type']==kind for command in frames) for kind in sorted({command['type'] for command in frames})}
-        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'host_file_to_room_no_extra_form':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_browser_race':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
+        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'host_file_to_room_no_extra_form':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_browser_race':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
         browser.close()
 finally:

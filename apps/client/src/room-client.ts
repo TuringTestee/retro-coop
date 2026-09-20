@@ -1,4 +1,5 @@
 import { clientConfig } from './config.ts';
+import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
 export type RoomState = { room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean };
@@ -70,7 +71,11 @@ export class RoomClient {
   this.publish({busy:true,status:'Creating your room…',retryAfterMs:undefined});
   try {
    await this.connect();if(this.intent !== intent || generation !== this.generation) return;
-   if(this.state.room) {if(this.state.room.role !== 'host') return;await this.request({type:'close'});if(this.intent !== intent) return;}
+   if(this.state.room) {
+    if(this.state.room.role !== 'host') {this.intent = undefined;this.publish({busy:false});return;}
+    if(matchesFile(this.state.room.fingerprint,fingerprint)) {this.intent = undefined;this.publish({busy:false,status:'Your local file matches the existing room. Its guest reservation is preserved.'});return;}
+    await this.request({type:'close'});if(this.intent !== intent) return;
+   }
    await this.request({type:'create',intent,visibility,fingerprint});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
    const data = await this.request({type:'confirmCreate',intent});
