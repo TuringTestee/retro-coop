@@ -1,3 +1,6 @@
+import {featuredAvailable} from 'virtual:featured-game';
+import {featuredGame,catalogId} from '../../../packages/contracts/src/catalog.ts';
+import {downloadFeatured} from './featured-download.ts';
 import type {LocalPlayer} from './player.ts';
 import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceSession,VoiceState} from './voice.ts';
@@ -10,7 +13,7 @@ import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onHost},ref) {
+export const RoomPanel = forwardRef<RoomPanelHandle,{onIncluded:(file:File,current:()=>boolean)=>void;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onHost:()=>void}>(function RoomPanel({onIncluded,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onHost},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
@@ -18,6 +21,49 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(
  const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
  const client = useRef<RoomClient|null>(null), selectedVisibility = useRef<Visibility>('public');
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
+ const [featuredOnly,setFeaturedOnly]=useState(false),[includedStatus,setIncludedStatus]=useState(''),[includedBusy,setIncludedBusy]=useState(false);
+ const included=useRef<{controller:AbortController;membership:string;candidate:boolean;sawLoading:boolean}|undefined>(undefined),attemptedGuest=useRef('');
+ const membership=state.room ? `${state.room.id}:${state.room.role}:${state.room.chatMembership}` : '';
+ const cancelIncluded=(message='Included loading canceled. Your previous game is preserved.')=>{
+  const operation=included.current;included.current=undefined;operation?.controller.abort();
+  if(operation?.candidate)player()?.cancel();
+  setIncludedBusy(false);if(operation)setIncludedStatus(message);
+ };
+ const startIncluded=async()=>{
+  if(!featuredAvailable){setIncludedStatus('Featured game not configured. Choose a local file instead.');return;}
+  if(state.room?.established){setIncludedStatus('Leave shared play before starting another game.');return;}
+  cancelIncluded('');
+  if(fingerprint && catalogId(fingerprint)===featuredGame.id){
+   setIncludedStatus('Using the From Below game already loaded in this tab.');
+   if(state.room?.role!=='guest') {if(!state.room)void client.current?.host(fingerprint,visibility);if(player()?.resume())client.current?.localPlayIntent();}
+   return;
+  }
+  client.current?.beginSelection();selectedVisibility.current=visibility;
+  const operation={controller:new AbortController(),membership,candidate:false,sawLoading:false};included.current=operation;
+  setIncludedBusy(true);setIncludedStatus('Downloading From Below…');
+  const current=()=>included.current===operation && !operation.controller.signal.aborted;
+  const timeout=window.setTimeout(()=>operation.controller.abort(Error('The included download timed out. Retry the download.')),15000);
+  try {
+   const file=await downloadFeatured(operation.controller.signal,bytes=>{if(current())setIncludedStatus(`Downloading From Below: ${bytes} / ${featuredGame.bytes} bytes`);});
+   if(!current())return;
+   operation.candidate=true;setIncludedStatus('Download verified. Starting From Below…');onIncluded(file,current);
+  }catch(error){
+   if(included.current===operation){included.current=undefined;setIncludedBusy(false);setIncludedStatus(error instanceof Error ? error.message : 'Download failed. Retry the included game.');}
+  }finally{clearTimeout(timeout);}
+ };
+ useEffect(()=>{const operation=included.current;if(operation && operation.membership!==membership)cancelIncluded('The room changed. Included loading canceled; your previous game is preserved.');},[membership]);
+ useEffect(()=>{
+  const operation=included.current;if(!operation?.candidate)return;
+  if(selectionLoading){operation.sawLoading=true;return;}
+  if(operation.sawLoading){operation.candidate=false;setIncludedBusy(false);setIncludedStatus(fingerprint && catalogId(fingerprint)===featuredGame.id ? 'From Below is loaded. Use the game’s title menu to begin.' : 'The game could not start. Check the player message below, then retry.');}
+ },[selectionLoading,fingerprint]);
+ useEffect(()=>{
+  if(state.room?.role!=='guest'){attemptedGuest.current='';return;}
+  if(attemptedGuest.current===membership)return;attemptedGuest.current=membership;
+  if(state.room.catalogId===featuredGame.id)void startIncluded();
+ },[membership,state.room?.catalogId]);
+ useEffect(()=>()=>{const operation=included.current;included.current=undefined;operation?.controller.abort();if(operation?.candidate)player()?.cancel();},[]);
+
  useEffect(()=>{
   const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'),policy,player);client.current = rooms;
   void rooms.watchDirectory();
@@ -32,8 +78,8 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
   beforeSelection() {
-   client.current?.beginSelection();selectedVisibility.current = visibility;return true;
-  },approveSelection(fingerprint,isCurrent){return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){client.current?.beginSelection();}
+   cancelIncluded();client.current?.beginSelection();selectedVisibility.current = visibility;return true;
+  },approveSelection(fingerprint,isCurrent){return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.beginSelection();}
  }),[visibility,state.room]);
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;
@@ -48,11 +94,19 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{controls:Controls;onVoice:(
  },[fingerprint,state.room?.id,state.room?.role]);
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
- return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2><p>Featured game not configured. You can play your own local NES game below.</p><button disabled>Included game unavailable</button></section><DirectoryPanel connection={<ConnectionPolicyControl policy={policy} change={changePolicy}/>} state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
+ return <><section className="featured-panel" aria-labelledby="featured-heading"><h2 id="featured-heading">Featured · From Below</h2>
+  <p>Clear falling blocks and hold back the Kraken.</p><p>{featuredAvailable ? 'Game included · Always available to start, even with no sessions online.' : 'Featured game not configured. You can play your own local NES game below.'}</p>
+  <button disabled={!featuredAvailable || includedBusy || !!room?.established || room?.role==='guest'} onClick={()=>void startIncluded()}>{featuredAvailable ? 'Start a session' : 'Included game unavailable'}</button>
+  <button onClick={()=>setFeaturedOnly(true)}>Browse its sessions ({(state.directory??[]).filter(room=>room.catalogId===featuredGame.id).length})</button>
+  {includedBusy && <button onClick={()=>{cancelIncluded();client.current?.beginSelection();}}>Cancel included loading</button>}
+  {includedStatus && <p role="status" data-testid="included-status">{includedStatus}</p>}
+  {!includedBusy && includedStatus && featuredAvailable && !room?.established && <button onClick={()=>void startIncluded()}>Retry included game</button>}
+  <details><summary>About From Below · instructions and credits</summary><p>This supplied version is single-player. Player 1 controls the game; it is not native two-player co-op.</p><p>Choose Kraken Battle, Classic, or Turn Based Kraken Battle in the game’s own menu. Focus the screen, use arrows to move, Enter for Start, X for A, and Z for B. Your mappings are available in Settings.</p><p>Game by Matt Hughson. Music and sound effects by Tui. Art by Haller Zoltan. Box art and manual by Dejah Payne.</p></details>
+ </section><DirectoryPanel featuredOnly={featuredOnly} onClearFeatured={()=>setFeaturedOnly(false)} connection={<ConnectionPolicyControl policy={policy} change={changePolicy}/>} state={state} onJoin={code=>void client.current?.joinCode(code)} onRetry={()=>void client.current?.watchDirectory()}/><section className="room-panel" aria-labelledby="room-heading">
   {!room && !invite && <button onClick={onHost}>Host a game</button>}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
-  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status} · Host-provided title. Bring your own matching local game file.</p>}
+  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status} · Host-provided title. {state.preview.catalogId===featuredGame.id ? 'From Below · Game included. Join downloads its verified copy.' : 'Bring your own matching local game file.'}</p>}
   {room?.established && <p>Player 1 · {room.host} (host)<br/>Player 2 · {room.guest}</p>}
   <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
   <details className="session-settings" open={!room?.established}><summary>Connection and session settings</summary>

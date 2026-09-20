@@ -237,17 +237,17 @@ export class LocalPlayer {
    reader.readAsArrayBuffer(file);
   });
  }
- async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false) {
-  if(!file || this.disposed) return; // A chooser cancellation does not replace the valid selection.
+ async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false,selectionCurrent:()=>boolean=()=>true) {
+  if(!file || this.disposed || !selectionCurrent()) return; // A chooser cancellation does not replace the valid selection.
   this.abandonCandidate(); const request = this.generation;
   this.activateAudio(); this.publish({loading:true,status:'Reading your file locally…'});
   try {
    const rom = await this.read(file);
-   if(request !== this.generation || this.disposed) return;
+   if(request !== this.generation || this.disposed || !selectionCurrent()) return;
    const cartridge = inspectCartridge(new Uint8Array(rom));
    this.publish({status:'Checking the exact file fingerprint…'});
    const romSha256 = hex(await crypto.subtle.digest('SHA-256',rom));
-   if(request !== this.generation || this.disposed) return;
+   if(request !== this.generation || this.disposed || !selectionCurrent()) return;
    this.publish({status:'Starting your game…'});
    const worker = new Worker(new URL('./worker.ts',import.meta.url),{type:'module'}); this.candidate = worker;
    const fail = (message: string) => {
@@ -265,9 +265,9 @@ export class LocalPlayer {
     }
     if(data.type === 'error') { fail(data.message); return; }
     if(data.type === 'ready') {
-     if(request !== this.generation || this.candidate !== worker) { worker.terminate(); return; }
+     if(request !== this.generation || this.candidate !== worker || !selectionCurrent()) { worker.terminate(); return; }
      const fingerprint:LocalFingerprint = {romSha256,coreSha256:data.coreSha256,localSchema:LOCAL_SCHEMA,settings:LOCAL_SETTINGS,cartridge};
-     const isCurrent=()=>request===this.generation && this.candidate===worker && !this.disposed;
+     const isCurrent=()=>request===this.generation && this.candidate===worker && !this.disposed && selectionCurrent();
      try {
       if(approve && !await approve(fingerprint,isCurrent)) {if(isCurrent()) this.cancel();return;}
      }catch {if(isCurrent()) fail('Unable to confirm the room change.');return;}
