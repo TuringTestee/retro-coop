@@ -1,0 +1,112 @@
+{
+  "result": "pass",
+  "source": {
+    "commit": "10515eabccabc3a86759dd4515e2859cb62ec4d7",
+    "tree": "106adf531d2d9ae88076e17d5a70c688e52730a6"
+  },
+  "browser": "145.0.7632.75",
+  "journey": "public built-in host -> second-browser directory -> one Join -> shared play",
+  "entry_route": "All public lobbies",
+  "room_id": "7UcAFT9cQlKsm6Dr8oQ_EBH3szuZzC69XH6zPnVk0rE",
+  "directory_row": [
+    "Super Tilt Bro",
+    "Included game",
+    "Guest Amber 1065",
+    "5YEBH8RB",
+    "1/2 \u00b7 waiting",
+    "Join"
+  ],
+  "join_clicks": 1,
+  "rom_picker_opened": false,
+  "catalog_id": "super-tilt-bro-pal",
+  "rom_sha256": "847155bb712e474f71554174c9d9ed402bf651b13ff1e4afc9a42ec69cd03d8d",
+  "synchronized_hash": {
+    "hash": "73ef8c99aaf4de8b0ca8290d39a8efcfb8136a64ca821457606293fedffcb8ce",
+    "frame": 360,
+    "fresh": false
+  },
+  "frames": [
+    522,
+    523
+  ],
+  "layouts": [
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "canvas": {
+        "width": 705.28125,
+        "height": 661.203125
+      },
+      "document": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "canvas": {
+        "width": 705.28125,
+        "height": 661.203125
+      },
+      "document": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  ],
+  "arbitrary_public": {
+    "entry_route": "All public lobbies",
+    "source_label": "Host-provided game",
+    "exact_local_file_prompt": true,
+    "matching_file_proceeded_to_shared_play": true,
+    "host_and_guest_filenames_absent_from_wire": true,
+    "rom_bytes_transferred": false,
+    "sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+    "pending_layout": {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "document": {
+        "width": 1280,
+        "height": 800
+      },
+      "room": {
+        "scrollHeight": 699,
+        "clientHeight": 699
+      }
+    }
+  },
+  "unlisted": {
+    "absent_from_directory": true,
+    "directory_room_ids_unchanged": [
+      "7UcAFT9cQlKsm6Dr8oQ_EBH3szuZzC69XH6zPnVk0rE",
+      "gXP-vB_r6CL6AQdnqVUiLvLMfj4HAbOzZSQyFcz7ZWk"
+    ],
+    "invitation_entry": true,
+    "exact_local_file_prompt": true,
+    "matching_file_proceeded_to_shared_play": true,
+    "invitation_layout": {
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "document": {
+        "width": 1280,
+        "height": 800
+      },
+      "room": {
+        "scrollHeight": 325,
+        "clientHeight": 325
+      }
+    }
+  },
+  "page_errors": [],
+  "duration_seconds": 12.39,
+  "limits": "Local same-origin coordinator and two desktop Chrome pages; public-Internet routing is outside this journey proof."
+}
