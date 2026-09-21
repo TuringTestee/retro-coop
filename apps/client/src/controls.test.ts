@@ -32,3 +32,11 @@ test('stored controls reject malformed shapes and cross-action conflicts without
  const missing=defaults();delete (missing.keyboard as Partial<typeof missing.keyboard>).b;assert.equal(validControls(missing),false);
  const disconnected=defaults();disconnected.device={id:'Saved controller',index:1};assert.equal(validControls(disconnected),true);
 });
+
+test('released pad buttons and axes stay neutral until each physical input releases',async()=>{
+ const {ReleasedInputs}=await import('./controls.ts');const latch=new ReleasedInputs();
+ latch.release(new Set(['button:0','axis:0:1']));assert.deepEqual([...latch.sample(new Set(['button:0','axis:0:1']))],[]);
+ assert.deepEqual([...latch.sample(new Set(['button:0','axis:0:1','button:1']))],['button:1']);
+ latch.sample(new Set(['button:0']));assert.deepEqual([...latch.sample(new Set(['button:0','axis:0:1']))],['axis:0:1']);
+ latch.sample(new Set());assert.deepEqual([...latch.sample(new Set(['button:0']))],['button:0']);
+});

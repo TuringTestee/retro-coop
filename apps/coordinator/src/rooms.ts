@@ -53,7 +53,7 @@ export class Rooms {
  private preview(room:Room): RoomPreview { return {id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil||room.guestReconnectUntil ? 'reconnecting' : room.established ? room.game.view().status==='playing'?'playing':'paused' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1}; }
  private view(room:Room,session:Session): RoomView { return {...this.preview(room),game:room.game.view(),established:!!room.established,...(room.guestReconnectUntil?{guestReconnectUntil:room.guestReconnectUntil}:{}),chatMembership:room.host===session ? room.intent:room.guestMembership!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,connectionPolicy:session.policy,peer:this.peers.view(room.id,session.policy),...(room.guest ? {guest:room.guest.nickname,guestMembership:room.guestMembership,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile)}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
  private publish(room:Room,directory=true) {this.peers.sync(room.confirmed && room.guest && !room.reconnectUntil ? {id:room.id,host:room.host,guest:room.guest,reservation:room.guestIntent!}:undefined,room.id); const peer=this.peers.view(room.id,room.host.policy);room.game.bind(peer.status==='connected'?peer.epoch:undefined);for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)});if(directory) this.publishDirectory(); }
- private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.game.stop('Player 2 left. Your local game is preserved.');room.established=false;room.guestReconnectUntil=undefined;room.chat.leave(room.guestMembership!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; room.guestMembership = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
+ private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.game.stop('Guest left. Your local game is preserved.');room.game.resetControllers();room.established=false;room.guestReconnectUntil=undefined;room.chat.leave(room.guestMembership!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; room.guestMembership = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
   room.game.stop('The room closed. Your local game is preserved.');this.peers.clear(room.id);
   this.rooms.delete(room.id); this.invites.delete(room.invite); if(room.code) this.codes.delete(room.code);
@@ -89,10 +89,14 @@ export class Rooms {
    if(command.type==='peerSignal') return {};
    this.publish(room,false);return {room:this.view(room,session)};
   }
-  if(command.type==='gameReady'||command.type==='gameAck'||command.type==='gamePause'||command.type==='gamePaused'||command.type==='gameResume'||command.type==='gameAbort') {
+  if(command.type==='gameControllerPropose'||command.type==='gameControllerRespond'||command.type==='gameControllerCancel'||command.type==='gameReady'||command.type==='gameAck'||command.type==='gamePause'||command.type==='gamePaused'||command.type==='gameResume'||command.type==='gameAbort') {
    const room=this.room(session),role=room.host===session?'host':'guest';
    try {
-    if(command.type==='gameReady') {
+    if(command.type==='gameControllerPropose'||command.type==='gameControllerRespond'||command.type==='gameControllerCancel') {
+     if(!room.guest||!room.host.send||!room.guest.send||room.reconnectUntil||room.guestReconnectUntil)throw new RoomError('game_prerequisites');
+     this.rate(session,'controllers',20,60_000);
+     if(command.type==='gameControllerPropose')room.game.proposeControllers(role,command);else room.game.respondControllers(role,command);
+    } else if(command.type==='gameReady') {
      this.rate(session,'gameReady',10,60_000);
      if(!room.guest || !room.guestFile || !matchesFile(room.fingerprint,room.guestFile) || this.peers.view(room.id,session.policy).status!=='connected') throw new RoomError('game_prerequisites');
      room.game.ready(role,command,room.established);
@@ -161,7 +165,7 @@ export class Rooms {
    if(!room.confirmed && now-room.created >= 5000) {this.close(room,'creation_expired');continue;}
    for(const token of room.kicked) if(!this.sessions.has(token)) room.kicked.delete(token);
    if(room.game.sweep()) this.publish(room,false);
-   if(room.established && room.guest && !room.guestReconnectUntil && now-room.guest.heartbeat>=limits.missedHeartbeat) {room.guestReconnectUntil=room.guest.heartbeat+limits.missedHeartbeat+limits.reconnect;room.game.stop('Player 2 is reconnecting. Shared play is paused.');this.publish(room);}
+   if(room.established && room.guest && !room.guestReconnectUntil && now-room.guest.heartbeat>=limits.missedHeartbeat) {room.guestReconnectUntil=room.guest.heartbeat+limits.missedHeartbeat+limits.reconnect;room.game.stop('Guest is reconnecting. Shared play is paused.');this.publish(room);}
    if(room.guestReconnectUntil && now>=room.guestReconnectUntil) this.releaseGuest(room,'guest_expired');
    if(room.guest && !room.established && room.reservationUntil! <= now) this.releaseGuest(room,'reservation_expired');
    if(!room.reconnectUntil && now-room.host.heartbeat >= limits.missedHeartbeat) {room.reconnectUntil = room.host.heartbeat+limits.missedHeartbeat+limits.reconnect;this.publish(room);}

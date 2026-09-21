@@ -1,0 +1,3 @@
+{"result": "pass", "seconds": 85.86}
+PASS: production shared frames, controller inputs, matching hashes and actual impaired packets
+elapsed_seconds=90.60

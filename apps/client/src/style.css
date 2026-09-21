@@ -31,3 +31,5 @@
 .shared-session.browsing>.directory-panel{display:block;grid-column:1/-1;grid-row:2}
 .shared-session.browsing>.panel,.shared-session.browsing>.room-panel{grid-row:3}
 @media(max-width:850px){.shared-session{grid-template-columns:minmax(0,1fr)}.shared-session>.panel,.shared-session>.room-panel{grid-column:1;grid-row:auto}.shared-session>.room-panel{order:2}.shared-session>footer{order:3}.shared-session.browsing>.panel,.shared-session.browsing>.room-panel{grid-row:auto}}
+
+.controller-mode{margin:18px 0;padding:14px;border:1px solid #52536e;border-radius:10px}.controller-mode label{display:grid;gap:6px;margin:12px 0}.controller-mode select{width:100%;max-width:100%;font:inherit;background:#303146;color:inherit;border:1px solid #77758d;border-radius:6px;padding:8px}.controller-mode fieldset{min-width:0;margin:12px 0;padding:10px;border:1px solid #64617c;border-radius:8px}.controller-mode p{overflow-wrap:anywhere}

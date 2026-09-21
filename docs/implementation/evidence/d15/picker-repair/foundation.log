@@ -1,0 +1,803 @@
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:39] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:39] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:39] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:39] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:40] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:40] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:40] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:40] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:40] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:40] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:41] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:41] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:41] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:41] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:44] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:44] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:44] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:44] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:45] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:46] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:46] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:49] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:50] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:51] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:53:52] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:52] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:55] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 10:53:55] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:55] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:53:55] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:53:55] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:00] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:04] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:04] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:04] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:04] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:07] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:07] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:07] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:07] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:11] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:11] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:23] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:24] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:24] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:34] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 10:54:34] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:34] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:34] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:34] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:36] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 10:54:36] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:36] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:36] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:36] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:36] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [20/Sep/2026 10:54:36] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:36] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:37] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:37] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:38] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:38] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/worker-BANepF4j.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /assets/retro_coop_d02-DZZ0sjs7.wasm HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:49] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:49] "GET /coordinator/ws HTTP/1.1" 404 -
+127.0.0.1 - - [20/Sep/2026 10:54:50] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:50] "GET /assets/index-RY7Q9Ih8.js HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:50] "GET /assets/index-ojmB4JwB.css HTTP/1.1" 200 -
+127.0.0.1 - - [20/Sep/2026 10:54:50] code 404, message File not found
+127.0.0.1 - - [20/Sep/2026 10:54:50] "GET /coordinator/ws HTTP/1.1" 404 -
+{
+  "rewind_worker": {
+    "regionalCpuMapperReplay": [
+      {
+        "region": 0,
+        "traceFrames": 737,
+        "targetFrame": 136,
+        "actualCycles": 21948348,
+        "clockRate": 1789772.625,
+        "actualRewoundSeconds": 10.00025184763344,
+        "history": {
+          "availableSeconds": 10,
+          "budgetBytes": 33554432,
+          "checkpoints": 11,
+          "clockRate": 1789772.625,
+          "cycles": 21948348,
+          "frame": 737,
+          "inputs": 615,
+          "maxSeconds": 10,
+          "peakBytes": 3324554,
+          "retainedBytes": 3324554,
+          "spanSeconds": 10.233205460945074,
+          "issue": null
+        },
+        "rewound": {
+          "availableSeconds": 0.23295361331163505,
+          "budgetBytes": 33554432,
+          "checkpoints": 1,
+          "clockRate": 1789772.625,
+          "cycles": 4050171,
+          "frame": 136,
+          "inputs": 14,
+          "maxSeconds": 10,
+          "peakBytes": 3617804,
+          "retainedBytes": 392075,
+          "spanSeconds": 0.23295361331163505,
+          "issue": null
+        },
+        "canonicalReplay": true,
+        "pixels": true,
+        "cpuBank": 1,
+        "partialSerial": 3,
+        "batteryByte": 121
+      },
+      {
+        "region": 1,
+        "traceFrames": 613,
+        "targetFrame": 112,
+        "actualCycles": 20380716,
+        "clockRate": 1662607,
+        "actualRewoundSeconds": 10.01860090809193,
+        "history": {
+          "availableSeconds": 10,
+          "budgetBytes": 33554432,
+          "checkpoints": 11,
+          "clockRate": 1662607,
+          "cycles": 20380716,
+          "frame": 613,
+          "inputs": 511,
+          "maxSeconds": 10,
+          "peakBytes": 3324502,
+          "retainedBytes": 3324502,
+          "spanSeconds": 10.218573000113677,
+          "issue": null
+        },
+        "rewound": {
+          "availableSeconds": 0.19997209202174657,
+          "budgetBytes": 33554432,
+          "checkpoints": 1,
+          "clockRate": 1662607,
+          "cycles": 3723720,
+          "frame": 112,
+          "inputs": 10,
+          "maxSeconds": 10,
+          "peakBytes": 3617764,
+          "retainedBytes": 392084,
+          "spanSeconds": 0.19997209202174657,
+          "issue": null
+        },
+        "canonicalReplay": true,
+        "pixels": true,
+        "cpuBank": 1,
+        "partialSerial": 3,
+        "batteryByte": 121
+      },
+      {
+        "region": 3,
+        "traceFrames": 613,
+        "targetFrame": 112,
+        "actualCycles": 21739437,
+        "clockRate": 1773447.5,
+        "actualRewoundSeconds": 10.01860331360246,
+        "history": {
+          "availableSeconds": 10,
+          "budgetBytes": 33554432,
+          "checkpoints": 11,
+          "clockRate": 1773447.5,
+          "cycles": 21739437,
+          "frame": 613,
+          "inputs": 511,
+          "maxSeconds": 10,
+          "peakBytes": 3324529,
+          "retainedBytes": 3324529,
+          "spanSeconds": 10.21857652961252,
+          "issue": null
+        },
+        "rewound": {
+          "availableSeconds": 0.1999732160100595,
+          "budgetBytes": 33554432,
+          "checkpoints": 1,
+          "clockRate": 1773447.5,
+          "cycles": 3971970,
+          "frame": 112,
+          "inputs": 10,
+          "maxSeconds": 10,
+          "peakBytes": 3617801,
+          "retainedBytes": 392089,
+          "spanSeconds": 0.1999732160100595,
+          "issue": null
+        },
+        "canonicalReplay": true,
+        "pixels": true,
+        "cpuBank": 1,
+        "partialSerial": 3,
+        "batteryByte": 121
+      }
+    ],
+    "requests": [
+      [
+        "GET",
+        "http://127.0.0.1:39499/"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/index-RY7Q9Ih8.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/index-ojmB4JwB.css"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ]
+    ]
+  },
+  "rewind_ui": {
+    "shortHistoryDisabled": true,
+    "cancelPreservesFrame": true,
+    "before": "653 frames",
+    "after": "52 frames",
+    "confirmedRewindPaused": true,
+    "explicitResumeWorks": true,
+    "replacementClearsHistory": true,
+    "mobileNoOverflow": true,
+    "resumedPcmObserved": {
+      "buffers": 658,
+      "finite": true,
+      "peak": 0.06666979938745499
+    },
+    "pageErrors": []
+  },
+  "persistence": {
+    "v1_slots_preserved_on_upgrade": true,
+    "actual_periodic_nonzero_battery_write": true,
+    "battery_import_before_first_frame": true,
+    "real_cpu_observed_restored_battery_at_boot": true,
+    "preferences_restored_for_exact_game": true,
+    "other_identity_backup_export": true,
+    "corrupt_data_retained_and_play_continues": true,
+    "corrupt_battery_export_delete_and_explicit_retry": true,
+    "stale_battery_delete_preserves_replacement_then_refreshes": true,
+    "clear_confirmation_cancel_preserves_records": true,
+    "cleared_epoch_blocks_other_tab_automatic_write": true,
+    "storage_denial_keeps_play_and_export": true,
+    "damaged_timestamp_blocks_automatic_write": true,
+    "damaged_timestamp_export_delete_preserves_unrelated": true,
+    "changed_damaged_timestamp_refuses_stale_delete": true,
+    "same_rom_replacement_captures_before_candidate_restore": true,
+    "mobile_no_overflow": true,
+    "page_errors": []
+  },
+  "saves": {
+    "stale_delete_preserves_new_record_and_requires_fresh_confirmation": true,
+    "quota_failure_keeps_slot_and_backup": true,
+    "concurrent_slot_change_requires_fresh_confirmation": true,
+    "slot_listing_gates_overwrite_decisions": true,
+    "failed_export_keeps_bytes_for_retry": true,
+    "superseded_worker_reply_ignored": true,
+    "storage_denial_keeps_memory_export": true,
+    "oversized_rejected_before_worker": true,
+    "unvalidated_profile_stays_playable": true,
+    "transaction_complete_before_success": true,
+    "aborted_overwrite_preserves_slot": true,
+    "memory_export_after_storage_failure": true,
+    "reload_requires_rom_and_retains_save": true,
+    "confirmed_restore": true,
+    "import_validates_without_changing_timeline": true,
+    "wrong_identity_and_malformed_preserve_slots": true,
+    "confirmed_delete_and_cancel": true,
+    "save_does_not_pause": true,
+    "mobile_no_overflow": true,
+    "escape_restores_focus": true,
+    "no_rom_record_or_upload": true,
+    "stored_file_bytes": 47211,
+    "page_errors": []
+  },
+  "state": {
+    "mirrored_cpu_addresses": [
+      40961,
+      49151,
+      49153,
+      57343
+    ],
+    "mirrored_early_and_lazy_export_import_replay": true,
+    "bytes": 96616,
+    "core_owned_limit": 2097152,
+    "matching_identity_across_first_export_and_import": true,
+    "restored_video_and_fresh_epoch_pcm_match": true,
+    "malformed_cases": 9,
+    "live_state_bytes_unchanged_on_failure": true,
+    "oversized_rejected_before_wasm_allocation": true,
+    "rom_mismatch_rejected": true,
+    "unvalidated_profile_keeps_play_and_battery": true,
+    "no_audio_presented": true,
+    "requests": [
+      [
+        "GET",
+        "http://127.0.0.1:39499/"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/index-RY7Q9Ih8.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/index-ojmB4JwB.css"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ]
+    ]
+  },
+  "battery": {
+    "mapper": 1,
+    "bytes": 32844,
+    "core_owned_limit": 2097152,
+    "exact_limit_reaches_validator": true,
+    "oversized_rejected_before_wasm_allocation": true,
+    "coreSha256": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4",
+    "correlated_roundtrip": true,
+    "malformed_cases": 9,
+    "failed_import_preserves_battery_and_future_pixels_pcm": true,
+    "exact_rom_mismatch_rejected": true,
+    "no_battery_error": true,
+    "audio_presented": false,
+    "requests": [
+      [
+        "GET",
+        "http://127.0.0.1:39499/"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/index-RY7Q9Ih8.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/index-ojmB4JwB.css"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+      ],
+      [
+        "GET",
+        "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+      ]
+    ]
+  },
+  "result": "pass",
+  "settings": {
+    "keyboard_remap_input_pixels": true,
+    "reserved_binding_conflict": true,
+    "gamepad_conflict_replaced_without_reopening": true,
+    "cancel_and_defaults_confirmation": true,
+    "gamepad_remap_input_pixels": true,
+    "gamepad_axis_capture": true,
+    "volume_applies_under_mute": true,
+    "reconnect_does_not_resume": true,
+    "focus_releases_gamepad": true,
+    "unplug_pauses_and_keyboard_resumes": true,
+    "presentation_preserves_progress_and_fingerprint": true,
+    "single_worker_through_settings": true,
+    "fullscreen_denial_and_exit": true,
+    "dialog_focus_restore_and_escape": true,
+    "mobile_no_overflow": true,
+    "game_only_muted": true,
+    "page_errors": []
+  },
+  "disconnected_startup": {
+    "first_and_replacement_load_wait_for_valid_input": true,
+    "resume_requires_current_device": true,
+    "reconnect_and_keyboard_fallback_require_explicit_resume": true
+  },
+  "browser": "145.0.7632.6",
+  "duration_seconds": 73.92,
+  "audio": {
+    "buffers": 270,
+    "peak": 0.06666979938745499,
+    "starts": 270,
+    "muted": true
+  },
+  "audio_denial_does_not_block_and_retry_recovers": true,
+  "input_changed_canvas": true,
+  "paused_canvas_stable": true,
+  "cancel_and_blur_preserve_previous": true,
+  "latest_selection_wins": true,
+  "invalid_header_and_mapper_preserve_previous": true,
+  "chooser_dismissal_preserved": true,
+  "exact_rom_and_core_sha256": true,
+  "unknown_mappers_loaded": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    7
+  ],
+  "nes2_over_8mib_loaded": true,
+  "picker_and_drop_start_automatically": true,
+  "mobile_no_overflow": true,
+  "page_errors": [],
+  "requests": [
+    [
+      "GET",
+      "http://127.0.0.1:39499/"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/index-RY7Q9Ih8.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/index-ojmB4JwB.css"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/worker-BANepF4j.js"
+    ],
+    [
+      "GET",
+      "http://127.0.0.1:39499/assets/retro_coop_d02-DZZ0sjs7.wasm"
+    ]
+  ],
+  "coordinator_url": "/coordinator"
+}
+elapsed_seconds=74.45

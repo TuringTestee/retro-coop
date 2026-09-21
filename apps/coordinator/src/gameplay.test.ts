@@ -36,3 +36,16 @@ test('progressed hosts, timeout, cancellation and changed peers cannot silently 
  assert.throws(()=>t.act(1,{type:'gameAck',epoch:ready.game?.epoch,hash:'c'.repeat(64)}),/stale_game/);
  t.act(1,{type:'leave',intent:t.joined.reservationIntent});assert.throws(()=>t.ready(1),/not_in_room/);
 });
+
+test('authenticated room routing protects controller requests and replacement guests',()=>{
+ const t=setup(),peerEpoch=t.joined.peer.epoch!;
+ const request={type:'gameControllerPropose',peerEpoch,revision:0,mode:'shared',p1:'guest'};
+ assert.throws(()=>t.act(1,request),/host_only/);
+ const proposed=t.act(0,request).room!,proposalId=proposed.game!.controllerProposal!.id;
+ const accept={type:'gameControllerRespond',peerEpoch,proposalId,accept:true};
+ t.act(0,accept);assert.equal(t.act(1,accept).room!.game!.controllers!.p1,'guest');
+ t.act(1,{type:'leave',intent:t.joined.reservationIntent});
+ const replacement=t.act(1,{type:'join',invite:t.joined.invite,intent:randomUUID()}).room!;
+ assert.equal(replacement.game!.controllers!.p1,'host');assert.equal(replacement.game!.controllers!.mode,'separate');assert.equal(replacement.game!.status,'paused');
+ assert.throws(()=>t.act(1,accept),/stale_game/);
+});

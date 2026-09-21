@@ -13,7 +13,7 @@ export function DirectoryPanel({state,onJoin,onRetry,connection}:{state:RoomStat
  return <section className="directory-panel" aria-labelledby="directory-heading">
   <h2 id="directory-heading">Public rooms</h2>
   {connection}
-  <p>Join reserves Player 2 for 120 seconds. Bring your own matching game file.</p>
+  <p>Join reserves Guest for 120 seconds. Bring your own matching game file.</p>
   <label>Search rooms, hosts or public code <input ref={search} type="search" value={query} maxLength={80} onChange={event=>setQuery(event.target.value)} onFocus={()=>{focusedRoom.current=undefined;}}/></label>
   {query && <button onClick={()=>{setQuery('');search.current?.focus();}}>Clear search</button>}
   {state.directoryStatus==='loading' && <p role="status">Loading rooms…</p>}
@@ -25,7 +25,7 @@ export function DirectoryPanel({state,onJoin,onRetry,connection}:{state:RoomStat
    {rooms.map(room=>{const joinable=live && !state.room && !state.busy && room.status==='waiting' && room.occupancy===1;return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
     <strong><span>{room.label}</span> <small className="hint">Host-provided title</small></strong><span>Bring your own matching ROM</span> <span>Hosted by {room.host}</span> <code>{room.code}</code>
     <span>{room.occupancy}/2 places · {room.status}</span>
-    <button aria-disabled={!joinable} onClick={()=>{if(joinable) onJoin(room.code!);}}>{room.status==='reconnecting' ? 'Host reconnecting' : room.occupancy===2 ? 'Player 2 reserved' : 'Join room'}</button>
+    <button aria-disabled={!joinable} onClick={()=>{if(joinable) onJoin(room.code!);}}>{room.status==='reconnecting' ? 'Host reconnecting' : room.occupancy===2 ? 'Guest reserved' : 'Join room'}</button>
    </li>;})}
   </ul>
   {state.room && <p>Leave or close your current room before joining another.</p>}
