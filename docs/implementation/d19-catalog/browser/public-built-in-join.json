@@ -1,18 +1,18 @@
 {
   "result": "pass",
   "source": {
-    "commit": "10515eabccabc3a86759dd4515e2859cb62ec4d7",
-    "tree": "106adf531d2d9ae88076e17d5a70c688e52730a6"
+    "commit": "79c796e421c3807c39f76d7f6ac4ca3614578715",
+    "tree": "b0fa7f8199ed86de324e040bb1b4673f4a9631e5"
   },
   "browser": "145.0.7632.75",
   "journey": "public built-in host -> second-browser directory -> one Join -> shared play",
   "entry_route": "All public lobbies",
-  "room_id": "7UcAFT9cQlKsm6Dr8oQ_EBH3szuZzC69XH6zPnVk0rE",
+  "room_id": "F_H0Xgdrx2GUxPHEY9DbPFo298MZSmjZeBGN8cdHfAQ",
   "directory_row": [
     "Super Tilt Bro",
     "Included game",
-    "Guest Amber 1065",
-    "5YEBH8RB",
+    "Guest Silver 8862",
+    "TPGHZAJ4",
     "1/2 \u00b7 waiting",
     "Join"
   ],
@@ -26,8 +26,8 @@
     "fresh": false
   },
   "frames": [
-    522,
-    523
+    579,
+    579
   ],
   "layouts": [
     {
@@ -63,6 +63,7 @@
     "entry_route": "All public lobbies",
     "source_label": "Host-provided game",
     "exact_local_file_prompt": true,
+    "visible_file_action_opened_picker": true,
     "matching_file_proceeded_to_shared_play": true,
     "host_and_guest_filenames_absent_from_wire": true,
     "rom_bytes_transferred": false,
@@ -85,11 +86,12 @@
   "unlisted": {
     "absent_from_directory": true,
     "directory_room_ids_unchanged": [
-      "7UcAFT9cQlKsm6Dr8oQ_EBH3szuZzC69XH6zPnVk0rE",
-      "gXP-vB_r6CL6AQdnqVUiLvLMfj4HAbOzZSQyFcz7ZWk"
+      "F_H0Xgdrx2GUxPHEY9DbPFo298MZSmjZeBGN8cdHfAQ",
+      "4D4yhg-JEqLPqM26OS8Nnj4ekpFoDp5noefykAV4XB8"
     ],
     "invitation_entry": true,
     "exact_local_file_prompt": true,
+    "visible_file_action_opened_picker": true,
     "matching_file_proceeded_to_shared_play": true,
     "invitation_layout": {
       "viewport": {
@@ -107,6 +109,6 @@
     }
   },
   "page_errors": [],
-  "duration_seconds": 12.39,
+  "duration_seconds": 13.93,
   "limits": "Local same-origin coordinator and two desktop Chrome pages; public-Internet routing is outside this journey proof."
 }
