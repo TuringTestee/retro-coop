@@ -59,12 +59,12 @@ try:
         observer.locator('.room-list button').focus()
         join.click();viewer.get_by_test_id('room-view').wait_for()
         assert viewer.get_by_test_id('frames').inner_text()=='0 frames'
-        assert 'Player 2 (reserved)' in viewer.get_by_test_id('room-view').inner_text()
-        observer.get_by_role('button',name='Player 2 reserved',exact=True).wait_for()
+        assert 'the guest (reserved)' in viewer.get_by_test_id('room-view').inner_text()
+        observer.get_by_role('button',name='Guest reserved',exact=True).wait_for()
         assert observer.locator('.room-list button').evaluate('(el)=>el===document.activeElement')
         assert observer.locator('.room-list').get_by_text('Host-provided title',exact=True).count()==1
         assert observer.locator('.room-list').get_by_text('Bring your own matching ROM',exact=True).count()==1
-        assert observer.get_by_role('button',name='Player 2 reserved',exact=True).is_disabled()
+        assert observer.get_by_role('button',name='Guest reserved',exact=True).is_disabled()
         viewer.set_input_files('input[type=file]',{'name':'PRIVATE-DIRECTORY-GUEST.nes','mimeType':'application/octet-stream','buffer':rom})
         viewer.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
         viewer.get_by_role('button',name='Cancel join',exact=True).click()

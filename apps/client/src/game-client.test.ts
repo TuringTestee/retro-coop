@@ -87,3 +87,26 @@ test('current input and completed state hash wake the existing frame owner witho
  assert.equal(driver.next(0),undefined,'frame advanced while its hash was pending');
  finishHash({hash});await setImmediate();assert.equal(wakes.length,121,'completed hash waited for polling');assert.ok(wakes.every(value=>value===epoch));
 });
+
+test('both clients map acknowledged P1 ownership and shared P1 discards even forged nonowner input',async()=>{
+ const {setImmediate}=await import('node:timers/promises');
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
+ const peerEpoch='p'.repeat(32),epoch='e'.repeat(32),hash='c'.repeat(64);
+ for(const mode of ['separate','shared'] as const)for(const p1 of ['host','guest'] as const)for(const role of ['host','guest'] as const){
+  let driver!:import('./player.ts').GameDriver;const sent:import('../../../packages/contracts/src/gameplay.ts').GamePacket[]=[];
+  const player={frameRate:()=>60,holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(){},stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+  const game=new GameClient(()=>player,async()=>{},()=>{}),controllers={mode,p1,revision:1};
+  const channel={readyState:'open',send(raw:string){sent.push(JSON.parse(raw));},onmessage:undefined} as unknown as RTCDataChannel;
+  game.enter({id:'room',role,matches:true,fingerprint,peer:{epoch:peerEpoch},game:{controllers,status:'paused'}} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+  game.selected(fingerprint);game.ready(channel,peerEpoch);await setImmediate();
+  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:3,controllers});await setImmediate();game.handle({type:'gameStart',peerEpoch,epoch,delay:3,controllers});
+  const local=role==='host'?1:2,remote=role==='host'?2:1;
+  for(let frame=0;frame<4;frame++){
+   channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch,frame,mask:frame<3?0:remote})}));
+   const next=driver.next(local)!;assert.ok(next);
+   if(frame===3)assert.deepEqual([next.p1,next.p2],[p1==='host'?1:2,mode==='shared'?0:p1==='host'?2:1],`${mode}/${p1}/${role}`);
+   driver.committed(frame);
+  }
+  const sampled=sent.find(packet=>packet.kind==='input'&&packet.frame===3);assert.equal(sampled?.kind==='input'?sampled.mask:undefined,mode==='shared'&&role!==p1?0:local);
+ }
+});

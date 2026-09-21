@@ -1,0 +1,67 @@
+{
+  "result": "pass",
+  "source": {
+    "commit": "de862986b1de6830d1848146bf803836b3360205",
+    "tree": "e117eba531c6dc3c80022035280d2d1c6c78b90c"
+  },
+  "build_files": {
+    "assets/retro_coop_d02-DZZ0sjs7.wasm": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4",
+    "assets/worker-BANepF4j.js": "77fb9083e3de31ce876ab8ac01054169ee2e71b17025d499ba8f564d1ed59d71",
+    "assets/index-RY7Q9Ih8.js": "6277277ad060dc678521197da11d648d2ee6792b317d5326bcd2e3d3ae1541b0"
+  },
+  "scenarios": [
+    {
+      "mapping": "separate swapped: guest P1, host P2",
+      "both_native_controller_ram": [
+        64,
+        128
+      ]
+    },
+    {
+      "mapping": "held keyboard repeat and gamepad suppressed after acceptance",
+      "both_native_controller_ram": [
+        0,
+        0
+      ]
+    },
+    {
+      "mapping": "shared guest owner: host input cannot write P1 or P2",
+      "both_native_controller_ram": [
+        128,
+        0
+      ]
+    },
+    {
+      "mapping": "shared host owner after accepted pass",
+      "both_native_controller_ram": [
+        128,
+        0
+      ]
+    }
+  ],
+  "decline_cancel_preserved_hash": {
+    "hash": "872749688a85ae12027c190265a148dfee71818cf05e5dabf938fb41f660ee6e",
+    "frame": 266,
+    "fresh": false
+  },
+  "final_equal_native_hash": {
+    "hash": "b5438d5f00d25df89dbdc3e31f7613b24e1bdc38a83e6c2fb294fa5a782c989d",
+    "frame": 457,
+    "fresh": false
+  },
+  "page_errors": [],
+  "seconds": 5.03,
+  "pair": "Chrome-Chrome",
+  "browser_instances": [
+    {
+      "kind": "Chrome",
+      "version": "145.0.7632.6"
+    },
+    {
+      "kind": "Chrome",
+      "version": "145.0.7632.6"
+    }
+  ],
+  "firefox_driver": "Playwright bundled patched Firefox",
+  "total_seconds": 10.84
+}

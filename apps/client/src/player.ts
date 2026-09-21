@@ -1,7 +1,7 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import type { WorkerRequest, WorkerResponse, LocalFileRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
-import { defaults, inputMask, padInputs, type Controls } from './controls.ts';
+import { defaults, inputMask, padInputs, ReleasedInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
@@ -139,9 +139,11 @@ export class LocalPlayer {
  }
  private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
- private release = () => { this.keys.clear(); };
+ private releasedPad=new ReleasedInputs();
+ private release = () => { this.keys.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
+ releaseControllers(){this.release();}
  private down = (event: KeyboardEvent) => {
-  if(!this.controls.device && document.activeElement === this.canvas && this.state.running && Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code))) {
+  if(!event.repeat && !this.controls.device && document.activeElement === this.canvas && this.state.running && Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code))) {
    event.preventDefault(); this.keys.add(event.code);
   }
  };
@@ -160,12 +162,13 @@ export class LocalPlayer {
  }
  private controllerMask(pad:Gamepad|null|undefined) {
   const selected=this.controls.device;
-  const pressed=document.activeElement===this.canvas?(selected?padInputs(pad):this.keys):new Set<string>();
+  const pressed=document.activeElement===this.canvas?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
   return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed);
  }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
   const {pad,available} = this.inputDevice();
+  this.releasedPad.sample(padInputs(pad));
   if(!available) {
    if(this.state.running) this.pause('device');
    if(!this.state.inputIssue) this.publish({inputIssue:disconnectedMessage});

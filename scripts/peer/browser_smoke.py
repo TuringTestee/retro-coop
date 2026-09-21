@@ -50,7 +50,7 @@ try:
     assert not data['gatherBeforeStart'];assert data['bytesSent']>0 and data['bytesReceived']>0
     if route=='relay':assert data['local']=='relay' and data['remote']=='relay' and data['policy']=='relay'
     result.append(data)
-   assert 'Player 2 (reserved)' in g.get_by_test_id('room-view').inner_text()
+   assert 'the guest (reserved)' in g.get_by_test_id('room-view').inner_text()
    return result
   # Model the observed native first-send discard before the remote channel receives data.
   # This deterministic timing model is not a claim to reproduce Chromium's internal race.

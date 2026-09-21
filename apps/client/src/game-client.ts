@@ -1,4 +1,4 @@
-import {gameplayLimits,parseGamePacket,type GameCommand,type GameEvent,type GamePacket,type GameReason} from '../../../packages/contracts/src/gameplay.ts';
+import {defaultControllers,gameplayLimits,parseGamePacket,type ControllerAssignment,type GameCommand,type GameEvent,type GamePacket,type GameReason} from '../../../packages/contracts/src/gameplay.ts';
 import {matchesFile,type Fingerprint,type RoomView} from '../../../packages/contracts/src/rooms.ts';
 import type {LocalPlayer} from './player.ts';
 import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
@@ -8,6 +8,7 @@ export type GameplayState={status:string;frame:number;delay?:number;hash?:string
 export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private renew=false;
  private roundTripMs=0;private channel?:RTCDataChannel;private peerEpoch?:string;private inspect?:string;
+ private controllers:ControllerAssignment={...defaultControllers};
  private scheduler?:GameScheduler;private prepared?:{epoch:string;delay:number};private early:GamePacket[]=[];
  private serial=0;private offeringSerial?:number;private offered?:string;private controlled=false;
  private fence?:number;private awaitingFence=false;private pausedSent=false;private hashing=false;private missingSince=0;
@@ -18,7 +19,8 @@ export class GameClient {
  enter(room?:RoomView){
   const previous=this.room;
   if(previous && (!room||previous.id!==room.id||previous.role!==room.role||(previous.role==='guest'&&previous.reservationIntent!==room.reservationIntent)))this.clear('Room membership changed. Shared play stopped.',true);
-  if(previous?.role==='host'&&previous.guest&&room?.id===previous.id&&!room.guest)this.clear('Player 2 left. Resume local play whenever you are ready.',true);
+  if(previous?.role==='host'&&previous.guest&&room?.id===previous.id&&!room.guest)this.clear('Guest left. Resume local play whenever you are ready.',true);
+  if(previous?.id===room?.id&&previous?.game?.controllers?.revision!==room?.game?.controllers?.revision){this.clear('Controller assignment changed. Both players must accept and prepare to resume.');this.player()?.releaseControllers();}
   this.room=room;if(!room)return;
   void this.offerGuest();
  }
@@ -38,7 +40,7 @@ export class GameClient {
   ++this.serial;this.intent=false;this.offered=undefined;this.offeringSerial=undefined;this.prepared=undefined;this.scheduler=undefined;this.early=[];this.fence=undefined;this.awaitingFence=false;this.hashing=false;
   if(this.controlled)this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.controlled=false;this.publish({status,busy:false});
  }
- private eligible(){return !!this.intent&&!!this.room&&!!this.file&&matchesFile(this.room.fingerprint,this.file)&&this.room.matches&&this.channel?.readyState==='open'&&this.peerEpoch===this.room.peer.epoch;}
+ private eligible(){return !!this.intent&&!!this.room&&!!this.file&&matchesFile(this.room.fingerprint,this.file)&&this.room.matches&&!this.room.game?.controllerProposal&&this.channel?.readyState==='open'&&this.peerEpoch===this.room.peer.epoch;}
  private async offerGuest(){if(this.room?.role==='guest'&&!this.room.established&&this.eligible())await this.offer();}
  private async offer(){
   const room=this.room,peerEpoch=this.peerEpoch,player=this.player();if(!room||!peerEpoch||!player||!this.eligible()||this.offeringSerial===this.serial)return;
@@ -47,7 +49,7 @@ export class GameClient {
   this.publish({busy:true,status:'Checking the committed machine state…'});
   try{
    const info=await player.holdForGame();if(serial!==this.serial||!this.eligible())return;
-   await this.send({type:'gameReady',peerEpoch,...info,delay:proposeInputDelay(this.roundTripMs,player.frameRate())});
+   await this.send({type:'gameReady',peerEpoch,...info,controllerRevision:room.game?.controllers?.revision??0,delay:proposeInputDelay(this.roundTripMs,player.frameRate())});
    if(serial!==this.serial)return;
    this.publish({busy:false,status:room.established?'Ready to resume. Waiting for the host and other player.':'Waiting for the matching initial-state barrier…'});
   }catch(error){if(serial===this.serial)this.clear(error instanceof Error?error.message:'Shared game could not prepare.',!room.established);}
@@ -66,7 +68,7 @@ export class GameClient {
   }
   if(event.peerEpoch!==this.peerEpoch||!this.eligible())return;
   if(event.type==='gamePrepare'){
-   const serial=this.serial;this.prepared={epoch:event.epoch,delay:event.delay};this.early=[];this.publish({status:'Starting together…',busy:true});
+   const serial=this.serial;this.controllers={...(event.controllers??defaultControllers)};this.prepared={epoch:event.epoch,delay:event.delay};this.early=[];this.publish({status:'Starting together…',busy:true});
    void this.player()!.holdForGame().then(info=>{if(serial!==this.serial||this.prepared?.epoch!==event.epoch)return;if(info.hash!==event.hash){this.fail('State changed during the start barrier.','mismatch');return;}return this.send({type:'gameAck',epoch:event.epoch,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'network');});
   }else if(event.type==='gameStart'){
    if(this.prepared?.epoch!==event.epoch)return;
@@ -90,9 +92,9 @@ export class GameClient {
   const scheduler=this.scheduler;if(!scheduler||this.awaitingFence||this.hashing||this.pausedSent)return;
   if(this.fence!==undefined&&scheduler.frame>=this.fence){void this.finishPause();return;}
   try{
-   scheduler.sample(this.fence!==undefined?0:mask);const input=scheduler.next();
+   scheduler.sample(this.fence!==undefined||this.controllers.mode==='shared'&&this.room?.role!==this.controllers.p1?0:mask);const input=scheduler.next();
    if(!input){this.missingSince ||= performance.now();this.publish({status:'Waiting for the other player’s input. Emulation is stopped.'});if(performance.now()-this.missingSince>gameplayLimits.stallMs)this.fail('Input stream stalled. Shared play is paused.','network');return;}
-   if(this.missingSince)this.publish({status:'Playing together.'});this.missingSince=0;return {frame:scheduler.frame,p1:input[this.room?.role==='host'?0:1],p2:input[this.room?.role==='host'?1:0]};
+   if(this.missingSince)this.publish({status:'Playing together.'});this.missingSince=0;const owner=this.room?.role===this.controllers.p1?0:1;return {frame:scheduler.frame,p1:input[owner],p2:this.controllers.mode==='shared'?0:input[owner===0?1:0]};
   }catch(error){this.fail(String(error),'network');}
  }
  private committed(frame:number){
