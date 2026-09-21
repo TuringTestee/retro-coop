@@ -4,7 +4,7 @@ Audience: Agent
 
 Retro Coop now has a React browser client and a small Node coordinator. The client runs the existing emulator in a worker using an original diagnostic cartridge; the coordinator reports health and shuts down cleanly. This is the D04 foundation, not completed local-play or room functionality.
 
-This document records the D04 checkpoint. For the current file-picker application, follow the [D05 local-player guide](d05-local-play.md); the diagnostic-only UI below is historical.
+This document records the historical D04 checkpoint. For the current application, follow the root [Play instructions](../../README.md#play); the diagnostic-only UI and commands below describe the earlier foundation.
 
 ## Setup and commands
 
@@ -27,7 +27,7 @@ In another terminal, `npm run coordinator` starts the health-only service on loo
 - `apps/client`: React/Vite shell, dedicated worker adapter and browser lifecycle. No production ROM picker, save UI or room controls (D05/D06/D08 remain separate).
 - `apps/coordinator`: Node's maintained built-in HTTP server, validated process configuration, health and bounded shutdown. No emulator, user-ROM endpoint or persistent state.
 - `packages/contracts`: explicit local worker request/response and health types. Requests validate controller bytes and nonempty buffers at runtime. ROM buffers transfer only to the browser worker. Future room/signaling contracts belong to D08.
-- `spikes/d02/demo/runtime`: extracted existing keyboard/gamepad mapping and bounded 48 kHz PCM scheduler. Both the accepted demo and new client import these modules; the existing demo remains runnable without npm tooling. This retains one owner for those proven rules.
+- `spikes/d02/demo/runtime`: extracted keyboard/gamepad mapping and the bounded 48 kHz PCM scheduler used by the current client. The superseded standalone demo was removed; these modules remain the single owner for those proven rules.
 - Worker calls only `local_*` exports of the existing Rust/TetaNES core. It never sends general cartridges through the narrow peer-checkpoint codec. Worker memory and core instances are discarded on restart; D05 owns production loading policies.
 
 Only `PUBLIC_` variables are visible to Vite. The public coordinator endpoint is `http://127.0.0.1:8787` in development, and `/coordinator` in staging/default builds. Staging expects a same-origin reverse proxy; no provider is selected or provisioned. Server-only `COORDINATOR_STAGE` (`local`/`staging`), `COORDINATOR_HOST`, and `COORDINATOR_PORT` are read only by the Node entry point. No secrets or server configuration are imported by the browser. `.env.local` and mode-specific local overrides are ignored. Never place secrets in `PUBLIC_` variables.
@@ -46,6 +46,6 @@ Real browser check, after preparing assets/building and installing the repositor
 python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
 ```
 
-Use `--chrome` to check installed Chrome instead of bundled Chromium. This check observes changed canvas pixels from controller input, real nonzero PCM buffers scheduled through a muted game gain, stable pause output, mobile overflow, browser errors and network requests. It captures matched empty/running screenshots and a mobile view. It never changes system/browser-global audio settings. The demo's existing browser smoke separately verifies extraction compatibility.
+Use `--chrome` to check installed Chrome instead of bundled Chromium. This check observes changed canvas pixels from controller input, real nonzero PCM buffers scheduled through a muted game gain, stable pause output, mobile overflow, browser errors and network requests. It captures matched empty/running screenshots and a mobile view. It never changes system/browser-global audio settings. The current public-entrypoint smoke verifies the maintained launcher and browser journey; shared runtime extraction remains covered by the current client tests.
 
 CI builds the application alongside the emulator, transfers the immutable client artifact to the core job, runs the browser smoke there, and retains its raw JSON/screenshots. The root preflight includes TypeScript and service/contract checks. Current test scheduling and budgets are owned by the governing [verification strategy](browser-nes-platform.md#verification-strategy); this D04 note records its delivery-time evidence.

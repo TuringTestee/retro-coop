@@ -16,7 +16,18 @@ if [ "$D02_JOB" = build ]; then
   npm ci
   sh scripts/foundation/prepare.sh
   npm run build:staging
+  timeout --foreground 60s python3 scripts/public_entrypoint_smoke.py
   timeout --foreground 60s sh scripts/preflight.sh
+  exit
+fi
+if [ "$D02_JOB" = entrypoint ]; then
+  python3 -m venv /tmp/d02-entrypoint-venv
+  /tmp/d02-entrypoint-venv/bin/pip install playwright==1.58.0
+  /tmp/d02-entrypoint-venv/bin/playwright install --with-deps chromium
+  export PATH="/tmp/d02-entrypoint-venv/bin:$PATH"
+  npm ci
+  RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
+  timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv
@@ -36,7 +47,6 @@ if [ "$D02_JOB" = core ]; then
   trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
   timeout --foreground 1200s python3 browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
   python3 verify_results.py browser-ci.local.json
-  timeout --foreground 60s python3 demo/demo_smoke.py fixture.local.nes --output demo-smoke.local.json
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/banked_ram_smoke.py --output spikes/d02/banked-ram.local.json)
   (cd ../.. && timeout --foreground 60s python3 scripts/staging/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)

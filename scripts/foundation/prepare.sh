@@ -1,9 +1,13 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/../.."
-(cd spikes/d02 && cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown)
+core=spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm
+if [ "${RETRO_COOP_PREBUILT_CORE:-0}" != 1 ]; then
+  (cd spikes/d02 && cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown)
+fi
+test -s "$core"
 mkdir -p apps/client/public/generated apps/client/src/generated
-cp spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm apps/client/src/generated/
+cp "$core" apps/client/src/generated/
 # Remove the previous unversioned build output during upgrade.
 rm -f apps/client/public/generated/retro_coop_d02.wasm
 cp spikes/d02/THIRD_PARTY_NOTICES.txt apps/client/public/generated/emulator-notices.txt

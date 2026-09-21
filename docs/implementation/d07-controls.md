@@ -16,7 +16,7 @@ The picture is nearest-neighbor by default. Scanlines add an overlay only on the
 
 ## Ownership and integration
 
-`spikes/d02/demo/runtime/input.js` owns the original keyboard and gamepad default mapping. Both demo and application derive their defaults from it. `apps/client/src/controls.ts` owns action names, reserved talk binding, conflict checks and input interpretation. `Settings.tsx` owns capture/confirmation/presentation UI. `LocalPlayer` still owns the single active emulator and its resources, now exposing `configureControls`, `useKeyboard` and `setVolume`. The existing load/pause/resume interface is unchanged for later room integration.
+`spikes/d02/demo/runtime/input.js` owns the original keyboard and gamepad default mapping consumed by the current application. `apps/client/src/controls.ts` owns action names, reserved talk binding, conflict checks and input interpretation. `Settings.tsx` owns capture/confirmation/presentation UI. `LocalPlayer` still owns the single active emulator and its resources, now exposing `configureControls`, `useKeyboard` and `setVolume`. The existing load/pause/resume interface is unchanged for later room integration.
 
 The display filter is CSS; it does not alter emulator output or local fingerprints. The future voice implementation must consume the reserved talk mapping rather than maintain a competing key. Current tests emulate browser gamepad readings to exercise actual UI/player behavior; this is not a physical-controller qualification matrix.
 

@@ -1,0 +1,9 @@
+{
+  "public_entrypoint_checks": [
+    {
+      "name": "documented lobby application ownership",
+      "command": "python3 scripts/public_entrypoint_smoke.py --source-only",
+      "timeout_seconds": 20
+    }
+  ]
+}

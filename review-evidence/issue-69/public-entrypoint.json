@@ -1,0 +1,28 @@
+{
+  "result": "pass",
+  "source_ownership": true,
+  "url": "http://127.0.0.1:8765/",
+  "legacy_url_serves_current_app": true,
+  "coordinator": "websocket accepted",
+  "catalog": {
+    "super_tilt_bro": 200,
+    "from_below": 200
+  },
+  "client_startup_failure_released_ports": [
+    8765,
+    8787
+  ],
+  "launcher_signals": {
+    "sigterm": "ports released; immediate next launch allowed",
+    "ctrl_c": "ports released; immediate next launch allowed"
+  },
+  "browser": {
+    "viewport_without_page_scroll": true,
+    "catalog_failure_retryable": true,
+    "directory_retry_recovered": true,
+    "catalog_failure_local_file_recovery": true,
+    "catalog_retry_loaded_super_tilt_bro": true,
+    "from_below_loaded_and_rendered": true,
+    "local_file_hosted": true
+  }
+}

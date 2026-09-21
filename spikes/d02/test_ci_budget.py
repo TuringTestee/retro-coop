@@ -19,10 +19,11 @@ class BudgetTests(unittest.TestCase):
         self.addCleanup(self.env.stop)
 
     def test_api_start_includes_setup_and_queue(self):
+        started = budget.timestamp('2026-09-13T00:00:00Z')
         with patch.object(budget, 'api', return_value={
                 'run_attempt': 1, 'run_started_at': '2026-09-13T00:00:00Z'}):
             self.assertEqual(budget.run_deadline(),
-                             budget.timestamp('2026-09-13T00:30:00Z'))
+                             started + budget.BUDGET_SECONDS)
         with self.assertRaises(ValueError):
             budget.timestamp('2026-09-13T00:00:00')
 

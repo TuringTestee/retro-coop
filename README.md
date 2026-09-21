@@ -2,19 +2,21 @@
 
 Retro Coop plays local NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. Two players with matching fresh games can play together in public or unlisted rooms, with text chat and optional voice. Joining an ongoing game and recovering a shared timeline are still being built.
 
-## Play the local demo
+## Play
 
-With Python 3 and Rust 1.95.0 (including the `wasm32-unknown-unknown` target) installed, run this from the repository root:
+Install Node.js 24.13.1, npm 11.8.0, Python 3, and Rust 1.95.0 with the `wasm32-unknown-unknown` target. From a clean checkout, run:
 
 ```sh
 sh scripts/demo.sh
 ```
 
-Then open **http://127.0.0.1:8765/demo/**. Choose your local NES `.nes` file, press Enter to start, and use the arrow keys with X/Z. Sound starts enabled for normal play; the Mute button controls only the game. No ROM is bundled or uploaded. See [setup and controls](spikes/d02/demo/README.md) for prerequisites and testing.
+Open **http://127.0.0.1:8765/**. The page immediately shows public lobbies and one-click **Play Super Tilt Bro** and **Play From Below** actions. You can also drop or choose another `.nes` file to host it; that file stays in your browser. After a game loads, its canvas becomes the main view and the play controls appear. Press Enter for Start, use the arrow keys to move, X for A, Z for B, and Shift for Select.
+
+This command starts the current client and a local room coordinator, and Ctrl-C stops both. It supports testing two browser windows on this computer. A friend on another network needs the deployed HTTPS application; local loopback addresses are not reachable from their computer.
 
 ## Application
 
-The React application now plays local NES files through a picker or drop target, with default keyboard/gamepad controls and no upload. See the [local-player guide](docs/implementation/d05-local-play.md) for setup, supported formats and verification. The [room coordinator](docs/implementation/d08-rooms.md) now creates anonymous public/unlisted rooms and reserves guest places. The public directory lists available rooms. Members can use text chat and [optional voice](docs/implementation/d17-voice.md). [Shared gameplay](docs/implementation/d11.md) starts matching fresh games automatically and supports a common pause and deliberate resume. [Manual saves](docs/implementation/d06-slots.md) provide three local slots and validated import/export; battery progress persists locally, and solo play has up to ten seconds of bounded rewind. Progress-preserving late join, reconnect/resynchronization and shared load/rewind remain later deliveries. Hardware qualification and public-route release testing are separate from the current representative browser evidence.
+The application plays included or local NES files with keyboard/gamepad controls, sound, saves and local rewind. The [room coordinator](docs/implementation/d08-rooms.md) creates anonymous public or unlisted rooms; matching fresh games can use shared play, text chat and [optional voice](docs/implementation/d17-voice.md). Progress-preserving late join, reconnect/resynchronization and shared load/rewind remain later deliveries. Hardware qualification and public-route release testing are separate from the current representative browser evidence.
 
 ## Start working
 

@@ -1,4 +1,4 @@
-"""Keep every presubmit command inside one conservative 30-minute run deadline."""
+"""Keep CI commands inside the event's shared absolute run deadline."""
 import argparse
 import datetime
 import json
@@ -11,7 +11,12 @@ import sys
 import time
 import urllib.request
 
-BUDGET_SECONDS = 1800
+try:
+    BUDGET_SECONDS = int(os.environ.get('D02_BUDGET_SECONDS', '1800'))
+except ValueError as error:
+    raise SystemExit('D02_BUDGET_SECONDS must be an integer') from error
+if not 60 <= BUDGET_SECONDS <= 1800:
+    raise SystemExit('D02_BUDGET_SECONDS must be between 60 and 1800')
 
 
 def timestamp(value):
