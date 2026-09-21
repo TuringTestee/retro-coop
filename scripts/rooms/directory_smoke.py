@@ -28,21 +28,40 @@ try:
             page.add_init_script('window.directorySockets=[]; const OriginalSocket=WebSocket; window.WebSocket=class extends OriginalSocket {constructor(...args){super(...args);directorySockets.push(this)}};')
             page.goto(url)
             return page
+        def open_connection(tab):
+            panel=tab.locator('.room-panel')
+            if not panel.is_visible():tab.get_by_role('button',name='Room',exact=True).click()
+            panel.wait_for(state='visible')
+            connection=panel.locator('details.session-settings')
+            if not connection.evaluate('(node)=>node.open'):
+                connection.get_by_text('Connection and session settings',exact=True).click()
+            return panel
+        def open_host_session(tab):
+            panel=open_connection(tab)
+            session=panel.locator('details.session-settings details').filter(has_text='Session settings')
+            if not session.evaluate('(node)=>node.open'):
+                session.get_by_text('Session settings',exact=True).click()
+            return panel
         viewer=page()
-        viewer.get_by_text('No public rooms yet. Host a game to start one.',exact=True).wait_for()
-        assert viewer.get_by_role('button',name='Included game unavailable').is_disabled()
-        viewer.get_by_role('button',name='Host a game',exact=True).click()
-        assert viewer.get_by_role('button',name='Choose NES file',exact=True).evaluate('(el)=>el===document.activeElement')
+        viewer.get_by_text('No public lobbies yet. Start a game above.',exact=True).wait_for()
+        launchers=viewer.locator('.catalog-launcher')
+        assert launchers.count()==2
+        for i in range(2):
+            action=launchers.nth(i).get_by_role('button').first;text=action.inner_text()
+            assert text=='Unavailable' or text.startswith('Play ')
+            assert action.is_disabled()==(text=='Unavailable')
+        choose=viewer.get_by_role('button',name='Choose NES file',exact=True);choose.focus()
+        assert choose.evaluate('(el)=>el===document.activeElement')
         hosts=[page(),page()]
         for host in hosts:
             host.set_input_files('input[type=file]',{'name':'PRIVATE-DIRECTORY-GAME.nes','mimeType':'application/octet-stream','buffer':rom})
-            host.get_by_test_id('room-view').wait_for()
-            host.get_by_text('Session settings',exact=True).click()
+            host.get_by_test_id('room-view').wait_for(state='attached')
+            open_host_session(host)
             host.get_by_label('Room name',exact=True).fill('Duplicate Arcade')
             host.get_by_role('button',name='Save room name',exact=True).click()
             host.wait_for_function("document.querySelector('#room-heading').textContent==='Duplicate Arcade'")
         viewer.wait_for_function("document.querySelectorAll('.room-list li').length===2")
-        search=viewer.get_by_label('Search rooms, hosts or public code')
+        search=viewer.get_by_label('Search room, host, or code')
         search.fill('dUPlicate')
         assert viewer.locator('.room-list li').count()==2
         codes=viewer.locator('.room-list code').all_text_contents()
@@ -55,27 +74,26 @@ try:
         hosts[0].get_by_role('button',name='Save room name',exact=True).click()
         viewer.get_by_text('Renamed Arcade',exact=True).wait_for()
         assert join.evaluate('(el)=>el===document.activeElement')
-        observer=page();observer.get_by_label('Search rooms, hosts or public code').fill(codes[0])
+        observer=page();observer.get_by_label('Search room, host, or code').fill(codes[0])
         observer.locator('.room-list button').focus()
-        join.click();viewer.get_by_test_id('room-view').wait_for()
+        join.click();viewer.get_by_test_id('room-view').wait_for(state='attached');open_connection(viewer)
         assert viewer.get_by_test_id('frames').inner_text()=='0 frames'
-        assert 'the guest (reserved)' in viewer.get_by_test_id('room-view').inner_text()
-        observer.get_by_role('button',name='Guest reserved',exact=True).wait_for()
+        assert 'Player 2 (reserved)' in viewer.get_by_test_id('room-view').inner_text()
+        observer.get_by_role('button',name='Full',exact=True).wait_for()
         assert observer.locator('.room-list button').evaluate('(el)=>el===document.activeElement')
-        assert observer.locator('.room-list').get_by_text('Host-provided title',exact=True).count()==1
-        assert observer.locator('.room-list').get_by_text('Bring your own matching ROM',exact=True).count()==1
-        assert observer.get_by_role('button',name='Guest reserved',exact=True).is_disabled()
+        assert observer.locator('.room-list').get_by_text('Host-provided game',exact=True).count()==1
+        assert observer.get_by_role('button',name='Full',exact=True).get_attribute('aria-disabled')=='true'
         viewer.set_input_files('input[type=file]',{'name':'PRIVATE-DIRECTORY-GUEST.nes','mimeType':'application/octet-stream','buffer':rom})
         viewer.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
-        viewer.get_by_role('button',name='Cancel join',exact=True).click()
+        open_connection(viewer).get_by_role('button',name='Cancel join',exact=True).click()
         viewer.get_by_test_id('room-view').wait_for(state='detached')
-        observer.get_by_role('button',name='Join room',exact=True).wait_for()
-        observer.get_by_role('button',name='Join room',exact=True).focus()
+        observer.get_by_role('button',name='Join',exact=True).wait_for()
+        observer.get_by_role('button',name='Join',exact=True).focus()
         hosts[0].get_by_label('Unlisted · invitation only',exact=True).click()
-        observer.get_by_text('No matching public rooms.',exact=True).wait_for()
-        assert observer.get_by_label('Search rooms, hosts or public code').evaluate('(el)=>el===document.activeElement')
+        observer.get_by_text('No matching public lobbies.',exact=True).wait_for()
+        assert observer.get_by_label('Search room, host, or code').evaluate('(el)=>el===document.activeElement')
         observer.get_by_role('button',name='Clear search',exact=True).click()
-        assert observer.get_by_label('Search rooms, hosts or public code').input_value()==''
+        assert observer.get_by_label('Search room, host, or code').input_value()==''
         observer.wait_for_function("document.querySelectorAll('.room-list li').length===1")
         observer.screenshot(path=str(output.with_suffix('.live.png')),full_page=True)
         # Close this tab's actual coordinator socket: stale rows remain visible and inert.

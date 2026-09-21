@@ -14,8 +14,8 @@ export function ChatPanel({state,connected,onDraft,onSend,onDiscard}:{state:Chat
   <p className="hint">Chat is temporary; messages from before you joined aren't shown.</p>
   <ol ref={log} onScroll={()=>{const element=log.current!;follow.current=element.scrollHeight-element.clientHeight-element.scrollTop<24;if(follow.current) setUnread(false);}} role="log" aria-label="Room messages" aria-live="polite" aria-relevant="additions text">{state.messages.map(message=><li key={message.id}><strong>{message.nickname} ({message.sender})</strong><p>{message.text}</p></li>)}</ol>
   {unread && <button onClick={()=>{follow.current=true;log.current!.scrollTop=log.current!.scrollHeight;setUnread(false);}}>New messages · Jump to latest</button>}
-  <form onSubmit={event=>{event.preventDefault();if(validChatText(state.draft) && !state.outbox) onSend();}}>
-   <label htmlFor="chat-message">Chat message</label><textarea id="chat-message" value={state.draft} readOnly={!!state.outbox} onChange={event=>onDraft(event.target.value)} onFocus={()=>setTyping(true)} onBlur={()=>setTyping(false)} aria-describedby="chat-help"/>
+  <form onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setTyping(false);}} onSubmit={event=>{event.preventDefault();if(validChatText(state.draft) && !state.outbox){setTyping(false);onSend();}}}>
+   <label htmlFor="chat-message">Chat message</label><textarea id="chat-message" value={state.draft} readOnly={!!state.outbox} onChange={event=>onDraft(event.target.value)} onFocus={()=>setTyping(true)} aria-describedby="chat-help"/>
    <p id="chat-help" className="hint">{typing ? 'Typing in chat · game input released. Focus the game screen to play.' : 'Focus the game screen to play.'} {count>=450 && `${count}/${CHAT_LIMITS.characters} characters`}</p>
    {count>CHAT_LIMITS.characters && <p role="status">Messages can contain at most {CHAT_LIMITS.characters} characters.</p>}
    {!state.outbox && <button disabled={!validChatText(state.draft)} type="submit">Send message</button>}

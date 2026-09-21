@@ -38,9 +38,22 @@ try:
      scripts=''.join('<script>(()=>{'+script.replace('</script','<\\/script')+'\n})();</script>' for script in fixtures[tab])
      route.fulfill(status=200,content_type='text/html',body=(root/'apps/client/dist/index.html').read_text().replace('<head>','<head>'+scripts,1))
     tab.route(url+'/',document)
-   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}");tab.goto(url)
-   if args.relay:tab.get_by_label('Connection privacy',exact=True).first.select_option('relay')
+   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}")
+   if args.relay:install_script(tab,"sessionStorage.setItem('retro-coop-connection-policy','relay')")
+   tab.goto(url)
    return tab
+  def open_room(tab):
+   panel=tab.locator('.room-panel')
+   if not panel.is_visible():tab.get_by_role('button',name='Room',exact=True).click()
+   panel.wait_for(state='visible');return panel
+  def open_connection(tab):
+   panel=open_room(tab);connection=panel.locator('details.session-settings')
+   if not connection.evaluate('(node)=>node.open'):connection.get_by_text('Connection and session settings',exact=True).click()
+   return panel
+  def open_host_session(tab):
+   panel=open_connection(tab);session=panel.locator('details.session-settings details').filter(has_text='Session settings')
+   if not session.evaluate('(node)=>node.open'):session.get_by_text('Session settings',exact=True).click()
+   return panel
   try:
    h=page();g=page()
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
@@ -60,7 +73,7 @@ try:
     g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
-    g.get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+    open_connection(g).get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
     h.wait_for_function("!proof.room.guest && proof.room.reservationUntil===undefined",polling=50)
     assert not h.evaluate('proof.room.established') and h.get_by_test_id('frames').inner_text()=='0 frames'
     h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
@@ -116,8 +129,7 @@ try:
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     if args.kick_playing:
      h.on('dialog',lambda dialog:dialog.accept())
-     h.get_by_text('Connection and session settings',exact=True).click();h.get_by_text('Session settings',exact=True).click()
-     h.get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+     open_host_session(h).get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
     else:
      cli=['node','apps/coordinator/src/operator-cli.ts',operator_dir]
      listing=json.loads(subprocess.run([*cli,'list'],cwd=root,capture_output=True,text=True,check=True,timeout=5).stdout)
@@ -126,7 +138,9 @@ try:
      assert 'Done.' in applied.stdout
      for tab in [h,g]:
       tab.get_by_test_id('room-view').wait_for(state='detached')
-      tab.get_by_test_id('room-status').filter(has_text='An operator closed' if args.operator_playing=='remove' else 'Access is temporarily restricted').wait_for()
+      panel=open_room(tab);status=panel.get_by_test_id('room-status').filter(has_text='An operator closed' if args.operator_playing=='remove' else 'Access is temporarily restricted')
+      if not status.is_visible() and panel.locator('details.session-settings').count():open_connection(tab)
+      status.wait_for()
 
     for tab in [h,g]:tab.wait_for_function("gamePeers.length>0 && gamePeers.every(p=>p.connectionState==='closed')")
     stopped=[tab.evaluate('proof.frameCount') for tab in [h,g]]
