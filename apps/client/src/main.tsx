@@ -17,12 +17,13 @@ import { Rewind } from './Rewind.tsx';
 import { Saves } from './Saves.tsx';
 import { Settings } from './Settings.tsx';
 import { defaults, type Controls } from './controls.ts';
+import {catalogEntry,catalogId} from '../../../packages/contracts/src/catalog.ts';
 
 function App() {
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
  const runtime = useRef<LocalPlayer | null>(null);
  const panel = useRef<HTMLElement>(null);
- const [rewind,setRewind]=useState(false);
+ const [rewind,setRewind]=useState(false),[help,setHelp]=useState(false);
  const [saves,setSaves]=useState(false),[localData,setLocalData]=useState(false),[returnSettings,setReturnSettings]=useState(false),[persistenceMessage,setPersistenceMessage]=useState('');
  const [controls,setControls] = useState<Controls>(defaults), [settings,setSettings] = useState(false);
  const [filter,setFilter] = useState<'nearest'|'scanlines'>('nearest'), [volume,setVolume] = useState(1);
@@ -47,16 +48,18 @@ function App() {
 
  useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
  const choose = () => { picker.current!.value = ''; picker.current!.click(); };
- return <main className={state.shared ? `shared-session ${browsing?'browsing':''}` : ''} data-coordinator={clientConfig.coordinatorUrl}>
-  <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{guest}</span>{state.shared && <button onClick={()=>setBrowsing(value=>!value)}>{browsing?'Return to game':'All sessions'}</button>}</header>
-  <section className="intro"><p className="eyebrow">Your game. Your browser.</p><h1>Pick a classic.<br/>Press play.</h1><p>Bring an NES cartridge file and jump straight into local play. No account, setup form, or upload.</p></section>
-  <RoomPanel onIncluded={load} selectionLoading={state.loading} ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onHost={()=>{panel.current?.scrollIntoView({behavior:'smooth'});panel.current?.querySelector('button')?.focus();}}/>
+ const showDiscovery=(!state.loaded&&!state.loading)||browsing, known=state.fingerprint?catalogId(state.fingerprint):undefined;
+ return <main className={`${showDiscovery?'discovery':'playing'}${browsing?' browsing':''}${state.shared?' shared-session':''}`} data-coordinator={clientConfig.coordinatorUrl}>
+  <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{guest}</span>{state.loaded&&<><button onClick={()=>setBrowsing(value=>!value)}>{browsing?'Return to game':'All lobbies'}</button><button onClick={()=>setSettings(true)}>Settings</button></>}</header>
+  <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => load(event.target.files?.[0])}/>
+  <RoomPanel showDiscovery={showDiscovery} onChoose={choose} onIncluded={load} selectionLoading={state.loading} ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onHost={()=>{panel.current?.querySelector('button')?.focus();}}/>
+  {showDiscovery&&state.status!=='Choose a game to start playing.'&&<p className="selection-status" role="status">{state.status}</p>}
   <section ref={panel} className={`panel ${drag ? 'drag' : ''}`} aria-labelledby="player-title" onDragOver={event => {event.preventDefault(); setDrag(true);}} onDragLeave={event => {if(!event.currentTarget.contains(event.relatedTarget as Node)) setDrag(false);}} onDrop={event => {event.preventDefault();setDrag(false);if(event.dataTransfer.files.length === 1) load(event.dataTransfer.files[0]); else runtime.current?.rejectSelection('Choose one NES cartridge at a time. Your previous game is preserved.');}}>
    <div><p className="eyebrow">{state.shared?'Shared play · your controller':'Local practice · your controls'}</p><h2 id="player-title">{state.shared ? (state.running?'Playing together':'Shared game paused') : state.loaded ? 'Your local game' : 'Drop your NES game here'}</h2>
    <p>{state.shared ? 'Your game stays on your device. Saves keep a local copy of your progress.' : state.loaded ? 'Your local game stays available if the room service cannot connect.' : 'Choose a file, or drop it anywhere in this panel. Your file stays on this device.'}</p>
-   <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => load(event.target.files?.[0])}/>
-   <div className="controls"><button onClick={choose}>{state.loaded ? 'Choose another file' : 'Choose NES file'}</button>{state.loading && <button onClick={() => {runtime.current?.cancel();rooms.current?.cancelCreation();}}>Cancel loading</button>}<button disabled={!state.loaded || state.loading} onClick={() => state.running ? runtime.current?.pause() : state.shared ? rooms.current?.readyToResume() : runtime.current?.resume() && rooms.current?.localPlayIntent()}>{state.running ? 'Pause' : state.shared ? 'Ready to resume' : 'Resume'}</button><button aria-pressed={muted} onClick={() => {const value = !muted;setMuted(value);runtime.current?.setMuted(value);}}>{muted ? 'Unmute' : 'Mute'}</button></div>
-   <div className="controls"><button disabled={!state.loaded || state.loading} onClick={()=>setSaves(true)}>Saves</button><button disabled={!state.loaded || state.loading || state.shared} onClick={()=>setRewind(true)}>Rewind</button><button onClick={()=>setSettings(true)}>Settings</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div>
+   {state.loading&&<div className="controls"><button onClick={() => {runtime.current?.cancel();rooms.current?.cancelCreation();}}>Cancel loading</button></div>}
+   {state.loaded&&<><div className="controls"><button onClick={choose}>Choose another file</button><button disabled={state.loading} onClick={() => state.running ? runtime.current?.pause() : state.shared ? rooms.current?.readyToResume() : runtime.current?.resume() && rooms.current?.localPlayIntent()}>{state.running ? 'Pause' : state.shared ? 'Ready to resume' : 'Resume'}</button><button aria-pressed={muted} onClick={() => {const value = !muted;setMuted(value);runtime.current?.setMuted(value);}}>{muted ? 'Unmute' : 'Mute'}</button></div>
+   <div className="controls"><button onClick={()=>setSaves(true)}>Saves</button><button disabled={state.shared} onClick={()=>setRewind(true)}>Rewind</button><button onClick={()=>setSettings(true)}>Settings</button><button onClick={()=>setHelp(true)}>Game help</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div></>}
    {fullscreen && <p className="hint">Press Esc or Exit fullscreen to return.</p>}{fullscreenIssue && <p role="status">{fullscreenIssue}</p>}
    {state.inputIssue && <p role="alert">{state.inputIssue} <button onClick={()=>{changeControls({...controls,device:null});runtime.current?.useKeyboard();}}>Use keyboard</button></p>}
    <p role="status" data-testid="player-status" aria-live="polite">{state.status}</p>{state.audioIssue && <p className="hint">{state.audioIssue} <button onClick={() => runtime.current?.retryAudio()}>Retry sound</button></p>}
@@ -73,6 +76,7 @@ function App() {
   <Rewind open={rewind && state.loaded && !state.loading} close={()=>setRewind(false)} player={runtime.current}/>
   <Saves open={saves && state.loaded && !state.loading} close={()=>setSaves(false)} player={runtime.current} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
   <Settings voice={<VoiceControls state={voice} voice={rooms.current?.voice()}/>} localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
+  {help&&<dialog open className="settings game-help" aria-labelledby="game-help-title"><button className="settings-close" onClick={()=>setHelp(false)}>Close</button><h2 id="game-help-title">Game help{known?` · ${catalogEntry(known).title}`:''}</h2><p>{known?catalogEntry(known).instructions:'Focus the screen to play. Default arrows move, X is A, Z is B, Enter is Start, and Shift is Select.'}</p><p>{known?catalogEntry(known).credits:'This local file was supplied by the player; consult its creator for game-specific instructions and credits.'}</p>{known&&<p>{catalogEntry(known).license}</p>}</dialog>}
   <footer>Your game runs in this browser. Room metadata, connection signaling and temporary chat go to the service; your game file stays here. Optional voice goes to the other player through the peer connection.</footer>
  </main>;
 }

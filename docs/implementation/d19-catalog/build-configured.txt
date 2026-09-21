@@ -1,0 +1,27 @@
+
+> build:staging
+> npm run typecheck && npm run build:staging -w @retro-coop/client
+
+
+> typecheck
+> tsc --noEmit
+
+
+> build:staging
+> vite build --mode staging
+
+vite v8.3.0 building client environment for staging...
+transforming...
+✓ 51 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                                                         0.39 kB │ gzip:   0.27 kB
+dist/client-licenses.txt                                                                                3.42 kB │ gzip:   0.77 kB
+dist/assets/worker-BANepF4j.js                                                                          4.91 kB
+dist/catalog/from-below-1.0-1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555.nes       40.97 kB
+dist/catalog/super-tilt-bro-e-847155bb712e474f71554174c9d9ed402bf651b13ff1e4afc9a42ec69cd03d8d.nes    524.30 kB
+dist/assets/retro_coop_d02-DZZ0sjs7.wasm                                                            3,145.82 kB │ gzip: 844.63 kB
+dist/assets/index-B67LXVN0.css                                                                         12.41 kB │ gzip:   3.36 kB
+dist/assets/index-GKPzKNON.js                                                                         339.33 kB │ gzip: 103.44 kB
+
+✓ built in 210ms

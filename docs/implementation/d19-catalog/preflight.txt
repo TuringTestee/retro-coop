@@ -1,0 +1,207 @@
+PASS: vendored core provenance, exact file inventory and bounded patch bytes
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling libc v0.2.189
+   Compiling serde_core v1.0.229
+   Compiling version_check v0.9.5
+   Compiling cfg-if v1.0.4
+   Compiling typenum v1.20.1
+   Compiling serde v1.0.229
+   Compiling rand_core v0.10.1
+   Compiling crc32fast v1.5.2
+   Compiling getrandom v0.4.3
+   Compiling option-ext v0.2.0
+   Compiling adler2 v2.0.1
+   Compiling zmij v1.0.23
+   Compiling cpufeatures v0.3.1
+   Compiling once_cell v1.21.4
+   Compiling simd-adler32 v0.3.10
+   Compiling thiserror v2.0.20
+   Compiling chacha20 v0.10.2
+   Compiling unty v0.0.4
+   Compiling generic-array v0.14.7
+   Compiling pin-project-lite v0.2.17
+   Compiling miniz_oxide v0.9.1
+   Compiling tracing-core v0.1.36
+   Compiling serde_json v1.0.151
+   Compiling tetanes-core v0.17.0 (/tmp/retro-d19-catalog/vendor/tetanes-core)
+   Compiling itoa v1.0.18
+   Compiling cpufeatures v0.2.17
+   Compiling memchr v2.8.3
+   Compiling tracing v0.1.44
+   Compiling flate2 v1.1.10
+   Compiling syn v3.0.5
+   Compiling dirs-sys v0.5.0
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling dirs v6.0.0
+   Compiling rand v0.10.2
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.20
+   Compiling bitflags v2.13.2
+   Compiling bincode v2.0.1
+   Compiling retro-coop-d02 v0.1.0 (/tmp/retro-d19-catalog/spikes/d02)
+    Finished `release` profile [optimized] target(s) in 20.67s
+     Running unittests src/lib.rs (target/release/deps/retro_coop_d02-e5bd0ecdc9919497)
+
+running 29 tests
+test battery::tests::mmc1_bank_partial_serial_state_and_ram_survive_battery_restore ... ok
+test battery::tests::invalid_battery_files_are_transactional_and_identity_is_exact ... ok
+test local_player::tests::battery_abi_bounds_binding_and_failure_preserve_loaded_game ... ok
+test banked_ram::cpu_banks_mirrors_enable_and_serial_reset_follow_board_wiring ... ok
+test local_state::tests::chr_rom_axrom_banks_and_chr_ram_are_restored_from_local_geometry ... ok
+test local_state::tests::dma_instruction_can_cross_frame_boundary_without_losing_the_save ... ok
+test local_state::tests::parser_caps_and_canonical_form_reject_before_typed_decode ... ok
+test battery::tests::mmc3_and_bandai_battery_extensions_roundtrip_and_replay ... ok
+test checkpoint::tests::preserves_cpu_jam_flag_which_upstream_omits ... ok
+test local_state::tests::unvalidated_save_profile_never_blocks_local_play_or_battery ... ok
+test memory_tail::tests::fragment_contains_only_mutable_tail_and_preserves_local_rom ... ok
+test memory_tail::tests::invalid_fragments_leave_all_memory_untouched ... ok
+test memory_tail::tests::upstream_memory_decoder_accepts_small_payload_requesting_large_arena ... ok
+test realtime_tests::manual_controller_ports_render_and_release ... ok
+test local_state::tests::validation_only_uses_restore_decoder_without_replacing_progress ... ok
+test rewind::tests::actual_capacity_at_the_shared_file_limit_leaves_room_for_restore_scratch ... ok
+test checkpoint::tests::adversarial_inputs_fail_before_mutating_live_core ... ok
+test local_state::tests::untrusted_geometry_types_clocks_mapper_registers_and_identity_are_transactional ... ok
+test rewind::tests::wrapped_cpu_cycles_short_history_and_invalid_targets_preserve_state ... ok
+test local_state::tests::real_cpu_mirrored_mmc1_writes_restore_with_early_and_lazy_codecs ... ok
+test local_player::tests::non_nrom_local_save_replay_and_errors ... ok
+test checkpoint::tests::complete_roundtrip_restores_hardware_and_new_audio_epoch ... ok
+test banked_ram::banked_state_battery_partial_serial_and_invalid_imports_share_existing_owners ... ok
+test local_state::tests::live_hash_covers_power_on_mapper_and_identity_without_relaxing_restore ... ok
+test local_state::tests::codec_identity_is_stable_after_play_and_pal_five_step_timing_is_valid ... ok
+test local_state::tests::changed_banks_partial_serial_irq_and_regions_restore_then_replay ... ok
+test realtime_tests::presentation_filter_preserves_core_checkpoint_and_raw_video ... ok
+test banked_ram::cpu_written_banked_progress_rewinds_ten_actual_regional_seconds ... ok
+test rewind::tests::regional_changed_banks_ram_serial_irq_rewind_with_capacity_accounting ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.26s
+
+PASS: worklet capacity, actual PCM, underrun, epoch flush/fade, stale rejection, drain notification and frozen accounting
+PASS: bounded scheduling resumes identical inputs; absolute voice slots avoid drift and expose missed samples
+PASS: actual hello match/mismatch, bounded input/hash envelopes and duplicate rejection
+.......
+----------------------------------------------------------------------
+Ran 7 tests in 0.123s
+
+OK
+..................
+----------------------------------------------------------------------
+Ran 18 tests in 3.459s
+
+OK
+......
+----------------------------------------------------------------------
+Ran 6 tests in 0.035s
+
+OK
+
+> typecheck
+> tsc --noEmit
+
+
+> test
+> node --test apps/coordinator/src/*.test.ts packages/contracts/src/*.test.ts apps/client/src/*.test.ts
+
+✔ admission is structural, accepts unknown mapper metadata and large valid files (1.35542ms)
+✔ malformed header, truncation and impossible NES2 exponent sizes fail locally (0.704847ms)
+✔ neutral defaults depend only on random values, never cartridge data (2.445068ms)
+✔ ordered catalog downloads exact immutable assets (56.629006ms)
+✔ truncation, excess, wrong hash, declared size, and network failures reject (10.823924ms)
+✔ cancellation and a late older response cannot yield a file (1.465759ms)
+✔ explicit retry preserves message identity and draft, and membership changes reject late responses (5.858575ms)
+✔ received own message confirms delivery once; stale membership events cannot leak into a rejoin (2.493816ms)
+✔ current-member chat retains at most 100 messages and clears on room closure (1.350615ms)
+✔ all eight NES inputs and reserved talk binding share conflict detection (1.653287ms)
+✔ gamepad axes/buttons use the demo-owned defaults and custom assignments (0.560964ms)
+✔ default restoration returns independent mapping arrays (0.859063ms)
+✔ stored controls reject malformed shapes and cross-action conflicts without throwing (0.971671ms)
+✔ directory pages are deterministic and clamp after filtering or live removal (2.00972ms)
+✔ a replaced peer channel cannot change the current game through a delayed message (33.905052ms)
+✔ a completed old readiness request cannot overwrite a later membership change (7.41882ms)
+✔ explicit host retry submits readiness regardless of guest inspection order (1.785088ms)
+✔ canceling an in-flight readiness offer releases only that operation ownership (5.026619ms)
+✔ current input and completed state hash wake the existing frame owner without polling (7.868402ms)
+✔ two independent delayed schedulers commit identical controller pairs through packet stalls (7.621294ms)
+✔ epochs, bounded windows, duplicates and missing hashes cannot advance a wrong timeline (5.068273ms)
+✔ ordered checkpoint admission rejects omitted checkpoints and repeats after comparison (0.570717ms)
+✔ fixed input proposal uses observed round trip and worker-reported pacing rate within approved bounds (0.533461ms)
+✔ late permission grant after leaving stops capture and cannot attach to replacement peer (8.915903ms)
+✔ blur during permission request stays muted; push-to-talk release and device end stop transmission (5.486086ms)
+✔ switching devices stops the old capture and requires deliberate unmute (1.252017ms)
+✔ permission denial preserves a useful retry state without touching gameplay (0.625514ms)
+✔ leaving before queued setup begins never asks for microphone permission (2.305442ms)
+✔ selected Chrome and Firefox candidate pairs report the actual route (6.098861ms)
+✔ transient disconnect recovers once; failed still terminates transport (13.547725ms)
+✔ transient disconnect recovers once; channel-close still terminates transport (2.010778ms)
+✔ transient disconnect recovers once; channel-error still terminates transport (2.5681ms)
+✔ a replaced connection cannot deliver its delayed readiness or RTT (4.077789ms)
+✔ chat is membership-scoped, works before a guest ROM and never replays pre-join history (17.296871ms)
+✔ latest retry receipt survives other members messages without rebroadcasting uncertain delivery (1.797039ms)
+✔ chat wire format enforces Unicode character bound and rejects attachments or forged fields (1.181936ms)
+✔ exact file prerequisites and both initial acknowledgements precede established membership (16.160504ms)
+✔ progressed hosts, timeout, cancellation and changed peers cannot silently start or promote (7.913255ms)
+✔ confirmed kick cannot remove a replacement guest; current kick revokes only its target (15.683967ms)
+✔ reusing a client intent never restores a prior membership or delayed chat authority (2.410366ms)
+✔ host actions target the confirmed room, not a newer room belonging to the same host (1.250256ms)
+✔ host mutation wire schema requires exact targets and rejects public authority extensions (1.214943ms)
+✔ operator listener requires private owned directory and has no public HTTP or WebSocket command (74.444606ms)
+✔ confirmed operator removal closes exact room and directory entry without disclosing private content (23.923124ms)
+✔ address block revokes old token, targets canonical proxy client, rejects fresh connections and expires (17.070111ms)
+✔ changed admission membership invalidates prepared block and malformed commands cannot mutate (10.909251ms)
+✔ confirmation expires, consumes failed targets, and bounds pending requests (1.257249ms)
+✔ a stale transport cannot revoke a session that moved to another connection (0.22708ms)
+✔ CLI presents exact action and cancellation leaves target connected (132.844799ms)
+✔ actual coordinator entry point enables only private operator socket and shuts it down (166.220935ms)
+✔ CLI escapes terminal direction controls in untrusted room labels (229.807673ms)
+✔ both authenticated members acknowledge effective relay before any signal is forwarded (16.876121ms)
+✔ relay denial never emits preparation; released capacity supports explicit retry (2.482268ms)
+✔ policy and socket changes invalidate epochs; cancellation and expiry remove signaling authority (2.523391ms)
+✔ negotiation timeouts and signaling schema are bounded independently of room lease (1.765618ms)
+✔ hello applies stricter policy before recovering an existing room transport (1.107839ms)
+✔ public-code admission captures the same strict policy before preparing peers (0.750458ms)
+✔ either local policy change renews the epoch even when the other peer keeps relay required (0.997906ms)
+✔ preparing deadline publishes failed state to both members without another command (0.975521ms)
+✔ connecting deadline publishes failed state to both members without another command (1.055378ms)
+✔ ICE completion markers remain authenticated and safe under relay-only policy (6.409103ms)
+✔ trusted proxy preserves per-client admission rather than capping the entire deployment at twenty sockets (64.169351ms)
+✔ one trusted client still hits its address limit and direct clients cannot spoof forwarding identity (41.249803ms)
+✔ trusted path rejects absent, invalid and ambiguous identity instead of guessing a client (5.581369ms)
+✔ proxy trust must be explicit literal addresses, never arbitrary forwarded-header trust (1.517053ms)
+✔ equivalent IPv6 and IPv4-mapped addresses share quota and proxy identities (0.224038ms)
+✔ creation acknowledgement and cancellation never expose stale invitations (5.70754ms)
+✔ unlisted preview excludes hashes and codes, host alone controls room mutations (2.632632ms)
+✔ two concurrent contenders have one winner and cancellation frees the slot immediately (1.429875ms)
+✔ mismatch, reconnect and retries do not extend the initial 120-second reservation (1.657498ms)
+✔ only host membership receives heartbeat detection and 60-second recovery grace (0.810768ms)
+✔ unused sessions expire, capacity is bounded, rate limits state their retry time (3.319581ms)
+✔ strict metadata schema rejects uploads, arbitrary fields and malformed values (0.801359ms)
+✔ real WebSockets enforce origin/auth/schema and atomic reservations across clients (59.794309ms)
+✔ delayed cancellation cannot release a newer reservation from the same guest (0.706503ms)
+✔ directory publishes admitted public metadata through reservation, visibility and recovery (1.793093ms)
+✔ public-code admission shares invitation slot ownership, deadline and invalid-attempt limits (0.920446ms)
+✔ public-code allocation retries collisions atomically and fails without creating a room (0.690998ms)
+✔ health is content-free, other routes reject, shutdown closes listener (46.080197ms)
+✔ configuration is explicit and rejects bad ports/stages (0.518392ms)
+✔ SIGTERM exits a running coordinator cleanly (191.501391ms)
+✔ directory search preserves distinct same-name rooms and supports names or exact normalized codes (6.114908ms)
+✔ shared fingerprint preserves exact file, emulator, schema and settings identity (3.762992ms)
+✔ worker accepts transferable ROMs and controller bytes, rejects malformed inputs (2.079669ms)
+✔ battery request shape is correlated; loaded core owns the file-size policy (0.65115ms)
+✔ state operations reuse local-file shape and correlation validation (0.275386ms)
+✔ shared worker frames require a valid paired epoch and frame, and hash reuses the local RPC boundary (0.662236ms)
+✔ rewind uses correlated finite-duration commands without a second file-size policy (0.295473ms)
+ℹ tests 88
+ℹ suites 0
+ℹ pass 88
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1299.446979
+Pre-flight passed (repository hygiene and D02 codec regression tests).
+
+wall_seconds=46.59
