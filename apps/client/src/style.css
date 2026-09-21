@@ -43,3 +43,4 @@ html,body,#root{width:100%;height:100%;overflow:hidden}body{min-width:640px}main
 .discovery>.room-panel,.discovery>.panel,.browsing>.room-panel,.browsing>.panel,.directory-panel>.connection-policy{display:none}
 .selection-status{position:fixed;z-index:4;left:50%;bottom:12px;transform:translateX(-50%);margin:0;padding:8px 12px;max-width:min(680px,90vw);background:#242638;border:1px solid #77799c;border-radius:8px}
 .playing .screen{width:min(100%,calc((100dvh - 76px)*256/240));height:auto;max-height:100%;align-self:center}.playing .screen canvas{width:100%;height:auto;max-height:100%}
+.discovery>.room-panel.invitation,.discovery>.room-panel.pending-room{display:block;position:fixed;z-index:6;inset:64px 20px auto auto;width:min(430px,calc(100vw - 40px));max-height:calc(100dvh - 84px);overflow:auto;box-shadow:0 12px 40px #000b}

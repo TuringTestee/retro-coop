@@ -17,7 +17,7 @@ Discovery uses a `100dvh` shell. It has no hero, slogan, About card, catalog tab
 | UJS-1 | Both ordered Play actions downloaded their pinned files and reached rendered frames without a picker. |
 | UJS-2 | Six real public rooms produced two directory pages with game, host, occupancy, status, and Join; paging moved focus and used no nested scrolling. |
 | UJS-3 | An arbitrary generated NES file loaded, rendered, and created a public room; its filename never appeared in the product or wire-facing evidence. Invalid bytes kept discovery and the picker visible with a specific error. |
-| UJS-4 | The post-load canvas is the largest panel. Pause, Saves, Rewind, Settings, Game help, and Fullscreen are absent before load. All lobbies retained the same runtime and frames advanced from 31 to 49 before returning. |
+| UJS-4 | The post-load canvas is the largest panel. Pause, Saves, Rewind, Settings, Game help, and Fullscreen are absent before load. All lobbies retained the same runtime and frames advanced from 31 to 66 before returning. |
 | UJS-5 | Included download status stays beside launch actions; cancellation, network, size, truncation, excess, and hash failures are tested. Invalid local input preserves a direct retry. |
 | UJS-6 | Wide 1280×800, narrow 760×680, 800×600 constrained, large-text, play, pause, error, and dialog measurements all equal the viewport with no document overflow. Keyboard paging restores useful row focus. |
 
@@ -33,6 +33,8 @@ Discovery uses a `100dvh` shell. It has no hero, slogan, About card, catalog tab
 ## Browser evidence
 
 The real built client ran against the real local coordinator in Chrome 145. [Machine-readable measurements](d19-catalog/browser/browser.json) cover both included launches, arbitrary hosting, invalid-file recovery, six-room pagination, focus, progressive disclosure, All lobbies retention, large text, and no-scroll states. Inspectable captures: [wide discovery](d19-catalog/browser/wide-discovery.png), [narrow discovery](d19-catalog/browser/narrow-discovery.png), [multi-page directory](d19-catalog/browser/multi-page-lobbies.png), [Super Tilt play](d19-catalog/browser/super-playing.png), [From Below play](d19-catalog/browser/from-below-playing.png), and [Game help](d19-catalog/browser/game-help.png).
+
+After CI exposed the hidden invitation action, the repaired invitation/pending-room journey passed the production `scripts/gameplay/browser_smoke.py --pair Chrome-Chrome --seconds 8` shared-play proof in 11.57 seconds without changing its assertions or budget.
 
 The exact Super Tilt artifact also ran through the actual browser worker. [Qualification results](d19-catalog/super-tilt/result.json) record boot/menu rendering, a Start-input timeline change, nonzero PCM peak `0.1657758355140686`, and deterministic canonical save/restore replay. [Boot](d19-catalog/super-tilt/boot-menu.png) and [after Start](d19-catalog/super-tilt/after-start.png) are the inspected frames.
 
