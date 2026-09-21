@@ -133,9 +133,10 @@ def main():
             assert arbitrary_guest.get_by_role("button", name="Choose matching NES file", exact=True).is_visible()
             arbitrary_pending_layout = overlay_layout(arbitrary_guest)
             arbitrary_guest.screenshot(path=str(args.output / "public-arbitrary-match-required.png"), full_page=True)
-            arbitrary_guest.set_input_files(
-                "input[type=file]",
-                {"name": "UJS7-GUEST-PRIVATE.nes", "mimeType": "application/octet-stream", "buffer": diagnostic},
+            with arbitrary_guest.expect_file_chooser() as chooser_info:
+                arbitrary_guest.get_by_role("button", name="Choose matching NES file", exact=True).click()
+            chooser_info.value.set_files(
+                {"name": "UJS7-GUEST-PRIVATE.nes", "mimeType": "application/octet-stream", "buffer": diagnostic}
             )
             for tab in (arbitrary_host, arbitrary_guest):
                 tab.wait_for_function("proof.room?.matches && proof.room?.established", timeout=30_000, polling=50)
@@ -167,9 +168,10 @@ def main():
             unlisted_viewer.get_by_role("button", name="Retry join / Join", exact=True).click()
             unlisted_viewer.get_by_text("needs your exact matching local NES file", exact=False).wait_for()
             assert unlisted_viewer.get_by_text("ROM bytes are never transferred", exact=False).is_visible()
-            unlisted_viewer.set_input_files(
-                "input[type=file]",
-                {"name": "UJS7-UNLISTED-GUEST.nes", "mimeType": "application/octet-stream", "buffer": diagnostic},
+            with unlisted_viewer.expect_file_chooser() as chooser_info:
+                unlisted_viewer.get_by_role("button", name="Choose matching NES file", exact=True).click()
+            chooser_info.value.set_files(
+                {"name": "UJS7-UNLISTED-GUEST.nes", "mimeType": "application/octet-stream", "buffer": diagnostic}
             )
             for tab in (unlisted_host, unlisted_viewer):
                 tab.wait_for_function("proof.room?.matches && proof.room?.established", timeout=30_000, polling=50)
@@ -201,6 +203,7 @@ def main():
                     "entry_route": "All public lobbies",
                     "source_label": "Host-provided game",
                     "exact_local_file_prompt": True,
+                    "visible_file_action_opened_picker": True,
                     "matching_file_proceeded_to_shared_play": True,
                     "host_and_guest_filenames_absent_from_wire": True,
                     "rom_bytes_transferred": False,
@@ -212,6 +215,7 @@ def main():
                     "directory_room_ids_unchanged": listed_ids,
                     "invitation_entry": True,
                     "exact_local_file_prompt": True,
+                    "visible_file_action_opened_picker": True,
                     "matching_file_proceeded_to_shared_play": True,
                     "invitation_layout": unlisted_invitation_layout,
                 },
