@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import unittest
 from verify import verify
+from workload import active_seconds
 import firefox_driver
 from prepare_stock_firefox import VERSION, URL, ARCHIVE_SHA256, ARCHIVE_BYTES
 
@@ -13,6 +14,22 @@ class GameplayEvidenceTests(unittest.TestCase):
     def setUpClass(cls):
         cls.record = json.loads((Path(__file__).resolve().parents[2] /
             'docs/implementation/d11/firefox-short.json').read_text())
+
+    def test_slow_manual_setup_cannot_consume_sustained_qualification(self):
+        # Failed CI paused at frame 508 and produced 594 transitions, below 595.
+        # Those manual setup frames must not shorten the resumed 600-second run.
+        initial = 508 / 60
+        self.assertLess(active_seconds(600, initial, 600 - initial), 600)
+        self.assertEqual(active_seconds(600, initial, 600), 600)
+        self.assertEqual(active_seconds(30, initial, 30), 30)
+        self.assertEqual(active_seconds(8, 4, 4), 8)
+
+    def test_one_missing_transition_still_fails_unchanged_acceptance(self):
+        record = copy.deepcopy(self.record)
+        required = max(1, (record['target_frames'] - 300) // 60)
+        record['peers'][1]['scriptedInputs'] = required - 1
+        with self.assertRaisesRegex(ValueError, 'missing sustained controller transitions'):
+            verify(record, 30)
 
     def test_actual_short_capture_is_not_ten_minute_qualification(self):
         verify(self.record, 30)

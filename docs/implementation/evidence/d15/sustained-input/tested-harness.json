@@ -1,0 +1,12 @@
+{
+  "production_source": "a8d7b096ba80bba6a8d0f648f583bc4e869dd25d",
+  "harness_sha256": {
+    "scripts/gameplay/browser_smoke.py": "0ed582d0bb566dc13993d8b9f8866b3c81f674d10f4b523737ded11641823ac6",
+    "scripts/gameplay/workload.py": "d8271d9cd4fcf848c942c79046fe6174cc7c604127bcdf415ceaedc791daecff",
+    "scripts/gameplay/test_verify.py": "3dee3f92f4156075e7df8206ec9e1d4287f7aec9550ee29aa7ee06bb623ea1f8"
+  },
+  "command": "GAMEPLAY_EVIDENCE=/tmp/d15-sustained/network sh scripts/gameplay/network.sh --seconds 30 --pair Firefox-Firefox --initial-manual-frames 508 --firefox-executable /tmp/d11-stock-146/firefox/firefox",
+  "python": "/home/haoxuw/workspace/covariant-backend/.venv/bin/python",
+  "browsers": "/tmp/d11-browsers",
+  "local_timeout_seconds": 120
+}
