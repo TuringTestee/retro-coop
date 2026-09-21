@@ -43,17 +43,18 @@ try:
   try:
    h=page();g=page()
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
-   h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for()
+   h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
     h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
-   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for()
+   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached')
    if not args.late_join:assert h.get_by_test_id('frames').inner_text()=='0 frames'
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
    g.set_input_files('input[type=file]',{'name':'matching.nes','mimeType':'application/octet-stream','buffer':rom})
+   g.get_by_role('button',name='Room',exact=True).click()
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
    if args.cancel_barrier:

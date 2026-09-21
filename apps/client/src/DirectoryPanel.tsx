@@ -15,9 +15,8 @@ export function DirectoryPanel({state,onJoin,onRetry,connection,filterId,onClear
   {live&&!rooms.length&&<p role="status">{filterId?`No public ${catalogEntry(filterId).title} lobbies yet.`:query.trim()?'No matching public lobbies.':'No public lobbies yet. Start a game above.'}</p>}
   {publicCode(query)&&live&&!rooms.length&&<p>Unlisted lobbies require an invitation. Public codes are not private invitations.</p>}
   <ul className="room-list" aria-label="Public lobbies" onBlur={event=>{if(event.relatedTarget&&!event.currentTarget.contains(event.relatedTarget as Node))focusedRoom.current=undefined;}}>
-   {state.directoryStatus==='loading'&&!state.directory?.length&&[0,1,2,3].map(index=><li key={index} className="room-placeholder" aria-hidden="true">Loading lobby…</li>)}
    {view.rows.map(room=>{const joinable=live&&!state.room&&!state.busy&&room.status==='waiting'&&room.occupancy===1;const known=room.catalogId?catalogEntry(room.catalogId):undefined;return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}><strong>{known?.title??room.label}</strong><span>{known?'Included game':'Host-provided game'}</span><span>{room.host}</span><code>{room.code}</code><span>{room.occupancy}/2 · {room.status}</span><button aria-disabled={!joinable} onClick={()=>{if(joinable)onJoin(room.code!);}}>{room.status==='reconnecting'?'Host reconnecting':room.occupancy===2?'Full':'Join'}</button></li>;})}
-  </ul><nav className="pagination" aria-label="Lobby pages"><button disabled={view.page===0} onClick={()=>move(view.page-1)}>Previous</button><span>Page {view.page+1} of {view.pages}</span><button disabled={view.page+1>=view.pages} onClick={()=>move(view.page+1)}>Next</button></nav>
+  </ul>{view.pages>1&&<nav className="pagination" aria-label="Lobby pages"><button disabled={view.page===0} onClick={()=>move(view.page-1)}>Previous</button><span>Page {view.page+1} of {view.pages}</span><button disabled={view.page+1>=view.pages} onClick={()=>move(view.page+1)}>Next</button></nav>}
   {state.room&&<p>Leave or close your current lobby before joining another.</p>}
  </section>;
 }

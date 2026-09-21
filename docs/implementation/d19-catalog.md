@@ -6,20 +6,20 @@ Retro Coop now opens on live public lobbies with direct actions for Super Tilt B
 
 ## Candidate behavior
 
-The ordered catalog manifest owns titles, immutable asset paths, exact sizes and hashes, cartridge identity, instructions, credits, and license placeholders. Its generic fetch path bounds bytes before hashing, rejects redirects and integrity errors, supports cancellation and retry, and checks current selection and room membership again before the emulator accepts the candidate. Arbitrary local files continue through structural iNES/NES 2.0 admission and do not consult the catalog.
+The ordered catalog manifest owns titles, immutable asset paths, exact sizes and hashes, cartridge identity, instructions, credits, and an honest unverified-license status. Its generic fetch path bounds bytes before hashing, rejects redirects and integrity errors, supports cancellation and retry, and checks current selection and room membership again before the emulator accepts the candidate. Arbitrary local files continue through structural iNES/NES 2.0 admission and do not consult the catalog.
 
-Discovery uses a `100dvh` shell. It has no hero, slogan, About card, catalog tab, or pre-game runtime controls. Directory page size is deterministically selected from viewport height (2, 3, or 4 rows); filtering and live removal clamp the page, and page navigation moves focus to the first result. Playing uses the same LocalPlayer and RoomClient instances. Game help is available only after load and includes instructions, credits, and “License details pending” for included games.
+Discovery uses a `100dvh` shell. It has no hero, slogan, About card, catalog tab, or pre-game runtime controls. Directory page size is deterministically selected from viewport height (2, 3, or 4 rows); filtering and live removal clamp the page, and page navigation moves focus to the first result. Single-page directories omit pagination. Playing uses the same LocalPlayer and RoomClient instances. Game help is available only after load and includes instructions, credits, and the supplied build's unverified-license status.
 
 ## Journey trace
 
 | Journey | Connected observation |
 |---|---|
 | UJS-1 | Both ordered Play actions downloaded their pinned files and reached rendered frames without a picker. |
-| UJS-2 | Six real public rooms produced two directory pages with game, host, occupancy, status, and Join; paging moved focus and used no nested scrolling. |
+| UJS-2 | Six real public rooms produced two directory pages with game, host, occupancy, status, and Join; the host remains visible at 760 px, paging moved focus, and the directory used no nested scrolling. |
 | UJS-3 | An arbitrary generated NES file loaded, rendered, and created a public room; its filename never appeared in the product or wire-facing evidence. Invalid bytes kept discovery and the picker visible with a specific error. |
-| UJS-4 | The post-load canvas is the largest panel. Pause, Saves, Rewind, Settings, Game help, and Fullscreen are absent before load. All lobbies retained the same runtime and frames advanced from 31 to 66 before returning. |
+| UJS-4 | The post-load canvas measures 660×618 at 1280×800 and 563×528 at 760×680. Pause, Saves, Rewind, Settings, Game help, and Fullscreen are absent before load. Room details use a deliberate header control; waiting-room invitation and Copy invite remain immediately visible inside a no-scroll drawer. All lobbies retained the same runtime and frames advanced from 33 to 51 before returning. |
 | UJS-5 | Included download status stays beside launch actions; cancellation, network, size, truncation, excess, and hash failures are tested. Invalid local input preserves a direct retry. |
-| UJS-6 | Wide 1280×800, narrow 760×680, 800×600 constrained, large-text, play, pause, error, and dialog measurements all equal the viewport with no document overflow. Keyboard paging restores useful row focus. |
+| UJS-6 | Wide 1280×800, narrow 760×680, 800×600 constrained, large-text, play, pause, error, help, room drawer, and invitation measurements all equal the viewport with no document overflow. Room and invitation panels have no nested overflow. Keyboard paging restores useful row focus. |
 
 ## Exact artifacts
 
@@ -32,9 +32,9 @@ Discovery uses a `100dvh` shell. It has no hero, slogan, About card, catalog tab
 
 ## Browser evidence
 
-The real built client ran against the real local coordinator in Chrome 145. [Machine-readable measurements](d19-catalog/browser/browser.json) cover both included launches, arbitrary hosting, invalid-file recovery, six-room pagination, focus, progressive disclosure, All lobbies retention, large text, and no-scroll states. Inspectable captures: [wide discovery](d19-catalog/browser/wide-discovery.png), [narrow discovery](d19-catalog/browser/narrow-discovery.png), [multi-page directory](d19-catalog/browser/multi-page-lobbies.png), [Super Tilt play](d19-catalog/browser/super-playing.png), [From Below play](d19-catalog/browser/from-below-playing.png), and [Game help](d19-catalog/browser/game-help.png).
+The real built client ran against the real local coordinator in Chrome 145. [Machine-readable measurements](d19-catalog/browser/browser.json) cover both included launches, nonblack From Below output and an input-following pixel change, arbitrary hosting, invalid-file recovery, six-room pagination, focus, progressive disclosure, All lobbies retention, large text, and no-scroll states. Inspectable captures: [wide discovery](d19-catalog/browser/wide-discovery.png), [narrow discovery](d19-catalog/browser/narrow-discovery.png), [multi-page directory](d19-catalog/browser/multi-page-lobbies.png), [Super Tilt play](d19-catalog/browser/super-playing.png), [From Below play](d19-catalog/browser/from-below-playing.png), [wide room drawer](d19-catalog/browser/room-session.png), [narrow room drawer](d19-catalog/browser/narrow-room-session.png), [narrow invitation](d19-catalog/browser/narrow-invitation.png), and [Game help](d19-catalog/browser/game-help.png).
 
-After CI exposed the hidden invitation action, the repaired invitation/pending-room journey passed the production `scripts/gameplay/browser_smoke.py --pair Chrome-Chrome --seconds 8` shared-play proof in 11.57 seconds without changing its assertions or budget.
+The repaired invitation/pending-room journey passed the production `scripts/gameplay/browser_smoke.py --pair Chrome-Chrome --seconds 8` shared-play proof in 10.54 seconds. The fixture now opens the explicit Room disclosure before acting on session controls; its protocol, synchronization, timing, and recovery assertions and budget remain unchanged.
 
 The exact Super Tilt artifact also ran through the actual browser worker. [Qualification results](d19-catalog/super-tilt/result.json) record boot/menu rendering, a Start-input timeline change, nonzero PCM peak `0.1657758355140686`, and deterministic canonical save/restore replay. [Boot](d19-catalog/super-tilt/boot-menu.png) and [after Start](d19-catalog/super-tilt/after-start.png) are the inspected frames.
 
