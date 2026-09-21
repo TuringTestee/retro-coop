@@ -1,3 +1,4 @@
+import {ControllerMode,ControllerOwnership} from './ControllerMode.tsx';
 import {catalogAvailability} from 'virtual:catalog';
 import {catalog,catalogEntry,catalogId,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {downloadCatalogEntry} from './catalog-download.ts';
@@ -102,7 +103,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {!room && !invite && <><label className="visibility"><input type="checkbox" checked={visibility === 'unlisted'} onChange={event=>setVisibility(event.target.checked ? 'unlisted':'public')}/> Unlisted · invitation only</label><p>{visibility === 'public' ? 'Creates a public room; your file stays here.' : 'Creates an unlisted room; your file stays here.'} Players need their own matching file.</p></>}
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}. {state.preview.catalogId ? `${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.` : 'Bring your own matching local game file.'}</p>}
-  {room?.established && <p>Player 1 · {room.host} (host)<br/>Player 2 · {room.guest}</p>}
+  {room && <ControllerOwnership room={room}/>}
   <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
   {room&&!room.established&&<div className="room-invite"><strong>{room.visibility==='public'?`Public lobby · ${room.code}`:'Unlisted lobby · invite only'}</strong><label>Invitation <input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/></label><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Select the invitation text and copy it.'));if(!navigator.clipboard)setCopy('Select the invitation text and copy it.');}}>Copy invite</button><span className="hint">{copy}</span></div>}
   {(room||!invite)&&<details className="session-settings"><summary>Connection and session settings</summary>
@@ -112,6 +113,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   {room?.peer.epoch && ['relay_unavailable','relay_capacity','failed'].includes(room.peer.status) && <><button onClick={()=>setStaying(room.peer.epoch)}>Stay in room</button>{staying===room.peer.epoch && <p role="status">You stayed in the room. Your current reservation deadline and local game are unchanged. Retry whenever you are ready.</p>}</>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
   {state.retryAfterMs && <p>Wait at least {Math.ceil(state.retryAfterMs/1000)} seconds before retrying.</p>}
+  {room && <ControllerMode room={room} act={command=>client.current!.act(command)}/>}
   {room && <div data-testid="room-view">
    <p><strong>{room.visibility === 'public' ? `Public · ${room.code}`:'Unlisted · invite only'}</strong> · {room.occupancy}/2 places · {room.status}</p>
    <p>You are {room.role === 'host' ? 'the host, Player 1':room.established?'Player 2':'Player 2 (reserved)'}. {room.guest ? `${room.guest} has the ${room.established?'established':'reserved'} guest place.`:'Waiting for a friend; local play can continue.'}</p>
@@ -126,7 +128,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   </div>}
   </details>}
   {room && <section aria-label="Shared gameplay"><p role="status" data-testid="game-status">{room.game?.reason??state.gameplay?.status}</p><p data-testid="game-frame">{state.gameplay?.frame??0} shared frames · delay {state.gameplay?.delay??'negotiating'}</p>
-   {room.established && ['paused','failed','resume_ready'].includes(room.game?.status??'') && <><button onClick={()=>client.current?.readyToResume()}>Ready to resume</button>{room.role==='host' && <button disabled={room.game?.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p role="status">{room.game?.status==='resume_ready' ? `Both players are ready. ${room.role==='host'?'Resume together when ready.':`Waiting for ${room.host} to resume.`}` : `Waiting for ${[!room.game?.ready?.includes('host') && room.host,!room.game?.ready?.includes('guest') && (room.guest??'Player 2')].filter(Boolean).join(' and ')} to resume.`}</p></>}
+   {room.established && ['paused','failed','resume_ready'].includes(room.game?.status??'') && <><button disabled={!!room.game?.controllerProposal} onClick={()=>client.current?.readyToResume()}>Ready to resume</button>{room.role==='host' && <button disabled={!!room.game?.controllerProposal||room.game?.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p role="status">{room.game?.status==='resume_ready' ? `Both players are ready. ${room.role==='host'?'Resume together when ready.':`Waiting for ${room.host} to resume.`}` : `Waiting for ${[!room.game?.ready?.includes('host') && room.host,!room.game?.ready?.includes('guest') && (room.guest??'Player 2')].filter(Boolean).join(' and ')} to resume.`}</p></>}
    {!room.established && ['failed','paused'].includes(room.game?.status??'') && <button onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
   </section>}
   {room?.established && state.chat && <ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/>}

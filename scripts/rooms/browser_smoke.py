@@ -46,7 +46,7 @@ try:
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
         first.get_by_test_id('room-view').wait_for()
         second.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('place was just taken')")
-        assert 'Player 2 (reserved)' in first.get_by_test_id('room-view').inner_text()
+        assert 'the guest (reserved)' in first.get_by_test_id('room-view').inner_text()
         assert first.get_by_role('button',name='Close room',exact=True).count()==0
         # A reserved guest can choose mismatching and matching files without another ready click.
         solo_frames=int(host.get_by_test_id('frames').inner_text().split()[0])
@@ -161,7 +161,7 @@ try:
         raced.get_by_role('button',name='Cancel pending room action',exact=True).click()
         raced.get_by_test_id('room-view').wait_for(state='detached')
         raced.get_by_role('button',name='Retry join / Join',exact=True).click()
-        raced.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Player 2 reserved')")
+        raced.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Guest reserved')")
         raced.evaluate('releaseJoinA()')
         competing=page();competing.goto(race_invite)
         competing.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Join reserves')")

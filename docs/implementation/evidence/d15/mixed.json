@@ -1,0 +1,79 @@
+{
+  "result": "pass",
+  "source": {
+    "commit": "de862986b1de6830d1848146bf803836b3360205",
+    "tree": "e117eba531c6dc3c80022035280d2d1c6c78b90c"
+  },
+  "build_files": {
+    "assets/retro_coop_d02-DZZ0sjs7.wasm": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4",
+    "assets/worker-BANepF4j.js": "77fb9083e3de31ce876ab8ac01054169ee2e71b17025d499ba8f564d1ed59d71",
+    "assets/index-RY7Q9Ih8.js": "6277277ad060dc678521197da11d648d2ee6792b317d5326bcd2e3d3ae1541b0"
+  },
+  "scenarios": [
+    {
+      "mapping": "separate swapped: guest P1, host P2",
+      "both_native_controller_ram": [
+        64,
+        128
+      ]
+    },
+    {
+      "mapping": "held keyboard repeat and gamepad suppressed after acceptance",
+      "both_native_controller_ram": [
+        0,
+        0
+      ]
+    },
+    {
+      "mapping": "shared guest owner: host input cannot write P1 or P2",
+      "both_native_controller_ram": [
+        128,
+        0
+      ]
+    },
+    {
+      "mapping": "shared host owner after accepted pass",
+      "both_native_controller_ram": [
+        128,
+        0
+      ]
+    }
+  ],
+  "decline_cancel_preserved_hash": {
+    "hash": "c7b9aa4715e9913bbf8fbe3ba679ef003a63f6497704b43d98eaac6e974a0002",
+    "frame": 297,
+    "fresh": false
+  },
+  "final_equal_native_hash": {
+    "hash": "3eeaeea66b66ad7ed80ec4934df5cee7882b30ee7d368d01b6fc4c24ac7522b4",
+    "frame": 494,
+    "fresh": false
+  },
+  "page_errors": [],
+  "seconds": 7.24,
+  "pair": "Chrome-Firefox",
+  "browser_instances": [
+    {
+      "kind": "Chrome",
+      "version": "145.0.7632.6"
+    },
+    {
+      "kind": "Firefox",
+      "version": "146.0.1"
+    }
+  ],
+  "firefox_driver": "official Firefox via WebDriver BiDi",
+  "firefox_build": {
+    "browser": "Mozilla Firefox",
+    "version": "146.0.1",
+    "platform": "linux-x86_64",
+    "source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/linux-x86_64/en-US/firefox-146.0.1.tar.xz",
+    "checksum_source": "https://archive.mozilla.org/pub/firefox/releases/146.0.1/SHA256SUMS",
+    "archive_sha256": "36a4dc0e3be8af2d49d8388021abf790976d2398162b9d13a6d758cc8c37f8dd",
+    "archive_bytes": 79925480,
+    "binary_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+    "application_updates": "disabled by installation-local enterprise policy"
+  },
+  "firefox_executable_sha256": "ead19c9a838370e9af9fddcdb3309d3ffba318dea7cf4651e44aa20f90e73497",
+  "total_seconds": 20.23
+}

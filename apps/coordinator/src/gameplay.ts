@@ -1,5 +1,5 @@
 import {randomBytes} from 'node:crypto';
-import {gameplayLimits,type GameRole,type GameCommand,type GameEvent,type GameView} from '../../../packages/contracts/src/gameplay.ts';
+import {defaultControllers,gameplayLimits,type GameRole,type GameCommand,type GameEvent,type GameView} from '../../../packages/contracts/src/gameplay.ts';
 type Offer=Extract<GameCommand,{type:'gameReady'}>;
 /** Owns only the acknowledged game barrier; Rooms owns all membership and publication. */
 export class GameSession {
@@ -10,7 +10,8 @@ export class GameSession {
  private hash?:string;
  private pauseFrame?:number;
  private paused=new Map<GameRole,{frame:number;hash:string}>();
- private state:GameView={status:'waiting'};
+ private state:GameView={status:'waiting',controllers:{...defaultControllers}};
+ private controllerDeadline=0;
  private now:()=>number;private send:(role:GameRole,event:GameEvent)=>void;
  constructor(now:()=>number,send:(role:GameRole,event:GameEvent)=>void) {this.now=now;this.send=send;}
  view():GameView {return {...this.state,ready:[...this.offers.keys()]};}
@@ -22,6 +23,8 @@ export class GameSession {
   return active;
  }
  ready(role:GameRole,offer:Offer,established=false) {
+  if(this.state.controllerProposal)throw Error('controller_consent_pending');
+  if((offer.controllerRevision??0)!==this.state.controllers!.revision)throw Error('stale_controllers');
   if(!this.peerEpoch||offer.peerEpoch!==this.peerEpoch) throw Error('stale_game');
   if(['playing','starting','pausing'].includes(this.state.status)) throw Error('game_already_started');
   this.offers.set(role,offer);
@@ -35,21 +38,21 @@ export class GameSession {
  resume(role:GameRole,epoch:string) {if(role!=='host'||this.state.status!=='resume_ready'||epoch!==this.state.epoch)throw Error('resume_not_ready');this.begin(this.offers.get('host')!,this.offers.get('guest')!);}
  private begin(host:Offer,guest:Offer) {
   this.hash=host.hash;this.acks.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
-  this.state={status:'starting',epoch:randomBytes(24).toString('base64url'),delay:Math.max(host.delay,guest.delay)};
-  this.broadcast({type:'gamePrepare',peerEpoch:this.peerEpoch!,epoch:this.state.epoch!,hash:this.hash,delay:this.state.delay!});
+  this.state={...this.state,status:'starting',reason:undefined,epoch:randomBytes(24).toString('base64url'),delay:Math.max(host.delay,guest.delay)};
+  this.broadcast({type:'gamePrepare',peerEpoch:this.peerEpoch!,epoch:this.state.epoch!,hash:this.hash,delay:this.state.delay!,controllers:this.state.controllers});
  }
  ack(role:GameRole,epoch:string,hash:string):boolean {
   if(this.state.status!=='starting'||epoch!==this.state.epoch||hash!==this.hash) throw Error('stale_game');
   this.acks.add(role);if(this.acks.size!==2) return false;
   this.state={...this.state,status:'playing'};
-  this.broadcast({type:'gameStart',peerEpoch:this.peerEpoch!,epoch,delay:this.state.delay!});return true;
+  this.broadcast({type:'gameStart',peerEpoch:this.peerEpoch!,epoch,delay:this.state.delay!,controllers:this.state.controllers});return true;
  }
  pause(epoch:string,frame:number,reason:string,role:GameRole) {
   if(epoch!==this.state.epoch)throw Error('stale_game');
   if(this.state.status==='pausing')return;
   if(this.state.status!=='playing')throw Error('game_not_playing');
   this.pauseFrame=frame;this.paused.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
-  this.state={...this.state,status:'pausing',reason:`${role==='host'?'Player 1':'Player 2'} requested pause (${reason}).`};
+  this.state={...this.state,status:'pausing',reason:`${role==='host'?'Host':'Guest'} requested pause (${reason}).`};
   this.broadcast({type:'gamePauseAt',epoch,frame,reason:this.state.reason!});
  }
  pausedAt(role:GameRole,epoch:string,frame:number,hash:string) {
@@ -58,6 +61,30 @@ export class GameSession {
   if(this.paused.get('host')!.hash!==this.paused.get('guest')!.hash){this.stop('Pause states differ. Shared play remains paused; checkpoint recovery is not available yet.','failed');return;}
   this.stop(`${this.state.reason} Both players are paused at the same frame.`);
  }
- stop(reason:string,status:GameView['status']='paused') {this.offers.clear();this.acks.clear();this.state={...this.state,status,reason};this.broadcast({type:'gameStop',epoch:this.state.epoch,reason});}
- sweep() {if(['starting','pausing'].includes(this.state.status)&&this.now()>=this.deadline) {this.stop('Shared start timed out. Retry or cancel; the original game is preserved.','failed');return true;}return false;}
+ stop(reason:string,status:GameView['status']='paused') {this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,controllerProposal:undefined};this.broadcast({type:'gameStop',epoch:this.state.epoch,reason});}
+ private controllerContext(command:{peerEpoch:string;epoch?:string}) {
+  if(!this.peerEpoch||command.peerEpoch!==this.peerEpoch||command.epoch!==this.state.epoch)throw Error('stale_game');
+ }
+ proposeControllers(role:GameRole,command:Extract<GameCommand,{type:'gameControllerPropose'}>) {
+  this.controllerContext(command);
+  if(role!=='host')throw Error('host_only');
+  if(!['waiting','paused','resume_ready'].includes(this.state.status)||this.state.controllerProposal)throw Error('controller_change_unavailable');
+  if(command.revision!==this.state.controllers!.revision)throw Error('stale_controllers');
+  this.stop('Controller change requested. Both players must accept before preparing to resume.');
+  const revision=this.state.controllers!.revision+1;
+  this.state.controllers={...this.state.controllers!,revision};
+  this.state.controllerProposal={id:randomBytes(24).toString('base64url'),mode:command.mode,p1:command.p1,revision,accepted:[]};
+  this.controllerDeadline=this.now()+gameplayLimits.consentMs;
+ }
+ respondControllers(role:GameRole,command:Extract<GameCommand,{type:'gameControllerRespond'|'gameControllerCancel'}>) {
+  this.controllerContext(command);const proposal=this.state.controllerProposal;
+  if(!proposal||proposal.id!==command.proposalId)throw Error('stale_controllers');
+  if(command.type==='gameControllerCancel'&&role!=='host')throw Error('host_only');
+  if(command.type==='gameControllerCancel'||!command.accept){this.stop('Controller change declined or cancelled. Previous ownership and game progress are preserved.');return;}
+  if(!proposal.accepted.includes(role))proposal.accepted.push(role);
+  if(proposal.accepted.length===2){this.state.controllers={mode:proposal.mode,p1:proposal.p1,revision:proposal.revision};this.stop('Controller assignment accepted. Release held buttons; both players must prepare before the host resumes.');}
+ }
+ /** A departed guest cannot leave controller ownership or consent for a replacement. */
+ resetControllers() {this.state.controllers={...defaultControllers,revision:this.state.controllers!.revision+1};this.stop('Membership changed. Controller assignment reset; shared play remains paused.');}
+ sweep() {if(this.state.controllerProposal&&this.now()>=this.controllerDeadline){this.stop('Controller request timed out. Previous ownership and progress are preserved.');return true;}if(['starting','pausing'].includes(this.state.status)&&this.now()>=this.deadline) {this.stop('Shared start timed out. Retry or cancel; the original game is preserved.','failed');return true;}return false;}
 }

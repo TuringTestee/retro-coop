@@ -51,6 +51,7 @@ if [ "$D02_JOB" = core ]; then
   done
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/directory_smoke.py --output spikes/d02/directory.local.json)
   (cd ../.. && timeout --foreground 180s python3 scripts/gameplay/run_smoke.py spikes/d02/gameplay.local)
+  (cd ../.. && timeout --foreground 45s python3 scripts/gameplay/browser_smoke.py --controllers --output spikes/d02/gameplay.local/controllers.json)
 elif [ "$D02_JOB" = network ]; then
   (cd ../.. && npm ci)
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
