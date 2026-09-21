@@ -123,8 +123,8 @@
     "super_tilt": {
       "playable": true,
       "progress_preserved": true,
-      "frames_before_lobbies": 33,
-      "frames_after_lobbies": 51
+      "frames_before_lobbies": 32,
+      "frames_after_lobbies": 50
     },
     "from_below": {
       "playable": true,
@@ -150,7 +150,7 @@
   },
   "result": "pass",
   "browser": "145.0.7632.75",
-  "duration_seconds": 9.11,
+  "duration_seconds": 9.35,
   "page_errors": [],
   "limits": "Local same-origin coordinator and desktop Chrome; no Internet route, physical controller, assistive-technology session, or audible-device capture."
 }
