@@ -1,0 +1,16 @@
+{
+  "result": "pass",
+  "rom_sha256": "847155bb712e474f71554174c9d9ed402bf651b13ff1e4afc9a42ec69cd03d8d",
+  "rom_bytes": 524304,
+  "wasm_sha256": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4",
+  "browser": "145.0.7632.75",
+  "os": "Linux",
+  "duration_seconds": 23.75,
+  "boot_menu_rendered": true,
+  "start_input_changed_timeline": true,
+  "audio_nonzero_pcm": 0.1657758355140686,
+  "canonical_save_restore_replay": true,
+  "p1_changed_timeline": false,
+  "p2_changed_timeline": false,
+  "limits": "Browser worker/core qualification with visual screenshots and PCM inspection; no physical controller or audible device capture, matched peer, exhaustive mechanics, or release-version provenance claim."
+}

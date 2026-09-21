@@ -79,20 +79,36 @@ try:
         tab.goto(url)
         return tab
 
+    def open_room(tab):
+        panel = tab.locator(".room-panel")
+        if not panel.is_visible():
+            tab.get_by_role("button", name="Room", exact=True).click()
+        panel.wait_for(state="visible")
+        return panel
+
+    def open_connection(tab):
+        panel = open_room(tab)
+        connection = panel.locator("details.session-settings")
+        if not connection.evaluate("(node)=>node.open"):
+            connection.get_by_text("Connection and session settings", exact=True).click()
+        return panel
+
     host = page(url)
-    host.locator(".room-panel").get_by_label(
-        "Connection privacy", exact=True
-    ).select_option("relay" if args.relay else "standard")
     host.set_input_files(
         "input[type=file]",
         {"name": "fixture.nes", "mimeType": "application/octet-stream", "buffer": rom},
     )
-    host.get_by_test_id("room-view").wait_for()
+    host.get_by_test_id("room-view").wait_for(state="attached")
+    open_connection(host).get_by_label("Connection privacy", exact=True).select_option(
+        "relay" if args.relay else "standard"
+    )
     guest = page(host.get_by_label("Room invitation", exact=True).input_value())
     guest.get_by_role("button", name="Retry join / Join", exact=True).click()
-    guest.get_by_test_id("room-view").wait_for()
+    guest.get_by_test_id("room-view").wait_for(state="attached")
     timeline_before = host.evaluate("timelineWrites")
     for tab in [host, guest]:
+        panel = open_room(tab)
+        panel.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
         tab.wait_for_function(
             "route=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+route)",
             arg="relay" if args.relay else "direct",
@@ -102,11 +118,11 @@ try:
                 "async()=>{const stats=await pcs.at(-1).getStats();return [...stats.values()].some(s=>(s.type==='transport'&&s.selectedCandidatePairId&&stats.get(stats.get(s.selectedCandidatePairId).localCandidateId)?.candidateType==='relay')||(s.type==='candidate-pair'&&s.selected===true&&stats.get(s.localCandidateId)?.candidateType==='relay'))}"
             )
         assert tab.evaluate("captures.length") == 0
-        tab.locator(".room-panel").get_by_label(
+        panel.get_by_label(
             "Remote voice volume", exact=False
         ).fill("0")
-        tab.get_by_role("button", name="Enable voice", exact=True).click()
-        tab.locator(".room-panel").get_by_text(
+        panel.get_by_role("button", name="Enable voice", exact=True).click()
+        panel.get_by_text(
             "Transmitting microphone audio", exact=True
         ).wait_for()
     for tab in [host, guest]:
@@ -272,7 +288,7 @@ try:
     host.get_by_label("Local game screen", exact=True).focus()
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
-    guest.get_by_role("button", name="Cancel join", exact=True).click()
+    open_connection(guest).get_by_role("button", name="Cancel join", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
     for tab in [host, guest]:
         tab.wait_for_function(
@@ -302,7 +318,7 @@ try:
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
-    guest.get_by_role("button", name="Cancel join", exact=True).click()
+    open_connection(guest).get_by_role("button", name="Cancel join", exact=True).click()
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )

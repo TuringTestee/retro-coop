@@ -43,27 +43,53 @@ try:
             return tab
         def joined(tab):
             tab.get_by_role('button', name='Retry join / Join', exact=True).click()
-            tab.get_by_test_id('room-view').wait_for()
+            tab.get_by_test_id('room-view').wait_for(state='attached')
+            open_room(tab)
         def connected(tab):
             tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Route: direct')")
+        def open_room(tab):
+            panel = tab.locator('.room-panel')
+            if not panel.is_visible():
+                tab.get_by_role('button', name='Room', exact=True).click()
+            panel.wait_for(state='visible')
+            return panel
+        def open_connection(tab):
+            panel = open_room(tab)
+            connection = panel.locator('details.session-settings')
+            if not connection.evaluate('(node)=>node.open'):
+                connection.get_by_text('Connection and session settings', exact=True).click()
+            panel.get_by_test_id('room-view').wait_for(state='visible')
+            return panel
+        def open_host_session(tab):
+            panel = open_connection(tab)
+            connection = panel.locator('details.session-settings')
+            session = connection.locator('details').filter(has_text='Session settings')
+            if not session.evaluate('(node)=>node.open'):
+                session.get_by_text('Session settings', exact=True).click()
+            return panel
         def voice(tab):
-            tab.locator('.room-panel').get_by_label('Remote voice volume', exact=False).fill('0')
-            tab.get_by_role('button', name='Enable voice', exact=True).click()
+            panel = open_room(tab)
+            panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
+            panel.get_by_label('Remote voice volume', exact=False).fill('0')
+            panel.get_by_role('button', name='Enable voice', exact=True).click()
             tab.wait_for_function("captures.length>0 && captures.at(-1).getAudioTracks().some(t=>t.enabled&&t.readyState==='live')")
         host = page(url)
-        assert host.get_by_role('button', name='Unmute', exact=True).get_attribute('aria-pressed') == 'true'
+        assert host.get_by_role('button', name='Unmute', exact=True).count() == 0
         host.set_input_files('input[type=file]', {'name':'fixture.nes', 'mimeType':'application/octet-stream', 'buffer':rom})
-        host.get_by_test_id('room-view').wait_for()
+        host.get_by_test_id('room-view').wait_for(state='attached')
+        unmute = host.get_by_role('button', name='Unmute', exact=True)
+        unmute.wait_for()
+        assert unmute.get_attribute('aria-pressed') == 'true'
         invitation = host.get_by_label('Room invitation', exact=True).input_value()
         first = page(invitation)
         joined(first)
         connected(host)
-        host.get_by_text('Session settings', exact=True).click()
+        open_host_session(host)
         host.on('dialog', lambda dialog: dialog.accept())
         host.evaluate('window.holdKick=true')
-        host.get_by_role('button', name='Remove guest', exact=True).click()
+        host.locator('.room-panel').get_by_role('button', name='Remove guest', exact=True).click()
         host.wait_for_function("typeof releaseKick==='function'")
-        first.get_by_role('button', name='Cancel join', exact=True).click()
+        open_connection(first).get_by_role('button', name='Cancel join', exact=True).click()
         first.get_by_test_id('room-view').wait_for(state='detached')
         replacement = page(invitation)
         joined(replacement)
@@ -75,14 +101,14 @@ try:
         host.screenshot(path=str(output.with_suffix('.before.png')), full_page=True,
                         mask=[host.get_by_label('Room invitation', exact=True)])
         host.evaluate('releaseKick();window.holdKick=false')
-        host.get_by_test_id('room-status').filter(has_text='That guest has left or rejoined').wait_for()
+        open_connection(host).get_by_test_id('room-status').filter(has_text='That guest has left or rejoined').wait_for()
         assert replacement.get_by_test_id('room-view').count() == 1
         for tab in [host, replacement]:
             assert tab.evaluate("pcs.at(-1).connectionState==='connected' && captures.at(-1).getAudioTracks().some(t=>t.readyState==='live')")
         host.screenshot(path=str(output.with_suffix('.stale.png')), full_page=True,
                         mask=[host.get_by_label('Room invitation', exact=True)])
         writes = host.evaluate('timelineWrites')
-        host.get_by_role('button', name='Remove guest', exact=True).click()
+        open_host_session(host).get_by_role('button', name='Remove guest', exact=True).click()
         replacement.get_by_test_id('room-view').wait_for(state='detached')
         for tab in [host, replacement]:
             tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")

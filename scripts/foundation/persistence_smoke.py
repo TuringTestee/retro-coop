@@ -122,7 +122,7 @@ def verify_persistence(browser,url,rom,worker_path,output):
     assert open(download.value.path(),'rb').read()[:8]==b'RCBAT001'
     denied.close()
     verify_replacement(browser,url,variant)
-    verify_damaged_timestamp(browser,url)
+    verify_damaged_timestamp(browser,url,rom)
     assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
     result={'v1_slots_preserved_on_upgrade':True,'actual_periodic_nonzero_battery_write':True,'battery_import_before_first_frame':True,'real_cpu_observed_restored_battery_at_boot':True,'preferences_restored_for_exact_game':True,'other_identity_backup_export':True,'corrupt_data_retained_and_play_continues':True,'corrupt_battery_export_delete_and_explicit_retry':True,'stale_battery_delete_preserves_replacement_then_refreshes':True,'clear_confirmation_cancel_preserves_records':True,'cleared_epoch_blocks_other_tab_automatic_write':True,'storage_denial_keeps_play_and_export':True,'damaged_timestamp_blocks_automatic_write':True,'damaged_timestamp_export_delete_preserves_unrelated':True,'changed_damaged_timestamp_refuses_stale_delete':True,'same_rom_replacement_captures_before_candidate_restore':True,'mobile_no_overflow':True,'page_errors':errors}
@@ -146,8 +146,8 @@ def verify_replacement(browser,url,rom):
     page.close()
 
 
-def verify_damaged_timestamp(browser,url):
-    page=browser.new_page(accept_downloads=True);page.goto(url)
+def verify_damaged_timestamp(browser,url,rom):
+    page=browser.new_page(accept_downloads=True);page.goto(url);page.set_input_files('input[type=file]',{'name':'local-data-setup.nes','mimeType':'application/octet-stream','buffer':rom});page.get_by_role('button',name='Settings',exact=True).wait_for()
     def panel():
         page.get_by_role('button',name='Settings',exact=True).click()
         page.get_by_role('button',name='Local data',exact=True).click()

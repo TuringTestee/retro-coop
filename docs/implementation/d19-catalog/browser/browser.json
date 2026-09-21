@@ -1,0 +1,156 @@
+{
+  "states": {
+    "wide-discovery": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "super-playing": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800,
+      "canvas": {
+        "x": 310.1875,
+        "y": 73,
+        "width": 659.625,
+        "height": 618.40625
+      },
+      "canvas_viewport_area_ratio": 0.398
+    },
+    "all-lobbies-progressing": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "game-help-dialog": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "paused": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "narrow-discovery": {
+      "innerWidth": 760,
+      "innerHeight": 680,
+      "scrollWidth": 760,
+      "scrollHeight": 680,
+      "bodyWidth": 760,
+      "bodyHeight": 680
+    },
+    "from-below-playing": {
+      "innerWidth": 760,
+      "innerHeight": 680,
+      "scrollWidth": 760,
+      "scrollHeight": 680,
+      "bodyWidth": 760,
+      "bodyHeight": 680,
+      "canvas": {
+        "x": 98.3125,
+        "y": 62,
+        "width": 563.359375,
+        "height": 528.15625
+      },
+      "canvas_viewport_area_ratio": 0.576
+    },
+    "narrow-room-session": {
+      "innerWidth": 760,
+      "innerHeight": 680,
+      "scrollWidth": 760,
+      "scrollHeight": 680,
+      "bodyWidth": 760,
+      "bodyHeight": 680
+    },
+    "wide-room-session": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "narrow-invitation": {
+      "innerWidth": 760,
+      "innerHeight": 680,
+      "scrollWidth": 760,
+      "scrollHeight": 680,
+      "bodyWidth": 760,
+      "bodyHeight": 680
+    },
+    "invalid-recovery": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "large-text": {
+      "innerWidth": 1280,
+      "innerHeight": 800,
+      "scrollWidth": 1280,
+      "scrollHeight": 800,
+      "bodyWidth": 1280,
+      "bodyHeight": 800
+    },
+    "browser-zoom-equivalent-constrained": {
+      "innerWidth": 800,
+      "innerHeight": 600,
+      "scrollWidth": 800,
+      "scrollHeight": 600,
+      "bodyWidth": 800,
+      "bodyHeight": 600
+    }
+  },
+  "routes": {
+    "super_tilt": {
+      "playable": true,
+      "progress_preserved": true,
+      "frames_before_lobbies": 32,
+      "frames_after_lobbies": 50
+    },
+    "from_below": {
+      "playable": true,
+      "nonblack_pixels": true,
+      "input_followed_by_pixel_change": true,
+      "narrow_room_nested_scroll": false
+    },
+    "arbitrary": {
+      "playable_and_hosted": true,
+      "room_behind_deliberate_control": true,
+      "room_panel_nested_scroll": false,
+      "invitation_action_visible_without_scroll": true,
+      "sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+      "filename_absent": true
+    },
+    "directory": {
+      "rooms": 6,
+      "pages": 2,
+      "page_size": 3,
+      "focus_moves_to_first_row": true,
+      "nested_scroll": false
+    }
+  },
+  "result": "pass",
+  "browser": "145.0.7632.75",
+  "duration_seconds": 9.35,
+  "page_errors": [],
+  "limits": "Local same-origin coordinator and desktop Chrome; no Internet route, physical controller, assistive-technology session, or audible-device capture."
+}

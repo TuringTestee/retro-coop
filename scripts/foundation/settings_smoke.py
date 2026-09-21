@@ -119,7 +119,7 @@ def verify_settings(browser, url, rom, output):
     dialog.evaluate('e=>e.scrollTop=0')
     page.screenshot(path=str(output.with_suffix('.settings-mobile.png')),full_page=True)
     page.keyboard.press('Escape');assert not dialog.is_visible()
-    page.get_by_text('Controls & local file details',exact=True).click()
+    page.get_by_text('Game details',exact=True).click()
     assert hashlib.sha256(rom).hexdigest() in page.locator('[data-testid=fingerprint]').inner_text()
     assert page.evaluate('createdWorkers') == 1
     assert not errors,errors
@@ -137,15 +137,19 @@ def verify_disconnected_load(browser, url, rom):
       navigator.getGamepads=()=>connected ? [{id:'Startup controller',index:0,connected:true,buttons:[],axes:[0,0]}] : [];
     """)
     page.goto(url)
+    page.set_input_files('input[type=file]',{'name':'setup.nes','mimeType':'application/octet-stream','buffer':rom})
+    page.get_by_role('button',name='Pause',exact=True).wait_for()
+    page.get_by_role('button',name='Pause',exact=True).click()
     page.get_by_role('button',name='Settings',exact=True).click()
     dialog=page.get_by_role('dialog',name='Local settings')
     dialog.get_by_label('Input device',exact=True).select_option('0')
     dialog.get_by_role('button',name='Done',exact=True).click()
     page.evaluate('connected=false')
     page.get_by_role('button',name='Use keyboard',exact=True).wait_for()
+    page.on('dialog',lambda dialog:dialog.accept())
     count="Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])"
     for attempt in range(2):
-        candidate=rom if attempt==0 else rom+b'replacement'
+        candidate=rom+(b'first replacement' if attempt==0 else b'second replacement')
         page.set_input_files('input[type=file]',{'name':'disconnected.nes','mimeType':'application/octet-stream','buffer':candidate})
         page.wait_for_function("document.querySelector('[data-testid=fingerprint]')!==null")
         expected=hashlib.sha256(candidate).hexdigest()

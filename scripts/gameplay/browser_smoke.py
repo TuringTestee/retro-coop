@@ -38,28 +38,42 @@ try:
      scripts=''.join('<script>(()=>{'+script.replace('</script','<\\/script')+'\n})();</script>' for script in fixtures[tab])
      route.fulfill(status=200,content_type='text/html',body=(root/'apps/client/dist/index.html').read_text().replace('<head>','<head>'+scripts,1))
     tab.route(url+'/',document)
-   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}");tab.goto(url)
-   if args.relay:tab.get_by_label('Connection privacy',exact=True).first.select_option('relay')
+   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}")
+   if args.relay:install_script(tab,"sessionStorage.setItem('retro-coop-connection-policy','relay')")
+   tab.goto(url)
    return tab
+  def open_room(tab):
+   panel=tab.locator('.room-panel')
+   if not panel.is_visible():tab.get_by_role('button',name='Room',exact=True).click()
+   panel.wait_for(state='visible');return panel
+  def open_connection(tab):
+   panel=open_room(tab);connection=panel.locator('details.session-settings')
+   if not connection.evaluate('(node)=>node.open'):connection.get_by_text('Connection and session settings',exact=True).click()
+   return panel
+  def open_host_session(tab):
+   panel=open_connection(tab);session=panel.locator('details.session-settings details').filter(has_text='Session settings')
+   if not session.evaluate('(node)=>node.open'):session.get_by_text('Session settings',exact=True).click()
+   return panel
   try:
    h=page();g=page()
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
-   h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for()
+   h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
     h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
-   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for()
+   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached')
    if not args.late_join:assert h.get_by_test_id('frames').inner_text()=='0 frames'
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
    g.set_input_files('input[type=file]',{'name':'matching.nes','mimeType':'application/octet-stream','buffer':rom})
+   g.get_by_role('button',name='Room',exact=True).click()
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
-    g.get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+    open_connection(g).get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
     h.wait_for_function("!proof.room.guest && proof.room.reservationUntil===undefined",polling=50)
     assert not h.evaluate('proof.room.established') and h.get_by_test_id('frames').inner_text()=='0 frames'
     h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
@@ -87,6 +101,15 @@ try:
     result={'result':'pass','scenario':'progressed host pauses without reset','host_state':observed,'host_frames':count,'lease_preserved':g.evaluate('proof.room.reservationUntil>Date.now()'),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert result['lease_preserved'] and not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    for tab in [h,g]:tab.wait_for_function("proof.room?.established && proof.room.game.status==='playing'",timeout=15000,polling=50)
+   def shared_layout(tab):
+    layout=tab.evaluate("""()=>{const canvas=document.querySelector('canvas'),room=document.querySelector('.room-panel'),box=canvas.getBoundingClientRect();return {viewport:{width:innerWidth,height:innerHeight},canvas:{width:box.width,height:box.height,areaRatio:box.width*box.height/(innerWidth*innerHeight)},document:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},room:{scrollHeight:room.scrollHeight,clientHeight:room.clientHeight}}}""")
+    assert layout['canvas']['width']>=layout['viewport']['width']*.40 and layout['canvas']['height']>=layout['viewport']['height']*.75,layout
+    assert layout['canvas']['areaRatio']>=.30,layout
+    assert layout['document']['width']<=layout['viewport']['width'] and layout['document']['height']<=layout['viewport']['height'],layout
+    assert layout['room']['scrollHeight']<=layout['room']['clientHeight'],layout
+    return layout
+   shared_layouts=[shared_layout(tab) for tab in [h,g]]
+   if args.screenshots:h.screenshot(path=str(out.with_name(out.stem+'.shared-playing.png')),mask=[h.locator('input[aria-label="Room invitation"]:visible')])
    fps=h.evaluate('proof.fps');assert fps==g.evaluate('proof.fps');target_frames=max(360,math.ceil(args.seconds*fps))
    play_started=time.monotonic()
    for tab in [h,g]:tab.evaluate('releaseFrames()')
@@ -106,8 +129,7 @@ try:
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     if args.kick_playing:
      h.on('dialog',lambda dialog:dialog.accept())
-     h.get_by_text('Connection and session settings',exact=True).click();h.get_by_text('Session settings',exact=True).click()
-     h.get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+     open_host_session(h).get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
     else:
      cli=['node','apps/coordinator/src/operator-cli.ts',operator_dir]
      listing=json.loads(subprocess.run([*cli,'list'],cwd=root,capture_output=True,text=True,check=True,timeout=5).stdout)
@@ -116,7 +138,9 @@ try:
      assert 'Done.' in applied.stdout
      for tab in [h,g]:
       tab.get_by_test_id('room-view').wait_for(state='detached')
-      tab.get_by_test_id('room-status').filter(has_text='An operator closed' if args.operator_playing=='remove' else 'Access is temporarily restricted').wait_for()
+      panel=open_room(tab);status=panel.get_by_test_id('room-status').filter(has_text='An operator closed' if args.operator_playing=='remove' else 'Access is temporarily restricted')
+      if not status.is_visible() and panel.locator('details.session-settings').count():open_connection(tab)
+      status.wait_for()
 
     for tab in [h,g]:tab.wait_for_function("gamePeers.length>0 && gamePeers.every(p=>p.connectionState==='closed')")
     stopped=[tab.evaluate('proof.frameCount') for tab in [h,g]]
@@ -133,12 +157,14 @@ try:
     assert not errors,errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.screenshots:
+    for tab in [h,g]:tab.locator('details.chat-disclosure').evaluate('(node)=>node.open=true')
     count=h.evaluate('proof.frameCount');h.get_by_label('Chat message',exact=True).press_sequentially('xz shared hello')
     h.get_by_text('Typing in chat · game input released.',exact=False).wait_for()
     h.wait_for_function('n=>proof.frameCount>=n+12',arg=count,polling=20)
     h.evaluate("currentWorker.postMessage({type:'state-export',requestId:900001})");h.wait_for_function('proof.chatRam',polling=20);assert h.evaluate('proof.chatRam')==[0,64]
     assert h.evaluate('proof.room.game.status')=='playing'
-    h.get_by_role('button',name='Send message',exact=True).click();g.get_by_role('log').get_by_text('xz shared hello',exact=True).wait_for()
+    for tab in [h,g]:tab.locator('details.chat-disclosure').evaluate('(node)=>node.open=false')
+    shared_layouts=[shared_layout(tab) for tab in [h,g]]
    if args.screenshots:h.screenshot(path=str(out.with_name('playing.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
    first_active=time.monotonic()-play_started
    h.keyboard.up('x');g.keyboard.up('z')
@@ -193,7 +219,7 @@ try:
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'
-   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'initial_manual_frames':args.initial_manual_frames,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
+   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'initial_manual_frames':args.initial_manual_frames,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'shared_layouts':shared_layouts,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}))
   except Exception:
    failure={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'build_files':build_files,'browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'source':source,'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}
