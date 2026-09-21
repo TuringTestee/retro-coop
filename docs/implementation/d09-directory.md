@@ -2,7 +2,7 @@ Audience: Agent
 
 # D09 public room discovery
 
-Players can browse current public rooms, search by room or host name or exact public code, and reserve an available Player 2 place before choosing a matching local game. Unlisted rooms remain invitation-only. The featured entry is an honest placeholder until D19 configures included play.
+Players can browse current public rooms, search by room or host name or exact public code, and reserve an available Player 2 place before choosing a matching local game. Unlisted rooms remain invitation-only. [The two-game catalog amendment](included-games.md) owns D19's Super Tilt Bro and From Below launchers; this delivered directory supplies their shared filtering and room rows.
 
 ## Ownership and boundaries
 

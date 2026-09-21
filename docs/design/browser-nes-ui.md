@@ -1,10 +1,14 @@
+Audience: Human
+
 # Retro Coop UI design
 
 Visitors see every public game session, drop a local ROM to host, and join a two-player room with a clear next step. The game stays central while chat, controller ownership, and shared pause/recovery remain visible. These text wireframes cover the first-release stories and failure states; they are a design proposal, not a working interface or a usability-test result.
 
+The [included-games amendment](included-games.md) updates U1/U3/U4/U9: before play it shows the complete lobby directory plus one-click launchers for Super Tilt Bro and From Below; after load it enlarges the game and exposes play controls. It removes promotional copy and standalone About tabs. Other interaction and consent rules below remain unchanged.
+
 ## Scope and reading guide
 
-This companion to [the platform design](browser-nes-platform.md) covers AC-01–AC-16 at the interaction level. It adds no gameplay spectators, accounts, password rooms, cloud saves, recordings, mobile controls, or an unqualified universal emulator compatibility promise. Broad compatibility qualification is now a release workstream. The existing browser/network, cost, and rights constraints still apply. Labels such as “Evening puzzle,” player names, counts, and timers are illustrative. “Featured homebrew” is a placeholder for the unspecified special Tetris variant, not an approved title or invented ruleset.
+This companion to [the platform design](browser-nes-platform.md) covers AC-01–AC-16 at the interaction level. It adds no gameplay spectators, accounts, password rooms, cloud saves, recordings, mobile controls, or an unqualified universal emulator compatibility promise. Broad compatibility qualification is now a release workstream. The existing browser/network, cost, and rights constraints still apply. Labels such as “Evening puzzle,” player names, counts, and timers are illustrative. Historical “Featured homebrew” placeholders below are replaced by the linked catalog amendment.
 
 The candidate is intended for review in [planning PR #3](https://github.com/TuringTestee/retro-coop/pull/3), under [epic #2](https://github.com/TuringTestee/retro-coop/issues/2). ASCII establishes hierarchy, actions, and state changes. Real-browser visuals, accessibility checks, network evidence, and user approval are still required later. UI labels use “game matches” and “waiting for connection”; hash algorithms and protocol epochs stay in the engineering specification.
 
@@ -14,7 +18,7 @@ Square brackets denote controls. A disabled control is explicitly labelled unava
 
 The current agent-proposed visual direction remains a restrained arcade theme; the user’s governing product principle is minimal setup, not a mandated aesthetic: dark charcoal page, slightly lighter panels, warm off-white text, and one bright accent for the next action. Reserve amber for attention and red for errors/destructive actions, always paired with words or icons. Body text uses a readable system sans-serif; a pixel-style wordmark is optional. No scanlines on page text, flashing decoration, fabricated cartridge art, or automatic background gameplay.
 
-At a wide desktop viewport, center a content area around 1200 px. Directory rows stay compact so multiple games are immediately visible. Session layout gives roughly three quarters of the width to play and one quarter to players/chat, with the game preserving the emulator's 256:240 source ratio. Do not stretch its pixels to match these schematic boxes. Narrow desktop windows stack the side panel below play and expose a chat tab with an unread marker; they must retain every action without horizontal page scrolling. This responsive treatment does not expand first-release support to mobile play.
+At a wide desktop viewport, use the full available window up to a readable maximum width. The document has no horizontal or vertical scroll in discovery or play. Directory rows stay compact and paginate within the remaining viewport height; do not add a nested scrolling list. Session layout gives roughly three quarters of the width to play and one quarter to players/chat, with the game preserving the emulator's 256:240 source ratio. Do not stretch its pixels to match these schematic boxes. Narrow supported desktop windows move the side panel into a compact switchable region and shrink the canvas to fit; they retain every action without document overflow. This responsive treatment does not expand first-release support to mobile play.
 
 Use at least 16 px body text, clear focus outlines, comfortably sized controls, readable contrast, and reduced-motion behavior. Screen-reader labels name the game and host for each Join action. Announce join outcomes and pauses politely; do not announce every heartbeat, game frame, or countdown tick. Dialogs receive focus and return it to their trigger when closed. There is no drag-only, hover-only, color-only, or pointer-only task.
 
@@ -50,7 +54,7 @@ Critique: those screens cover arrival, but not what happens after Start. They ne
 
 Added U4–U9, explicit state/action tables, and the story coverage matrix. A pause overlay names the requester and effect, local Save does not imply cloud storage, and shared restore/rewind has acceptance/timeout states. Full-room races return to discovery; reconnect keeps a reservation separate from a newly joinable slot. The interface explains source and privacy where they affect the user's next choice.
 
-Final self-critique: the permanent homebrew entry is now honest with zero players, and every first-release story below has an entry point, feedback, and completion/recovery path. The game-specific title, image, instructions, two-player behavior, and rights remain unknown; these are explicit content gates rather than visual blanks a builder should guess. ASCII cannot validate actual density, contrast, audio/input interactions, or discoverability; the implementation must supply that evidence. Independent local review is recorded on the PR and is separate from this author's critique.
+Historical pass-3 self-critique: the permanent homebrew entry was honest with zero players, but its game-specific title, image, instructions, two-player behavior and rights were still unknown at that time. [The catalog amendment](included-games.md) supersedes that old content status with two fixed identities, text-only launchers/help and assigned runtime qualification. ASCII cannot validate actual density, contrast, audio/input interactions or discoverability; the implementation must supply that evidence.
 
 ### Pass 4: remove setup gates
 
@@ -62,43 +66,15 @@ S04/S08/S33 → duplicate names, slot squatting and a late guest can strand or d
 
 ### Pass 6: voice and compatibility boundaries
 
-S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. Content identity and the measured supported-hardware matrix remain open release gates; no additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
+S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. The catalog identities are fixed by [the catalog amendment](included-games.md); exact-artifact packaging/runtime checks under D19 and the measured supported-hardware matrix under D20 remain release gates. No additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
 
 ## U1 — Directory
 
-```text
-RETRO COOP                             Guest Alex [Settings]
-
-+------------------------------------------------------------+
-| FEATURED HOMEBREW · [Title pending]                         |
-| Game included · Always available to start                   |
-| [Start a session]   [Browse its sessions (2)]   [About]      |
-+------------------------------------------------------------+
-
-LIVE SESSIONS (4)                              [Host a game]
-[Find room / host / public code…                         ]
-Game / host                 Status          Players   Action
-------------------------------------------------------------
-Room K7PM4R2X · Alex         Waiting         1 / 2     [Join]
-  Bring your own matching ROM
-Featured game · Jo           Playing solo    1 / 2     [Join]
-  Game included
-Space adventure · Sam        Playing         2 / 2     Full
-  Bring your own matching ROM
-Featured game · Pat          Reconnecting    2 / 2     Reserved
-  Game included
-
-+------------------------------------------------------------+
-| Drop a .nes file here to play, or [Choose file]             |
-| Creates a public room. [ ] Unlisted                         |
-| Your file stays here. Joiners need their own matching copy. |
-| Connection: Standard [Change] — peers may see your IP.      |
-+------------------------------------------------------------+
-```
+[Included games and arbitrary NES files](included-games.md) is the sole full definition and current wireframe for U1. It places compact **Play** and **Show lobbies** actions for Super Tilt Bro and From Below plus compact arbitrary-file hosting above the live directory. The directory is the dominant content. There is no marketing hero, tagline, passive game-information panel, pre-play About action, or page scrolling. Overflowing lobby results use deterministic pagination.
 
 Default listing shows all admitted public sessions, including multiple sessions with the same label. Each row includes host, content source, occupancy, lifecycle status, and an accurate action. The platform does not certify user-entered game labels; an adjacent information label says “Host-provided title.” Do not show private filenames, ROM hashes, third-party download links, private sessions, or auto-generated artwork. Guest identity is a temporary nickname; Settings explains that it is not an account.
 
-Featured “Browse its sessions” filters the directory with a visible “Featured game” chip and [Show all sessions]. With no sessions, show “No sessions yet” and keep [Start a session] active when the catalog asset is configured. Loading the directory uses row placeholders; a failed connection shows “Can't update sessions” and [Retry], marks old rows stale, and disables joining stale rows until refreshed. An empty directory says “No public sessions yet. Start one and invite a friend.” The featured entry and hosting affordance remain visible. Development without authorized content shows “Featured game not configured,” no playable claim, and a disabled Start action.
+Each catalog launcher's **Show lobbies** action filters the directory with a visible game-title chip and **Show all lobbies**. With no matching rooms, show “No lobbies yet” and keep that game's **Play** action active when its catalog asset is configured. Loading the directory uses row placeholders; a failed connection shows “Can't update lobbies” and **Retry**, marks old rows stale, and disables joining stale rows until refreshed. An empty directory says “No public lobbies yet.” Both catalog launchers and arbitrary-file hosting remain visible. Development without an individual configured asset shows that game as unavailable without making a playable claim; the other catalog game and arbitrary-file hosting remain usable.
 
 Show the Standard/Relay only policy beside Join as well as Drop, before peer contact; changing it is optional. Public search matches host/room names or exact public codes, shows no-match feedback and offers Clear search. Codes distinguish duplicate nicknames and are never credentials. Unlisted rooms cannot be found by search or public code.
 
@@ -121,7 +97,7 @@ Room K7PM4R2X · Guest Alex · Public  [Copy invite] [Settings]
 
 Drop/picker completion uses the visibility shown at U1, generates a neutral room label/nickname, assigns P1 and opens solo play after successful validation and creation. No mandatory title form, account, connection modal or Practice button. Start included game follows the same flow with a pinned download. Rename, visibility and controller mode live in optional Session settings. Host a game focuses the accessible drop/picker area; it does not introduce a second workflow.
 
-Local validation shows cancel and preserves the previous valid selection on chooser cancellation. Oversize, archive, malformed, unsupported mapper/region, read/hash failure each explain the next action and offer Choose another file. Show the current format/size limits by the chooser. Supported hardware with an unknown title is not rejected merely for missing catalog metadata. Unverified support is labelled Experimental with details; unsupported hardware never becomes a misleading playable room. Catalog progress includes retry/back for download or integrity failure. Capacity/rate rejection preserves valid local bytes, offers retry with any wait duration, and does not imply a room was created. A cancelled or stale create response cannot leave an orphan public room.
+Local validation shows cancel and preserves the previous valid selection on chooser cancellation. Unavailable memory, archive, malformed, unsupported mapper/region and read/hash failure each explain the next action and offer Choose another file. Explain supported file formats and real resource limits by the chooser; there is no blanket 8 MiB gate. Supported hardware with an unknown title is not rejected merely for missing catalog metadata. Unverified support is labelled Experimental with details; unsupported hardware never becomes a misleading playable room. Catalog progress includes retry/back for download or integrity failure. Capacity/rate rejection preserves valid local bytes, offers retry with any wait duration, and does not imply a room was created. A cancelled or stale create response cannot leave an orphan public room.
 
 Connection privacy appears inline at U1 and the invite preview before Join. Standard allows direct connections and explains address exposure; Change offers Relay only. The action uses the visible choice, without a separate Connect action. If either participant requests Relay only, both enforce it before peer candidate exchange. Denial offers Retry or Stay in room, never silent direct fallback. Changing policy during play pauses and reconnects before shared resume. Labels do not promise anonymity from the service/relay operator.
 
@@ -171,6 +147,8 @@ Voice is optional and never blocks play. Enable voice requests microphone permis
 +--------------------------------------+----------------------+
 * Host control. Saving creates a copy on your device.
 ```
+
+U4 appears only after a game has loaded. The canvas expands into the primary content area and the controls below it become visible at that point. Before load, Pause, Save, Rewind, Fullscreen, sound and controller controls are absent rather than disabled clutter. **All lobbies** returns to the complete directory while preserving the current loaded game. **Game help** replaces a pre-play About tab and contains controls/instructions, credits and the requested license placeholder for an included game.
 
 Both players can request Pause; it pauses the shared timeline and identifies the requester. Resume requires both players to be present and acknowledge readiness, then the host selects [Resume together]. While awaiting the other player, show “Waiting for Jo to resume” instead of an apparently broken button. System pauses (connection, focus, disconnected controller, slow device) use U8 and cannot be bypassed while their prerequisite is unresolved.
 
@@ -277,7 +255,7 @@ Leave during play confirms its effect on the other player and can offer [Leave a
 
 The host's Session settings shows visibility, copy invite, controller assignment while paused/waiting, guest removal, and Close session. Remove player names the affected guest and confirms “They will lose their place and reconnect access.” It does not claim to ban a person across new anonymous sessions. Server-confirmed changes update both clients; failed changes retain the previous state and explain the failure. Browser Back and All sessions from an active room invoke the same leave/close choice rather than silently abandoning the peer.
 
-Featured About shows the confirmed title, creator credits, actual licence/permission notice, controls/how-to-play supplied with the game, and Start/Browse actions. This panel cannot be finished until the variant is specified. User-ROM information says “Host-provided title · Bring your own matching ROM” and explains local file handling; it has no supplied cover image or download action.
+Game help for a loaded included game shows the confirmed title, creator credits, the requested licence placeholder and controls/how-to-play supplied with the game. It does not repeat Start/Browse actions. User-ROM help says “Host-provided title · Bring your own matching ROM” and explains local file handling; it has no supplied cover image or download action.
 
 Operator removal and temporary admission blocks remain a restricted operational tool/runbook, not a new public admin dashboard. Its required interaction is: authenticated operator identifies a session or admission subject → sees a confirmation naming that target and action → receives success/failure → affected clients get the corresponding U8 removal/capacity state. No public page exposes operator credentials, chat inspection, ROM hashes, or private invites. Exact operational tooling is selected with the deployment package; UI review checks the resulting public feedback and authorization evidence.
 
@@ -315,7 +293,7 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S26 | Host moderates membership — U9→U8 | Server rejection; revoked reconnect; no anonymous-ban promise | AC-09–10 |
 | S27 | Operator removes abuse or limits admission — U9→U8/U2 | Authorized tool confirmation/failure, public feedback only | AC-10–11 |
 | S28 | Players understand service restart, capacity, and degraded network — U8/U1 | Loaded game retained; honest retry; no direct privacy fallback | AC-09, AC-11–12 |
-| S29 | Visitor understands content source and featured rights — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
+| S29 | Visitor understands catalog versus user-file content — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
 | S30 | Keyboard/screen-reader user completes the core journey — U1–U9 | Focus restore, announced status, picker alternative, no traps | AC-08, AC-12 |
 | S31 | Player loses focus/device without stuck input or live microphone — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
 | S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–16 |
