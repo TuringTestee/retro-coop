@@ -17,7 +17,7 @@ Discovery uses a `100dvh` shell. It has no hero, slogan, About card, catalog tab
 | UJS-1 | Both ordered Play actions downloaded their pinned files and reached rendered frames without a picker. |
 | UJS-2 | Six real public rooms produced two directory pages with game, host, occupancy, status, and Join; paging moved focus and used no nested scrolling. |
 | UJS-3 | An arbitrary generated NES file loaded, rendered, and created a public room; its filename never appeared in the product or wire-facing evidence. Invalid bytes kept discovery and the picker visible with a specific error. |
-| UJS-4 | The post-load canvas is the largest panel. Pause, Saves, Rewind, Settings, Game help, and Fullscreen are absent before load. All lobbies retained the same runtime and frames advanced from 31 to 44 before returning. |
+| UJS-4 | The post-load canvas is the largest panel. Pause, Saves, Rewind, Settings, Game help, and Fullscreen are absent before load. All lobbies retained the same runtime and frames advanced from 31 to 49 before returning. |
 | UJS-5 | Included download status stays beside launch actions; cancellation, network, size, truncation, excess, and hash failures are tested. Invalid local input preserves a direct retry. |
 | UJS-6 | Wide 1280×800, narrow 760×680, 800×600 constrained, large-text, play, pause, error, and dialog measurements all equal the viewport with no document overflow. Keyboard paging restores useful row focus. |
 

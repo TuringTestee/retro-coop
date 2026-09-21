@@ -20,7 +20,7 @@ import { defaults, type Controls } from './controls.ts';
 import {catalogEntry,catalogId} from '../../../packages/contracts/src/catalog.ts';
 
 function App() {
- const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
+ const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null), helpDialog=useRef<HTMLDialogElement>(null);
  const runtime = useRef<LocalPlayer | null>(null);
  const panel = useRef<HTMLElement>(null);
  const [rewind,setRewind]=useState(false),[help,setHelp]=useState(false);
@@ -29,6 +29,7 @@ function App() {
  const [filter,setFilter] = useState<'nearest'|'scanlines'>('nearest'), [volume,setVolume] = useState(1);
  const [fullscreen,setFullscreen] = useState(false), [fullscreenIssue,setFullscreenIssue] = useState('');
  useEffect(()=>{const changed=()=>setFullscreen(!!document.fullscreenElement);document.addEventListener('fullscreenchange',changed);return ()=>document.removeEventListener('fullscreenchange',changed);},[]);
+ useEffect(()=>{if(help){helpDialog.current?.showModal();}else helpDialog.current?.close();},[help]);
  const changeControls=(value:Controls)=>{setControls(value);runtime.current?.configureControls(value);preferences.remember({controls:value,filter,volume});};
  const toggleFullscreen=async()=>{try{setFullscreenIssue('');if(document.fullscreenElement) await document.exitFullscreen();else await panel.current?.requestFullscreen();}catch{setFullscreenIssue('Fullscreen was declined. You can keep playing in this window.');}};
  const [identity] = useState(neutralDefaults);
@@ -76,7 +77,7 @@ function App() {
   <Rewind open={rewind && state.loaded && !state.loading} close={()=>setRewind(false)} player={runtime.current}/>
   <Saves open={saves && state.loaded && !state.loading} close={()=>setSaves(false)} player={runtime.current} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
   <Settings voice={<VoiceControls state={voice} voice={rooms.current?.voice()}/>} localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={settings} close={()=>setSettings(false)} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
-  {help&&<dialog open className="settings game-help" aria-labelledby="game-help-title"><button className="settings-close" onClick={()=>setHelp(false)}>Close</button><h2 id="game-help-title">Game help{known?` · ${catalogEntry(known).title}`:''}</h2><p>{known?catalogEntry(known).instructions:'Focus the screen to play. Default arrows move, X is A, Z is B, Enter is Start, and Shift is Select.'}</p><p>{known?catalogEntry(known).credits:'This local file was supplied by the player; consult its creator for game-specific instructions and credits.'}</p>{known&&<p>{catalogEntry(known).license}</p>}</dialog>}
+  <dialog ref={helpDialog} className="settings game-help" aria-labelledby="game-help-title" onClose={()=>setHelp(false)}><button autoFocus className="settings-close" onClick={()=>helpDialog.current?.close()}>Close</button><h2 id="game-help-title">Game help{known?` · ${catalogEntry(known).title}`:''}</h2><p>{known?catalogEntry(known).instructions:'Focus the screen to play. Default arrows move, X is A, Z is B, Enter is Start, and Shift is Select.'}</p><p>{known?catalogEntry(known).credits:'This local file was supplied by the player; consult its creator for game-specific instructions and credits.'}</p>{known&&<p>{catalogEntry(known).license}</p>}</dialog>
   <footer>Your game runs in this browser. Room metadata, connection signaling and temporary chat go to the service; your game file stays here. Optional voice goes to the other player through the peer connection.</footer>
  </main>;
 }

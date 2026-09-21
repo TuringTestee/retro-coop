@@ -86,7 +86,7 @@
       "playable": true,
       "progress_preserved": true,
       "frames_before_lobbies": 31,
-      "frames_after_lobbies": 44
+      "frames_after_lobbies": 49
     },
     "from_below": {
       "playable": true
@@ -106,7 +106,7 @@
   },
   "result": "pass",
   "browser": "145.0.7632.75",
-  "duration_seconds": 6.38,
+  "duration_seconds": 8.2,
   "page_errors": [],
   "limits": "Local same-origin coordinator and desktop Chrome; no Internet route, physical controller, assistive-technology session, or audible-device capture."
 }
