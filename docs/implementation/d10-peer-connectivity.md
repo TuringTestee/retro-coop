@@ -18,7 +18,7 @@ python3 scripts/rooms/browser_smoke.py --output /tmp/rooms.local.json
 python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
 ```
 
-The peer suite requires Playwright 1.58.0, Chromium and `turnserver` (coturn). Use `--chrome` for installed Chrome and `--turnserver /path/to/turnserver` for an unprivileged local extraction. It launches a temporary, loopback-only authenticated relay with bounded allocations/bandwidth and random credentials in a mode-0600 temporary file. No public service or account is provisioned. CI installs coturn on its disposable runner and executes the suite inside the existing shared 30-minute deadline. Version and aggregate route evidence are retained; raw SDP, tokens, credentials and candidate addresses are not published.
+The peer suite requires Playwright 1.58.0, Chromium and `turnserver` (coturn). Use `--chrome` for installed Chrome and `--turnserver /path/to/turnserver` for an unprivileged local extraction. It launches a temporary, loopback-only authenticated relay with bounded allocations/bandwidth and random credentials in a mode-0600 temporary file. No public service or account is provisioned. The post-submit core job retains this suite and installs coturn on its disposable runner; current scheduling and budgets follow the governing [verification strategy](browser-nes-platform.md#verification-strategy). Version and aggregate route evidence are retained; raw SDP, tokens, credentials and candidate addresses are not published.
 
 ## Ownership and lifecycle
 

@@ -40,6 +40,8 @@ The original critical path was approval/merged plan → issue/Project organizati
 
 The repository now contains the browser application, coordinator, native core adapter and product tests delivered by the linked issues. For a documentation amendment, inspect links, acceptance coverage, scope consistency and explicit unknowns. Run the README's `timeout 60s sh scripts/preflight.sh` and existing CI; do not claim new runtime evidence from a plan-only change.
 
+This section is the single source of truth for current test budgets and scheduling. Feature delivery notes preserve the limits and results that applied when those changes shipped; they are historical evidence, not independent current policy.
+
 Continue evolving pre-flight with focused fast type/schema checks and deterministic short fixtures, keeping the entire command below 60 seconds. Pull-request CI enforces one five-minute wall-clock deadline across build, the relevant browser journey, the final gate and retries. The full core/network qualification runs after merge on `main` under a separate 30-minute deadline. Keep CI dependencies pinned and document commands in the README.
 
 Presubmit coverage must include fast deterministic checks for canonical serialization and malformed input, matching/mismatching fingerprints, atomic joins and authorization, privacy of outbound traffic, coordinated epoch changes, and local save compatibility, plus a real browser journey relevant to the change. The ten-minute network session matrix runs after merge on `main` and remains required qualification; record its actual full-run time and fix failures before release. Test forced TURN and direct connection in staging with credentials scoped to the run.
