@@ -1,6 +1,7 @@
 """Exercise actual anonymous room flows in independent browser tabs and inspect wire metadata."""
 import argparse
 import json
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -31,22 +32,30 @@ try:
         host.set_input_files('input[type=file]',{'name':'PRIVATE-HOST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
         host.wait_for_function("document.querySelector('[data-testid=room-view]')!==null")
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
-        assert 'Public ·' in host.get_by_test_id('room-view').inner_text()
+        assert 'Public ·' in host.get_by_test_id('room-view').text_content()
         invitation=host.get_by_label('Room invitation',exact=True).input_value()
         assert '#invite=' in invitation and len(invitation.split('#invite=')[1])>=22
         host.screenshot(path=str(output.with_suffix('.host.png')),full_page=True)
         first=page();second=page()
         for guest in [first,second]:
             guest.goto(invitation)
-            guest.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Join reserves')")
+            guest.get_by_role('button',name='Retry join / Join',exact=True).wait_for()
             assert guest.get_by_test_id('room-view').count()==0
             assert guest.get_by_test_id('frames').inner_text()=='0 frames'
         # Independent clients race without loading a game first.
-        first.get_by_role('button',name='Retry join / Join',exact=True).click()
-        second.get_by_role('button',name='Retry join / Join',exact=True).click()
-        first.get_by_test_id('room-view').wait_for()
-        second.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('place was just taken')")
-        assert 'the guest (reserved)' in first.get_by_test_id('room-view').inner_text()
+        first.get_by_role('button',name='Retry join / Join',exact=True).evaluate('(button)=>button.click()')
+        second.get_by_role('button',name='Retry join / Join',exact=True).evaluate('(button)=>button.click()')
+        deadline=time.monotonic()+30
+        while time.monotonic()<deadline:
+            candidates=[first,second]
+            rooms=[guest.get_by_test_id('room-view').count() for guest in candidates]
+            statuses=[guest.get_by_test_id('room-status').text_content() or '' for guest in candidates]
+            if sum(rooms)==1 and 'place was just taken' in statuses[rooms.index(0)]:break
+            time.sleep(.05)
+        assert sum(rooms)==1 and 'place was just taken' in statuses[rooms.index(0)],(rooms,statuses)
+        first,second=(candidates[0],candidates[1]) if rooms==[1,0] else (candidates[1],candidates[0])
+        first.get_by_test_id('room-view').wait_for(state='attached')
+        assert 'Player 2 (reserved)' in first.get_by_test_id('room-view').text_content()
         assert first.get_by_role('button',name='Close room',exact=True).count()==0
         # A reserved guest can choose mismatching and matching files without another ready click.
         solo_frames=int(host.get_by_test_id('frames').inner_text().split()[0])
@@ -56,26 +65,35 @@ try:
         assert first.get_by_role('button',name='Resume',exact=True).is_enabled()
         assert first.get_by_test_id('frames').inner_text()=='0 frames'
         assert 'Game loaded' in first.get_by_test_id('player-status').inner_text()
-        assert 'exact matching file' in first.get_by_test_id('room-view').inner_text()
+        assert 'exact matching file' in first.get_by_test_id('room-view').text_content()
         host.wait_for_function("before=>Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>before",arg=solo_frames)
         first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
         first.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)
         # Reloading the host and choosing the same file preserves the room and original guest lease.
-        original_reservation=first.get_by_test_id('room-view').inner_text().split('Reservation expires at ')[1].split('.')[0]
+        original_reservation=first.get_by_test_id('room-view').text_content().split('Reservation expires at ')[1].split('.')[0]
         host.reload()
         host.set_input_files('input[type=file]',{'name':'PRIVATE-RELOADED.nes','mimeType':'application/octet-stream','buffer':rom})
-        host.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('existing room')")
+        host.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('existing room')")
         assert host.get_by_label('Room invitation',exact=True).input_value()==invitation
-        assert original_reservation in host.get_by_test_id('room-view').inner_text()
+        assert original_reservation in host.get_by_test_id('room-view').text_content()
         assert first.get_by_test_id('room-view').count()==1
-        first.get_by_role('button',name='Cancel join',exact=True).click()
+        first.get_by_role('button',name='Room',exact=True).click()
+        first.locator('.room-panel').wait_for()
+        first.get_by_text('Connection and session settings',exact=True).click()
+        first.on('dialog',lambda dialog:dialog.accept())
+        leave=first.get_by_role('button',name=re.compile(r'^(Cancel join|Leave shared game)$'))
+        leave.wait_for();leave.click()
         first.get_by_test_id('room-view').wait_for(state='detached')
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
-        second.get_by_test_id('room-view').wait_for()
+        second.get_by_test_id('room-view').wait_for(state='attached')
+        second.get_by_text('Connection and session settings',exact=True).click()
         second.get_by_role('button',name='Cancel join',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='detached')
         # Rename renders hostile text literally, and visibility changes revoke the public code.
+        host.get_by_role('button',name='Room',exact=True).click()
+        host.locator('.room-panel').wait_for()
+        host.get_by_text('Connection and session settings',exact=True).click()
         host.get_by_text('Session settings',exact=True).click()
         host.get_by_label('Room name',exact=True).fill('<img src=x onerror=alert(1)>')
         host.get_by_role('button',name='Save room name',exact=True).click()
@@ -83,22 +101,22 @@ try:
         assert host.locator('.room-panel img').count()==0
         host.get_by_label('Unlisted · invitation only',exact=True).click()
         host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Unlisted · invite only')")
-        assert 'Public ·' not in host.get_by_test_id('room-view').inner_text()
+        assert 'Public ·' not in host.get_by_test_id('room-view').text_content()
         # Explicit close removes the invite immediately and retains local emulation.
         host.on('dialog',lambda dialog:dialog.accept())
-        host.get_by_role('button',name='Close details',exact=True).click()
+        host.get_by_role('button',name='Close room',exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='detached')
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
-        second.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('closed, unavailable')")
+        second.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('closed, unavailable')")
         assert int(host.get_by_test_id('frames').inner_text().split()[0])>10
         # Recover the host before committing a replacement: decline preserves room/guest and active game.
         replacement=page();replacement.goto(url)
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-ORIGINAL.nes','mimeType':'application/octet-stream','buffer':rom})
-        replacement.get_by_test_id('room-view').wait_for()
+        replacement.get_by_test_id('room-view').wait_for(state='attached')
         old_invite=replacement.get_by_label('Room invitation',exact=True).input_value()
         waiting=page();waiting.goto(old_invite)
         waiting.get_by_role('button',name='Retry join / Join',exact=True).click()
-        waiting.get_by_test_id('room-view').wait_for()
+        waiting.get_by_test_id('room-view').wait_for(state='attached')
         declines=[]
         def decline(dialog):
             declines.append(dialog.message);dialog.dismiss()
@@ -132,18 +150,18 @@ try:
         replacement.on('dialog',confirm)
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
         waiting.get_by_test_id('room-view').wait_for(state='detached')
-        replacement.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Room created')")
+        replacement.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Room created')")
         assert len(confirms)==1
         assert replacement.get_by_label('Room invitation',exact=True).input_value()!=old_invite
         replacement.screenshot(path=str(output.with_suffix('.replacement-confirmed.png')),full_page=True)
         replacement.close();waiting.close()
         # A fresh tab does not inherit Unlisted; selecting it before loading creates an unlisted room.
         unlisted=page();unlisted.goto(url)
-        assert not unlisted.get_by_label('Unlisted · invitation only',exact=True).is_checked()
-        unlisted.get_by_label('Unlisted · invitation only',exact=True).check()
+        assert not unlisted.get_by_label('Unlisted',exact=True).is_checked()
+        unlisted.get_by_label('Unlisted',exact=True).check()
         unlisted.set_input_files('input[type=file]',{'name':'PRIVATE-UNLISTED.nes','mimeType':'application/octet-stream','buffer':rom})
-        unlisted.get_by_test_id('room-view').wait_for()
-        assert 'Unlisted · invite only' in unlisted.get_by_test_id('room-view').inner_text()
+        unlisted.get_by_test_id('room-view').wait_for(state='attached')
+        assert 'Unlisted · invite only' in unlisted.get_by_test_id('room-view').text_content()
         # A cancelled join's delayed response must not release a newer reservation.
         raced=page()
         raced.add_init_script("""const Native=WebSocket;let holdFirstJoin=true;
@@ -155,20 +173,21 @@ try:
           };""")
         race_invite=unlisted.get_by_label('Room invitation',exact=True).input_value()
         raced.goto(race_invite)
-        raced.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Join reserves')")
+        raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
         raced.get_by_role('button',name='Retry join / Join',exact=True).click()
         raced.wait_for_function('typeof releaseJoinA === "function"')
         raced.get_by_role('button',name='Cancel pending room action',exact=True).click()
         raced.get_by_test_id('room-view').wait_for(state='detached')
         raced.get_by_role('button',name='Retry join / Join',exact=True).click()
-        raced.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Guest reserved')")
+        raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Guest reserved')")
         raced.evaluate('releaseJoinA()')
         competing=page();competing.goto(race_invite)
-        competing.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.startsWith('Join reserves')")
+        competing.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
         competing.get_by_role('button',name='Retry join / Join',exact=True).click()
-        competing.wait_for_function("document.querySelector('[data-testid=room-view]') || document.querySelector('[data-testid=room-status]').textContent.includes('place was just taken')")
+        competing.wait_for_function("document.querySelector('[data-testid=room-view]') || document.querySelector('[data-testid=room-status]')?.textContent.includes('place was just taken')")
         assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
         assert raced.get_by_test_id('room-view').count()==1
+        raced.get_by_text('Connection and session settings',exact=True).click()
         raced.get_by_role('button',name='Cancel join',exact=True).click()
         raced.get_by_test_id('room-view').wait_for(state='detached')
         # Hold the create reply at the browser boundary. Cancellation must close the provisional room,
@@ -185,19 +204,23 @@ try:
         cancelled.goto(url)
         cancelled.set_input_files('input[type=file]',{'name':'PRIVATE-CANCELLED.nes','mimeType':'application/octet-stream','buffer':rom})
         cancelled.wait_for_function('typeof staleReply === "function"')
+        cancelled.get_by_role('button',name='Room',exact=True).click()
+        cancelled.locator('.room-panel').wait_for()
         cancelled.get_by_role('button',name='Cancel pending room action',exact=True).click()
         stale_invite=cancelled.evaluate('heldInvite')
         cancelled.evaluate('holdCreate=false;staleReply()')
-        cancelled.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.toLowerCase().includes('cancelled')")
+        cancelled.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.toLowerCase().includes('cancelled')")
         assert cancelled.get_by_test_id('room-view').count()==0
         observer=page();observer.goto(url+'#invite='+stale_invite)
-        observer.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('closed, unavailable')")
+        observer.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('closed, unavailable')")
         # Socket failure is recoverable without dropping the loaded file or claiming a room exists.
         offline=page()
         offline.add_init_script("const Native=WebSocket;window.WebSocket=class extends Native {constructor(url,...args){super(String(url).replace('/ws','/offline'),...args)}};")
         offline.goto(url)
         offline.set_input_files('input[type=file]',{'name':'PRIVATE-OFFLINE.nes','mimeType':'application/octet-stream','buffer':rom})
         offline.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        offline.get_by_role('button',name='Room',exact=True).click()
+        offline.locator('.room-panel').wait_for()
         offline.get_by_role('button',name='Retry room creation',exact=True).wait_for()
         assert offline.get_by_test_id('room-view').count()==0
         offline.screenshot(path=str(output.with_suffix('.offline.png')),full_page=True)

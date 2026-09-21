@@ -106,6 +106,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   {room?.role==='guest'&&!fingerprint&&!room.catalogId&&<div className="matching-file"><p>This host-provided game needs your exact matching local NES file. The host’s ROM bytes are never transferred.</p><button onClick={onChoose}>Choose matching NES file</button></div>}
   {room && <ControllerOwnership room={room}/>}
   <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
+  {invite&&!room&&<p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>}
   {room&&!room.established&&<div className="room-invite"><strong>{room.visibility==='public'?`Public lobby · ${room.code}`:'Unlisted lobby · invite only'}</strong><label>Invitation <input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/></label><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Select the invitation text and copy it.'));if(!navigator.clipboard)setCopy('Select the invitation text and copy it.');}}>Copy invite</button><span className="hint">{copy}</span></div>}
   {(room||!invite)&&<details name="room-tools" className="session-settings"><summary>Connection and session settings</summary>
   <ConnectionPolicyControl policy={policy} change={changePolicy}/>
