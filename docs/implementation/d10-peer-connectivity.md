@@ -6,7 +6,7 @@ Friends can now establish an encrypted browser-to-browser connection after reser
 
 ## Run and reproduce
 
-Use the README's pinned Node, Rust and browser setup. `npm ci`, `sh scripts/foundation/prepare.sh`, `npm run build`, then coordinator/client development servers give direct local connectivity without a TURN provider. Select Relay only with no configured service to inspect honest denial and retry. Existing local games survive connection failures.
+For the maintained gamer entrypoint, use the README's pinned tools and run `sh scripts/demo.sh`; it starts the coordinator and client with both included games configured. The lower-level `npm run build` and browser harness commands below are connectivity diagnostics, not a second public setup path. Select Relay only with no configured service to inspect honest denial and retry. Existing local games survive connection failures.
 
 A configured coordinator accepts `TURN_URLS` (comma-separated turn/turns URLs), `TURN_SECRET` (at least 32 characters), and `TURN_ROOM_LIMIT` (0–20). These are operator settings, not browser-exposed shared secrets. Coturn must use the matching REST authentication secret and enforce its own allocation/bandwidth quotas. The service issues member-only credentials with 300-second expiry; it never logs credentials or SDP. TURN allocation quotas must include transient allocations from replaced ICE epochs, not only current room count; browser closure does not guarantee immediate relay deallocation. Zero configured capacity denies Relay only before creating peers. Standard may use direct connectivity when relay capacity is unavailable; Relay only never changes to Standard automatically.
 

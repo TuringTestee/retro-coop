@@ -1,7 +1,7 @@
 import {catalogAssetPath,type CatalogEntry} from '../../../packages/contracts/src/catalog.ts';
 
 export async function downloadCatalogEntry(entry:CatalogEntry,signal:AbortSignal,progress:(bytes:number)=>void,fetcher:typeof fetch=fetch):Promise<File> {
- signal.throwIfAborted();const response=await fetcher(catalogAssetPath(entry),{signal,credentials:'omit',redirect:'error',cache:'default'});
+ signal.throwIfAborted();let response:Response;try{response=await fetcher(catalogAssetPath(entry),{signal,credentials:'omit',redirect:'error',cache:'default'});}catch(error){signal.throwIfAborted();throw Error(`${entry.title} could not download. Retry, or choose a local game.`,{cause:error});}
  if(!response.ok||!response.body)throw Error(`${entry.title} could not download. Retry, or choose a local game.`);
  const length=response.headers.get('Content-Length');if(length!==null&&Number(length)!==entry.bytes){await response.body.cancel();throw Error(`${entry.title} has the wrong download size. Retry.`);}
  const reader=response.body.getReader(),bytes=new Uint8Array(entry.bytes);let offset=0;

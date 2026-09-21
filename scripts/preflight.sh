@@ -15,7 +15,7 @@ python3 scripts/verify_vendor.py
 python3 scripts/foundation/banked_ram_fixture.py all spikes/d02
 sh -n scripts/preflight.sh
 sh -n scripts/demo.sh
-node --check spikes/d02/demo/app.js
+python3 scripts/public_entrypoint_smoke.py --source-only
 node --check scripts/gameplay/fixture.js
 node --check scripts/foundation/gamepad_fixture.js
 sh -n spikes/d02/run_network_probe.sh
@@ -24,7 +24,7 @@ sh -n scripts/gameplay/network.sh
 bash -n spikes/d02/ci_job.sh
 node --check spikes/d02/realtime-worker.js
 node --check scripts/voice/fixtures.js
-python3 -c 'import ast, pathlib; root=pathlib.Path("spikes/d02"); [ast.parse(p.read_text()) for p in [*root.glob("*.py"), *(root/"demo").glob("*.py"), *pathlib.Path("scripts/foundation").glob("*.py"), *pathlib.Path("scripts/rooms").glob("*.py"), *pathlib.Path("scripts/peer").glob("*.py"), *pathlib.Path("scripts/featured").glob("*.py"), *pathlib.Path("scripts/voice").glob("*.py"), *pathlib.Path("scripts/gameplay").glob("*.py"), *pathlib.Path("scripts/staging").glob("*.py")]]'
+python3 -c 'import ast, pathlib; root=pathlib.Path("spikes/d02"); [ast.parse(p.read_text()) for p in [*root.glob("*.py"), *pathlib.Path("scripts").glob("*.py"), *pathlib.Path("scripts/foundation").glob("*.py"), *pathlib.Path("scripts/rooms").glob("*.py"), *pathlib.Path("scripts/peer").glob("*.py"), *pathlib.Path("scripts/featured").glob("*.py"), *pathlib.Path("scripts/voice").glob("*.py"), *pathlib.Path("scripts/gameplay").glob("*.py"), *pathlib.Path("scripts/staging").glob("*.py")]]'
 (cd spikes/d02 && python3 original_fixture.py fixture.local.nes && cargo +1.95.0 fmt --check && cargo +1.95.0 test --locked --offline --release --lib)
 node spikes/d02/test_realtime_audio.cjs
 node spikes/d02/test_realtime_scheduler.cjs

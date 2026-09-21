@@ -6,6 +6,8 @@ on:
 permissions:
   contents: read
   actions: read
+env:
+  D02_BUDGET_SECONDS: ${{ github.event_name == 'pull_request' && '300' || '1800' }}
 jobs:
   watchdog:
     runs-on: ubuntu-latest
@@ -65,7 +67,39 @@ jobs:
           path: apps/client/dist
           if-no-files-found: error
           retention-days: 7
+  entrypoint:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: d02-build
+          path: spikes/d02
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        timeout-minutes: 1
+        with:
+          node-version-file: .node-version
+      - name: Verify the documented browser journey within five minutes
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh entrypoint
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        timeout-minutes: 1
+        with:
+          name: public-entrypoint
+          path: spikes/d02/public-entrypoint.local/**
+          if-no-files-found: warn
+          retention-days: 7
   core:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -119,6 +153,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   network:
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -169,12 +204,13 @@ jobs:
           retention-days: 7
   preflight:
     if: always()
-    needs: [build, core, network]
+    needs: [build, entrypoint, core, network]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
       D02_BUILD: ${{ needs.build.result }}
+      D02_ENTRYPOINT: ${{ needs.entrypoint.result }}
       D02_CORE: ${{ needs.core.result }}
       D02_NETWORK: ${{ needs.network.result }}
     steps:
@@ -184,18 +220,28 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Require every complete workload
+        if: github.event_name == 'push'
         run: |
           test "$D02_BUILD" = success
+          test "$D02_ENTRYPOINT" = success
           test "$D02_CORE" = success
           test "$D02_NETWORK" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: github.event_name == 'push'
         timeout-minutes: 1
         with:
           pattern: d02-pair-*
           path: /tmp/d02-pair-evidence
       - name: Require all six peers to agree within the original deadline
+        if: github.event_name == 'push'
         run: |
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 spikes/d02/verify_ci_matrix.py /tmp/d02-pair-evidence
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 scripts/gameplay/verify_matrix.py /tmp/d02-pair-evidence
+          python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+      - name: Require the focused pull-request journey
+        if: github.event_name == 'pull_request'
+        run: |
+          test "$D02_BUILD" = success
+          test "$D02_ENTRYPOINT" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
