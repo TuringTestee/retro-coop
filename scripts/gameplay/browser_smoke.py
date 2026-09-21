@@ -90,7 +90,7 @@ try:
    for tab in [h,g]:tab.wait_for_function("proof.room?.established && proof.room.game.status==='playing'",timeout=15000,polling=50)
    def shared_layout(tab):
     layout=tab.evaluate("""()=>{const canvas=document.querySelector('canvas'),room=document.querySelector('.room-panel'),box=canvas.getBoundingClientRect();return {viewport:{width:innerWidth,height:innerHeight},canvas:{width:box.width,height:box.height,areaRatio:box.width*box.height/(innerWidth*innerHeight)},document:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},room:{scrollHeight:room.scrollHeight,clientHeight:room.clientHeight}}}""")
-    assert layout['canvas']['width']>=600 and layout['canvas']['height']>=560,layout
+    assert layout['canvas']['width']>=layout['viewport']['width']*.40 and layout['canvas']['height']>=layout['viewport']['height']*.75,layout
     assert layout['canvas']['areaRatio']>=.30,layout
     assert layout['document']['width']<=layout['viewport']['width'] and layout['document']['height']<=layout['viewport']['height'],layout
     assert layout['room']['scrollHeight']<=layout['room']['clientHeight'],layout
