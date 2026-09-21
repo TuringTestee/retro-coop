@@ -50,6 +50,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 guest.get_by_role('button', name='Retry join / Join', exact=True).click()
                 guest.get_by_test_id('room-view').wait_for()
                 for tab in [host,guest]:
+                    tab.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
                     tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Route: direct')")
                     tab.locator('.room-panel').get_by_label('Remote voice volume', exact=False).fill('0')
                     tab.get_by_role('button', name='Enable voice', exact=True).click()

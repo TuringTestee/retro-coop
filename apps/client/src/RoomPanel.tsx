@@ -106,14 +106,13 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   {room && <ControllerOwnership room={room}/>}
   <p role="status" data-testid="connection-status">{connectionStatus(state)}</p>
   {room&&!room.established&&<div className="room-invite"><strong>{room.visibility==='public'?`Public lobby · ${room.code}`:'Unlisted lobby · invite only'}</strong><label>Invitation <input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/></label><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Select the invitation text and copy it.'));if(!navigator.clipboard)setCopy('Select the invitation text and copy it.');}}>Copy invite</button><span className="hint">{copy}</span></div>}
-  {(room||!invite)&&<details className="session-settings"><summary>Connection and session settings</summary>
+  {(room||!invite)&&<details name="room-tools" className="session-settings"><summary>Connection and session settings</summary>
   <ConnectionPolicyControl policy={policy} change={changePolicy}/>
   <p className="hint">Player 2 remains reserved until both games acknowledge shared start. Fresh matching games start automatically. Progressed games stay paused until late-join support is available.</p>
   {room?.peer.epoch && <button onClick={()=>void client.current?.retryPeer()}>Retry connection</button>}
   {room?.peer.epoch && ['relay_unavailable','relay_capacity','failed'].includes(room.peer.status) && <><button onClick={()=>setStaying(room.peer.epoch)}>Stay in room</button>{staying===room.peer.epoch && <p role="status">You stayed in the room. Your current reservation deadline and local game are unchanged. Retry whenever you are ready.</p>}</>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
   {state.retryAfterMs && <p>Wait at least {Math.ceil(state.retryAfterMs/1000)} seconds before retrying.</p>}
-  {room && <ControllerMode room={room} act={command=>client.current!.act(command)}/>}
   {room && <div data-testid="room-view">
    <p><strong>{room.visibility === 'public' ? `Public · ${room.code}`:'Unlisted · invite only'}</strong> · {room.occupancy}/2 places · {room.status}</p>
    <p>You are {room.role === 'host' ? 'the host, Player 1':room.established?'Player 2':'Player 2 (reserved)'}. {room.guest ? `${room.guest} has the ${room.established?'established':'reserved'} guest place.`:'Waiting for a friend; local play can continue.'}</p>
@@ -127,19 +126,20 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
    </details> : <button onClick={()=>{if(!room.established||window.confirm('Leave shared play? The other player will pause; your local game is preserved.'))void client.current?.act({type:'leave',intent:room.reservationIntent!});}}>{room.established?'Leave shared game':'Cancel join'}</button>}
   </div>}
   </details>}
+  {room&&<details name="room-tools" className="controller-disclosure"><summary>Session controllers</summary><ControllerMode room={room} act={command=>client.current!.act(command)}/></details>}
   {room && <section aria-label="Shared gameplay"><p role="status" data-testid="game-status">{room.game?.reason??state.gameplay?.status}</p><p data-testid="game-frame">{state.gameplay?.frame??0} shared frames · delay {state.gameplay?.delay??'negotiating'}</p>
    {room.established && ['paused','failed','resume_ready'].includes(room.game?.status??'') && <><button disabled={!!room.game?.controllerProposal} onClick={()=>client.current?.readyToResume()}>Ready to resume</button>{room.role==='host' && <button disabled={!!room.game?.controllerProposal||room.game?.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p role="status">{room.game?.status==='resume_ready' ? `Both players are ready. ${room.role==='host'?'Resume together when ready.':`Waiting for ${room.host} to resume.`}` : `Waiting for ${[!room.game?.ready?.includes('host') && room.host,!room.game?.ready?.includes('guest') && (room.guest??'Player 2')].filter(Boolean).join(' and ')} to resume.`}</p></>}
    {!room.established && ['failed','paused'].includes(room.game?.status??'') && <button onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
   </section>}
-  {room?.established && state.chat && <ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/>}
-  {room?.established && <VoiceControls state={state.voice} voice={client.current?.voice}/>}
+  {room&&state.chat&&<details name="room-tools" className="chat-disclosure"><summary>Room chat</summary><ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/></details>}
+  {room&&<details name="room-tools" className="voice-disclosure"><summary>Voice</summary><VoiceControls state={state.voice} voice={client.current?.voice}/></details>}
   <div className="controls">
    {state.busy && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
    {!room && invite && <button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Retry join / Join</button>}
    {!room && !invite && fingerprint && <button disabled={state.busy} onClick={()=>void client.current?.host(fingerprint,visibility)}>Retry room creation</button>}
    {!state.connected && (state.room || state.admissionBlocked || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
   </div>
-  {state.session && <details><summary>Guest settings</summary><p className="hint">Temporary name for this browser tab. It is not an account.</p><label>Nickname <input maxLength={32} value={nickname} onChange={event=>setNickname(event.target.value)}/></label><button disabled={!nickname.trim()} onClick={()=>void client.current?.act({type:'nickname',nickname})}>Save nickname</button></details>}
+  {state.session && <details name="room-tools"><summary>Guest settings</summary><p className="hint">Temporary name for this browser tab. It is not an account.</p><label>Nickname <input maxLength={32} value={nickname} onChange={event=>setNickname(event.target.value)}/></label><button disabled={!nickname.trim()} onClick={()=>void client.current?.act({type:'nickname',nickname})}>Save nickname</button></details>}
   {state.needsNewGuest && <button onClick={()=>client.current?.newGuest()}>Start a new guest session</button>}
  </section></>;
 });

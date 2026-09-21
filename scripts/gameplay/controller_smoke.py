@@ -10,7 +10,11 @@ def run(host,guest,out,root,errors,source,build_files):
   hashes=[page.evaluate('proof.hashes.at(-1)') for page in pages];assert hashes[0]==hashes[1],hashes
   return hashes[0]
  def settings():
-  for page in pages:page.locator('details.session-settings').evaluate('(node)=>node.open=true')
+  for page in pages:
+   page.locator('details.session-settings').evaluate('(node)=>node.open=false')
+   page.locator('details.controller-disclosure').evaluate('(node)=>node.open=true')
+   layout=page.evaluate("""()=>{const panel=document.querySelector('.room-panel');return {documentHeight:document.documentElement.scrollHeight,viewportHeight:innerHeight,panelHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight}}""")
+   assert layout['documentHeight']<=layout['viewportHeight'] and layout['panelScrollHeight']<=layout['panelHeight'],layout
  def propose(mode,p1):
   host.get_by_label('Controller mode',exact=True).select_option(mode);host.get_by_label('P1 owner',exact=True).select_option(p1)
   host.get_by_role('button',name='Request assignment',exact=True).click()
@@ -35,7 +39,7 @@ def run(host,guest,out,root,errors,source,build_files):
    assert page.evaluate('proof.controllerRam')==expected,(label,page.evaluate('proof.controllerRam'))
   results.append({'mapping':label,'both_native_controller_ram':expected})
  # Native diagnostic independently reads the two controller ports into machine RAM.
- baseline=pause();settings();host.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[host.get_by_label('Room invitation',exact=True)])
+ baseline=pause();settings();host.screenshot(path=str(out.with_suffix('.before.png')),mask=[host.get_by_label('Room invitation',exact=True)])
  previous=host.evaluate('proof.room.game.controllers')
  propose('shared','guest');guest.get_by_role('button',name='Decline assignment',exact=True).click()
  host.wait_for_function('!proof.room.game.controllerProposal');assert host.evaluate('proof.room.game.controllers.p1')==previous['p1'];assert host.evaluate('proof.hashes.at(-1)')==baseline
@@ -58,8 +62,8 @@ def run(host,guest,out,root,errors,source,build_files):
  # Guest keeps its pad physically held; only the new named host owner can write.
  host.locator('canvas').focus();host.keyboard.up('x');host.keyboard.down('x');sample([128,0],'shared host owner after accepted pass')
  final=pause();settings()
- host.screenshot(path=str(out.with_suffix('.after.png')),full_page=True,mask=[host.get_by_label('Room invitation',exact=True)])
- guest.screenshot(path=str(out.with_suffix('.guest.png')),full_page=True,mask=[guest.get_by_label('Room invitation',exact=True)])
+ host.screenshot(path=str(out.with_suffix('.after.png')),mask=[host.get_by_label('Room invitation',exact=True)])
+ guest.screenshot(path=str(out.with_suffix('.guest.png')),mask=[guest.get_by_label('Room invitation',exact=True)])
  assert not errors,errors
  result={'result':'pass','source':source,'build_files':build_files,'scenarios':results,'decline_cancel_preserved_hash':baseline,'final_equal_native_hash':final,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
  out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));return result

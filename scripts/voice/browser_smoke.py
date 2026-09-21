@@ -93,6 +93,7 @@ try:
     guest.get_by_test_id("room-view").wait_for()
     timeline_before = host.evaluate("timelineWrites")
     for tab in [host, guest]:
+        tab.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
         tab.wait_for_function(
             "route=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+route)",
             arg="relay" if args.relay else "direct",

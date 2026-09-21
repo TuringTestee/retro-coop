@@ -88,6 +88,15 @@ try:
     result={'result':'pass','scenario':'progressed host pauses without reset','host_state':observed,'host_frames':count,'lease_preserved':g.evaluate('proof.room.reservationUntil>Date.now()'),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert result['lease_preserved'] and not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    for tab in [h,g]:tab.wait_for_function("proof.room?.established && proof.room.game.status==='playing'",timeout=15000,polling=50)
+   def shared_layout(tab):
+    layout=tab.evaluate("""()=>{const canvas=document.querySelector('canvas'),room=document.querySelector('.room-panel'),box=canvas.getBoundingClientRect();return {viewport:{width:innerWidth,height:innerHeight},canvas:{width:box.width,height:box.height,areaRatio:box.width*box.height/(innerWidth*innerHeight)},document:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},room:{scrollHeight:room.scrollHeight,clientHeight:room.clientHeight}}}""")
+    assert layout['canvas']['width']>=600 and layout['canvas']['height']>=560,layout
+    assert layout['canvas']['areaRatio']>=.30,layout
+    assert layout['document']['width']<=layout['viewport']['width'] and layout['document']['height']<=layout['viewport']['height'],layout
+    assert layout['room']['scrollHeight']<=layout['room']['clientHeight'],layout
+    return layout
+   shared_layouts=[shared_layout(tab) for tab in [h,g]]
+   if args.screenshots:h.screenshot(path=str(out.with_name(out.stem+'.shared-playing.png')),mask=[h.locator('input[aria-label="Room invitation"]:visible')])
    fps=h.evaluate('proof.fps');assert fps==g.evaluate('proof.fps');target_frames=max(360,math.ceil(args.seconds*fps))
    play_started=time.monotonic()
    for tab in [h,g]:tab.evaluate('releaseFrames()')
@@ -134,12 +143,14 @@ try:
     assert not errors,errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.screenshots:
+    for tab in [h,g]:tab.locator('details.chat-disclosure').evaluate('(node)=>node.open=true')
     count=h.evaluate('proof.frameCount');h.get_by_label('Chat message',exact=True).press_sequentially('xz shared hello')
     h.get_by_text('Typing in chat · game input released.',exact=False).wait_for()
     h.wait_for_function('n=>proof.frameCount>=n+12',arg=count,polling=20)
     h.evaluate("currentWorker.postMessage({type:'state-export',requestId:900001})");h.wait_for_function('proof.chatRam',polling=20);assert h.evaluate('proof.chatRam')==[0,64]
     assert h.evaluate('proof.room.game.status')=='playing'
-    h.get_by_role('button',name='Send message',exact=True).click();g.get_by_role('log').get_by_text('xz shared hello',exact=True).wait_for()
+    for tab in [h,g]:tab.locator('details.chat-disclosure').evaluate('(node)=>node.open=false')
+    shared_layouts=[shared_layout(tab) for tab in [h,g]]
    if args.screenshots:h.screenshot(path=str(out.with_name('playing.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
    first_active=time.monotonic()-play_started
    h.keyboard.up('x');g.keyboard.up('z')
@@ -194,7 +205,7 @@ try:
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'
-   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'initial_manual_frames':args.initial_manual_frames,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
+   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'initial_manual_frames':args.initial_manual_frames,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'shared_layouts':shared_layouts,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}))
   except Exception:
    failure={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'build_files':build_files,'browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'source':source,'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}

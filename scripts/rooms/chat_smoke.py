@@ -19,11 +19,12 @@ try:
             page.add_init_script('''window.chatProof={errors:[],requests:{}};window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}};
 window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...rest){if(message.type==='frame')inputProof.push(message.p1);return post.call(this,message,...rest)};''')
             page.goto(address);return page
-        host=page();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_test_id('room-view').wait_for()
+        def open_chat(tab):tab.locator('details.chat-disclosure').evaluate('(node)=>node.open=true')
+        host=page();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Room',exact=True).click();host.locator('main.session-open').wait_for();host.get_by_test_id('room-view').wait_for(state='attached');host.get_by_test_id('room-status').filter(has_text='Room created').wait_for(state='attached');open_chat(host)
         def send(page,text):
             page.get_by_label('Chat message',exact=True).fill(text);page.get_by_role('button',name='Send message',exact=True).click();page.locator('.chat-panel li p').get_by_text(text,exact=True).wait_for()
         send(host,'only before join')
-        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Retry join / Join',exact=True).click();guest.get_by_test_id('room-view').wait_for()
+        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Retry join / Join',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');open_chat(guest)
         assert guest.get_by_test_id('frames').inner_text()=='0 frames'
         assert guest.locator('.chat-panel li').count()==0
         send(guest,'hello before ROM');host.locator('.chat-panel li p').get_by_text('hello before ROM',exact=True).wait_for()
@@ -77,7 +78,7 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         guest.get_by_role('button',name='Send message',exact=True).click()
         host.locator('.chat-panel li p').get_by_text('text survives peer denial',exact=True).wait_for()
         guest.get_by_role('button',name='Cancel join',exact=True).click();guest.locator('.chat-panel').wait_for(state='detached')
-        guest.get_by_role('button',name='Retry join / Join',exact=True).click();guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
+        guest.get_by_role('button',name='Retry join / Join',exact=True).click();open_chat(guest);guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
         assert not errors,errors
         result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_relay_denial_keeps_chat_usable':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()

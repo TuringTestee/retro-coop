@@ -86,7 +86,7 @@ try:
         assert 'Public ·' not in host.get_by_test_id('room-view').inner_text()
         # Explicit close removes the invite immediately and retains local emulation.
         host.on('dialog',lambda dialog:dialog.accept())
-        host.get_by_role('button',name='Close room',exact=True).click()
+        host.get_by_role('button',name='Close details',exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='detached')
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
         second.wait_for_function("document.querySelector('[data-testid=room-status]').textContent.includes('closed, unavailable')")
