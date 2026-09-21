@@ -35,19 +35,20 @@
       "version": "145.0.7632.6"
     },
     {
-      "kind": "Chrome",
-      "version": "145.0.7632.6"
+      "kind": "Firefox",
+      "version": "146.0.1"
     }
   ],
   "browsers": {
-    "Chrome": "145.0.7632.6"
+    "Chrome": "145.0.7632.6",
+    "Firefox": "146.0.1"
   },
-  "pair": "Chrome-Chrome",
+  "pair": "Chrome-Firefox",
   "injection": "none",
   "initial_manual_frames": 240,
   "target_seconds": 8,
   "target_frames": 480,
-  "active_seconds": 8.02,
+  "active_seconds": 8.01,
   "shared_layouts": [
     {
       "viewport": {
@@ -74,9 +75,9 @@
         "height": 1050
       },
       "canvas": {
-        "width": 971.9375,
-        "height": 911.203125,
-        "areaRatio": 0.6589527435302734
+        "width": 971.9500122070312,
+        "height": 911.2000122070312,
+        "areaRatio": 0.6589589754372552
       },
       "document": {
         "width": 1280,
@@ -90,26 +91,26 @@
   ],
   "final": [
     {
-      "hash": "d609851186f6e7931cd5de1c79998aea570814fba00e196b5681f810143cf969",
-      "frame": 515,
+      "hash": "79884a6d449dcf5972f2d7f5c23a740de55d26207abd8ed8b339a3b7649a3058",
+      "frame": 509,
       "fresh": false
     },
     {
-      "hash": "d609851186f6e7931cd5de1c79998aea570814fba00e196b5681f810143cf969",
-      "frame": 515,
+      "hash": "79884a6d449dcf5972f2d7f5c23a740de55d26207abd8ed8b339a3b7649a3058",
+      "frame": 509,
       "fresh": false
     }
   ],
-  "seconds": 10.92,
+  "seconds": 14.99,
   "pause": [
     {
-      "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-      "frame": 287,
+      "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+      "frame": 271,
       "fresh": false
     },
     {
-      "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-      "frame": 287,
+      "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+      "frame": 271,
       "fresh": false
     }
   ],
@@ -137,28 +138,28 @@
           "fresh": false
         },
         {
-          "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-          "frame": 287,
+          "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+          "frame": 271,
           "fresh": false
         },
         {
-          "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-          "frame": 287,
+          "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+          "frame": 271,
           "fresh": false
         },
         {
-          "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-          "frame": 287,
+          "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+          "frame": 271,
           "fresh": false
         },
         {
-          "hash": "ff3d721529fd4dd531c37b5639f851cb4f4a0e0afb647afdd5a53102d2103a57",
-          "frame": 407,
+          "hash": "30f5c41a5fe2281c0350bd7abb93ff62c364cda2685678ccf9a037a8b68eab53",
+          "frame": 391,
           "fresh": false
         },
         {
-          "hash": "d609851186f6e7931cd5de1c79998aea570814fba00e196b5681f810143cf969",
-          "frame": 515,
+          "hash": "79884a6d449dcf5972f2d7f5c23a740de55d26207abd8ed8b339a3b7649a3058",
+          "frame": 509,
           "fresh": false
         }
       ],
@@ -250,134 +251,108 @@
       ],
       "frames": [
         {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 216
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 217
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 218
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 219
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 220
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 221
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 222
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 223
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 224
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 225
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
           "frame": 226
         },
         {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
           "frame": 227
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 228
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 229
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 230
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 231
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 232
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 233
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 234
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 235
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 236
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 237
         }
       ],
-      "frameCount": 515,
+      "frameCount": 509,
       "sentHashes": [
         {
           "kind": "hash",
-          "epoch": "wQ-xFQCtOfEka2GovIA138D9Y07_kCjd",
+          "epoch": "rfxw4PcsDaoMGiTP0GL7ArB6kA-WkvFU",
           "frame": 120,
           "hash": "25bde00762142e44fceadb3aaed1fbac5e20a1e838bd5b2a3766d60469542e26"
         },
         {
           "kind": "hash",
-          "epoch": "wQ-xFQCtOfEka2GovIA138D9Y07_kCjd",
+          "epoch": "rfxw4PcsDaoMGiTP0GL7ArB6kA-WkvFU",
           "frame": 240,
           "hash": "c457adcba1e0552db2b0bdd38548fb208b8f021f38a1ab615ed204b8c76e7bc7"
         },
         {
           "kind": "hash",
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
           "frame": 120,
-          "hash": "ff3d721529fd4dd531c37b5639f851cb4f4a0e0afb647afdd5a53102d2103a57"
+          "hash": "30f5c41a5fe2281c0350bd7abb93ff62c364cda2685678ccf9a037a8b68eab53"
         }
       ],
       "timing": {
-        "workerMs": 1382.7000001221895,
-        "workerMax": 13.900000005960464,
+        "workerMs": 1653.8999999761581,
+        "workerMax": 18.900000005960464,
         "frameGaps": [
           null,
           null,
           null,
-          6,
+          3,
+          2,
+          4,
+          2,
+          1,
+          null,
+          null,
+          3,
+          null,
+          3,
+          8,
+          18,
+          49,
+          137,
+          166,
+          60,
+          31,
+          8,
           5,
           1,
           1,
-          2,
-          3,
-          null,
-          null,
-          2,
-          6,
-          33,
-          42,
-          77,
-          94,
-          77,
-          32,
-          44,
-          68,
-          14,
-          3,
+          1,
           1,
           null,
-          null,
-          null,
-          null,
-          null,
-          null,
           1,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
+          1,
           null,
           null,
           null,
@@ -397,7 +372,7 @@
           null,
           1
         ],
-        "waitMs": 0.5999999940395355,
+        "waitMs": 0.5,
         "waitCount": 1,
         "delays": [
           6,
@@ -406,97 +381,106 @@
       },
       "events": [
         {
-          "at": 818,
+          "at": 3725,
           "kind": "icegatheringstatechange",
           "connection": "new",
           "ice": "new",
           "gathering": "gathering"
         },
         {
-          "at": 852,
+          "at": 3813,
           "kind": "iceconnectionstatechange",
           "connection": "new",
           "ice": "checking",
           "gathering": "gathering"
         },
         {
-          "at": 853,
+          "at": 3817,
           "kind": "connectionstatechange",
           "connection": "connecting",
           "ice": "checking",
           "gathering": "gathering"
         },
         {
-          "at": 855,
-          "kind": "icegatheringstatechange",
+          "at": 3819,
+          "kind": "iceconnectionstatechange",
           "connection": "connecting",
-          "ice": "checking",
-          "gathering": "complete"
+          "ice": "connected",
+          "gathering": "gathering"
         },
         {
-          "at": 856,
-          "kind": "iceconnectionstatechange",
+          "at": 3823,
+          "kind": "icegatheringstatechange",
           "connection": "connecting",
           "ice": "connected",
           "gathering": "complete"
         },
         {
-          "at": 857,
+          "at": 3837,
           "kind": "connectionstatechange",
           "connection": "connected",
           "ice": "connected",
           "gathering": "complete"
         },
         {
-          "at": 1066,
+          "at": 4115,
           "kind": "receive",
           "type": "gameStart",
           "reason": null
         },
         {
-          "at": 5742,
+          "at": 8529,
           "kind": "send",
           "type": "gamePause",
           "reason": "user",
-          "frame": 287,
-          "sinceStart": 4676,
-          "epochFrames": 280
+          "frame": 271,
+          "sinceStart": 4415,
+          "epochFrames": 264
         },
         {
-          "at": 5753,
+          "at": 8546,
           "kind": "receive",
           "type": "gamePauseAt",
           "reason": "Host requested pause (user)."
         },
         {
-          "at": 5792,
+          "at": 8702,
           "kind": "receive",
           "type": "gameStop",
           "reason": "Host requested pause (user). Both players are paused at the same frame."
         },
         {
-          "at": 6172,
+          "at": 8998,
           "kind": "receive",
           "type": "gameStart",
           "reason": null
         },
         {
-          "at": 9873,
+          "at": 10128,
+          "kind": "send",
+          "type": "heartbeat",
+          "reason": null,
+          "frame": null,
+          "sinceStart": 1129,
+          "epochFrames": 67
+        },
+        {
+          "at": 12864,
           "kind": "send",
           "type": "gamePause",
           "reason": "user",
-          "frame": 228,
-          "sinceStart": 3701,
-          "epochFrames": 221
+          "frame": 238,
+          "sinceStart": 3866,
+          "epochFrames": 231
         },
         {
-          "at": 9886,
+          "at": 12876,
           "kind": "receive",
           "type": "gamePauseAt",
           "reason": "Host requested pause (user)."
         },
         {
-          "at": 9911,
+          "at": 12970,
           "kind": "receive",
           "type": "gameStop",
           "reason": "Host requested pause (user). Both players are paused at the same frame."
@@ -504,67 +488,66 @@
       ],
       "pacing": [
         {
-          "at": 985,
-          "frames": 58
+          "at": 905,
+          "frames": 54
         },
         {
-          "at": 1986,
-          "frames": 118
+          "at": 1904,
+          "frames": 113
         },
         {
-          "at": 2985,
-          "frames": 178
+          "at": 2902,
+          "frames": 173
         },
         {
-          "at": 3987,
+          "at": 3903,
+          "frames": 233
+        },
+        {
+          "at": 19,
+          "frames": 0
+        },
+        {
+          "at": 1018,
+          "frames": 60
+        },
+        {
+          "at": 2019,
+          "frames": 120
+        },
+        {
+          "at": 3019,
+          "frames": 180
+        },
+        {
+          "at": 4017,
           "frames": 238
-        },
-        {
-          "at": 4985,
-          "frames": 287
-        },
-        {
-          "at": 880,
-          "frames": 52
-        },
-        {
-          "at": 1880,
-          "frames": 112
-        },
-        {
-          "at": 2880,
-          "frames": 172
         }
       ],
       "admission": {
         "lead": {
-          "0": 2,
-          "1": 2,
-          "2": 2,
-          "3": 2,
-          "4": 2,
-          "5": 10,
-          "6": 491,
-          "7": 4,
-          "8": 7,
-          "9": 2,
-          "10": 1,
-          "11": 2
+          "0": 4,
+          "1": 9,
+          "2": 12,
+          "3": 20,
+          "4": 16,
+          "5": 64,
+          "6": 396
         },
-        "lateInputs": 0,
-        "lateInputWaitMs": 0,
-        "maxInputGapMs": 67.09999999403954,
-        "hashMs": 45.5,
-        "hashMaxMs": 13.799999997019768,
+        "lateInputs": 2,
+        "lateInputWaitMs": 14.299999997019768,
+        "maxInputGapMs": 40.70000000298023,
+        "hashMs": 53.99999998509884,
+        "hashMaxMs": 17,
         "hashCount": 9,
         "nonceRttMs": [
-          9.800000011920929
+          12.799999997019768
         ]
       },
       "fps": 60,
       "gameReadies": 2,
       "workloadStopped": true,
-      "activeEpoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+      "activeEpoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
       "controllerRam": [
         128,
         64
@@ -583,10 +566,6 @@
         "spanSeconds": 0,
         "issue": null
       },
-      "chatRam": [
-        0,
-        64
-      ],
       "scriptedInputs": 3
     },
     {
@@ -612,28 +591,28 @@
           "fresh": false
         },
         {
-          "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-          "frame": 287,
+          "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+          "frame": 271,
           "fresh": false
         },
         {
-          "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-          "frame": 287,
+          "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+          "frame": 271,
           "fresh": false
         },
         {
-          "hash": "8218ffea7adbe3b95920444af6ae400737c121041071f1d22bc8a948e4cb20c9",
-          "frame": 287,
+          "hash": "0c188b61c88698413a5772ad88ac9da43169deb867412e1ac1099a971a9b2c90",
+          "frame": 271,
           "fresh": false
         },
         {
-          "hash": "ff3d721529fd4dd531c37b5639f851cb4f4a0e0afb647afdd5a53102d2103a57",
-          "frame": 407,
+          "hash": "30f5c41a5fe2281c0350bd7abb93ff62c364cda2685678ccf9a037a8b68eab53",
+          "frame": 391,
           "fresh": false
         },
         {
-          "hash": "d609851186f6e7931cd5de1c79998aea570814fba00e196b5681f810143cf969",
-          "frame": 515,
+          "hash": "79884a6d449dcf5972f2d7f5c23a740de55d26207abd8ed8b339a3b7649a3058",
+          "frame": 509,
           "fresh": false
         }
       ],
@@ -725,113 +704,123 @@
       ],
       "frames": [
         {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 216
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 217
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 218
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 219
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 220
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 221
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 222
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 223
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 224
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
-          "frame": 225
-        },
-        {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
           "frame": 226
         },
         {
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
           "frame": 227
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 228
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 229
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 230
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 231
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 232
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 233
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 234
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 235
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 236
+        },
+        {
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
+          "frame": 237
         }
       ],
-      "frameCount": 515,
+      "frameCount": 509,
       "sentHashes": [
         {
           "kind": "hash",
-          "epoch": "wQ-xFQCtOfEka2GovIA138D9Y07_kCjd",
+          "epoch": "rfxw4PcsDaoMGiTP0GL7ArB6kA-WkvFU",
           "frame": 120,
           "hash": "25bde00762142e44fceadb3aaed1fbac5e20a1e838bd5b2a3766d60469542e26"
         },
         {
           "kind": "hash",
-          "epoch": "wQ-xFQCtOfEka2GovIA138D9Y07_kCjd",
+          "epoch": "rfxw4PcsDaoMGiTP0GL7ArB6kA-WkvFU",
           "frame": 240,
           "hash": "c457adcba1e0552db2b0bdd38548fb208b8f021f38a1ab615ed204b8c76e7bc7"
         },
         {
           "kind": "hash",
-          "epoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+          "epoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
           "frame": 120,
-          "hash": "ff3d721529fd4dd531c37b5639f851cb4f4a0e0afb647afdd5a53102d2103a57"
+          "hash": "30f5c41a5fe2281c0350bd7abb93ff62c364cda2685678ccf9a037a8b68eab53"
         }
       ],
       "timing": {
-        "workerMs": 1409.7999999374151,
-        "workerMax": 10.799999997019768,
+        "workerMs": 6888,
+        "workerMax": 40,
         "frameGaps": [
           null,
           null,
-          1,
-          6,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          2,
+          20,
+          33,
+          37,
+          87,
+          79,
+          81,
+          69,
+          44,
+          24,
+          7,
+          10,
           4,
+          3,
+          1,
+          null,
+          1,
           1,
           1,
           null,
           null,
           null,
-          1,
+          null,
+          null,
+          null,
           2,
-          5,
-          34,
-          36,
-          72,
-          119,
-          72,
-          26,
-          53,
-          57,
-          19,
-          2,
-          1,
-          null,
-          null,
-          null,
           null,
           null,
           null,
           null,
           1
         ],
-        "waitMs": 2.0999999940395355,
+        "waitMs": 5,
         "waitCount": 2,
         "delays": [
           6,
@@ -840,7 +829,7 @@
       },
       "events": [
         {
-          "at": 110,
+          "at": 372,
           "kind": "send",
           "type": "join",
           "reason": null,
@@ -849,79 +838,79 @@
           "epochFrames": 0
         },
         {
-          "at": 177,
+          "at": 464,
           "kind": "icegatheringstatechange",
           "connection": "new",
           "ice": "new",
           "gathering": "gathering"
         },
         {
-          "at": 181,
-          "kind": "iceconnectionstatechange",
+          "at": 506,
+          "kind": "icegatheringstatechange",
           "connection": "new",
-          "ice": "checking",
-          "gathering": "gathering"
+          "ice": "new",
+          "gathering": "complete"
         },
         {
-          "at": 181,
+          "at": 511,
+          "kind": "iceconnectionstatechange",
+          "connection": "connecting",
+          "ice": "checking",
+          "gathering": "complete"
+        },
+        {
+          "at": 511,
           "kind": "connectionstatechange",
           "connection": "connecting",
           "ice": "checking",
-          "gathering": "gathering"
+          "gathering": "complete"
         },
         {
-          "at": 184,
+          "at": 518,
           "kind": "iceconnectionstatechange",
-          "connection": "connecting",
-          "ice": "connected",
-          "gathering": "gathering"
-        },
-        {
-          "at": 184,
-          "kind": "icegatheringstatechange",
           "connection": "connecting",
           "ice": "connected",
           "gathering": "complete"
         },
         {
-          "at": 187,
+          "at": 579,
           "kind": "connectionstatechange",
           "connection": "connected",
           "ice": "connected",
           "gathering": "complete"
         },
         {
-          "at": 397,
+          "at": 816,
           "kind": "receive",
           "type": "gameStart",
           "reason": null
         },
         {
-          "at": 5075,
+          "at": 5243,
           "kind": "receive",
           "type": "gamePauseAt",
           "reason": "Host requested pause (user)."
         },
         {
-          "at": 5120,
+          "at": 5404,
           "kind": "receive",
           "type": "gameStop",
           "reason": "Host requested pause (user). Both players are paused at the same frame."
         },
         {
-          "at": 5503,
+          "at": 5699,
           "kind": "receive",
           "type": "gameStart",
           "reason": null
         },
         {
-          "at": 9205,
+          "at": 9567,
           "kind": "receive",
           "type": "gamePauseAt",
           "reason": "Host requested pause (user)."
         },
         {
-          "at": 9241,
+          "at": 9673,
           "kind": "receive",
           "type": "gameStop",
           "reason": "Host requested pause (user). Both players are paused at the same frame."
@@ -929,67 +918,72 @@
       ],
       "pacing": [
         {
-          "at": 615,
-          "frames": 36
+          "at": 305,
+          "frames": 17
         },
         {
-          "at": 1616,
-          "frames": 96
+          "at": 1305,
+          "frames": 77
         },
         {
-          "at": 2616,
-          "frames": 156
+          "at": 2306,
+          "frames": 137
         },
         {
-          "at": 3616,
-          "frames": 216
+          "at": 3305,
+          "frames": 197
         },
         {
-          "at": 4617,
-          "frames": 276
+          "at": 4306,
+          "frames": 252
         },
         {
-          "at": 509,
-          "frames": 30
+          "at": 423,
+          "frames": 24
         },
         {
-          "at": 1511,
-          "frames": 90
+          "at": 1423,
+          "frames": 84
         },
         {
-          "at": 2509,
-          "frames": 150
+          "at": 2423,
+          "frames": 144
         },
         {
-          "at": 3511,
-          "frames": 210
+          "at": 3423,
+          "frames": 204
         }
       ],
       "admission": {
         "lead": {
           "0": 2,
           "1": 2,
-          "2": 7,
-          "3": 4,
-          "4": 6,
-          "5": 13,
-          "6": 492,
-          "7": 1
+          "2": 2,
+          "3": 2,
+          "4": 2,
+          "5": 2,
+          "6": 409,
+          "7": 48,
+          "8": 18,
+          "9": 16,
+          "10": 9,
+          "11": 7,
+          "12": 2
         },
         "lateInputs": 0,
         "lateInputWaitMs": 0,
-        "maxInputGapMs": 69.5,
-        "hashMs": 44.59999996423721,
-        "hashMaxMs": 13.700000002980232,
+        "maxInputGapMs": 46,
+        "hashMs": 97,
+        "hashMaxMs": 15,
         "hashCount": 9,
         "nonceRttMs": [
-          1.7000000029802322
+          12
         ]
       },
       "fps": 60,
       "gameReadies": 2,
       "workloadStopped": true,
-      "activeEpoch": "6GClM8vfwzDVH2bfF1lxG5O5ohohMwdP",
+      "activeEpoch": "fiuXzKeZ17XNEkwKCPANCFjwEkd6BBTX",
       "controllerRam": [
         128,
         64
