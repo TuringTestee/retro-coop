@@ -63,6 +63,7 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         assert guest.get_by_label('Chat message',exact=True).input_value()=='retry after limit'
         guest.wait_for_function("[...document.querySelectorAll('button')].some(button=>button.textContent==='Retry message' && !button.disabled)",timeout=15000)
         retry.click();guest.locator('.chat-panel').get_by_text('retry after limit',exact=True).wait_for(state='attached')
+        guest.wait_for_function("document.querySelector('#chat-message').readOnly===false")
         assert host.locator('.chat-panel').get_by_text('retry after limit',exact=True).count()==1
         # No automatic reconnect/send. Unsent draft survives actual socket loss until explicit retry.
         guest.evaluate('chatSockets.forEach(socket=>socket.close())');guest.get_by_role('button',name='Reconnect rooms',exact=True).wait_for()
