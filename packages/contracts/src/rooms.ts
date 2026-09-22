@@ -12,8 +12,11 @@ import {validFingerprint,type Fingerprint} from './fingerprint.ts';
 import type {CatalogId} from './catalog.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
-export type RoomPreview = { id:string; label:string; host:string; visibility:Visibility; code?:string; catalogId?:CatalogId; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2 };
-export type RoomView = RoomPreview & { game?:GameView; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+type PreviewBase = { id:string; label:string; visibility:Visibility; code?:string };
+export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2};
+export type EmptyRoomPreview = PreviewBase & {host:'No host'; visibility:'public'; code:string; catalogId:CatalogId; status:'waiting'|'unavailable'; occupancy:0; unavailableReason?:'room_capacity'};
+export type RoomPreview = HumanRoomPreview | EmptyRoomPreview;
+export type RoomView = HumanRoomPreview & { game?:GameView; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string;policy?:ConnectionPolicy};
 export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
@@ -48,11 +51,13 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  switch(value.type) {
   case 'chat': valid=keys(value,[...base,'roomId','membership','clientId','text']) && token(value.roomId) && token(value.membership) && token(value.clientId) && validChatText(value.text);break;
   case 'hello': valid = keys(value,base,['token','policy']) && (value.policy===undefined || validPolicy(value.policy)) && (value.token === undefined || token(value.token)); break;
-  case 'directory': case 'heartbeat': valid = keys(value,base); break;
+  case 'directory': valid = keys(value,base,['includeEmptyOffers']) && (value.includeEmptyOffers===undefined || typeof value.includeEmptyOffers==='boolean'); break;
+  case 'heartbeat': valid = keys(value,base); break;
   case 'close': valid=keys(value,[...base,'roomId']) && token(value.roomId);break;
   case 'kick': valid=keys(value,[...base,'roomId','guestMembership']) && token(value.roomId) && token(value.guestMembership);break;
   case 'lookupCode': valid = keys(value,[...base,'code']) && typeof value.code === 'string' && !!publicCode(value.code); break;
   case 'joinCode': valid = keys(value,[...base,'code','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent); break;
+  case 'claimCode': valid = keys(value,[...base,'code','intent','fingerprint'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent) && validFingerprint(value.fingerprint); break;
   case 'preview': valid = keys(value,[...base,'invite']) && token(value.invite); break;
   case 'join': valid = keys(value,[...base,'invite','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && token(value.invite) && token(value.intent); break;
   case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;
@@ -64,5 +69,5 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'file': valid = keys(value,[...base,'fingerprint']) && validFingerprint(value.fingerprint); break;
  }
  if(!valid) return;
- return (value.type === 'lookupCode' || value.type === 'joinCode' ? {...value,code:publicCode(value.code as string)!} : value) as RoomCommand;
+ return (value.type === 'lookupCode' || value.type === 'joinCode' || value.type === 'claimCode' ? {...value,code:publicCode(value.code as string)!} : value) as RoomCommand;
 }

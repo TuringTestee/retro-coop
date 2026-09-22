@@ -33,6 +33,8 @@ Reuse epic [#2](https://github.com/TuringTestee/retro-coop/issues/2) and the exi
 
 R1 → R2 → R3 → #66 is the integration order. R3 presentation sketches may be built in isolation earlier, but the default-off server capability keeps intermediate releases from publishing unclaimable rooms. Enable it only when R3 claim behavior is deployed and verified. One coherent UX gate is reused; do not create another gate for the same arrival-to-play experience. Project priority cannot override dependencies.
 
+R1 uses `COORDINATOR_EMPTY_OFFERS` as an explicit comma-separated set of verified catalog IDs; an unset value publishes no offers. Only clients that request `includeEmptyOffers` in the directory subscription receive 0/2 previews or may claim their codes. R3 owns enabling this setting together with a client build whose corresponding immutable assets were verified by the catalog build. This keeps mixed or rolled-back clients on the earlier directory path. The coordinator cannot independently infer whether a separately hosted static asset is healthy; deployment must align the setting with the verified client release and the gate must check that mismatch/recovery state.
+
 ## Verification and review
 
 - Run the README's `timeout 60s sh scripts/preflight.sh` on each candidate. Keep the existing five-minute presubmit deadline and focused checks; schedule the broader network/hardware matrix under the governing [verification strategy](browser-nes-platform.md#verification-strategy).

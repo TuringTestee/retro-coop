@@ -6,7 +6,10 @@ import {WebSocket} from 'ws';
 import {Rooms,limits,RoomError} from './rooms.ts';
 import {createCoordinator,shutdown} from './server.ts';
 import {parseRoomCommand,type Fingerprint,type RoomCommand,type RoomEvent} from '../../../packages/contracts/src/rooms.ts';
+import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
+import {LOCAL_SCHEMA,LOCAL_SETTINGS} from '../../../packages/contracts/src/fingerprint.ts';
 const fingerprint:Fingerprint = {romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:4,submapper:0,region:'NTSC',bytes:40976}};
+const includedFingerprint=(id:'super-tilt-bro-pal'|'from-below-1.0'):Fingerprint=>{const entry=catalogEntry(id);return {romSha256:entry.sha256,coreSha256:'b'.repeat(64),localSchema:LOCAL_SCHEMA,settings:LOCAL_SETTINGS,cartridge:{format:entry.format,mapper:entry.mapper,submapper:entry.submapper,region:entry.region,bytes:entry.bytes}};};
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
 function setup() {
  let now = 1000;const rooms = new Rooms(()=>now);
@@ -74,7 +77,9 @@ test('unused sessions expire, capacity is bounded, rate limits state their retry
 test('strict metadata schema rejects uploads, arbitrary fields and malformed values',()=>{
  const requestId = randomUUID(), command = {type:'create',requestId,intent:randomUUID(),visibility:'public',fingerprint};
  assert.ok(parseRoomCommand(command));
- for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
+ const claim={type:'claimCode',requestId,code:'ABCDEFGH',intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')};
+ assert.ok(parseRoomCommand(claim));
+ for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
 
 test('real WebSockets enforce origin/auth/schema and atomic reservations across clients',async()=>{
@@ -159,4 +164,106 @@ test('public-code allocation retries collisions atomically and fails without cre
  const create=(token:string)=>rooms.handle(token,{type:'create',requestId:randomUUID(),intent:randomUUID(),visibility:'public',fingerprint});
  assert.equal(create(host()).room!.code,'AAAAAAAA');assert.equal(create(host()).room!.code,'BBBBBBBB');
  const token=host();assert.throws(()=>create(token),/capacity/);assert.equal(rooms.attach(token,()=>{},()=>{}).data.room,undefined);
+});
+
+test('empty offers are opt-in, first claim is atomic, and the same room becomes host-owned',async()=>{
+ let now=1000;const rooms=new Rooms(()=>now,undefined,undefined,['super-tilt-bro-pal','from-below-1.0']);
+ const attach=()=>{const events:RoomEvent[]=[];return {...rooms.attach(undefined,event=>events.push(event),()=>{}),events};};
+ const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const old=attach(),watcher=attach(),a=attach(),b=attach();
+ assert.deepEqual(act(old.token,{type:'directory'}).directory,[]);
+ const offers=act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory!;
+ assert.equal(offers.length,2);assert.ok(offers.every(offer=>offer.occupancy===0&&offer.host==='No host'&&offer.status==='waiting'));
+ assert.ok(offers.every(offer=>!JSON.stringify(offer).includes('romSha256')));
+ const first=offers.find(offer=>offer.catalogId==='super-tilt-bro-pal')!;
+ for(const contender of [a,b])act(contender.token,{type:'directory',includeEmptyOffers:true});
+ const command:Command={type:'claimCode',code:first.code!,intent:randomUUID(),fingerprint:includedFingerprint('super-tilt-bro-pal')};
+ const race=await Promise.allSettled([a,b].map(contender=>Promise.resolve().then(()=>act(contender.token,command))));
+ assert.equal(race.filter(result=>result.status==='fulfilled').length,1);
+ const winnerIndex=race.findIndex(result=>result.status==='fulfilled'),winner=[a,b][winnerIndex],loser=[a,b][1-winnerIndex];
+ const claimed=(race[winnerIndex] as PromiseFulfilledResult<ReturnType<typeof act>>).value.room!;
+ assert.equal(claimed.id,first.id);assert.equal(claimed.code,first.code);assert.equal(claimed.role,'host');assert.equal(claimed.slot,1);assert.equal(claimed.occupancy,1);
+ assert.equal(act(winner.token,command).room!.id,claimed.id);
+ const rows=act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory!;
+ assert.equal(rows.filter(row=>row.occupancy===0&&row.catalogId==='super-tilt-bro-pal').length,1);
+ assert.equal(rows.find(row=>row.id===first.id)?.host,winner.data.session!.nickname);
+ assert.equal(act(old.token,{type:'directory'}).directory!.length,1);
+ assert.equal(rooms.operatorRooms().length,1);
+ const joined=act(loser.token,{type:'joinCode',code:first.code!,intent:randomUUID()}).room!;
+ assert.equal(joined.role,'guest');assert.equal(joined.id,first.id);
+ act(winner.token,{type:'close',roomId:first.id});
+ assert.equal(act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory!.length,2);
+ assert.equal(rooms.operatorRooms().length,0);
+ now+=1;rooms.stop();
+});
+
+test('offer claim rejects wrong file and full capacity without mutating the empty room',()=>{
+ const rooms=new Rooms(()=>1000,undefined,undefined,['from-below-1.0']);
+ const attach=()=>rooms.attach(undefined,()=>{},()=>{}).token;
+ const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const observer=attach(),claimant=attach();
+ const offer=act(observer,{type:'directory',includeEmptyOffers:true}).directory![0];
+ act(claimant,{type:'directory',includeEmptyOffers:true});
+ assert.throws(()=>act(claimant,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint}),/room_unavailable/);
+ assert.equal(act(observer,{type:'directory',includeEmptyOffers:true}).directory![0].id,offer.id);
+ const hosts:string[]=[];
+ for(let i=0;i<limits.rooms;i++){const host=attach(),intent=randomUUID();act(host,{type:'create',intent,visibility:'public',fingerprint});act(host,{type:'confirmCreate',intent});hosts.push(host);}
+ const full=act(observer,{type:'directory',includeEmptyOffers:true}).directory!.find(row=>row.id===offer.id)!;
+ assert.equal(full.status,'unavailable');assert.equal(full.unavailableReason,'room_capacity');
+ assert.throws(()=>act(claimant,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')}),/capacity/);
+ assert.equal(rooms.operatorRooms().length,limits.rooms);
+ act(hosts[0],{type:'close',roomId:rooms.operatorRooms()[0].id});
+ assert.equal(act(observer,{type:'directory',includeEmptyOffers:true}).directory!.find(row=>row.id===offer.id)?.status,'waiting');
+ assert.equal(act(claimant,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')}).room?.id,offer.id);
+});
+
+test('cancel before or after an empty-room claim leaves no ghost host',()=>{
+ const rooms=new Rooms(()=>1000,undefined,undefined,['from-below-1.0']);
+ const token=rooms.attach(undefined,()=>{},()=>{}).token;
+ const act=(command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const first=act({type:'directory',includeEmptyOffers:true}).directory![0],intent=randomUUID(),fingerprint=includedFingerprint('from-below-1.0');
+ act({type:'leave',intent});
+ assert.throws(()=>act({type:'claimCode',code:first.code!,intent,fingerprint}),/cancelled/);
+ assert.equal(act({type:'directory',includeEmptyOffers:true}).directory![0].id,first.id);
+ const nextIntent=randomUUID(),claimed=act({type:'claimCode',code:first.code!,intent:nextIntent,fingerprint}).room!;
+ act({type:'leave',intent:nextIntent});
+ assert.equal(rooms.operatorRooms().length,0);
+ assert.equal(act({type:'directory',includeEmptyOffers:true}).directory!.length,1);
+ assert.throws(()=>act({type:'claimCode',code:first.code!,intent:nextIntent,fingerprint}),/cancelled/);
+ assert.equal(claimed.id,first.id);
+});
+
+test('replacement-code exhaustion leaves the original offer and host session untouched',()=>{
+ const rooms=new Rooms(()=>1000,()=>'AAAAAAAA',undefined,['from-below-1.0']);
+ const token=rooms.attach(undefined,()=>{},()=>{}).token;
+ const act=(command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const offer=act({type:'directory',includeEmptyOffers:true}).directory![0];
+ assert.throws(()=>act({type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')}),/capacity/);
+ assert.equal(rooms.attach(token,()=>{},()=>{}).data.room,undefined);
+ assert.equal(act({type:'directory',includeEmptyOffers:true}).directory![0].id,offer.id);
+ assert.equal(rooms.operatorRooms().length,0);
+});
+
+test('real WebSocket clients opt into offers and race for one first-host claim',async()=>{
+ const origin='http://127.0.0.1:5173',server=createCoordinator({origins:[origin],offerCatalogIds:['from-below-1.0']});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const url=`ws://127.0.0.1:${(server.address() as {port:number}).port}/ws`,sockets:WebSocket[]=[];
+ const connect=async()=>{const socket=new WebSocket(url,{origin});sockets.push(socket);await once(socket,'open');return socket;};
+ const request=async(socket:WebSocket,command:Command)=>{const requestId=randomUUID();const response=new Promise<Extract<RoomEvent,{type:'result'}>>(resolve=>{const onMessage=(raw:Buffer)=>{const event=JSON.parse(raw.toString());if(event.type==='result'&&event.requestId===requestId){socket.off('message',onMessage);resolve(event);}};socket.on('message',onMessage);});socket.send(JSON.stringify({...command,requestId}));return response;};
+ const data=(result:Extract<RoomEvent,{type:'result'}>)=>{if(!result.ok)throw Error(result.error);return result.data;};
+ try {
+  const old=await connect(),a=await connect(),b=await connect();
+  for(const socket of [old,a,b])assert.equal((await request(socket,{type:'hello'})).ok,true);
+  assert.deepEqual(data(await request(old,{type:'directory'})).directory,[]);
+  const initial=data(await request(a,{type:'directory',includeEmptyOffers:true})).directory!;
+  assert.equal(initial.length,1);assert.equal(initial[0].occupancy,0);
+  await request(b,{type:'directory',includeEmptyOffers:true});
+  const race=await Promise.all([a,b].map(socket=>request(socket,{type:'claimCode',code:initial[0].code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')})));
+  assert.equal(race.filter(result=>result.ok).length,1);
+  const claimed=data(race.find(result=>result.ok)!);
+  assert.equal(claimed.room!.id,initial[0].id);
+  const after=data(await request(b,{type:'directory',includeEmptyOffers:true})).directory!;
+  assert.equal(after.filter(row=>row.occupancy===0).length,1);
+  assert.equal(after.find(row=>row.id===initial[0].id)?.occupancy,1);
+  assert.equal(data(await request(old,{type:'directory'})).directory!.length,1);
+ }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
 });
