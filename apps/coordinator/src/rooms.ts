@@ -151,7 +151,7 @@ export class Rooms {
     if(this.rooms.size >= limits.rooms) throw new RoomError('capacity');
     const id=secret(), code = command.visibility === 'public' ? this.code(id):undefined;
     const room:Room = {game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(id);(role==='host'?current?.host:current?.guest)?.send?.(event);}),chat:new RoomChat(),id,invite:secret(),code,label:`${pick(colors)} ${pick(places)}`,visibility:command.visibility,host:session,fingerprint:command.fingerprint,intent:command.intent,confirmed:false,created:this.now(),kicked:new Set()};
-    this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room = room.id;session.heartbeat = this.now();
+    this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room = room.id;session.heartbeat = this.now();this.publishDirectory();
     return {room:this.view(room,session)};
    }
    case 'confirmCreate': {const room = this.hosted(session);if(room.intent !== command.intent || session.cancelled.has(command.intent)) throw new RoomError('cancelled');room.confirmed = true;this.publishDirectory();return {room:this.view(room,session)};}

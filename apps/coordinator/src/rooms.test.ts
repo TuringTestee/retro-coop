@@ -221,6 +221,23 @@ test('offer claim rejects wrong file and full capacity without mutating the empt
  assert.equal(act(claimant,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')}).room?.id,offer.id);
 });
 
+test('pending human creation publishes an unavailable offer and cancellation or expiry restores it',()=>{
+ let now=1000;const rooms=new Rooms(()=>now,undefined,undefined,['from-below-1.0']);
+ const attach=()=>{const events:RoomEvent[]=[];return {...rooms.attach(undefined,event=>events.push(event),()=>{}),events};};
+ const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const watcher=attach();const offer=act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory![0];
+ for(let i=0;i<limits.rooms-1;i++){const host=attach(),intent=randomUUID();act(host.token,{type:'create',intent,visibility:'public',fingerprint});act(host.token,{type:'confirmCreate',intent});}
+ const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms.find(row=>row.id===offer.id)!;
+ assert.equal(latest().status,'waiting');
+ const last=attach(),intent=randomUUID();act(last.token,{type:'create',intent,visibility:'unlisted',fingerprint});
+ const fullOffer=latest();assert.equal(fullOffer.status,'unavailable');assert.equal(fullOffer.occupancy,0);
+ if(fullOffer.occupancy===0) assert.equal(fullOffer.unavailableReason,'room_capacity');
+ assert.equal(watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms.filter(row=>row.occupancy>0).length,limits.rooms-1);
+ act(last.token,{type:'cancelCreate',intent});assert.equal(latest().status,'waiting');
+ const expired=attach();act(expired.token,{type:'create',intent:randomUUID(),visibility:'unlisted',fingerprint});
+ assert.equal(latest().status,'unavailable');now+=5000;rooms.sweep();assert.equal(latest().status,'waiting');
+});
+
 test('cancel before or after an empty-room claim leaves no ghost host',()=>{
  const rooms=new Rooms(()=>1000,undefined,undefined,['from-below-1.0']);
  const token=rooms.attach(undefined,()=>{},()=>{}).token;
