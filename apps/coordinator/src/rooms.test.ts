@@ -176,6 +176,8 @@ test('empty offers are opt-in, first claim is atomic, and the same room becomes 
  assert.equal(offers.length,2);assert.ok(offers.every(offer=>offer.occupancy===0&&offer.host==='No host'&&offer.status==='waiting'));
  assert.ok(offers.every(offer=>!JSON.stringify(offer).includes('romSha256')));
  const first=offers.find(offer=>offer.catalogId==='super-tilt-bro-pal')!;
+ assert.throws(()=>act(old.token,{type:'lookupCode',code:first.code!}),/room_unavailable/);
+ assert.equal(act(watcher.token,{type:'lookupCode',code:first.code!}).preview!.id,first.id);
  for(const contender of [a,b])act(contender.token,{type:'directory',includeEmptyOffers:true});
  const command:Command={type:'claimCode',code:first.code!,intent:randomUUID(),fingerprint:includedFingerprint('super-tilt-bro-pal')};
  const race=await Promise.allSettled([a,b].map(contender=>Promise.resolve().then(()=>act(contender.token,command))));
@@ -194,6 +196,8 @@ test('empty offers are opt-in, first claim is atomic, and the same room becomes 
  act(winner.token,{type:'close',roomId:first.id});
  assert.equal(act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory!.length,2);
  assert.equal(rooms.operatorRooms().length,0);
+ assert.deepEqual(rooms.attach(watcher.token,()=>{},()=>{}).data.room,undefined);
+ assert.deepEqual(act(watcher.token,{type:'directory'}).directory,[]);
  now+=1;rooms.stop();
 });
 
