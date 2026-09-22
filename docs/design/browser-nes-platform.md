@@ -6,6 +6,8 @@ Retro Coop lets visitors browse live game sessions, drop a legally supplied NES 
 
 The [included-games amendment](included-games.md) governs the two ordered included choices, license placeholders and arbitrary-NES admission clarification; it supersedes earlier singular-featured wording and the initial blanket file-size ceiling where they conflict.
 
+The [lobby experience amendment](lobby-refactor.md) proposes replacing special launchers, automatic solo start, and browser-created-only rooms with one directory and empty service-created rooms. Once its reviewed version is approved and merged, it governs those affected interaction rules; the remaining architecture, privacy, and release criteria here continue to apply.
+
 ## Status and alignment
 
 The original approved planning revision incorporated the user’s request for registration-free internet play, minimal setup, friend discovery, conversational voice, and broad NES compatibility. PR #3 merged the approved baseline; the linked included-games amendment has its own review and approval record. The user requested a homepage showing all hosted sessions, drag-and-drop hosting, and an always-available special Tetris variant. They accepted delegated choices for staffing, budget, technology, and a first release with two-player deterministic delayed-input netplay. Final approval applies to the reviewed document revision, not earlier conversational assent.

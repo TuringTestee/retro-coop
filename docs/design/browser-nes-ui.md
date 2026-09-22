@@ -6,6 +6,8 @@ Visitors see every public game session, drop a local ROM to host, and join a two
 
 The [included-games amendment](included-games.md) updates U1/U3/U4/U9: before play it shows the complete lobby directory plus one-click launchers for Super Tilt Bro and From Below; after load it enlarges the game and exposes play controls. It removes promotional copy and standalone About tabs. Other interaction and consent rules below remain unchanged.
 
+The proposed [lobby experience amendment](lobby-refactor.md) and its [current ASCII wireframe](lobby-wireframe-v2.md) replace those launcher and automatic-start sketches once reviewed, approved, and merged. The S01–S37 interaction checklist remains useful for unaffected play, accessibility, and recovery states.
+
 ## Scope and reading guide
 
 This companion to [the platform design](browser-nes-platform.md) covers AC-01–AC-16 at the interaction level. It adds no gameplay spectators, accounts, password rooms, cloud saves, recordings, mobile controls, or an unqualified universal emulator compatibility promise. Broad compatibility qualification is now a release workstream. The existing browser/network, cost, and rights constraints still apply. Labels such as “Evening puzzle,” player names, counts, and timers are illustrative. Historical “Featured homebrew” placeholders below are replaced by the linked catalog amendment.

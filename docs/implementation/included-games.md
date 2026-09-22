@@ -4,6 +4,10 @@ Audience: Agent
 
 Implement one small catalog with Super Tilt Bro first and From Below second, reusing the current player, room and peer protocols. Keep arbitrary-file hosting independent of catalog membership. The exact supplied Super Tilt Bro artifact is identified below; runtime qualification is pending, not inferred from its header or source repository.
 
+The proposed [lobby refactor](lobby-refactor.md) replaces this amendment's special launcher and automatic-start presentation once reviewed, approved, and merged. This document continues to own exact asset identities, verified packaging, credits, and license placeholders.
+
+Planning PR #65 was approved and merged, and D19/#23 is closed. The pending-approval and remaining-work language below records the earlier planning snapshot; live completed work and new dependencies are tracked by the issues and the proposed lobby plan.
+
 ## Source and approval boundary
 
 Human direction: [Included games and arbitrary NES files](../design/included-games.md), reflecting the user's explicit 2026-09-20 request. Baseline plan approval remains PR #3, reviewed `2e8adfcd3259f5bdffdc9a13ef9b983f78cfb965`, merged `ecf6bd4c7443526f0a163b721a351c854ee90fd4`; this is a bounded content/entry amendment. Independent review and the approved amendment revision must be recorded in the planning PR before executing changed catalog behavior. Unchanged D12/D15 work continues. The issue and Project board hold live assignments, not a second plan.

@@ -4,6 +4,8 @@ Audience: Human
 
 Visitors can start Super Tilt Bro or From Below without choosing a local ROM. Super Tilt Bro appears first. Visitors can also drop their own NES files and host internet rooms; the included catalog never limits which titles they may try.
 
+The [lobby experience amendment](lobby-refactor.md) proposes showing these games as ordinary 0/2 public rooms instead of the launchers below. Once approved and merged, it governs entry, room ownership, and Start timing; this document retains the exact content identities, download checks, credits, and license placeholders.
+
 ## Direction and order
 
 This amendment records the user's 2026-09-20 request to add the supplied `Super_Tilt_Bro_(E).nes`, rank it above From Below, make both included games directly playable, and show license placeholders for now. “From the deep” in that request refers to the already selected From Below. It extends the existing [platform design](browser-nes-platform.md) and [UI](browser-nes-ui.md) without replacing their room, privacy, consent or recovery rules.
