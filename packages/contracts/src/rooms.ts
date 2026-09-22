@@ -16,7 +16,7 @@ type PreviewBase = { id:string; label:string; visibility:Visibility; code?:strin
 export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2};
 export type EmptyRoomPreview = PreviewBase & {host:'No host'; visibility:'public'; code:string; catalogId:CatalogId; status:'waiting'|'unavailable'; occupancy:0; unavailableReason?:'room_capacity'};
 export type RoomPreview = HumanRoomPreview | EmptyRoomPreview;
-export type RoomView = HumanRoomPreview & { game?:GameView; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+export type RoomView = HumanRoomPreview & { game?:GameView; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string;policy?:ConnectionPolicy};
 export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
@@ -26,6 +26,7 @@ export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCom
  | { type:'create'; requestId:string; intent:string; visibility:Visibility; fingerprint:Fingerprint; policy?:ConnectionPolicy }
  | { type:'confirmCreate'; requestId:string; intent:string }
  | { type:'cancelCreate'; requestId:string; intent:string }
+ | { type:'startRoom'; requestId:string; roomId:string; membership:string; fingerprint:Fingerprint }
  | (ReservationRequest & { type:'join'; invite:string })
  | { type:'leave'; requestId:string; intent:string }
  | { type:'close'; requestId:string; roomId:string }
@@ -62,6 +63,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'join': valid = keys(value,[...base,'invite','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && token(value.invite) && token(value.intent); break;
   case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'create': valid = keys(value,[...base,'intent','visibility','fingerprint'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && token(value.intent) && ['public','unlisted'].includes(value.visibility as string) && validFingerprint(value.fingerprint); break;
+  case 'startRoom': valid = keys(value,[...base,'roomId','membership','fingerprint']) && token(value.roomId) && token(value.membership) && validFingerprint(value.fingerprint); break;
   case 'confirmCreate': case 'cancelCreate': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'rename': valid = keys(value,[...base,'roomId','label']) && token(value.roomId) && text(value.label,80); break;
   case 'nickname': valid = keys(value,[...base,'nickname']) && text(value.nickname,32); break;

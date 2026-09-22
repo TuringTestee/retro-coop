@@ -4,6 +4,7 @@ type Offer=Extract<GameCommand,{type:'gameReady'}>;
 /** Owns only the acknowledged game barrier; Rooms owns all membership and publication. */
 export class GameSession {
  private offers=new Map<GameRole,Offer>();
+ private startRequested=false;
  private acks=new Set<GameRole>();
  private peerEpoch?:string;
  private deadline=0;
@@ -14,7 +15,7 @@ export class GameSession {
  private controllerDeadline=0;
  private now:()=>number;private send:(role:GameRole,event:GameEvent)=>void;
  constructor(now:()=>number,send:(role:GameRole,event:GameEvent)=>void) {this.now=now;this.send=send;}
- view():GameView {return {...this.state,ready:[...this.offers.keys()]};}
+ view():GameView {return {...this.state,ready:[...this.offers.keys()],startRequested:this.startRequested};}
  private broadcast(event:GameEvent) {this.send('host',event);this.send('guest',event);}
  bind(peerEpoch:string|undefined) {
   if(peerEpoch===this.peerEpoch) return false;
@@ -22,17 +23,30 @@ export class GameSession {
   if(active) this.stop('Connection changed. Shared play is paused; retry requires your action.');
   return active;
  }
+ requestStart() {
+  if(this.startRequested||!['waiting','paused','failed'].includes(this.state.status)||!this.peerEpoch||!this.offers.has('guest'))throw Error('game_prerequisites');
+  this.startRequested=true;
+  if(this.offers.has('host'))this.prepareInitial();
+  else this.send('host',{type:'gameInspect',peerEpoch:this.peerEpoch});
+ }
  ready(role:GameRole,offer:Offer,established=false) {
   if(this.state.controllerProposal)throw Error('controller_consent_pending');
   if((offer.controllerRevision??0)!==this.state.controllers!.revision)throw Error('stale_controllers');
   if(!this.peerEpoch||offer.peerEpoch!==this.peerEpoch) throw Error('stale_game');
   if(['playing','starting','pausing'].includes(this.state.status)) throw Error('game_already_started');
   this.offers.set(role,offer);
-  if(!established&&role==='guest'&&!this.offers.has('host')) this.send('host',{type:'gameInspect',peerEpoch:this.peerEpoch});
+  if(!established&&role==='guest'&&this.startRequested&&!this.offers.has('host')) this.send('host',{type:'gameInspect',peerEpoch:this.peerEpoch});
   const host=this.offers.get('host'),guest=this.offers.get('guest');if(!host||!guest) return;
-  if(!established&&(!host.fresh||host.frame!==0)) {this.stop('The host has made progress. Shared late join is not available yet; the original game is preserved.','late_join');return;}
-  if((!established&&(!guest.fresh||guest.frame!==0))||host.frame!==guest.frame||host.hash!==guest.hash) {this.stop('Initial machine states differ. Choose a fresh matching game or cancel.','failed');return;}
+  if(!established&&!this.startRequested)return;
+  if(established&&(host.frame!==guest.frame||host.hash!==guest.hash)) {this.stop('Initial machine states differ. Choose a fresh matching game or cancel.','failed');return;}
   if(established){this.state={...this.state,status:'resume_ready',reason:undefined};return;}
+  this.prepareInitial();
+ }
+ private prepareInitial() {
+  const host=this.offers.get('host'),guest=this.offers.get('guest');
+  if(!host||!guest)return;
+  if(!host.fresh||host.frame!==0){this.stop('The host has made progress. Shared late join is not available yet; the original game is preserved.','late_join');return;}
+  if(!guest.fresh||guest.frame!==0||host.frame!==guest.frame||host.hash!==guest.hash){this.stop('Initial machine states differ. Choose a fresh matching game or cancel.','failed');return;}
   this.begin(host,guest);
  }
  resume(role:GameRole,epoch:string) {if(role!=='host'||this.state.status!=='resume_ready'||epoch!==this.state.epoch)throw Error('resume_not_ready');this.begin(this.offers.get('host')!,this.offers.get('guest')!);}
