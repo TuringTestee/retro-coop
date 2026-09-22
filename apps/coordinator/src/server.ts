@@ -8,6 +8,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { health } from '../../../packages/contracts/src/index.ts';
 import { parseRoomCommand, ROOM_METADATA_BYTES, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
 import { Rooms, RoomError, limits, type Sender } from './rooms.ts';
+import {catalog,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 export function config(env: NodeJS.ProcessEnv) {
  const stage = env.COORDINATOR_STAGE ?? 'local';
  if (!['local', 'staging'].includes(stage)) throw Error('COORDINATOR_STAGE must be local or staging');
@@ -16,10 +17,12 @@ export function config(env: NodeJS.ProcessEnv) {
  const origins = (env.COORDINATOR_ORIGINS ?? (stage === 'local' ? 'http://127.0.0.1:5173,http://localhost:5173' : '')).split(',').filter(Boolean);
  if(!origins.length || origins.some(origin => {try { const url = new URL(origin);return !['http:','https:'].includes(url.protocol) || url.origin !== origin;}catch{return true;}})) throw Error('Set COORDINATOR_ORIGINS to exact allowed client origins');
  const trustedProxies=trustedProxyAddresses(env.COORDINATOR_TRUSTED_PROXIES ? env.COORDINATOR_TRUSTED_PROXIES.split(','):[]);
- return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins,trustedProxies };
+ const offerCatalogIds=env.COORDINATOR_EMPTY_OFFERS ? env.COORDINATOR_EMPTY_OFFERS.split(',') : [];
+ if(new Set(offerCatalogIds).size!==offerCatalogIds.length || offerCatalogIds.some(id=>!catalog.some(entry=>entry.id===id)))throw Error('COORDINATOR_EMPTY_OFFERS must list unique included game IDs');
+ return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins,trustedProxies,offerCatalogIds:offerCatalogIds as CatalogId[] };
 }
-export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; trustedProxies?:string[]; now?:()=>number} = {}) {
- const rooms = options.rooms ?? new Rooms(Date.now,undefined,relayConfig(process.env));
+export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; trustedProxies?:string[]; offerCatalogIds?:readonly CatalogId[]; now?:()=>number} = {}) {
+ const rooms = options.rooms ?? new Rooms(Date.now,undefined,relayConfig(process.env),options.offerCatalogIds);
  const origins = new Set(options.origins ?? config({}).origins);
  const trustedProxies=new Set(trustedProxyAddresses(options.trustedProxies ?? []));
  const server = createServer((request, response) => {
