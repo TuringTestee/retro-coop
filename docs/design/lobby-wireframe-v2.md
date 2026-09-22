@@ -2,9 +2,9 @@ Retro Coop opens on one list of real public rooms. The two included games begin 
 
 Audience: Human
 
-# Current lobby UI design: ASCII wireframe v2
+# Prior lobby UI design: ASCII wireframe v2
 
-**Status:** Proposed design for review, not implemented or approved production behavior. This version follows the [reference study](lobby-references-v2.md), [direction](lobby-server-rooms-direction.md), [journeys](lobby-journeys-v2.md), [scenarios](lobby-scenarios-v2.md), and [v1 critique](lobby-critique-v1.md). [V1](lobby-wireframe-v1.md) and the [earlier proposal](lobby-browser-proposal.md) remain available as the two previous iterations.
+**Status:** Superseded by [v3](lobby-wireframe-v3.md), kept as an iteration record. It was never implemented or approved production behavior. This version followed the [reference study](lobby-references-v2.md), [direction](lobby-server-rooms-direction.md), [journeys](lobby-journeys-v2.md), [scenarios](lobby-scenarios-v2.md), and [v1 critique](lobby-critique-v1.md). [V1](lobby-wireframe-v1.md) and the [earlier proposal](lobby-browser-proposal.md) remain available as earlier iterations.
 
 ## Design principles and review checks
 
