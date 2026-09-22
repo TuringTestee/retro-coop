@@ -22,7 +22,7 @@ The approved [catalog amendment](included-games.md) and [platform plan](browser-
 
 ## Dependent delivery issues
 
-Reuse epic [#2](https://github.com/TuringTestee/retro-coop/issues/2) and the existing UX project gate [#66](https://github.com/TuringTestee/retro-coop/issues/66). After approval, update their descriptions and create or reuse only the child issues below, linking them to the epic and Project. Existing D15/D19 evidence is a prerequisite to inspect, not a second implementation of those features. D12 later join is outside this delivery.
+Reuse epic [#2](https://github.com/TuringTestee/retro-coop/issues/2) and the existing UX project gate [#66](https://github.com/TuringTestee/retro-coop/issues/66). After approval, update their descriptions and create or reuse only the child issues below, linking them to the epic and Project. Existing D15/D19 evidence is a prerequisite to inspect, not a second implementation of those features. D12 later join is outside this delivery. Closed D21/#25 records earlier fast-start, voice, and accessibility acceptance; it does not prove host Start, no later Join, or 0/2 claim. Gate #66 rechecks applicable D21 outcomes along with the changed journeys.
 
 | Priority and issue scope | Depends on | Observable acceptance |
 |---|---|---|

@@ -62,7 +62,7 @@ Each row names the trigger, visible result, and recovery. J1–J7 refer to the [
 | Existing inventory | Applies here |
 |---|---|
 | A01–A08, A12–A14; C01–C17 | Browse/search, stale states, exact room identity, guest reservation, file mismatch, and invitation. |
-| D01–D12, E01–E31 | Shared play, chat/voice, help, settings, controls, save/rewind, pause, and leave. Show each only where usable. |
+| D01–D12, E01–E31 | Carry forward shared play, chat/voice, help, settings, controls, save/rewind, pause, and leave only where usable. D03 and C16 automatic Start are superseded by N25 host Start; D04 is replaced by N24; D05–D06 are deferred with J4/N26–N27. |
 | F01–F16 and keyboard/narrow-layout cases | Capacity, rate limit, network interruption, permission denial, storage failure, focus, zoom, and accessible recovery. |
 
 The next wireframe must show the ordinary J1/J2/J3/J5 paths directly and annotate N04–N10, N15–N19, and essential N28–N34 as state variants. N26–N27 remain deferred requirements for a separate design. It must not turn every scenario into a permanent control.

@@ -4,7 +4,7 @@ Audience: Human
 
 # Complete player scenario inventory
 
-This is an interaction inventory, not proof that the application works. It covers the supported desktop browser scope and the proposed lobby design in [Lobby browser proposal](lobby-browser-proposal.md). “Approved” means an existing product requirement, not an implementation claim. “Proposal” changes that requirement and needs alignment. “Later” means a journey deferred from the focused lobby MVP; it must not appear as a working promise. Operator-only actions are included only where a player sees their effect. Technical tests, pricing, and infrastructure are outside this player inventory.
+This is a historical interaction inventory, not proof that the application works. It covers the supported desktop browser scope and the earlier [lobby browser proposal](lobby-browser-proposal.md). The [current scenario inventory](lobby-scenarios-v2.md) and [lobby amendment](lobby-refactor.md) supersede the cases marked below once approved and merged. “Approved” records an earlier product requirement, not an implementation claim or priority over a later approved amendment. “Proposal” changes that requirement and needs alignment. “Later” means a deferred journey; it must not appear as a working promise. Operator-only actions are included only where a player sees their effect. Technical tests, pricing, and infrastructure are outside this player inventory.
 
 Each row follows **entry or trigger → player action → visible outcome or recovery**. The source references point to the existing [UI stories S01–S37](browser-nes-ui.md#story-coverage-and-critique-checklist) and [journey gate UJS-1–7](https://github.com/TuringTestee/retro-coop/issues/66). Some rows split one story into the ordinary and failure paths that need distinct UI states.
 
@@ -20,7 +20,7 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 | A06 | Move between public-result pages and search again → keep keyboard focus and the search query; Clear search when no match. | S01, S30 | Approved |
 | A07 | No search result → see “No matching rooms” and Clear search; an unlisted room cannot be found by public search. | S01, S33 | Approved |
 | A08 | Directory refresh fails or becomes stale → old rows are marked unavailable; Retry preserves query and the player's current game. | S01, S28 | Approved |
-| A09 | Choose a direct included-game Play action on arrival → download/verify and enter solo play without first navigating a host form. | S03, S37, UJS-1 | Approved direct action; solo without a public room is proposed |
+| A09 | Choose a direct included-game Play action on arrival → download/verify and enter solo play without first navigating a host form. | S03, S37, UJS-1 | Superseded in the proposed refactor by J1/N01–N03: claim a 0/2 room, then host Start |
 | A10 | Included game is absent, download fails, integrity fails, or load is canceled → specific feedback and Retry/return without a false playable claim. | S03, S37, UJS-1/5 | Approved |
 | A11 | Drop or choose a local NES file on arrival → see intended Public/Unlisted state and open a waiting room without an account or naming gate. | S02, S36, UJS-3/7 | Approved direct action; waiting timing is proposed |
 | A12 | Return from play to Browse games → see an active-game banner; Resume returns to the same progress, Leave is explicit. | S25, UJS-4/5 | Approved |
@@ -31,7 +31,7 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 
 | ID | Scenario and player-visible result | Source | Status |
 |---|---|---|---|
-| B01 | Choose Super Tilt Bro or From Below to host → local verified asset loads; the correct one-player or two-player behavior is explained. | S03, S35, UJS-1/7 | Approved |
+| B01 | Choose Super Tilt Bro or From Below to host → local verified asset loads; the correct one-player or two-player behavior is explained. | S03, S35, UJS-1/7 | Superseded entry in the proposed refactor by J1/N03; asset and controller rules remain |
 | B02 | Choose an arbitrary `.nes` file → validate locally; create a room without uploading its bytes, filename, or path. | S02, S29, S36, UJS-3 | Approved |
 | B03 | Choose an invalid, truncated, archive, or unreadable file → remain at file choice with a specific reason and Choose another file. | S02, S36, UJS-3/5 | Approved |
 | B04 | Choose unsupported hardware or unavailable-memory file → explain the unsupported combination or resource limit before publishing a misleading room. | S02, S36 | Approved |
@@ -41,9 +41,9 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 | B08 | Choose Public → room appears as one row in all public results with a code and joinable state. | S01, S06, UJS-7 | Approved |
 | B09 | Choose Unlisted → room stays out of directory and public-code lookup; high-entropy invitation remains the entry route. | S06, S33, UJS-7 | Approved |
 | B10 | Set Standard or Relay only before peer contact → understand address/privacy effect; stricter choice cannot silently weaken. | S09 | Approved |
-| B11 | Submit room creation → see checking/creating, then confirmed room and Player 1 slot; canceled/late responses cannot publish a ghost room. | S02, UJS-3/5 | Approved |
+| B11 | Submit room creation → see checking/creating, then confirmed room and Player 1 slot; canceled/late responses cannot publish a ghost room. | S02, UJS-3/5 | Superseded separate submit in the proposed refactor by J5/N14/N19: valid file selection creates automatically |
 | B12 | Hit capacity or rate limit → keep local bytes and choices, see retry timing and Retry; no claimed room creation. | S28, UJS-5 | Approved |
-| B13 | Arrive in a waiting room with Player 2 empty → copy invite, wait, or start; room name, visibility, game, and code remain visible. | S04, UJS-7 | Proposal; changes solo-start timing |
+| B13 | Arrive in a waiting room with Player 2 empty → copy invite, wait, or start; room name, visibility, game, and code remain visible. | S04, UJS-7 | Proposed essential J1/J3/N23 after amendment approval |
 | B14 | Copy an invitation → receive copy confirmation or selectable fallback text; invitation points to this exact room. | S06, UJS-7 | Approved |
 | B15 | Rename room or change Public/Unlisted after creation → confirm newly public exposure; both views update or explain failure. | S06, S26 | Approved |
 | B16 | Close the room as host → confirm effect on the guest; room disappears from directory and invite becomes closed. | S24, S25 | Approved |
@@ -67,7 +67,7 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 | C13 | Relay unavailable or peer connection times out → retain safe room state where possible; Retry or Leave, with no direct fallback from Relay only. | S09, S28 | Approved |
 | C14 | First-time slot reservation expires → see that the place is lost; Retry must obtain a new slot, while a canceled Join must release it. | S04, S22 | Approved |
 | C15 | Guest is ready while host is not → see “Waiting for host” and Cancel, with a status that distinguishes file, connection, and host readiness. | S07, UJS-5/7 | Approved |
-| C16 | Both players are ready → start together automatically at a common game state; failed acknowledgement offers retry/exit without false play. | S07, UJS-7 | Approved |
+| C16 | Both players are ready → start together automatically at a common game state; failed acknowledgement offers retry/exit without false play. | S07, UJS-7 | Automatic trigger superseded in proposed refactor by J3/N25: host Start initiates the acknowledged shared barrier |
 | C17 | Chat before selecting a ROM → text works for current room members, without revealing prior messages or blocking file selection. | S20 | Approved |
 
 ## D. Wait, coordinate, and control the room
@@ -76,10 +76,10 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 |---|---|---|---|
 | D01 | Host sees guest join → Player 2 changes from Empty to Checking game to Ready; guest's private file details stay hidden. | S04, S05, UJS-7 | Proposal presentation |
 | D02 | Guest leaves, cancels, or lease expires while host waits → slot visibly returns to Empty; host may invite another guest. | S04, S24 | Approved |
-| D03 | Both players become ready → room reports “Starting together” and automatically enters shared play; failure retains honest waiting/retry. | S07 | Approved |
-| D04 | Host starts alone → explain that a progressed game cannot admit a guest in the focused MVP; Cancel keeps waiting. | S08 | Proposal; conflicts with approved late join |
-| D05 | Host plays while waiting; prepared friend arrives → preserve host progress and offer Continue current game, agreed Restart, or Keep playing alone. | S08 | Later; deferred late join |
-| D06 | Late-join checkpoint fails or guest cancels → preserve old host timeline and show Retry transfer or Resume solo. | S08 | Later; deferred late join |
+| D03 | Both players become ready → room reports “Starting together” and automatically enters shared play; failure retains honest waiting/retry. | S07 | Automatic trigger superseded in proposed refactor by J3/N25: only host Start begins shared play |
+| D04 | Host starts alone → explain that a progressed game cannot admit a guest in the focused MVP; Cancel keeps waiting. | S08 | Proposed essential J3/N24; playing room shows Join unavailable |
+| D05 | Host plays while waiting; prepared friend arrives → preserve host progress and offer Continue current game, agreed Restart, or Keep playing alone. | S08 | Deferred J4/N26; no Join in essential delivery |
+| D06 | Late-join checkpoint fails or guest cancels → preserve old host timeline and show Retry transfer or Resume solo. | S08 | Deferred J4/N27; no transfer in essential delivery |
 | D07 | Host requests a controller-slot change while paused/waiting → both accept before assignment changes and inputs clear. | S07, S35 | Approved |
 | D08 | Host removes current guest → confirmation names the affected guest; guest loses slot and reconnect entitlement. | S26 | Approved |
 | D09 | Guest is removed or room closes → guest sees the true reason and Browse games; no false reconnect action. | S24, S26 | Approved |
@@ -160,4 +160,4 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 
 The inventory names **all 37 approved UI stories (S01–S37)** and **all seven project journey stories (UJS-1–7)**. It expands them into ordinary, alternate, and recovery scenarios. S32 is the integrated verification of these scenarios rather than another player action: a reviewer must exercise both roles, both included games, a user-file room, an unlisted room, play features, failure recovery, and accessibility in a real browser. Completing this document does not satisfy S32.
 
-The cleaned-up wireframe retains direct included Play, immediate file hosting, and automatic shared start. Its proposed separation of solo Play from waiting-room Host still changes the approved play-while-waiting late-join journey (A09, A11, D04–D06). Password rooms and manual Start have been removed from the core flow. The [wireframe's behavior-change note](lobby-browser-proposal.md#core-journey-check-and-open-behavior-change) records what needs agreement before application behavior changes. Deferred recovery and shared timeline scenarios stay visible in this inventory so the UI does not imply they already work.
+This inventory records the earlier wireframe and approval lineage. For the proposed essential refactor, use [J1–J7](lobby-journeys-v2.md), [N01–N34](lobby-scenarios-v2.md), and the [current wireframe](lobby-wireframe-v3.md): included Play becomes first-claim Host/P1, direct file hosting remains, and host Start replaces automatic shared start. J4/N26–N27 defer progress-preserving later join. Earlier status cells cannot re-enable automatic Start or later Join after the amendment is approved.
