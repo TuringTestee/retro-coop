@@ -1,8 +1,10 @@
-Players find a room on Public rooms or move to Create Game to host. Create Game reuses a verified browser game, accepts one new NES file, and shows an actual recent frame when available. This is the current design proposal.
+Players find a room on Public rooms or move to Create Game to host. Create Game reuses a verified browser game, accepts one new NES file, and shows an actual recent frame when available. This is the approved PR #101 baseline, awaiting implementation.
 
 Audience: Human
 
-# Create Game wireframe v2 — current
+# Create Game wireframe v2 — approved baseline
+
+PR #101 approved this baseline. [v4](create-game-library-wireframe-v4.md) is a later PR #103 proposal for Guest-place controls and stable no-overlay pages; it does not supersede this approved version until separately approved and merged.
 
 Uses [references](create-game-library-references.md), [direction](create-game-library-direction.md), [journeys](create-game-library-journeys.md), [scenarios](create-game-library-scenarios.md), and [v1 critique](create-game-library-critique-v1.md). [v1](create-game-library-wireframe-v1.md) remains for comparison.
 

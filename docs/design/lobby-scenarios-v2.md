@@ -6,7 +6,7 @@ Audience: Human
 
 The [earlier exhaustive inventory](lobby-scenario-inventory.md) still covers file validation, controls, voice, chat, saves, accessibility, moderation, and general failures. Its special included-game launcher and automatic solo-start cases are superseded by [the new direction](lobby-server-rooms-direction.md) and the scenarios below. These scenarios are design requirements, not observed product behavior.
 
-The approved [room game download amendment](room-rom-transfer.md) replaces N17's custom-room matching-file rule and any no-transfer recovery below; its issues #87–#91 are integrated. The proposed [Create Game scenarios](create-game-library-scenarios.md) replace inline host setup after their own approval and implementation.
+The approved [room game download amendment](room-rom-transfer.md) replaces N17's custom-room matching-file rule and any no-transfer recovery below; its issues #87–#91 are integrated. PR #101 approved Create Game C01–C12 in the [current scenario file](create-game-library-scenarios.md), replacing inline host setup after CG1/CG2 implementation. C13–C17 there are pending PR #103 Guest-place/no-overlay additions.
 
 Each row names the trigger, visible result, and recovery. J1–J7 refer to the [journey map](lobby-journeys-v2.md).
 

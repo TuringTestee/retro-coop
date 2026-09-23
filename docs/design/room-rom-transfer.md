@@ -4,7 +4,7 @@ Audience: Human
 
 # Room game downloads
 
-**Status:** Approved by the user at reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, merged as `c66e092`, and integrated through issues #87–#91. It supersedes the local-file rule in `browser-nes-platform.md`, `lobby-refactor.md`, and earlier wireframes for host-provided custom rooms. The proposed [Create Game amendment](create-game-library-direction.md) changes where hosting starts, while preserving the upload and guest download behavior here.
+**Status:** Approved by the user at reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, merged as `c66e092`, and integrated through issues #87–#91. It supersedes the local-file rule in `browser-nes-platform.md`, `lobby-refactor.md`, and earlier wireframes for host-provided custom rooms. PR #101 approved the [Create Game v2 baseline](create-game-library-wireframe-v2.md) for where hosting starts; [v4](create-game-library-wireframe-v4.md) is pending PR #103 approval. Both preserve upload and guest download behavior here.
 
 ## Decision and pattern
 
