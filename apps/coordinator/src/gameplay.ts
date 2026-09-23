@@ -44,6 +44,12 @@ export class GameSession {
   if(established){this.state={...this.state,status:'resume_ready',reason:undefined};return;}
   this.prepareInitial();
  }
+ unready(role:GameRole,peerEpoch:string) {
+  if(!this.peerEpoch||peerEpoch!==this.peerEpoch)throw Error('stale_game');
+  this.offers.delete(role);
+  if(this.startRequested&&this.state.status==='starting')this.stop('A player cancelled preparation. Both players must prepare again.','failed');
+  else if(this.startRequested){this.startRequested=false;this.deadline=0;}
+ }
  private prepareInitial() {
   const host=this.offers.get('host'),guest=this.offers.get('guest');
   if(!host||!guest)return;

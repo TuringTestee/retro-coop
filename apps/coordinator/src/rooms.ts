@@ -110,7 +110,7 @@ export class Rooms {
    if(command.type==='peerSignal') return {};
    this.publish(room,false);return {room:this.view(room,session)};
   }
-  if(command.type==='gameControllerPropose'||command.type==='gameControllerRespond'||command.type==='gameControllerCancel'||command.type==='gameReady'||command.type==='gameAck'||command.type==='gamePause'||command.type==='gamePaused'||command.type==='gameResume'||command.type==='gameAbort') {
+  if(command.type==='gameControllerPropose'||command.type==='gameControllerRespond'||command.type==='gameControllerCancel'||command.type==='gameReady'||command.type==='gameUnready'||command.type==='gameAck'||command.type==='gamePause'||command.type==='gamePaused'||command.type==='gameResume'||command.type==='gameAbort') {
    const room=this.room(session),role=room.host===session?'host':'guest';
    try {
     if(command.type==='gameControllerPropose'||command.type==='gameControllerRespond'||command.type==='gameControllerCancel') {
@@ -122,7 +122,8 @@ export class Rooms {
      if(!room.guest || !room.guestFile || !matchesFile(room.fingerprint,room.guestFile) || this.peers.view(room.id,session.policy).status!=='connected') throw new RoomError('game_prerequisites');
      room.game.ready(role,command,room.established);
      if(!room.started&&room.game.view().status==='starting')room.started='shared';
-    } else if(command.type==='gameAck') {if(room.game.ack(role,command.epoch,command.hash)) {room.established=true;room.reservationUntil=undefined;}}
+    } else if(command.type==='gameUnready') {this.rate(session,'gameReady',10,60_000);room.game.unready(role,command.peerEpoch);}
+    else if(command.type==='gameAck') {if(room.game.ack(role,command.epoch,command.hash)) {room.established=true;room.reservationUntil=undefined;}}
     else if(command.type==='gamePause')room.game.pause(command.epoch,command.frame,command.reason,role);
     else if(command.type==='gamePaused')room.game.pausedAt(role,command.epoch,command.frame,command.hash);
     else if(command.type==='gameResume')room.game.resume(role,command.epoch);

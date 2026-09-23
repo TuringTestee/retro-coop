@@ -82,10 +82,23 @@ test('canceling an in-flight readiness offer releases only that operation owners
   game.selected(fingerprint);game.playIntent();await setImmediate();assert.equal(finish.length,2,'canceled readiness retained its in-flight lock');
   if(!completeOldFirst){finish[0]();await setImmediate();}
   game.retry();await setImmediate();assert.equal(finish.length,2,'old completion released the newer offer');
-  finish[1]();await setImmediate();assert.equal(sent.length,1,'only current readiness may publish');
+  finish[1]();await setImmediate();assert.deepEqual(sent.map(command=>(command as {type:string}).type),['gameUnready','gameReady'],'only current readiness may publish after retraction');
   game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
   await setImmediate();assert.equal(finish.length,2,'retry during preparation invalidated completed readiness');
  }
+});
+test('changing a prepared guest file retracts the server offer',async()=>{
+ const {setImmediate}=await import('node:timers/promises');
+ const sent:{type:string;peerEpoch?:string}[]=[];
+ const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
+ game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+ game.selected(fingerprint);game.playIntent();game.ready({readyState:'open'} as RTCDataChannel,'peer');await setImmediate();
+ assert.equal(sent[0]?.type,'gameReady');
+ game.selected({...fingerprint,romSha256:'d'.repeat(64)});await setImmediate();
+ assert.deepEqual(sent.map(command=>command.type),['gameReady','gameUnready']);
+ assert.equal(sent[1]?.peerEpoch,'peer');
 });
 
 test('current input and completed state hash wake the existing frame owner without polling',async()=>{

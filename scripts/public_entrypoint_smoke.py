@@ -73,6 +73,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         # own guest identity instead of silently taking over the host connection.
         host_token = host.evaluate("sessionStorage.getItem('retro-coop-guest')")
         assert host_token
+        # The source tab may be busy emulating. Its silence must not let a copy
+        # reuse the host token and replace the original room connection.
+        host.evaluate("setTimeout(() => { window.__busyStarted = true; const end = performance.now() + 3000; while (performance.now() < end) {} }, 0)")
         guest = tabs.new_page()
         guest.set_viewport_size({"width": 760, "height": 680})
         guest.add_init_script(f"sessionStorage.setItem('retro-coop-guest', {json.dumps(host_token)})")
@@ -136,6 +139,12 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         shared_guest.set_input_files("input[type=file]", fixture)
         shared_host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')", timeout=15000)
         assert shared_host.get_by_text("Guest is still preparing.", exact=False).is_visible()
+        shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
+        shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
+        shared_guest.set_input_files("input[type=file]", {"name": "wrong.nes", "mimeType": "application/octet-stream", "buffer": fixture.read_bytes() + b"different identity"})
+        shared_host.get_by_text("Guest is still preparing.", exact=False).wait_for(timeout=15000)
+        assert shared_guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).count() == 0
+        shared_guest.set_input_files("input[type=file]", fixture)
         shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
         shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
         shared_guest.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")

@@ -24,9 +24,9 @@ export class GameClient {
   this.room=room;if(!room)return;
   void this.offerGuest();
  }
- selected(file:Fingerprint){this.file=file;this.intent=this.room?.role!=='guest';this.offered=undefined;this.publish({intent:this.intent});void this.offerGuest();}
+ selected(file:Fingerprint){if(this.room?.role==='guest'&&this.file)this.cancelIntent();this.file=file;this.intent=this.room?.role!=='guest';this.offered=undefined;this.publish({intent:this.intent});void this.offerGuest();}
  playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,status:this.channel?.readyState==='open'?'Preparing your game for shared play…':'Waiting for the peer connection before preparation can finish…'});void this.offerGuest();}
- cancelIntent(){if(!this.room?.established){this.intent=false;++this.serial;this.offered=undefined;this.publish({intent:false});}}
+ cancelIntent(){if(!this.room?.established){const epoch=this.peerEpoch,shouldRevoke=this.room?.role==='guest'&&!!this.offered&&!!epoch;this.intent=false;++this.serial;this.offered=undefined;this.publish({intent:false});if(shouldRevoke)void this.send({type:'gameUnready',peerEpoch:epoch}).catch(()=>{});}}
  retry(){void this.renewOffer();}
  retryConnection(){this.renew=true;}
  ready(channel:RTCDataChannel,epoch:string,roundTripMs=0){

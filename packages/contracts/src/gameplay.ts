@@ -15,6 +15,7 @@ export type GameCommand=
  | {type:'gameControllerRespond';requestId:string;peerEpoch:string;epoch?:string;proposalId:string;accept:boolean}
  | {type:'gameControllerCancel';requestId:string;peerEpoch:string;epoch?:string;proposalId:string}
  | {type:'gameReady';requestId:string;peerEpoch:string;frame:number;fresh:boolean;hash:string;delay:number;controllerRevision?:number}
+ | {type:'gameUnready';requestId:string;peerEpoch:string}
  | {type:'gameAck';requestId:string;epoch:string;hash:string}
  | {type:'gamePause';requestId:string;epoch:string;frame:number;reason:GameReason}
  | {type:'gamePaused';requestId:string;epoch:string;frame:number;hash:string}
@@ -38,6 +39,7 @@ export function parseGameCommand(value:unknown):GameCommand|undefined {
   if(value.type==='gameControllerCancel'&&keys(value,[...context,'proposalId'],['epoch'])&&token(value.proposalId))return value as GameCommand;
  }
  if(value.type==='gameReady' && keys(value,[...base,'peerEpoch','frame','fresh','hash','delay'],['controllerRevision']) && token(value.peerEpoch) && integer(value.frame,0,Number.MAX_SAFE_INTEGER) && typeof value.fresh==='boolean' && sha256(value.hash) && integer(value.delay,gameplayLimits.delayMin,gameplayLimits.delayMax) && (value.controllerRevision===undefined||integer(value.controllerRevision,0,Number.MAX_SAFE_INTEGER))) return value as GameCommand;
+ if(value.type==='gameUnready' && keys(value,[...base,'peerEpoch']) && token(value.peerEpoch)) return value as GameCommand;
  if(value.type==='gameAck' && keys(value,[...base,'epoch','hash']) && token(value.epoch) && sha256(value.hash)) return value as GameCommand;
  if(value.type==='gamePause' && keys(value,[...base,'epoch','frame','reason']) && token(value.epoch) && integer(value.frame,0,Number.MAX_SAFE_INTEGER) && validReason(value.reason)) return value as GameCommand;
  if(value.type==='gameAbort' && keys(value,[...base,'epoch','reason']) && token(value.epoch) && validReason(value.reason))return value as GameCommand;
