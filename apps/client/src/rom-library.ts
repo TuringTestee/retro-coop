@@ -51,8 +51,15 @@ export async function candidateStillStored(candidate:SavedCandidate,loaded:Pick<
  const {generation,romGeneration,record}=await readRom(candidate.sha256);
  return generation===candidate.generation&&romGeneration===candidate.romGeneration&&record?.size===candidate.size&&record.bytes instanceof ArrayBuffer&&record.bytes.byteLength===candidate.size&&await sha256(new Uint8Array(record.bytes))===candidate.sha256;
 }
-export function previewDisplay(recent:LibraryEntry|undefined):{image:string;alt:string}|{text:'No preview yet.'} {
- return recent?.preview&&validPreview(recent.preview)?{image:recent.preview,alt:`Recent game preview: ${recent.label}`}:{text:'No preview yet.'};
+export async function previewDisplay(recent:LibraryEntry|undefined,decode:(source:string)=>Promise<{width:number;height:number}>=decodeImage):Promise<{image:string;alt:string}|{text:'No preview yet.'}> {
+ if(recent?.preview&&validPreview(recent.preview))try{
+  const {width,height}=await decode(recent.preview);
+  if(width>0&&width<=128&&height>0&&height<=120)return {image:recent.preview,alt:`Recent game preview: ${recent.label}`};
+ }catch{/* A corrupt stored image must display the text fallback. */}
+ return {text:'No preview yet.'};
+}
+async function decodeImage(source:string):Promise<{width:number;height:number}> {
+ const image=new Image();image.src=source;await image.decode();return {width:image.naturalWidth,height:image.naturalHeight};
 }
 export async function rememberImport(file:File,hash:string):Promise<boolean> {
  const bytes=new Uint8Array(await file.arrayBuffer());if(await sha256(bytes)!==hash)throw Error('The selected file changed while loading. Add it again.');

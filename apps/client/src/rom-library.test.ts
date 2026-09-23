@@ -48,7 +48,7 @@ test('cross-tab clear and deletion prevent an old import write',async()=>{
  await assert.rejects(putRom({sha256:hash,bytes:bytes.slice().buffer,size:bytes.length,savedAt:10},next.generation,next.romGeneration),/deleted or local data was cleared/);
  assert.equal((await readRom(hash)).record,undefined);
 });
-test('stored preview and label are bounded for display',()=>{
+test('stored preview and label are bounded for display',async()=>{
  const webp=new Uint8Array(30);webp.set(new TextEncoder().encode('RIFF'),0);webp[4]=22;webp.set(new TextEncoder().encode('WEBPVP8X'),8);webp[24]=127;webp[27]=119;
  const image='data:image/webp;base64,'+Buffer.from(webp).toString('base64');
  assert.equal(validPreview(image),true);
@@ -58,5 +58,10 @@ test('stored preview and label are bounded for display',()=>{
  assert.equal(validPreview('data:image/webp;base64,'+'A'.repeat(32_001)),false);
  const row=entry({sha256:hash,bytes:bytes.buffer,size:bytes.length,savedAt:12,label:'X'.repeat(100),preview:'data:image/svg+xml;base64,AAAA'});
  assert.equal(row.label.length,80);assert.equal(row.preview,undefined);
- assert.deepEqual(previewDisplay(row),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(row),{text:'No preview yet.'});
+ const plausible=entry({sha256:hash,bytes:bytes.buffer,size:bytes.length,savedAt:12,preview:image});
+ assert.deepEqual(await previewDisplay(plausible,async()=>{throw Error('Chromium cannot decode this image');}),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:0,height:0})),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:129,height:120})),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:128,height:120})),{image,alt:'Recent game preview: NES game'});
 });
