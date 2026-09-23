@@ -317,4 +317,4 @@ Check that every unavailable action has an accessible reason, every pending oper
 
 ## Reusable workflow reference
 
-The reusable workflow is now contributed as Vaseline’s `ui-wireframing` skill. Product-specific decisions remain here. Planning PR #3 includes the merged skill through the updated Vaseline pin; separate tooling PR #4 was closed as superseded.
+The reusable workflow is now contributed as Vaseline’s `ui-design` skill (formerly `ui-wireframing`). Product-specific decisions remain here. Planning PR #3 included the earlier skill through the updated Vaseline pin; separate tooling PR #4 was closed as superseded.
