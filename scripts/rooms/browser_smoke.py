@@ -100,17 +100,11 @@ try:
         first.get_by_test_id('room-view').wait_for(state='attached')
         assert 'Player 2 (reserved)' in first.get_by_test_id('room-view').text_content()
         assert first.get_by_role('button',name='Leave room',exact=True).count()==1
-        # A reserved guest can choose mismatching and matching files without another ready click.
-        different=bytearray(rom);different.extend(b'header byte identity test')
-        first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
-        first.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded')")
-        assert first.get_by_role('button',name='Choose matching NES file').is_visible()
+        # A reserved guest automatically downloads the host's exact game.
+        first.get_by_role('button',name='Prepare to play',exact=True).wait_for(timeout=30000)
+        assert first.get_by_role('button',name='Choose matching NES file').count()==0
         assert first.get_by_test_id('frames').inner_text()=='0 frames'
-        assert 'Game loaded' in first.get_by_test_id('player-status').inner_text()
-        assert 'exact matching file' in first.get_by_test_id('room-view').text_content()
-        assert host.get_by_test_id('frames').inner_text()=='0 frames'
-        first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
-        first.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
+        first.wait_for_function("proof.room?.matches===true")
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)
         # Reloading the host and choosing the same file preserves the room and original guest lease.
         original_reservation=first.get_by_test_id('room-view').text_content().split('Reservation expires at ')[1].split('.')[0]

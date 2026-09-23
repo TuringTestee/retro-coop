@@ -1,10 +1,10 @@
-This earlier lobby proposal is kept for comparison. The [current ASCII design](lobby-wireframe-v3.md) puts the two included games into the ordinary public room list and makes the first joiner the host.
+This earlier lobby proposal is kept for comparison. The [current ASCII design](lobby-wireframe-v6.md) puts the two included games into the ordinary public room list and makes the first joiner the host.
 
 Audience: Human
 
 # Clean lobby and play wireframe
 
-This is the previous design proposal, not approved behavior or a claim about the running app. The [new direction](lobby-server-rooms-direction.md) and [current wireframe](lobby-wireframe-v3.md) supersede its special Play and Host included-game actions. The page sketches below remain available as an earlier iteration. They follow the [115-scenario player inventory](lobby-scenario-inventory.md) and the approved [journey gate](https://github.com/TuringTestee/retro-coop/issues/66). The existing [UI stories S01–S37](browser-nes-ui.md#story-coverage-and-critique-checklist) still govern detailed controls and consent.
+This is the previous design proposal, not approved behavior or a claim about the running app. The [new direction](lobby-server-rooms-direction.md) and [current wireframe](lobby-wireframe-v6.md) supersede its special Play and Host included-game actions. The page sketches below remain available as an earlier iteration. They follow the [115-scenario player inventory](lobby-scenario-inventory.md) and the approved [journey gate](https://github.com/TuringTestee/retro-coop/issues/66). The existing [UI stories S01–S37](browser-nes-ui.md#story-coverage-and-critique-checklist) still govern detailed controls and consent.
 
 DST supplies the clear Browse Games and Host Game paths. Warcraft III shows a distinct room with visible player slots. AoE2 makes room visibility and access legible. [Klei](https://support.klei.com/hc/en-us/articles/5579659658772-DST-How-to-play-split-screen-online-offline-LAN-on-Nintendo-Switch) · [Blizzard](https://news.blizzard.com/en-us/article/23395649/revisiting-the-warcraft-iii-editor) · [AoE2](https://support.ageofempires.com/hc/en-us/articles/360047306372-How-do-I-create-a-multiplayer-match-in-Age-of-Empires-II-Definitive-Edition)
 

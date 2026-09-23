@@ -4,7 +4,7 @@ Audience: Human
 
 # Retro Coop UI design
 
-This document records the earlier U1–U9 UI design and its interaction inventory. The approved [lobby experience amendment](lobby-refactor.md) and [current ASCII wireframe](lobby-wireframe-v3.md) govern the current directory, room entry, Start, and play layout. The older launcher, automatic-start, and later-join passages below remain only as historical design evidence; unaffected consent, accessibility, and recovery requirements still apply.
+This document records the earlier U1–U9 UI design and its interaction inventory. The approved [lobby experience amendment](lobby-refactor.md) and [current ASCII wireframe](lobby-wireframe-v6.md) govern the current directory, room entry, Start, and play layout. The older launcher, automatic-start, and later-join passages below remain only as historical design evidence; unaffected consent, accessibility, and recovery requirements still apply.
 
 The approved [room game download amendment](room-rom-transfer.md) replaces this earlier design's custom-room matching-file picker, no-transfer help text and no-upload scenario. Those lines describe the running app only until transfer issues #87–#91 integrate; included-game asset checks and other unaffected requirements remain.
 
@@ -74,7 +74,7 @@ S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured se
 
 ## Historical U1 — Directory
 
-The earlier [included-games design](included-games.md) defined the launcher version of U1. Its **Play** and **Show lobbies** actions have been replaced by the one-list 0/2 claim path in the [current wireframe](lobby-wireframe-v3.md). The remaining text in this section records the earlier sketch, not current entry instructions.
+The earlier [included-games design](included-games.md) defined the launcher version of U1. Its **Play** and **Show lobbies** actions have been replaced by the one-list 0/2 claim path in the [current wireframe](lobby-wireframe-v6.md). The remaining text in this section records the earlier sketch, not current entry instructions.
 
 Default listing shows all admitted public sessions, including multiple sessions with the same label. Each row includes host, content source, occupancy, lifecycle status, and an accurate action. The platform does not certify user-entered game labels; an adjacent information label says “Host-provided title.” Do not show private filenames, ROM hashes, third-party download links, private sessions, or auto-generated artwork. Guest identity is a temporary nickname; Settings explains that it is not an account.
 

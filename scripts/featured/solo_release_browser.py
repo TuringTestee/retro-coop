@@ -42,9 +42,9 @@ def main():
             code = re.search(r"Public · (\S+)", host.get_by_test_id("room-view").text_content()).group(1)
             guest = page(block_peer=True)
             guest.locator(".room-list [data-room-id]").filter(has_text=code).get_by_role("button", name="Join", exact=True).click()
-            with guest.expect_file_chooser() as chooser:
-                guest.get_by_role("button", name="Choose matching NES file", exact=True).click()
-            chooser.value.set_files({"name": "release-guest.nes", "mimeType": "application/octet-stream", "buffer": diagnostic})
+            guest.get_by_text("Game ready in this browser. Waiting for peer connection", exact=False).wait_for(timeout=30_000)
+            assert guest.get_by_role("button", name="Prepare to play", exact=True).count() == 0
+            assert guest.get_by_role("button", name="Choose matching NES file").count() == 0
             guest.wait_for_function("proof.room?.matches === true", timeout=30_000, polling=50)
             auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,token:sessionStorage.getItem('retro-coop-guest')})""")
             request = Request(f"{url}/coordinator/rooms/{auth['roomId']}/rom",headers={"Origin":url,"Authorization":f"Bearer {auth['token']}","X-Room-Membership":auth['membership']})
@@ -64,7 +64,7 @@ def main():
             notice.wait_for(state="detached")
             guest.get_by_test_id("player-status").filter(has_text="Playing locally. The game runs in this browser.").wait_for(timeout=15_000)
             assert not errors, errors
-            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "loaded matching guest -> peer unavailable -> host starts solo -> guest sees release -> resumes local game", "errors": errors}
+            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "automatically loaded guest -> peer unavailable -> host starts solo -> guest sees release -> resumes local game", "errors": errors}
             (args.output / "solo-release.json").write_text(json.dumps(result, indent=2) + "\n")
             print(json.dumps(result, indent=2))
             browser.close()

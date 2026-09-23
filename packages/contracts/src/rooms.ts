@@ -13,10 +13,10 @@ import type {CatalogId} from './catalog.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
 type PreviewBase = { id:string; label:string; visibility:Visibility; code?:string };
-export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2};
+export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; romBytes?:number; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2};
 export type EmptyRoomPreview = PreviewBase & {host:'No host'; visibility:'public'; code:string; catalogId:CatalogId; status:'waiting'|'unavailable'; occupancy:0; unavailableReason?:'room_capacity'};
 export type RoomPreview = HumanRoomPreview | EmptyRoomPreview;
-export type RoomView = HumanRoomPreview & { game?:GameView; hostReady?:boolean; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
+export type RoomView = HumanRoomPreview & { game?:GameView; hostReady?:boolean; guestConnected?:boolean; guestAcquisition?:'checking'|'downloading'|'loading'|'loaded'|'failed'; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string;policy?:ConnectionPolicy};
 export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
@@ -35,7 +35,8 @@ export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCom
  | { type:'rename'; requestId:string; roomId:string; label:string }
  | { type:'nickname'; requestId:string; nickname:string }
  | { type:'visibility'; requestId:string; roomId:string; visibility:Visibility }
- | { type:'file'; requestId:string; fingerprint:Fingerprint };
+ | { type:'file'; requestId:string; fingerprint:Fingerprint }
+ | { type:'guestAcquisition'; requestId:string; roomId:string; membership:string; phase:'checking'|'downloading'|'loading'|'loaded'|'failed' };
 export type RoomData = { chatAck?:ChatAck; session?:SessionInfo; room?:RoomView; preview?:RoomPreview; directory?:RoomPreview[] };
 export type RoomEvent = GameEvent | ChatEvent | PeerEvent
  | { type:'result'; requestId:string; ok:true; data:RoomData }
@@ -70,6 +71,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'nickname': valid = keys(value,[...base,'nickname']) && text(value.nickname,32); break;
   case 'visibility': valid = keys(value,[...base,'roomId','visibility']) && token(value.roomId) && ['public','unlisted'].includes(value.visibility as string); break;
   case 'file': valid = keys(value,[...base,'fingerprint']) && validFingerprint(value.fingerprint); break;
+  case 'guestAcquisition': valid=keys(value,[...base,'roomId','membership','phase']) && token(value.roomId) && token(value.membership) && ['checking','downloading','loading','loaded','failed'].includes(value.phase as string);break;
  }
  if(!valid) return;
  return (value.type === 'lookupCode' || value.type === 'joinCode' || value.type === 'claimCode' ? {...value,code:publicCode(value.code as string)!} : value) as RoomCommand;

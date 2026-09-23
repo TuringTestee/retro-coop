@@ -1,6 +1,6 @@
 # Retro Coop
 
-Retro Coop plays local NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. Two players with matching fresh games can play together in public or unlisted rooms, with text chat and optional voice. Joining an ongoing game and recovering a shared timeline are still being built.
+Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. A host can share one game with a guest in a public or unlisted room; the guest downloads it automatically. Joining an ongoing game and recovering a shared timeline are still being built.
 
 ## Play
 
@@ -21,11 +21,11 @@ This command starts the current client and a local room coordinator, and Ctrl-C 
 3. In tab A, choose **Start game**. Both tabs should show **Playing together** and increasing shared-frame counts. Focus each game screen and press Enter to start the NES game; tab A controls Player 1 and tab B controls Player 2.
 4. Switch between the tabs while the game runs. The room should stay in **Playing together** and frame counts should keep increasing. Switching tabs releases held buttons, so press a movement or action key again after returning.
 
-To test your own NES file, create a **Public** room with the file in tab A. In tab B, search its room code, choose **Join**, select the same file when asked, then choose **Prepare to play**. Both copies must match exactly. If a room has already started or its guest place is full, leave it and claim a new empty room before repeating the steps.
+To test your own NES file, create a **Public** room with the file in tab A. In tab B, search its room code, check the host-shared download size, and choose **Join**. The game downloads or loads from this browser's verified cache. Choose **Prepare to play** once it loads and the peer connects. Use **Cancel preparation** to leave during acquisition or **Retry download** after a failure. For an **Unlisted** room, open the host's invitation link instead of searching. If a room has already started or its guest place is full, leave it and create a new room before repeating the steps.
 
 ## Application
 
-The application plays included or local NES files with keyboard/gamepad controls, sound, saves and local rewind. The [room coordinator](docs/implementation/d08-rooms.md) creates anonymous public or unlisted rooms; matching fresh games can use shared play, text chat and [optional voice](docs/implementation/d17-voice.md). Progress-preserving late join, reconnect/resynchronization and shared load/rewind remain later deliveries. Hardware qualification and public-route release testing are separate from the current representative browser evidence.
+The application plays included or host-shared NES files with keyboard/gamepad controls, sound, saves and local rewind. The [room coordinator](docs/implementation/d08-rooms.md) creates anonymous public or unlisted rooms; verified matching games can use shared play, text chat and [optional voice](docs/implementation/d17-voice.md). Settings → Local data shows saved game copies and lets you remove one or all. Progress-preserving late join, reconnect/resynchronization and shared load/rewind remain later deliveries. Hardware qualification and public-route release testing are separate from the current representative browser evidence.
 
 ## Start working
 
@@ -70,4 +70,4 @@ Pre-flight checks committed whitespace against the merge-base with `origin/main`
 
 CI currently needs no submodule checkout. Future jobs that use shared skills must authenticate with read access to Vaseline and initialize the submodule; the default repository token does not grant cross-repository access.
 
-Peer connection privacy and local direct/relay verification are described in the [connection guide](docs/implementation/d10-peer-connectivity.md). Relay only never silently falls back to a direct connection. Shared play uses the same privacy policy and never transfers either player’s ROM file.
+Peer connection privacy and local direct/relay verification are described in the [connection guide](docs/implementation/d10-peer-connectivity.md). Relay only never silently falls back to a direct connection. A custom room's game file is uploaded to the room server while the room is open and downloaded by its guest; peer gameplay messages do not carry the file.

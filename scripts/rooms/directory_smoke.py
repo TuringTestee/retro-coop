@@ -76,9 +76,9 @@ try:
         observed = observer.locator('.room-list li').filter(has_text=codes[0])
         observed.get_by_text('2/2 · Guest preparing', exact=True).wait_for()
         assert observed.get_by_role('button', name='Join', exact=True).count() == 0
-        assert 'Bring matching NES file' in observed.inner_text()
-        viewer.set_input_files('input[type=file]', {'name': 'PRIVATE-DIRECTORY-GUEST.nes', 'mimeType': 'application/octet-stream', 'buffer': rom})
-        viewer.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
+        assert 'Host-shared NES' in observed.inner_text()
+        viewer.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
+        viewer.wait_for_function("proof.room?.matches===true")
         viewer.get_by_role('button', name='Leave room', exact=True).click()
         viewer.locator('.room-panel').wait_for(state='detached')
         observer.get_by_role('button', name='Join', exact=True).wait_for()

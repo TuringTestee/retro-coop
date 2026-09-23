@@ -5,6 +5,7 @@ import {matchingRooms,publicCode} from '../../../packages/contracts/src/director
 import type {RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 import type {RoomState} from './room-client.ts';
 import {clampPage,pageRows} from './directory-page.ts';
+const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/1000))} KB`:`${(bytes/1_000_000).toFixed(1)} MB`;
 
 function roomState(room:RoomPreview) {
  if(room.occupancy===0)return room.status==='unavailable'?'0/2 · Room capacity full':'0/2 · Waiting for host';
@@ -38,7 +39,7 @@ export function DirectoryPanel({state,onJoin,onClaim,onRetry,connection}:{state:
     const claim=available&&room.occupancy===0,join=available&&room.occupancy===1;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
      <strong>{room.label}</strong>
-     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'One controller; share turns':'P1/P2 controllers'} · included`:'Bring matching NES file'}</span>
+     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'One controller; share turns':'P1/P2 controllers'} · included`:`Host-shared NES · ${'romBytes' in room&&room.romBytes?`${gameSize(room.romBytes)} download`:'download size unavailable'}`}</span>
      <span>{room.host}</span><code>{room.code}</code><span>{roomState(room)}</span>
      {claim&&room.catalogId&&<button onClick={()=>onClaim(room.code!,room.catalogId!)}>Join as host</button>}
      {join&&<button onClick={()=>onJoin(room.code!)}>Join</button>}

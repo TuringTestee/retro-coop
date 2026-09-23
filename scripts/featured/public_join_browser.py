@@ -38,7 +38,7 @@ try:
             return row
         def shared(host, guest):
             guest.get_by_role('button', name='Prepare to play', exact=True).click()
-            host.get_by_text('Guest is ready. Start together when you are ready.', exact=True).wait_for(timeout=30000)
+            host.get_by_text('Guest is prepared. Start together when you are ready.', exact=True).wait_for(timeout=30000)
             host.get_by_role('button', name='Start game', exact=True).click()
             for tab in (host, guest):
                 try:
@@ -75,9 +75,9 @@ try:
         custom_host.get_by_role('button', name='Start game', exact=True).wait_for()
         custom_guest = page()
         join_code(custom_guest, code(custom_host))
-        custom_guest.get_by_role('button', name='Choose matching NES file').wait_for()
-        custom_guest.screenshot(path=str(args.output / 'custom-file-needed.png'))
-        custom_guest.set_input_files('input[type=file]', {'name': 'PRIVATE-PUBLIC-GUEST.nes', 'mimeType': 'application/octet-stream', 'buffer': diagnostic})
+        custom_guest.get_by_role('button', name='Prepare to play', exact=True).wait_for()
+        assert custom_guest.get_by_role('button', name='Choose matching NES file').count() == 0
+        custom_guest.screenshot(path=str(args.output / 'custom-ready.png'))
         custom = shared(custom_host, custom_guest)
         unlisted_host = page()
         unlisted_host.get_by_label('Room access').select_option('unlisted')
@@ -89,8 +89,8 @@ try:
         assert listing.get_by_text('No matching public rooms.', exact=True).is_visible()
         invited = page(invitation)
         invited.get_by_role('button', name='Join room', exact=True).click()
-        invited.get_by_role('button', name='Choose matching NES file').wait_for()
-        invited.set_input_files('input[type=file]', {'name': 'PRIVATE-UNLISTED-GUEST.nes', 'mimeType': 'application/octet-stream', 'buffer': diagnostic})
+        invited.get_by_role('button', name='Prepare to play', exact=True).wait_for()
+        assert invited.get_by_role('button', name='Choose matching NES file').count() == 0
         unlisted = shared(unlisted_host, invited)
         assert not errors, errors
         wire_text = '\n'.join(wire)

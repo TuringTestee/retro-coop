@@ -3,6 +3,7 @@ import {catalogAvailability} from 'virtual:catalog';
 import {catalogEntry,catalogId,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {catalogFingerprint} from './catalog-fingerprint.ts';
 import {downloadCatalogEntry} from './catalog-download.ts';
+import {acquireGuestRom} from './guest-rom.ts';
 import type {LocalPlayer} from './player.ts';
 import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceSession,VoiceState} from './voice.ts';
@@ -14,8 +15,11 @@ import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../../packages/contracts/src/rooms.ts';
+type GuestOperation={roomId:string;membership:string;controller:AbortController;sawLoading:boolean};
+type GuestAcquisition={phase:'checking'|'downloading'|'loading'|'loaded'|'failed';message:string;notice?:string};
+const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/1000))} KB`:`${(bytes/1_000_000).toFixed(1)} MB`;
 export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean,file?:File):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onBrowse():void;onInvitationDismiss():void;onIncluded:(file:File,current:()=>boolean)=>void;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void}>(function RoomPanel({showDiscovery,onChoose,onBrowse,onInvitationDismiss,onIncluded,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange},ref) {
+export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onBrowse():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void}>(function RoomPanel({showDiscovery,onChoose,onBrowse,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
@@ -24,9 +28,30 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  const client = useRef<RoomClient|null>(null), selectedVisibility = useRef<Visibility>('public');
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
  const [includedStatus,setIncludedStatus]=useState(''),[includedBusy,setIncludedBusy]=useState<CatalogId>(),[claiming,setClaiming]=useState('');
+ const [guestAcquisition,setGuestAcquisition]=useState<GuestAcquisition>();
+ const guestOperation=useRef<GuestOperation|undefined>(undefined),guestRoom=useRef<RoomView|undefined>(undefined),guestConnected=useRef(state.connected);guestRoom.current=state.room;guestConnected.current=state.connected;
  const claimGeneration=useRef(0);
  const included=useRef<{id:CatalogId;controller:AbortController;membership:string;candidate:boolean;sawLoading:boolean}|undefined>(undefined),attemptedGuest=useRef('');
  const membership=state.room ? `${state.room.id}:${state.room.role}:${state.room.chatMembership}` : '';
+ const guestCurrent=(operation:GuestOperation)=>guestOperation.current===operation&&!operation.controller.signal.aborted&&guestConnected.current&&guestRoom.current?.id===operation.roomId&&guestRoom.current?.role==='guest'&&guestRoom.current.chatMembership===operation.membership&&!!guestRoom.current.reservationIntent&&!guestRoom.current.started;
+ const cancelGuest=()=>{const operation=guestOperation.current;guestOperation.current=undefined;operation?.controller.abort();if(operation?.sawLoading)player()?.cancel();setGuestAcquisition(undefined);};
+ const startGuest=async(room:RoomView)=>{
+  if(room.role!=='guest'||room.catalogId)return;
+  cancelGuest();const token=client.current?.guestToken();if(!token){setGuestAcquisition({phase:'failed',message:'Your room session is unavailable. Return to rooms.'});return;}
+  const operation:GuestOperation={roomId:room.id,membership:room.chatMembership,controller:new AbortController(),sawLoading:false};guestOperation.current=operation;
+  setGuestAcquisition({phase:'checking',message:'Checking saved game…'});
+  const current=()=>guestCurrent(operation);
+  void client.current?.guestAcquisition(room.id,room.chatMembership,'checking');
+  try{
+   const result=await acquireGuestRom(room,token,operation.controller.signal,bytes=>{if(current()){setGuestAcquisition({phase:'downloading',message:`Downloading game… ${gameSize(bytes)} / ${gameSize(room.fingerprint.cartridge.bytes)}`});void client.current?.guestAcquisition(room.id,room.chatMembership,'downloading');}},current);
+   if(!current())return;
+   setGuestAcquisition({phase:'loading',message:'Loading game…',notice:result.notice});
+   void client.current?.guestAcquisition(room.id,room.chatMembership,'loading');
+   if(!onAcquired(result.file,current))throw Error('The game could not start loading. Retry download.');
+   operation.sawLoading=true;
+  }catch(error){if(current()){setGuestAcquisition({phase:'failed',message:error instanceof Error?error.message:'Download failed. Retry download.'});void client.current?.guestAcquisition(room.id,room.chatMembership,'failed');}}
+ };
+ const leaveGuest=async()=>{const room=guestRoom.current;cancelGuest();if(room?.reservationIntent)await client.current?.act({type:'leave',intent:room.reservationIntent});if(invite)clearInvitation();else onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());};
  const clearInvitation=()=>{history.replaceState(null,'',location.pathname+location.search);setInvite(null);onInvitationDismiss();onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());};
  const cancelIncluded=(message='Included loading canceled. Your previous game is preserved.')=>{
   const operation=included.current;included.current=undefined;operation?.controller.abort();
@@ -34,7 +59,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   setIncludedBusy(undefined);if(operation)setIncludedStatus(message);
  };
  const startIncluded=async(id:CatalogId)=>{if(state.startingRoom)return;const entry=catalogEntry(id);
-  if(!catalogAvailability[id]){setIncludedStatus(`${entry.title} is unavailable in this deployment. Choose a local file or retry later.`);return;}
+  if(!catalogAvailability[id]){setIncludedStatus(`${entry.title} is unavailable here. Leave room and try another game.`);return;}
   if(state.room?.established){setIncludedStatus('Leave shared play before starting another game.');return;}
   cancelIncluded('');
   if(fingerprint && player()?.isLoaded(fingerprint) && catalogId(fingerprint)===id){
@@ -50,12 +75,15 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   try {
    const file=await downloadCatalogEntry(entry,operation.controller.signal,bytes=>{if(current())setIncludedStatus(`Downloading ${entry.title}: ${bytes} / ${entry.bytes} bytes`);});
    if(!current())return;
-   operation.candidate=true;setIncludedStatus(`Download verified. Preparing ${entry.title}…`);onIncluded(file,current);
+   operation.candidate=true;setIncludedStatus(`Download verified. Preparing ${entry.title}…`);if(!onAcquired(file,current))throw Error(`Could not start ${entry.title}. Retry download.`);
   }catch(error){
    if(included.current===operation){included.current=undefined;setIncludedBusy(undefined);setIncludedStatus(error instanceof Error ? error.message : 'Download failed. Retry the included game.');}
   }finally{clearTimeout(timeout);}
  };
  useEffect(()=>{const operation=included.current;if(operation && operation.membership!==membership)cancelIncluded('The room changed. Included loading canceled; your previous game is preserved.');},[membership]);
+ useEffect(()=>{const room=guestRoom.current;if(room?.role==='guest'&&!room.catalogId)void startGuest(room);else{cancelGuest();setGuestAcquisition(undefined);}return()=>{cancelGuest();};},[membership]);
+ useEffect(()=>{if(!state.connected&&guestOperation.current){cancelGuest();setGuestAcquisition({phase:'failed',message:'Room connection lost. Reconnect rooms, then retry download.'});}},[state.connected]);
+ useEffect(()=>{const operation=guestOperation.current;if(!operation||!guestCurrent(operation)||guestAcquisition?.phase!=='loading')return;if(selectionLoading){operation.sawLoading=true;return;}if(operation.sawLoading){if(fingerprint&&matchesFile(guestRoom.current!.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){setGuestAcquisition({...guestAcquisition,phase:'loaded',message:'Game ready in this browser.'});void client.current?.guestAcquisition(operation.roomId,operation.membership,'loaded');}else{setGuestAcquisition({...guestAcquisition,phase:'failed',message:'The game could not load. Retry download.'});void client.current?.guestAcquisition(operation.roomId,operation.membership,'failed');}}},[selectionLoading,fingerprint,guestAcquisition?.phase]);
  useEffect(()=>{
   const operation=included.current;if(!operation?.candidate)return;
   if(selectionLoading){operation.sawLoading=true;return;}
@@ -93,9 +121,9 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  useEffect(()=>{if(state.hostFailure||!state.room&&!invite&&state.status==='Cancelled. Your local game is preserved.')onBrowse();},[state.hostFailure,state.status]);
  useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
   beforeSelection() {
-   if(state.startingRoom)return false;
+   if(state.startingRoom||state.room?.role==='guest'&&!state.room.started&&!state.room.catalogId)return false;
    cancelIncluded();client.current?.beginSelection();selectedVisibility.current = visibility;return true;
- },approveSelection(fingerprint,isCurrent,file){return client.current?.approveSelection(fingerprint,isCurrent,file) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.beginSelection();}
+ },approveSelection(fingerprint,isCurrent,file){if(state.room?.role==='guest'&&!state.room.catalogId){const operation=guestOperation.current;return Promise.resolve(!!operation&&guestCurrent(operation)&&isCurrent()&&matchesFile(state.room.fingerprint,fingerprint));}return client.current?.approveSelection(fingerprint,isCurrent,file) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.beginSelection();}
  }),[visibility,state.room]);
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;
@@ -122,25 +150,25 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
  {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading">
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}{room&&!room.started&&<small> · {room.visibility==='public'?`Public · ${room.code}`:'Unlisted'}</small>}</h2>
-  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}. {state.preview.catalogId ? `${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.${state.preview.catalogId==='from-below-1.0'?' One controller; share turns with the other player.':''}` : 'Bring your own matching local game file.'}</p>}
+  {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}. {state.preview.catalogId ? `${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.${state.preview.catalogId==='from-below-1.0'?' One controller; share turns with the other player.':''}` : `Host-shared NES · ${state.preview.romBytes?`${gameSize(state.preview.romBytes)} download`:'download size unavailable'}`}</p>}
   {invite&&!room&&<div className="invite-action"><ConnectionPolicyControl compact policy={policy} change={changePolicy}/>{state.preview?.status==='waiting'&&state.preview.occupancy===1?<button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Join room</button>:!state.busy&&<button onClick={()=>void client.current?.preview(invite)}>Retry invitation</button>}<button onClick={clearInvitation}>View public rooms</button></div>}
-  {room?.role==='guest'&&!room.catalogId&&(!fingerprint||!matchesFile(room.fingerprint,fingerprint))&&<div className="matching-file"><p>{fingerprint?'That file does not match this room. Choose the host’s exact NES file.':'This room needs the host’s exact NES file. The host’s file is not transferred.'}</p><button onClick={onChoose}>Choose matching NES file</button></div>}
+  {room?.role==='guest'&&!room.catalogId&&guestAcquisition&&<div className="guest-acquisition" role="status" aria-live="polite"><p>{guestAcquisition.message}</p>{guestAcquisition.notice&&<p>{guestAcquisition.notice}</p>}{['checking','downloading','loading'].includes(guestAcquisition.phase)&&<button onClick={()=>void leaveGuest()}>Cancel preparation</button>}{guestAcquisition.phase==='failed'&&<button onClick={()=>void startGuest(room)}>Retry download</button>}</div>}
   {room?.catalogId==='from-below-1.0'&&!room.started&&<p>One controller; share turns. The host controls first. Both players must agree to a handoff in Session controllers.</p>}
-  {room&&selectionLoading&&!includedBusy&&<p role="status">Checking the selected file… <button onClick={()=>{player()?.cancel();client.current?.beginSelection();}}>Cancel loading</button></p>}
+  {room&&selectionLoading&&!includedBusy&&!(room.role==='guest'&&!room.catalogId)&&<p role="status">Checking the selected file… <button onClick={()=>{player()?.cancel();client.current?.beginSelection();}}>Cancel loading</button></p>}
   {room&&!room.started?<div className="room-slots"><div><strong>Player 1 · Host</strong><span>{room.role==='host'?'You':room.host}</span></div><div><strong>Player 2 · Guest</strong><span>{room.role==='guest'?'You':room.guest??'Open'}</span></div></div>:room&&<ControllerOwnership room={room}/>}
   {room?.role==='guest'&&!room.started&&<div className="room-start" role="group" aria-label="Guest preparation">
-   {!state.connected?<p role="status">Room connection lost. Reconnect to check readiness.</p>:room.peer.status==='connected'&&!selectionLoading&&!!fingerprint&&player()?.isLoaded(fingerprint)&&matchesFile(room.fingerprint,fingerprint)&&room.game?.ready?.includes('guest')?<p role="status">Ready to play. Waiting for the host to start.</p>:<><button disabled={!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!state.gameplay?.intent} onClick={()=>client.current?.prepareGuest()}>Prepare to play</button>{state.gameplay?.intent&&<p role="status">{state.gameplay.status}</p>}</>}
+   {!state.connected?<p role="status">Room connection lost. Reconnect to check readiness.</p>:room.peer.status==='connected'&&!selectionLoading&&!!fingerprint&&player()?.isLoaded(fingerprint)&&matchesFile(room.fingerprint,fingerprint)&&room.game?.ready?.includes('guest')?<p role="status">Ready to play. Waiting for the host to start.</p>:room.catalogId||guestAcquisition?.phase==='loaded'?<>{room.peer.status==='connected'&&<button disabled={!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!state.gameplay?.intent} onClick={()=>client.current?.prepareGuest()}>Prepare to play</button>}{room.peer.status!=='connected'&&<p role="status">Game ready in this browser. Waiting for peer connection…</p>}{state.gameplay?.intent&&<p role="status">{state.gameplay.status}</p>}</>:null}
   </div>}
   {(room?.peer.epoch||!state.connected)&&<p role="status" data-testid="connection-status">{connectionStatus(state)}</p>}
   {invite&&!room&&<p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>}
   {room?.role==='host'&&!room.started&&<div className="room-invite"><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Select the invitation text and copy it.'));if(!navigator.clipboard)setCopy('Select the invitation text and copy it.');}}>Copy invite</button><span className="hint" role="status">{copy}</span><label className={copy.startsWith('Select')?'':'invite-fallback'}>Invitation <input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/></label></div>}
-  {room?.role==='host'&&!room.started&&<div className="room-start"><p>{!state.connected?'Room connection lost. Reconnect to check whether the guest is ready.':room.game?.startRequested?'Checking both games before shared Start…':room.game?.ready?.includes('guest')?'Guest is ready. Start together when you are ready.':room.guest&&room.peer.status!=='connected'?'Waiting for the guest connection. Start now to play alone and release their place.':room.guest?'Guest is still preparing. Start now to play alone and release their place.':'Start now to play alone, or wait for a guest.'}</p><button disabled={!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!room.game?.startRequested} onClick={()=>{if(fingerprint)void client.current?.startRoom(fingerprint);}}>Start game</button>{fingerprint&&!matchesFile(room.fingerprint,fingerprint)&&<p role="status">This file does not match the room. <button onClick={onChoose}>Choose matching NES file</button></p>}</div>}
-  {room&&!room.started&&includedStatus&&<p role="status" data-testid="included-status">{includedStatus} {includedBusy&&<button onClick={()=>cancelIncluded()}>Cancel loading</button>}{room.catalogId&&!includedBusy&&(!fingerprint||!player()?.isLoaded(fingerprint))&&<><button onClick={()=>void startIncluded(room.catalogId!)}>Retry download</button><button onClick={onChoose}>Choose local NES file</button></>}</p>}
-  {room&&<button onClick={async()=>{let left=false;if(room.role==='host'){if(window.confirm('Leave and close this room for both players? Your local game stays available.'))left=await client.current?.act({type:'close',roomId:room.id})??false;}else if(!room.established||window.confirm('Leave shared play? Your local game stays available.'))left=await client.current?.act({type:'leave',intent:room.reservationIntent!})??false;if(left){const nextInvite=new URLSearchParams(location.hash.slice(1)).get('invite');if(nextInvite&&nextInvite!==invite){setInvite(nextInvite);onBrowse();}else if(invite)clearInvitation();else onBrowse();}}}>Leave room</button>}
+  {room?.role==='host'&&!room.started&&<div className="room-start"><p>{!state.connected?'Room connection lost. Reconnect to check whether the guest is ready.':room.game?.startRequested?'Checking both games before shared Start…':room.game?.ready?.includes('guest')?'Guest is prepared. Start together when you are ready.':room.guest&&!room.guestConnected?'Guest disconnected. Start now to play alone and release their place.':room.guestAcquisition==='checking'?'Guest checking a saved game. Start now to play alone and release their place.':room.guestAcquisition==='downloading'?'Guest downloading. Start now to play alone and release their place.':room.guestAcquisition==='loading'?'Guest loading. Start now to play alone and release their place.':room.guestAcquisition==='failed'?'Guest download failed. Start now to play alone and release their place.':room.guestAcquisition==='loaded'&&room.peer.status!=='connected'?'Guest game loaded; waiting for peer connection. Start now to play alone and release their place.':room.guest?'Guest is preparing. Start now to play alone and release their place.':'Start now to play alone, or wait for a guest.'}</p><button disabled={!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!room.game?.startRequested} onClick={()=>{if(fingerprint)void client.current?.startRoom(fingerprint);}}>Start game</button>{fingerprint&&!matchesFile(room.fingerprint,fingerprint)&&<p role="status">This file does not match the room. <button onClick={onChoose}>Choose matching NES file</button></p>}</div>}
+  {room&&!room.started&&includedStatus&&<p role="status" data-testid="included-status">{includedStatus} {includedBusy&&<button onClick={()=>cancelIncluded()}>Cancel loading</button>}{room.catalogId&&catalogAvailability[room.catalogId]&&!includedBusy&&(!fingerprint||!player()?.isLoaded(fingerprint))&&<button onClick={()=>void startIncluded(room.catalogId!)}>Retry download</button>}</p>}
+  {room&&!(room.role==='guest'&&!room.catalogId&&['checking','downloading','loading'].includes(guestAcquisition?.phase??''))&&<button onClick={async()=>{let left=false;if(room.role==='host'){if(window.confirm('Leave and close this room for both players? Your local game stays available.'))left=await client.current?.act({type:'close',roomId:room.id})??false;}else if(!room.established||window.confirm('Leave shared play? Your local game stays available.')){cancelGuest();left=await client.current?.act({type:'leave',intent:room.reservationIntent!})??false;}if(left){const nextInvite=new URLSearchParams(location.hash.slice(1)).get('invite');if(nextInvite&&nextInvite!==invite){setInvite(nextInvite);onBrowse();}else if(invite)clearInvitation();else onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());}}}>Leave room</button>}
   {room&&!room.started&&state.chat&&<ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/>}
   {(room||!invite)&&<details name="room-tools" className="session-settings"><summary>Connection and session settings</summary>
   <ConnectionPolicyControl policy={policy} change={changePolicy}/>
-  <p className="hint">The host chooses Start. Both players must prepare matching games before shared play.</p>
+  <p className="hint">The host chooses Start after both games are ready.</p>
   {room?.peer.epoch && <button onClick={()=>void client.current?.retryPeer()}>Retry connection</button>}
   {room?.peer.epoch && ['relay_unavailable','relay_capacity','failed'].includes(room.peer.status) && <><button onClick={()=>setStaying(room.peer.epoch)}>Stay in room</button>{staying===room.peer.epoch && <p role="status">You stayed in the room. Your current reservation deadline and local game are unchanged. Retry whenever you are ready.</p>}</>}
   <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
@@ -148,7 +176,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   {room && <div data-testid="room-view">
    <p><strong>{room.visibility === 'public' ? `Public · ${room.code}`:'Unlisted · invite only'}</strong> · {room.occupancy}/2 places · {room.status}</p>
    <p>You are {room.role === 'host' ? 'the host, Player 1':room.established?'Player 2':'Player 2 (reserved)'}. {room.guest ? `${room.guest} has the ${room.established?'established':'reserved'} guest place.`:room.started==='solo'?'Playing alone; new guests cannot join.':'Waiting for a friend.'}</p>
-   {room.reservationUntil && <p>Reservation expires at {new Date(room.reservationUntil).toLocaleTimeString()}. {room.matches ? 'Files match. Preparing the shared-play connection.' : 'The guest needs the exact matching file and emulator build; header differences also matter.'}</p>}
+   {room.reservationUntil && <p>Reservation expires at {new Date(room.reservationUntil).toLocaleTimeString()}. {room.matches ? 'Game verified. Preparing the shared-play connection.' : 'The guest game is still being acquired or loaded.'}</p>}
    {room.hostReconnectUntil && <p>Host disconnected. Return before {new Date(room.hostReconnectUntil).toLocaleTimeString()} to keep this room.</p>}
    {room.role === 'host' ? <details><summary>Session settings</summary>
     <label>Room name <input maxLength={80} value={label} onChange={event=>setLabel(event.target.value)}/></label><button disabled={!label.trim()} onClick={()=>void client.current?.act({type:'rename',roomId:room.id,label})}>Save room name</button>

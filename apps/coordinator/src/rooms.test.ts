@@ -40,6 +40,21 @@ test('unlisted preview excludes hashes and codes, host alone controls room mutat
  assert.equal(t.act(host.token,{type:'visibility',roomId:room.id,visibility:'unlisted'}).room!.code,undefined);
  t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
 });
+test('guest acquisition phase belongs to the current reservation and clears on leave',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token);
+ const first=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
+ t.act(guest.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'downloading'});
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestAcquisition,'downloading');
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestConnected,true);
+ const send=()=>{};t.rooms.attach(guest.token,send,()=>{});t.rooms.detach(guest.token,send);
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestConnected,false);
+ assert.throws(()=>t.act(host.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed|host_only/);
+ t.act(guest.token,{type:'leave',intent:first.reservationIntent!});
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestAcquisition,undefined);
+ const second=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
+ assert.throws(()=>t.act(guest.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed/);
+ assert.equal(second.guestAcquisition,undefined);
+});
 test('two concurrent contenders have one winner and cancellation frees the slot immediately',async()=>{
  const t = setup(), host = t.guest(), a = t.guest(), b = t.guest(), room = t.host(host.token);
  const results = await Promise.allSettled([a,b].map(guest=>Promise.resolve().then(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}))));
@@ -129,7 +144,8 @@ test('directory publishes admitted public metadata through reservation, visibili
  t.act(host.token,{type:'confirmCreate',intent});
  const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms;
  assert.equal(latest().length,1);assert.equal(latest()[0].id,provisional.id);
- assert.deepEqual(Object.keys(latest()[0]).sort(),['code','host','id','label','occupancy','status','visibility']);
+ assert.deepEqual(Object.keys(latest()[0]).sort(),['code','host','id','label','occupancy','romBytes','status','visibility']);
+ const preview=latest()[0];assert.equal('romBytes' in preview && preview.romBytes,fingerprint.cartridge.bytes);
  const code=provisional.code!;
  assert.equal(t.act(joiner.token,{type:'lookupCode',code}).preview!.id,provisional.id);
  const joined=t.act(joiner.token,{type:'joinCode',code,intent:randomUUID()}).room!;

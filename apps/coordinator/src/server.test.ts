@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { spawn } from 'node:child_process';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import { config, createCoordinator, shutdown } from './server.ts';
 test('health is content-free, other routes reject, shutdown closes listener', async () => {
  const server = createCoordinator(); server.listen(0, '127.0.0.1'); await once(server, 'listening');
@@ -23,10 +26,11 @@ test('configuration is explicit and rejects bad ports/stages', () => {
  assert.throws(() => config({COORDINATOR_STAGE:'production'}));
 });
 test('SIGTERM exits a running coordinator cleanly', {timeout:5000}, async () => {
- const child = spawn(process.execPath, ['apps/coordinator/src/main.ts'], {env:{...process.env,COORDINATOR_PORT:'0'}, stdio:['ignore','pipe','pipe']});
+ const romDirectory=mkdtempSync(join(tmpdir(),'retro-server-test-roms-'));
+ const child = spawn(process.execPath, ['apps/coordinator/src/main.ts'], {env:{...process.env,COORDINATOR_PORT:'0',COORDINATOR_ROM_DIR:romDirectory}, stdio:['ignore','pipe','pipe']});
  try {
   await once(child.stdout, 'data');
   const ended = once(child, 'exit'); child.kill('SIGTERM');
   assert.deepEqual(await ended, [0, null]);
- } finally { if (child.exitCode === null) child.kill('SIGKILL'); }
+ } finally { if (child.exitCode === null) child.kill('SIGKILL');rmSync(romDirectory,{recursive:true,force:true}); }
 });

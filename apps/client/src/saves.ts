@@ -80,9 +80,34 @@ export async function putBattery(record:BatteryRecord,expected:BatteryRecord|und
  });
 }
 export async function putPreferences(record:PreferencesRecord,generation:number) {await automaticWrite('preferences',generation,store=>{store.put(record);});}
-export async function readRom(sha256:string) {return readStored<RomRecord>('roms',sha256);}
-export async function putRom(record:RomRecord,generation:number) {await automaticWrite('roms',generation,store=>{store.put(record);});}
-export async function deleteRom(sha256:string) {await transaction('readwrite',store=>store.delete(sha256),['roms']);}
+export async function readRom(sha256:string):Promise<{generation:number;romGeneration:number;record:RomRecord|undefined}> {
+ let generation=0,romGeneration=0;
+ const record=await transaction('readonly',(store,tx)=>{
+  const meta=tx.objectStore('meta'),epoch=meta.get('generation'),individual=meta.get(`rom:${sha256}`);
+  epoch.addEventListener('success',()=>{generation=epoch.result??0;});individual.addEventListener('success',()=>{romGeneration=individual.result??0;});
+  return store.get(sha256);
+ },['roms','meta']);return {generation,romGeneration,record};
+}
+export async function putRom(record:RomRecord,generation:number,romGeneration:number) {
+ let failure:unknown;
+ try{await transaction('readwrite',(store,tx)=>{
+  const meta=tx.objectStore('meta'),epoch=meta.get('generation'),individual=meta.get(`rom:${record.sha256}`);
+  const check=()=>{if(epoch.readyState!=='done'||individual.readyState!=='done')return;
+   if((epoch.result??0)!==generation||(individual.result??0)!==romGeneration){failure=Error('Downloaded game was deleted or local data was cleared in another view.');tx.abort();return;}
+   store.put(record);
+  };
+  epoch.addEventListener('success',check);individual.addEventListener('success',check);return epoch;
+ },['roms','meta']);}catch(error){throw failure??error;}
+}
+export async function deleteRom(sha256:string,generation:number) {
+ let failure:unknown;
+ try{await transaction('readwrite',(_,tx)=>{const meta=tx.objectStore('meta'),request=meta.get('generation'),individual=meta.get(`rom:${sha256}`);
+  const check=()=>{if(request.readyState!=='done'||individual.readyState!=='done')return;
+   if((request.result??0)!==generation){failure=Error('Local data changed. Reopen this panel before deleting the game.');tx.abort();return;}
+   tx.objectStore('roms').delete(sha256);meta.put((individual.result??0)+1,`rom:${sha256}`);
+  };
+  request.addEventListener('success',check);individual.addEventListener('success',check);return request;},['roms','meta']);}catch(error){throw failure??error;}
+}
 export type LocalData = {generation:number;saves:SaveSlot[];batteries:BatteryRecord[];preferences:PreferencesRecord[];roms:RomRecord[]};
 export async function listLocalData():Promise<LocalData> {
  const result:LocalData={generation:0,saves:[],batteries:[],preferences:[],roms:[]};
@@ -100,7 +125,7 @@ export async function clearLocalData(generation:number) {
  let failure:unknown;
  try{await transaction('readwrite',(_,tx)=>{const meta=tx.objectStore('meta'),request=meta.get('generation');request.addEventListener('success',()=>{
   if((request.result ?? 0)!==generation){failure=Error('Local data changed. Reopen this panel before clearing it.');tx.abort();return;}
-  for(const name of ['saves','batteries','preferences','roms'])tx.objectStore(name).clear();meta.put(generation+1,'generation');
+  for(const name of ['saves','batteries','preferences','roms'])tx.objectStore(name).clear();meta.clear();meta.put(generation+1,'generation');
  });return request;},stores);}catch(error){throw failure ?? error;}
 }
 export function sameRecord(current:BatteryRecord|undefined,expected:BatteryRecord|undefined) {return !current && !expected || !!current && !!expected && Object.is(current.savedAt,expected.savedAt) && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);}
