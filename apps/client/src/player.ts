@@ -5,6 +5,7 @@ import { defaults, inputMask, padInputs, ReleasedInputs, type Controls } from '.
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
+import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 
 type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
 type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;writing?:Promise<void>};
@@ -15,6 +16,7 @@ export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number
 export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
+ isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && !this.state.loading && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
  private active?: Worker;
  private game?:GameDriver;
  private gameTimer?:ReturnType<typeof setTimeout>;

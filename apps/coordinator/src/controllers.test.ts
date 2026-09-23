@@ -19,7 +19,7 @@ test('controller changes need current host proposal and both explicit acceptance
  game.respondControllers('host',command);assert.equal(game.view().controllers?.p1,'guest');assert.equal(game.view().status,'paused');
  assert.throws(()=>game.respondControllers('host',command),/stale_controllers/);
  assert.throws(()=>game.ready('host',offer()),/stale_controllers/);
- game.ready('host',offer(1));assert.equal(game.view().status,'paused');game.ready('guest',offer(1));
+ game.ready('host',offer(1));assert.equal(game.view().status,'paused');game.ready('guest',offer(1));game.requestStart();
  const epoch=game.view().epoch!;assert.equal(game.view().status,'starting');game.ack('host',epoch,hash);assert.equal(game.view().status,'starting');game.ack('guest',epoch,hash);
  assert.equal(game.view().status,'playing');assert.equal(events.filter(e=>e.type==='gameStart').at(-1)?.controllers?.p1,'guest');
  assert.throws(()=>game.proposeControllers('host',proposal(1,epoch)),/controller_change_unavailable/);
@@ -35,7 +35,7 @@ test('decline cancel timeout disconnect and replacement keep progress and cannot
  }
 });
 test('paused reassignment replaces epoch and cannot consume earlier readiness or start acknowledgement',()=>{
- const {game}=setup();game.ready('host',offer());game.ready('guest',offer());const epoch=game.view().epoch!;game.ack('host',epoch,hash);game.ack('guest',epoch,hash);
+ const {game}=setup();game.ready('host',offer());game.ready('guest',offer());game.requestStart();const epoch=game.view().epoch!;game.ack('host',epoch,hash);game.ack('guest',epoch,hash);
  game.pause(epoch,20,'user','host');game.pausedAt('host',epoch,20,hash);game.pausedAt('guest',epoch,20,hash);
  game.ready('host',{...offer(),frame:20,fresh:false},true);game.ready('guest',{...offer(),frame:20,fresh:false},true);
  game.proposeControllers('host',proposal(0,epoch));assert.throws(()=>game.resume('host',epoch),/resume_not_ready/);

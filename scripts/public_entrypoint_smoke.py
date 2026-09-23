@@ -48,6 +48,11 @@ def browser_check(screenshot_dir=None):
     from playwright.sync_api import sync_playwright
 
     result = {}
+    def start_room(page):
+        page.get_by_test_id("room-view").wait_for(state="attached", timeout=15000)
+        page.get_by_role("button", name="Start game", exact=True).click()
+        page.locator(".room-start button").click()
+        page.get_by_role("button", name="Close details", exact=True).click()
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         page = browser.new_page(viewport={"width": 1280, "height": 800})
@@ -101,6 +106,7 @@ def browser_check(screenshot_dir=None):
         retry.wait_for_function("[...document.querySelectorAll('button')].some(button => button.textContent === 'Play Super Tilt Bro' && !button.disabled)")
         retry.unroute(catalog_url)
         retry.get_by_role("button", name="Play Super Tilt Bro", exact=True).click()
+        start_room(retry)
         retry.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>2", timeout=30000)
         retry.get_by_test_id("room-view").wait_for(state="attached")
         retry.get_by_role("button", name="Game help", exact=True).click()
@@ -113,6 +119,7 @@ def browser_check(screenshot_dir=None):
         from_below = browser.new_page(viewport={"width": 1280, "height": 800})
         from_below.goto("http://127.0.0.1:8765/")
         from_below.get_by_role("button", name="Play From Below", exact=True).click()
+        start_room(from_below)
         from_below.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>120", timeout=30000)
         from_below.wait_for_function("()=>{const c=document.querySelector('canvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.some((v,i)=>i%4!==3&&v!==0)}", timeout=30000)
         from_below.get_by_test_id("room-view").wait_for(state="attached")

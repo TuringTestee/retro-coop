@@ -28,6 +28,8 @@ if [ "$D02_JOB" = entrypoint ]; then
   npm ci
   RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
   timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
+  npm run build
+  timeout --foreground 30s python3 scripts/featured/solo_release_browser.py --output spikes/d02/public-entrypoint.local/solo-release
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv

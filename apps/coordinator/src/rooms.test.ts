@@ -79,7 +79,8 @@ test('strict metadata schema rejects uploads, arbitrary fields and malformed val
  assert.ok(parseRoomCommand(command));
  const claim={type:'claimCode',requestId,code:'ABCDEFGH',intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')};
  assert.ok(parseRoomCommand(claim));
- for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
+ const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));assert.ok(parseRoomCommand({...start,type:'prepareHost'}));
+ for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{...start,filename:'private.nes'},{...start,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
 
 test('real WebSockets enforce origin/auth/schema and atomic reservations across clients',async()=>{
@@ -286,5 +287,30 @@ test('real WebSocket clients opt into offers and race for one first-host claim',
   assert.equal(after.filter(row=>row.occupancy===0).length,1);
   assert.equal(after.find(row=>row.id===initial[0].id)?.occupancy,1);
   assert.equal(data(await request(old,{type:'directory'})).directory!.length,1);
+ }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
+});
+
+test('separate WebSocket browsers see host Start close an unready guest place',async()=>{
+ const origin='http://127.0.0.1:5173',server=createCoordinator({origins:[origin]});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const url=`ws://127.0.0.1:${(server.address() as {port:number}).port}/ws`,sockets:WebSocket[]=[];
+ const connect=async()=>{const socket=new WebSocket(url,{origin});sockets.push(socket);await once(socket,'open');return socket;};
+ const request=async(socket:WebSocket,command:Command)=>{const requestId=randomUUID();const response=new Promise<Extract<RoomEvent,{type:'result'}>>(resolve=>{const onMessage=(raw:Buffer)=>{const event=JSON.parse(raw.toString());if(event.type==='result'&&event.requestId===requestId){socket.off('message',onMessage);resolve(event);}};socket.on('message',onMessage);});socket.send(JSON.stringify({...command,requestId}));return response;};
+ const data=(result:Extract<RoomEvent,{type:'result'}>)=>{if(!result.ok)throw Error(result.error);return result.data;};
+ try {
+  const host=await connect(),guest=await connect(),watcher=await connect();
+  for(const socket of [host,guest,watcher])data(await request(socket,{type:'hello'}));
+  const intent=randomUUID();data(await request(host,{type:'create',intent,visibility:'public',fingerprint}));
+  const room=data(await request(host,{type:'confirmCreate',intent})).room!;
+  const joined=data(await request(guest,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;
+  assert.equal(joined.occupancy,2);
+  const beforeReady=await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});assert.equal(beforeReady.ok,false);if(!beforeReady.ok)assert.equal(beforeReady.error,'host_not_ready');
+  data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
+  const started=data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!;
+  assert.equal(started.started,'solo');assert.equal(started.status,'playing');assert.equal(started.occupancy,1);
+  const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;
+  assert.equal(preview.status,'playing');assert.equal(preview.occupancy,1);
+  const denied=await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()});
+  assert.equal(denied.ok,false);if(!denied.ok)assert.equal(denied.error,'room_started');
+  assert.equal(data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!.id,room.id);
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
 });

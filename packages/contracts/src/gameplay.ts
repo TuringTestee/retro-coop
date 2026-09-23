@@ -9,7 +9,7 @@ const validReason=(value:unknown):value is GameReason=>typeof value==='string'&&
 export type ControllerAssignment={mode:'separate'|'shared';p1:GameRole;revision:number};
 export type ControllerProposal=ControllerAssignment & {id:string;accepted:GameRole[]};
 export const defaultControllers:ControllerAssignment={mode:'separate',p1:'host',revision:0};
-export type GameView={controllers?:ControllerAssignment;controllerProposal?:ControllerProposal} & {ready?:GameRole[];status:'waiting'|'starting'|'playing'|'pausing'|'resume_ready'|'paused'|'late_join'|'failed';epoch?:string;delay?:number;reason?:string};
+export type GameView={controllers?:ControllerAssignment;controllerProposal?:ControllerProposal} & {ready?:GameRole[];startRequested?:boolean;status:'waiting'|'starting'|'playing'|'pausing'|'resume_ready'|'paused'|'late_join'|'failed';epoch?:string;delay?:number;reason?:string};
 export type GameCommand=
  | {type:'gameControllerPropose';requestId:string;peerEpoch:string;epoch?:string;revision:number;mode:'separate'|'shared';p1:GameRole}
  | {type:'gameControllerRespond';requestId:string;peerEpoch:string;epoch?:string;proposalId:string;accept:boolean}

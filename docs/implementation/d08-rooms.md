@@ -2,7 +2,7 @@ Audience: Agent
 
 # Anonymous rooms and reservations
 
-A valid local NES file now creates a public or unlisted room without a naming form. Friends can open an invitation and reserve Player 2 before choosing their own file. The coordinator protects room ownership and reservation deadlines, while local play remains available if the room service fails. Shared gameplay is a later delivery slice.
+This document records the original D08 room and reservation slice. A valid local NES file creates a public or unlisted room without a naming form, and friends can reserve Player 2 before choosing their own file. The coordinator protects ownership and deadlines. Current shared-play Start behavior is governed by [D11](d11.md) and the [lobby refactor](lobby-refactor.md).
 
 ## Run and inspect
 
@@ -26,7 +26,7 @@ Use `--chrome` for installed Chrome. The room suite launches its own coordinator
 - `apps/coordinator/src/server.ts`: origin-checked WebSocket upgrade and authenticated session binding. Display names cannot confer authority. Tokens and invitations each use 32 random bytes. Invitations live in URL fragments and the page sets `no-referrer`; neither invite nor token is put in coordinator URLs. Public codes contain eight unambiguous characters and are allocated with collision retries. Unlisting removes the code; unlisted rooms have no public lookup path.
 - `apps/client/src/room-client.ts` and `RoomPanel.tsx`: connection/operation lifetimes, recovery and accessible room controls. Cancellation invalidates pending intent. Creating is provisional for at most five seconds until the current client intent acknowledges it; provisional invitations cannot be previewed or joined. A held/stale create response cannot activate a cancelled room. A valid replacement game closes its old hosted room only after explicit confirmation and successful local validation. Invalid files preserve the previous game and room. A recovered host selecting the same exact file/build reuses its room and preserves the guest’s original lease.
 
-`Fingerprint` is the existing local file/core/settings identity. Matching it satisfies only the local-file prerequisite; the UI explicitly states that shared gameplay is unavailable in this build. D10/D11 own peer connection, state-schema compatibility, automatic shared barriers and successful reservation promotion. D09 owns public directory/search subscriptions. No coordinator gameplay, peer contact, microphone request or fake Ready/Playing state is introduced here.
+`Fingerprint` is the existing local file/core/settings identity. Matching it satisfies only the local-file prerequisite. In the original D08 slice, shared play was unavailable; [D11](d11.md) later added the acknowledged barrier, and the [lobby refactor](lobby-refactor.md) made its initial Start host-controlled. D10/D11 own peer connection, state-schema compatibility and successful reservation promotion. D09 owns public directory/search subscriptions. D08 itself introduced no coordinator gameplay, peer contact, microphone request or fake Ready/Playing state.
 
 ## Deadlines, authority and bounded admission
 
