@@ -17,7 +17,10 @@ export function uploadRoomFile(endpoint:string,roomId:string,intent:string,token
   if(signal.aborted){fail('Upload cancelled.');return;}
   const abort=()=>xhr.abort();signal.addEventListener('abort',abort,{once:true});
   const finish=()=>signal.removeEventListener('abort',abort);
-  xhr.open('PUT',new URL(`rooms/${encodeURIComponent(roomId)}/rom`,endpoint.endsWith('/')?endpoint:`${endpoint}/`).href);
+  const url=new URL(endpoint,location.href);
+  url.pathname=url.pathname.replace(/\/$/,'')+`/rooms/${encodeURIComponent(roomId)}/rom`;
+  url.search='';url.hash='';
+  xhr.open('PUT',url.href);
   xhr.setRequestHeader('Authorization',`Bearer ${token}`);
   xhr.setRequestHeader('X-Room-Intent',intent);
   xhr.setRequestHeader('Content-Type','application/octet-stream');
