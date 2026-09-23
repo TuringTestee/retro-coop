@@ -179,7 +179,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         failed_download.get_by_role("searchbox", name="Search room, game, host, or code").fill("Super Tilt Bro")
         failed_download.get_by_role("button", name="Join as host").first.click()
         failed_download.get_by_role("button", name="Retry download").wait_for(timeout=15000)
+        assert "could not download. Retry download." in failed_download.get_by_test_id("included-status").inner_text()
         assert failed_download.get_by_role("button", name="Choose local NES file").count() == 0
+        if screenshot_dir:
+            failed_download.screenshot(path=str(screenshot_dir / "included-download-failure.png"))
         failed_download.unroute("**/catalog/super-tilt-bro-*.nes")
         failed_download.get_by_role("button", name="Retry download").click()
         failed_download.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)

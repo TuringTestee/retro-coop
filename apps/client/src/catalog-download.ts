@@ -4,8 +4,8 @@ import {acquireVerifiedRom} from './rom-acquisition.ts';
 
 export async function acquireCatalogEntry(entry:CatalogEntry,signal:AbortSignal,progress:(bytes:number)=>void,fetcher:typeof fetch=fetch) {
  return acquireVerifiedRom(entry,`${entry.title}.nes`,signal,()=>true,async()=>{
-  signal.throwIfAborted();let response:Response;try{response=await fetcher(catalogAssetPath(entry),{signal,credentials:'omit',redirect:'error',cache:'default'});}catch(error){signal.throwIfAborted();throw Error(`${entry.title} could not download. Retry, or choose a local game.`,{cause:error});}
-  if(!response.ok||!response.body)throw Error(`${entry.title} could not download. Retry, or choose a local game.`);
+  signal.throwIfAborted();let response:Response;try{response=await fetcher(catalogAssetPath(entry),{signal,credentials:'omit',redirect:'error',cache:'default'});}catch(error){signal.throwIfAborted();throw Error(`${entry.title} could not download. Retry download.`,{cause:error});}
+  if(!response.ok||!response.body)throw Error(`${entry.title} could not download. Retry download.`);
   return verifiedDownload(response,entry,signal,progress);
  });
 }

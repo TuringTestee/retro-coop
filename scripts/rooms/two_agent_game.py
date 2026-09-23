@@ -1,8 +1,8 @@
-"""Two independent browser processes join and play the same public NES room.
+"""Two independent browser processes join and play one host-shared public NES room.
 
-Run the host and guest roles concurrently against one browser-server.ts URL, each
-in its own process. The shared directory carries only rendezvous and proof data;
-the NES bytes are loaded separately by each browser and never sent to the room.
+Run host and guest roles against one browser-server.ts URL. The host uploads the
+diagnostic file; the guest browser downloads it automatically. --rom supplies the
+host file and an expected hash for the guest's proof, never a guest file picker.
 """
 
 import argparse
@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--role", choices=("host", "guest", "verify", "run"), required=True)
 parser.add_argument("--url", help="URL printed by scripts/rooms/browser-server.ts")
-parser.add_argument("--rom", type=Path, help="The same local .nes file on both agents")
+parser.add_argument("--rom", type=Path, help="Host diagnostic NES file; guest uses it only for the expected hash")
 parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
 args = parser.parse_args()
@@ -197,7 +197,7 @@ with sync_playwright() as playwright:
             page.get_by_role("button", name="Start game", exact=True).click()
         else:
             expected = wait_for("host-ready.json")
-            assert expected["rom_sha256"] == rom_hash, "Agents selected different ROM bytes"
+            assert expected["rom_sha256"] == rom_hash, "Guest expected hash differs from the host diagnostic file"
             search = page.get_by_label("Search room, game, host, or code")
             search.fill(expected["code"])
             # The room ID comes from the live directory; select that exact row.
