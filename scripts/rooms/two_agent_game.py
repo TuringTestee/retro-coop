@@ -56,6 +56,7 @@ def verify():
     assert host["started"] == guest["started"] == "shared"
     assert host["established"] and guest["established"]
     assert host["frames"] >= 120 and guest["frames"] >= 120
+    assert host["remote_input_packets"] > 0 and guest["remote_input_packets"] > 0
     assert host["last_hash"] and host["last_hash"] == guest["last_hash"]
     assert "Route: direct." in host["connection"] and "Route: direct." in guest["connection"]
     assert not host["page_errors"] and not guest["page_errors"]
@@ -69,6 +70,8 @@ def verify():
         "rom_sha256": host["rom_sha256"],
         "host_frames": host["frames"],
         "guest_frames": guest["frames"],
+        "host_received_inputs": host["remote_input_packets"],
+        "guest_received_inputs": guest["remote_input_packets"],
         "matching_paused_hash": host["last_hash"],
         "host_screenshot": str(session / "host-playing.png"),
         "guest_screenshot": str(session / "guest-playing.png"),
@@ -223,6 +226,8 @@ with sync_playwright() as playwright:
         page.locator(".room-panel").wait_for(state="visible")
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
         room = page.evaluate("proof.room")
+        remote_inputs = page.evaluate("Object.values(proof.admission.lead).reduce((count, packets) => count + packets, 0)")
+        assert remote_inputs > 0, "No remote controller input reached this browser"
         evidence = {
             "result": "pass",
             "role": args.role,
@@ -233,6 +238,7 @@ with sync_playwright() as playwright:
             "game_status": room["game"]["status"],
             "established": room["established"],
             "frames": page.evaluate("proof.frameCount"),
+            "remote_input_packets": remote_inputs,
             "last_hash": page.evaluate("proof.hashes.at(-1)"),
             "connection": connection,
             "browser": browser.version,
