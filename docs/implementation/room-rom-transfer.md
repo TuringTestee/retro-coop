@@ -1,10 +1,10 @@
+This approved plan lets a room host upload a NES file once and lets each guest download and cache verified bytes automatically. The transfer is integrated; the proposed Create Game page changes its entry flow, not its exact-byte delivery.
+
 Audience: Agent
 
 # Room game transfer delivery plan
 
-This approved plan lets a room host upload a NES file once and lets each guest download and cache verified bytes automatically. It amends the original no-upload architecture; implementation is still in progress. [Human behavior and acceptance](../design/room-rom-transfer.md) are authoritative for the experience.
-
-**Approved snapshot:** reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, based on `fa15c99` and the user's 2026-09-23 Lilac Harbor report; merged as `c66e092`. [Independent planning review](https://github.com/TuringTestee/retro-coop/pull/86#issuecomment-5791826936) accepted the plan, and the user explicitly chose “Approve PR #86 and proceed.” [PR #85](https://github.com/TuringTestee/retro-coop/pull/85) supplies the merged two-tab, explicit guest Prepare and background-play baseline. The [epic](https://github.com/TuringTestee/retro-coop/issues/2) and delivery issues #87–#91 own live dependencies and status. Runtime transfer remains unfinished until those issues integrate.
+**Approved snapshot:** reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, based on `fa15c99` and the user's 2026-09-23 Lilac Harbor report; merged as `c66e092`. [Independent planning review](https://github.com/TuringTestee/retro-coop/pull/86#issuecomment-5791826936) accepted the plan, and the user explicitly chose “Approve PR #86 and proceed.” [PR #85](https://github.com/TuringTestee/retro-coop/pull/85) supplies the merged two-tab, explicit guest Prepare and background-play baseline. The [epic](https://github.com/TuringTestee/retro-coop/issues/2) and delivery issues #87–#91 own the integrated transfer evidence. The proposed [Create Game plan](create-game-library.md) changes the host entry after its own approval.
 
 ## Existing owners to reuse
 

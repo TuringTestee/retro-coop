@@ -1,10 +1,10 @@
+The host chooses a NES file once when creating a room. Joining players download that exact game into their browsers automatically, then choose **Prepare to play**. They never need to find or upload their own copy.
+
 Audience: Human
 
 # Room game downloads
 
-The host chooses a NES file once when creating a room. Joining players download that exact game into their browsers automatically, then choose **Prepare to play**. They never need to find or upload their own copy.
-
-**Status:** Approved by the user at reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257` and merged as `c66e092`. This governs the next custom-room delivery; the running app still requires a guest's matching file until that delivery merges. It supersedes the local-file rule in `browser-nes-platform.md`, `lobby-refactor.md`, and the current lobby wireframe for host-provided custom rooms.
+**Status:** Approved by the user at reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, merged as `c66e092`, and integrated through issues #87–#91. It supersedes the local-file rule in `browser-nes-platform.md`, `lobby-refactor.md`, and earlier wireframes for host-provided custom rooms. The proposed [Create Game amendment](create-game-library-direction.md) changes where hosting starts, while preserving the upload and guest download behavior here.
 
 ## Decision and pattern
 

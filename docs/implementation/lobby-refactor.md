@@ -6,7 +6,7 @@ Audience: Agent
 
 **Status:** Approved and merged in planning PR #72. This is the governing delivery plan for [the human direction](../design/lobby-refactor.md); the issue descriptions and gate #66 track live implementation and acceptance.
 
-The approved [room game transfer plan](room-rom-transfer.md) supersedes this earlier local-only custom-room acquisition rule. RT1–RT5 in issues #87–#91 implement the host upload and authenticated guest download; the running app still follows the prior matching-file path until integration. Included-game first-host and host Start behavior remain.
+The approved [room game transfer plan](room-rom-transfer.md) supersedes this earlier local-only custom-room acquisition rule; RT1–RT5 in issues #87–#91 are integrated. The proposed [Create Game plan](create-game-library.md) changes the immediate-create behavior in R3 after reviewed approval and merge. The inline host bar remains current runtime until that delivery integrates. Included-game first-host and host Start behavior remain.
 
 ## Code and conflict at the approved review snapshot
 
