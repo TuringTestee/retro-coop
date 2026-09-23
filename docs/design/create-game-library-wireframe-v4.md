@@ -146,15 +146,16 @@ After Delete: Delete My game from this browser? [Confirm] [Cancel]
 If failed: Could not delete My game. [Retry]
 ```
 
-Delete confirmation replaces the relevant row action, not the entire page. Clear all, if offered, appears once below the list with the same inline confirmation pattern. C09,C16,C17/J5,J10.
+Delete confirmation replaces the relevant row action, not the entire page. Existing save, battery and preference records, export actions, and Delete all remain farther down this page when present; each has its current usable-state rule and an inline confirmation where destructive. C09,C16,C17/J5,J10.
 
 ## P10 Saves / Rewind / Game help (separate pages)
 
 ```text
 RETRO COOP / SAVES                        [Back to playing]
-Slot 1 · Saved today               [Load] [Delete]
-Empty slot                         [Save]
-After Load: Replace current game progress? [Confirm load] [Cancel]
+Slot 1 · Saved today               [Export] [Delete]
+Local play only:                   [Load]
+Empty slot                         [Save current point]
+After local Load: Replace current game progress? [Confirm load] [Cancel]
 
 RETRO COOP / REWIND                       [Back to local play]
 Available rewind points: 3
@@ -166,7 +167,7 @@ Arrows move · X is A · Z is B · Enter is Start · Shift is Select
 Game-specific instructions/credits if available
 ```
 
-These are three distinct page states. The action or information is shown only when that page opens; confirmations replace their relevant action row. Rewind exists only in local play, consistent with the current shared-play policy. C16,C17/J10.
+These are three distinct page states. The action or information is shown only when that page opens; confirmations replace their relevant action row. Load a saved point and Rewind exist only in local play; the current player rejects shared save loading. Existing Save import/export, current-save export and backup retry remain in Saves when applicable, below its first visible region. C16,C17/J10.
 
 ## Final rule check and limits
 
