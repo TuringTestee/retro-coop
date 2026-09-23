@@ -41,19 +41,30 @@ test('only the current guest membership can download private bytes',async()=>{
   const invite=confirmed.ok?confirmed.data.room!.invite:'';
   const guest=t.server.rooms.attach(undefined,()=>{},()=>{}),other=t.server.rooms.attach(undefined,()=>{},()=>{});
   const joined=t.server.rooms.handle(guest.token,{type:'join',requestId:randomUUID(),invite,intent:randomUUID()}).room!;
-  const get=(auth:string,membership:string,id=roomId,headers:Record<string,string>={})=>fetch(`${t.url}/rooms/${id}/rom`,{headers:{Origin:origin,Authorization:`Bearer ${auth}`,'X-Room-Membership':membership,...headers}});
+  const get=(auth:string,membership:string,id=roomId,headers:Record<string,string>={})=>fetch(`${t.url}/rooms/${id}/rom`,{headers:{Authorization:`Bearer ${auth}`,'X-Room-Membership':membership,...headers}});
+  const noOrigin=await get(guest.token,joined.chatMembership);
+  assert.equal(noOrigin.status,200);assert.equal(noOrigin.headers.get('Access-Control-Allow-Origin'),null);assert.deepEqual(Buffer.from(await noOrigin.arrayBuffer()),bytes);
+  const missingToken=await fetch(`${t.url}/rooms/${roomId}/rom`,{headers:{'X-Room-Membership':joined.chatMembership}});
+  assert.equal(missingToken.status,403);assert.deepEqual(await missingToken.json(),{error:'session_expired'});
   assert.equal((await get(other.token,joined.chatMembership)).status,403);
   assert.equal((await get(t.token,joined.chatMembership)).status,403);
   assert.equal((await get(guest.token,'x'.repeat(43))).status,403);
   assert.equal((await get(guest.token,joined.chatMembership,'x'.repeat(43))).status,403);
-  assert.equal((await get(guest.token,joined.chatMembership,roomId,{Origin:'https://evil.example'})).status,403);
-  const downloaded=await get(guest.token,joined.chatMembership);assert.equal(downloaded.status,200);assert.equal(downloaded.headers.get('Cache-Control'),'no-store');assert.equal(downloaded.headers.get('Content-Disposition'),null);assert.equal(Number(downloaded.headers.get('Content-Length')),bytes.length);assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
+  const denied=await get(guest.token,joined.chatMembership,roomId,{Origin:'https://evil.example'});
+  assert.equal(denied.status,403);assert.deepEqual(await denied.json(),{error:'origin_denied'});assert.equal(denied.headers.get('Access-Control-Allow-Origin'),null);
+  const downloaded=await get(guest.token,joined.chatMembership,roomId,{Origin:origin});assert.equal(downloaded.status,200);assert.equal(downloaded.headers.get('Access-Control-Allow-Origin'),origin);assert.equal(downloaded.headers.get('Cache-Control'),'no-store');assert.equal(downloaded.headers.get('Content-Disposition'),null);assert.equal(Number(downloaded.headers.get('Content-Length')),bytes.length);assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
+  for(const method of ['PUT','OPTIONS']){
+   const noOriginResponse=await fetch(`${t.url}/rooms/${roomId}/rom`,{method});assert.equal(noOriginResponse.status,403);assert.deepEqual(await noOriginResponse.json(),{error:'origin_denied'});
+   const disallowed=await fetch(`${t.url}/rooms/${roomId}/rom`,{method,headers:{Origin:'https://evil.example'}});assert.equal(disallowed.status,403);assert.equal(disallowed.headers.get('Access-Control-Allow-Origin'),null);
+  }
+  const preflight=await fetch(`${t.url}/rooms/${roomId}/rom`,{method:'OPTIONS',headers:{Origin:origin}});assert.equal(preflight.status,204);assert.equal(preflight.headers.get('Access-Control-Allow-Origin'),origin);
   t.server.rooms.handle(guest.token,{type:'leave',requestId:randomUUID(),intent:joined.reservationIntent!});
   const replacement=t.server.rooms.attach(undefined,()=>{},()=>{});
   const next=t.server.rooms.handle(replacement.token,{type:'join',requestId:randomUUID(),invite,intent:randomUUID()}).room!;
   assert.equal((await get(guest.token,joined.chatMembership)).status,403);
   assert.equal((await get(replacement.token,joined.chatMembership)).status,403);
   const replacementDownload=await get(replacement.token,next.chatMembership);assert.equal(replacementDownload.status,200);assert.deepEqual(Buffer.from(await replacementDownload.arrayBuffer()),bytes);
+  await t.command({type:'close',roomId});assert.equal((await get(replacement.token,next.chatMembership)).status,403);
  }finally{await t.close();}
 });
 test('download progress extends only its guest reservation within five minutes',async()=>{
