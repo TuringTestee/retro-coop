@@ -6,7 +6,7 @@ import {resolve,extname} from 'node:path';
 import {once} from 'node:events';
 import {config,createCoordinator,shutdown} from '../../apps/coordinator/src/server.ts';
 import {listenOperator} from '../../apps/coordinator/src/operator.ts';
-const root = resolve('apps/client/dist');
+const root = resolve(process.env.RETRO_COOP_STATIC_ROOT ?? 'apps/client/dist');
 const gateway = createServer(async(request,response)=>{
  const file = resolve(root,'.'+new URL(request.url!,'http://localhost').pathname.replace(/\/$/,'/index.html'));
  if(!file.startsWith(root+'/')) {response.writeHead(404).end();return;}
