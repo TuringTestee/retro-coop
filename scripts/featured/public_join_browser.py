@@ -42,8 +42,8 @@ def main():
 
             host = page()
             host.get_by_role("button", name="Play Super Tilt Bro", exact=True).click()
-            host.get_by_role("button", name="Room", exact=True).wait_for(timeout=30_000)
-            host.get_by_role("button", name="Room", exact=True).click()
+            host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=30_000)
+            host.get_by_role("button", name="Start game", exact=True).click()
             host.get_by_role("button", name="Copy invite", exact=True).wait_for()
             assert host.get_by_test_id("frames").inner_text() == "0 frames"
             host_room_text = host.get_by_test_id("room-view").text_content()
@@ -67,6 +67,8 @@ def main():
             friend.on("filechooser", lambda chooser: file_choosers.append(chooser))
             join.click()
             friend.get_by_test_id("room-view").wait_for(state="attached")
+            host.wait_for_function("proof.room?.game?.ready?.includes('guest')", timeout=30_000, polling=50)
+            host.locator(".room-start button").click()
             for tab in (host, friend):
                 tab.wait_for_function(
                     "proof.room?.established && proof.room?.game?.status === 'playing'",
@@ -118,8 +120,8 @@ def main():
                 "input[type=file]",
                 {"name": "UJS7-HOST-PRIVATE.nes", "mimeType": "application/octet-stream", "buffer": diagnostic},
             )
-            arbitrary_host.get_by_role("button", name="Room", exact=True).wait_for(timeout=30_000)
-            arbitrary_host.get_by_role("button", name="Room", exact=True).click()
+            arbitrary_host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=30_000)
+            arbitrary_host.get_by_role("button", name="Start game", exact=True).click()
             arbitrary_host.get_by_role("button", name="Copy invite", exact=True).wait_for()
             arbitrary_text = arbitrary_host.get_by_test_id("room-view").text_content()
             arbitrary_code = re.search(r"Public · (\S+)", arbitrary_text).group(1)
@@ -138,6 +140,8 @@ def main():
             chooser_info.value.set_files(
                 {"name": "UJS7-GUEST-PRIVATE.nes", "mimeType": "application/octet-stream", "buffer": diagnostic}
             )
+            arbitrary_host.wait_for_function("proof.room?.game?.ready?.includes('guest')", timeout=30_000, polling=50)
+            arbitrary_host.locator(".room-start button").click()
             for tab in (arbitrary_host, arbitrary_guest):
                 tab.wait_for_function("proof.room?.matches && proof.room?.established", timeout=30_000, polling=50)
 
@@ -151,8 +155,8 @@ def main():
                 "input[type=file]",
                 {"name": "UJS7-UNLISTED-PRIVATE.nes", "mimeType": "application/octet-stream", "buffer": diagnostic},
             )
-            unlisted_host.get_by_role("button", name="Room", exact=True).wait_for(timeout=30_000)
-            unlisted_host.get_by_role("button", name="Room", exact=True).click()
+            unlisted_host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=30_000)
+            unlisted_host.get_by_role("button", name="Start game", exact=True).click()
             unlisted_host.get_by_role("button", name="Copy invite", exact=True).wait_for()
             assert unlisted_host.get_by_text("Unlisted lobby · invite only", exact=True).is_visible()
             unlisted_invite = unlisted_host.get_by_label("Room invitation", exact=True).input_value()
@@ -173,6 +177,8 @@ def main():
             chooser_info.value.set_files(
                 {"name": "UJS7-UNLISTED-GUEST.nes", "mimeType": "application/octet-stream", "buffer": diagnostic}
             )
+            unlisted_host.wait_for_function("proof.room?.game?.ready?.includes('guest')", timeout=30_000, polling=50)
+            unlisted_host.locator(".room-start button").click()
             for tab in (unlisted_host, unlisted_viewer):
                 tab.wait_for_function("proof.room?.matches && proof.room?.established", timeout=30_000, polling=50)
 

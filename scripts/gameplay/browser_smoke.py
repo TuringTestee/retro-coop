@@ -57,13 +57,18 @@ try:
   try:
    h=page();g=page()
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
-   h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
+   h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Start game',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
-    h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
+    invite=h.get_by_label('Room invitation',exact=True).input_value();h.locator('.room-start button').click();h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
+    g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click()
+    g.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('game has started')",polling=50)
+    assert g.get_by_test_id('room-view').count()==0
+    result={'result':'pass','scenario':'late guest denied after solo Start','host_frames':h.get_by_test_id('frames').inner_text(),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
    invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached')
-   if not args.late_join:assert h.get_by_test_id('frames').inner_text()=='0 frames'
+   assert h.get_by_test_id('frames').inner_text()=='0 frames'
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
@@ -71,6 +76,8 @@ try:
    g.get_by_role('button',name='Room',exact=True).click()
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
+   h.wait_for_function("proof.room?.game?.ready?.includes('guest')",timeout=15000,polling=50)
+   h.locator('.room-start button').click()
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
     open_connection(g).get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
@@ -93,13 +100,6 @@ try:
     first.get_by_role('button',name='Retry shared play',exact=True).click();first.wait_for_function('proof.gameReadies===2',polling=50)
     assert second.evaluate('proof.gameReadies')==1,'background retry renewed the other player intent'
     second.get_by_role('button',name='Retry shared play',exact=True).click();second.wait_for_function('proof.gameReadies===2',polling=50)
-   if args.late_join:
-    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='late_join'",timeout=15000,polling=50)
-    observed=h.evaluate('proof.hashes.at(-1)');assert observed['frame']>=30 and not observed['fresh']
-    count=h.get_by_test_id('frames').inner_text();h.wait_for_timeout(250);assert h.get_by_test_id('frames').inner_text()==count
-    assert all(not tab.evaluate('proof.room.established') for tab in [h,g])
-    result={'result':'pass','scenario':'progressed host pauses without reset','host_state':observed,'host_frames':count,'lease_preserved':g.evaluate('proof.room.reservationUntil>Date.now()'),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert result['lease_preserved'] and not errors
-    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    for tab in [h,g]:tab.wait_for_function("proof.room?.established && proof.room.game.status==='playing'",timeout=15000,polling=50)
    def shared_layout(tab):
     layout=tab.evaluate("""()=>{const canvas=document.querySelector('canvas'),room=document.querySelector('.room-panel'),box=canvas.getBoundingClientRect();return {viewport:{width:innerWidth,height:innerHeight},canvas:{width:box.width,height:box.height,areaRatio:box.width*box.height/(innerWidth*innerHeight)},document:{width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight},room:{scrollHeight:room.scrollHeight,clientHeight:room.clientHeight}}}""")

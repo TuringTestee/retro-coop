@@ -31,7 +31,7 @@ try:
         host.screenshot(path=str(output.with_suffix('.before.png')),full_page=True)
         host.set_input_files('input[type=file]',{'name':'PRIVATE-HOST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
         host.wait_for_function("document.querySelector('[data-testid=room-view]')!==null")
-        host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        assert host.get_by_test_id('frames').inner_text()=='0 frames'
         assert 'Public ·' in host.get_by_test_id('room-view').text_content()
         invitation=host.get_by_label('Room invitation',exact=True).input_value()
         assert '#invite=' in invitation and len(invitation.split('#invite=')[1])>=22
@@ -58,7 +58,6 @@ try:
         assert 'Player 2 (reserved)' in first.get_by_test_id('room-view').text_content()
         assert first.get_by_role('button',name='Close room',exact=True).count()==0
         # A reserved guest can choose mismatching and matching files without another ready click.
-        solo_frames=int(host.get_by_test_id('frames').inner_text().split()[0])
         different=bytearray(rom);different.extend(b'header byte identity test')
         first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
         first.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded')")
@@ -66,7 +65,7 @@ try:
         assert first.get_by_test_id('frames').inner_text()=='0 frames'
         assert 'Game loaded' in first.get_by_test_id('player-status').inner_text()
         assert 'exact matching file' in first.get_by_test_id('room-view').text_content()
-        host.wait_for_function("before=>Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>before",arg=solo_frames)
+        assert host.get_by_test_id('frames').inner_text()=='0 frames'
         first.set_input_files('input[type=file]',{'name':'PRIVATE-GUEST-FILENAME.nes','mimeType':'application/octet-stream','buffer':rom})
         first.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')")
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)
@@ -91,8 +90,10 @@ try:
         second.get_by_role('button',name='Cancel join',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='detached')
         # Rename renders hostile text literally, and visibility changes revoke the public code.
-        host.get_by_role('button',name='Room',exact=True).click()
+        host.get_by_role('button',name='Start game',exact=True).click()
         host.locator('.room-panel').wait_for()
+        host.locator('.room-start button').click()
+        host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         host.get_by_text('Connection and session settings',exact=True).click()
         host.get_by_text('Session settings',exact=True).click()
         host.get_by_label('Room name',exact=True).fill('<img src=x onerror=alert(1)>')
@@ -218,6 +219,7 @@ try:
         offline.add_init_script("const Native=WebSocket;window.WebSocket=class extends Native {constructor(url,...args){super(String(url).replace('/ws','/offline'),...args)}};")
         offline.goto(url)
         offline.set_input_files('input[type=file]',{'name':'PRIVATE-OFFLINE.nes','mimeType':'application/octet-stream','buffer':rom})
+        offline.get_by_role('button',name='Resume',exact=True).click()
         offline.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         offline.get_by_role('button',name='Room',exact=True).click()
         offline.locator('.room-panel').wait_for()
