@@ -45,6 +45,9 @@ test('guest acquisition phase belongs to the current reservation and clears on l
  const first=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
  t.act(guest.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'downloading'});
  assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestAcquisition,'downloading');
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestConnected,true);
+ const send=()=>{};t.rooms.attach(guest.token,send,()=>{});t.rooms.detach(guest.token,send);
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestConnected,false);
  assert.throws(()=>t.act(host.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed|host_only/);
  t.act(guest.token,{type:'leave',intent:first.reservationIntent!});
  assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestAcquisition,undefined);
