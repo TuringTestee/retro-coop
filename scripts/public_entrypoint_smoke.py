@@ -200,10 +200,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
           window.WebSocket=function(){throw Error('Rooms temporarily offline')};""")
         offline.goto(url)
         offline.set_input_files("input[type=file]", fixture)
-        offline.get_by_role("button", name="Retry room creation").wait_for(timeout=15000)
+        offline.get_by_role("button", name="Retry upload").wait_for(timeout=15000)
         assert offline.get_by_role("button", name="Choose NES file", exact=True).is_visible()
         offline.evaluate("()=>{window.WebSocket=window.nativeRoomsSocket}")
-        offline.get_by_role("button", name="Retry room creation").click()
+        offline.get_by_role("button", name="Retry upload").click()
         offline.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         result["room_creation_failure_and_retry"] = True
         invalid = browser.new_page()

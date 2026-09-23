@@ -28,6 +28,7 @@ if [ "$D02_JOB" = entrypoint ]; then
   npm ci
   RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
   timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
+  RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py
   npm run build
   timeout --foreground 30s python3 scripts/featured/solo_release_browser.py --output spikes/d02/public-entrypoint.local/solo-release
   timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game

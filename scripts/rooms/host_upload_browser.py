@@ -17,6 +17,8 @@ FIXTURE=ROOT/'apps/client/public/generated/diagnostic.nes'
 
 async def main():
     assert FIXTURE.exists(), 'Run sh scripts/foundation/prepare.sh first'
+    output=Path(os.environ.get('RETRO_COOP_RT2_OUTPUT','/tmp/retro-coop-rt2'))
+    output.mkdir(parents=True,exist_ok=True)
     rom_dir=tempfile.TemporaryDirectory(prefix='retro-coop-rt2-')
     env={**os.environ,'RETRO_COOP_SKIP_INSTALL':'1','RETRO_COOP_SKIP_PREPARE':'1','RETRO_COOP_CLIENT_PORT':'8895','RETRO_COOP_COORDINATOR_PORT':'8897','COORDINATOR_ROM_DIR':rom_dir.name}
     log=open('/tmp/retro-coop-rt2-demo.log','w')
@@ -79,7 +81,7 @@ async def main():
             assert 'Unlisted' in await host.locator('#room-heading').inner_text()
             assert await host.get_by_test_id('room-view').count()==1
             assert await host.get_by_role('button',name='Start game',exact=True).is_enabled()
-            await host.screenshot(path='/tmp/retro-coop-rt2-host.png',full_page=True)
+            await host.screenshot(path=str(output/'host.png'),full_page=True)
             public=await context.new_page();await public.goto(URL)
             await public.set_input_files('input[type=file]',str(FIXTURE))
             await public.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
@@ -94,7 +96,9 @@ async def main():
             await included.get_by_role('button',name='Join as host').first.click()
             await included.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
             await browser.close()
-        print(json.dumps({'public_entrypoint':URL,'cancel_hidden':True,'failure_hidden':True,'expired_intent_hidden':True,'retry_unlisted':True,'public_directory':True,'invalid_file_hidden':True,'included_host':True,'duration_seconds':round(time.monotonic()-started,2)}))
+        result={'public_entrypoint':URL,'cancel_hidden':True,'failure_hidden':True,'expired_intent_hidden':True,'retry_unlisted':True,'public_directory':True,'invalid_file_hidden':True,'included_host':True,'duration_seconds':round(time.monotonic()-started,2)}
+        (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+        print(json.dumps(result))
     finally:
         os.killpg(service.pid,signal.SIGTERM)
         try:service.wait(timeout=5)
