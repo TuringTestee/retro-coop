@@ -14,9 +14,9 @@ import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../../packages/contracts/src/rooms.ts';
-export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
+export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean,file?:File):Promise<boolean>;cancelCreation():void};
 export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onBrowse():void;onInvitationDismiss():void;onIncluded:(file:File,current:()=>boolean)=>void;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void}>(function RoomPanel({showDiscovery,onChoose,onBrowse,onInvitationDismiss,onIncluded,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange},ref) {
- const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
+ const [state,setState] = useState<RoomState>({status:'Choose a file to create a room.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
  const [invite,setInvite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
@@ -95,7 +95,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   beforeSelection() {
    if(state.startingRoom)return false;
    cancelIncluded();client.current?.beginSelection();selectedVisibility.current = visibility;return true;
-  },approveSelection(fingerprint,isCurrent){return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.beginSelection();}
+ },approveSelection(fingerprint,isCurrent,file){return client.current?.approveSelection(fingerprint,isCurrent,file) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.beginSelection();}
  }),[visibility,state.room]);
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;
@@ -112,13 +112,13 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
  return <>{state.releaseNotice&&<div className="release-notice" role="alert"><p>{state.releaseNotice}</p><button onClick={()=>{if(player()?.isLoaded()){player()?.allowLocalPlay();player()?.resume();}else onBrowse();client.current?.dismissRelease();}}>{player()?.isLoaded()?'Resume local game':'View rooms'}</button></div>}
- {!showDiscovery&&!room&&!invite&&state.busy&&<div className="release-notice" role="status"><p>{state.status}</p><button onClick={()=>client.current?.cancelPending()}>Cancel room creation</button></div>}
+ {!showDiscovery&&!room&&!invite&&(state.busy||state.hostFailure)&&<div className="release-notice" role="status"><p>{state.status}</p>{state.busy&&!state.confirmingRoom&&<button onClick={()=>client.current?.cancelCreation()}>Cancel</button>}{state.hostFailure&&fingerprint&&<button onClick={()=>void client.current?.host(fingerprint,selectedVisibility.current)}>Retry upload</button>}</div>}
  {showDiscovery&&<><section className="host-bar" aria-label="Host your NES file" onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();const input=document.querySelector<HTMLInputElement>('input[type=file]');if(input&&event.dataTransfer.files.length===1){const transfer=new DataTransfer();transfer.items.add(event.dataTransfer.files[0]);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}}}>
-  <h2>Host your NES file</h2><label>Access <select aria-label="Room access" value={visibility} onChange={event=>setVisibility(event.target.value as Visibility)}><option value="public">Public</option><option value="unlisted">Unlisted</option></select></label><button onClick={onChoose}>Choose NES file</button><span>or drop a file here</span>
+  <h2>Host your NES file</h2><label>Access <select aria-label="Room access" value={visibility} onChange={event=>setVisibility(event.target.value as Visibility)}><option value="public">Public</option><option value="unlisted">Unlisted</option></select></label><button onClick={onChoose}>Choose NES file</button><span>or drop a file here</span><p>Guests download this game. The room server keeps it while the room is open.</p>
  </section>
  {claiming&&<p className="catalog-status" role="status">Checking this room… <button onClick={()=>{++claimGeneration.current;setClaiming('');setIncludedStatus('');client.current?.cancelPending();}}>Cancel</button></p>}
  {includedStatus&&!room&&<p className="catalog-status" role="status" data-testid="included-status">{includedStatus}</p>}
- {!room&&state.status!=='Choose a file to create a room. Your file stays here.'&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.hostFailure&&fingerprint&&<button onClick={()=>void client.current?.host(fingerprint,selectedVisibility.current)}>Retry room creation</button>}</p>}
+ {!room&&state.status!=='Choose a file to create a room.'&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&!state.confirmingRoom&&<button onClick={()=>client.current?.cancelCreation()}>Cancel</button>} {state.hostFailure&&fingerprint&&<button onClick={()=>void client.current?.host(fingerprint,selectedVisibility.current)}>Retry upload</button>}</p>}
  <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
  {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading">
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}{room&&!room.started&&<small> · {room.visibility==='public'?`Public · ${room.code}`:'Unlisted'}</small>}</h2>
@@ -165,8 +165,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   {room&&room.started&&state.chat&&<details className="chat-disclosure"><summary>Room chat</summary><ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/></details>}
   {room&&<details name="room-tools" className="voice-disclosure"><summary>Voice</summary><VoiceControls state={state.voice} voice={client.current?.voice}/></details>}
   <div className="controls">
-   {state.busy && !state.startingRoom && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
-   {!room && !invite && fingerprint && <button disabled={state.busy} onClick={()=>void client.current?.host(fingerprint,visibility)}>Retry room creation</button>}
+   {state.busy && !state.startingRoom && !state.uploading && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
    {!state.connected && (state.room || state.admissionBlocked || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
   </div>
   {state.session && <details name="room-tools"><summary>Guest settings</summary><p className="hint">Temporary name for this browser tab. It is not an account.</p><label>Nickname <input maxLength={32} value={nickname} onChange={event=>setNickname(event.target.value)}/></label><button disabled={!nickname.trim()} onClick={()=>void client.current?.act({type:'nickname',nickname})}>Save nickname</button></details>}
