@@ -1,13 +1,14 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {listLocalData,validSavedAt,clearLocalData,deleteSave,deleteBattery,deletePreferences,deleteRom,downloadSave,type LocalData as Data} from './saves.ts';
 import type {LocalPlayer} from './player.ts';
 
 export function LocalData({open,close,player,preferencesIdentity,beforeClear,afterClear}:{open:boolean;close:()=>void;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void}) {
- const dialog=useRef<HTMLDialogElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
+ const dialog=useRef<HTMLDialogElement>(null),closeButton=useRef<HTMLButtonElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
  const [data,setData]=useState<Data|null>(null),[current,setCurrent]=useState<string[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
- const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null);
- const setConfirmation=(value:typeof confirmation)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);};
- useEffect(()=>{if(!confirmation && confirmFocus.current){const target=confirmFocus.current;confirmFocus.current=null;requestAnimationFrame(()=>target.focus());}},[confirmation]);
+ const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null),[focusRevision,setFocusRevision]=useState(0);
+ const restoreFocus=()=>{const target=confirmFocus.current;confirmFocus.current=null;const modal=dialog.current;if(!target||!modal?.open)return;const connected=target.isConnected&&modal.contains(target)&&!target.closest('[hidden]');(connected?target:closeButton.current)?.focus();};
+ const setConfirmation=(value:typeof confirmation)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);if(!value)requestAnimationFrame(restoreFocus);};
+ useLayoutEffect(()=>{if(focusRevision)restoreFocus();},[focusRevision]);
  useEffect(()=>{
   const token=++epoch.current;if(!open){dialog.current?.close();return;}
   const focus=document.activeElement as HTMLElement;dialog.current?.showModal();setData(null);setCurrent([]);setConfirmation(null);setMessage('Reading local data…');setBusy(true);
@@ -21,10 +22,10 @@ export function LocalData({open,close,player,preferencesIdentity,beforeClear,aft
   return ()=>{++epoch.current;dialog.current?.close();requestAnimationFrame(()=>focus?.focus());};
  },[open,player,preferencesIdentity]);
  const run=async(action:()=>Promise<void>)=>{
-  const token=epoch.current;setBusy(true);setConfirmation(null);setMessage('');
+  const token=epoch.current;setBusy(true);setConfirmationState(null);setMessage('');
   try{await action();const records=await listLocalData();if(token===epoch.current){setData(records);setMessage('Local data updated.');}}
   catch(error){if(token===epoch.current){setMessage(text(error));try{const records=await listLocalData();if(token===epoch.current)setData(records);}catch{/* Preserve the original recovery error. */}}}
-  finally{if(token===epoch.current)setBusy(false);}
+  finally{if(token===epoch.current){setBusy(false);setFocusRevision(value=>value+1);}}
  };
  const exportRecord=(bytes:ArrayBuffer,kind:'state'|'battery'|'preferences')=>{setBackup({bytes,kind});try{downloadSave(bytes,undefined,kind);setMessage('Backup export requested.');}catch(error){setMessage(`Could not export. The backup remains in memory; retry export. ${text(error)}`);}};
  const group=(identity:string)=>current.includes(identity) || identity===preferencesIdentity ? 'Current game and build' : 'Other game or build';
@@ -42,7 +43,7 @@ export function LocalData({open,close,player,preferencesIdentity,beforeClear,aft
   <button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all downloaded games, saves, battery progress and preferences? This cannot be undone. Export save backups first. Current play stays in memory; a future Join downloads deleted games again. No server account is deleted.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
   </div>
   {backup && <button disabled={busy} onClick={()=>exportRecord(backup.bytes,backup.kind)}>Retry export</button>}
-  <button onClick={close}>Close local data</button>
+  <button ref={closeButton} onClick={close}>Close local data</button>
  </dialog>;
 }
 function text(error:unknown){return error instanceof Error ? error.message : 'Local data is unavailable. Retry later.';}

@@ -14,7 +14,7 @@ rom = args.fixture.read_bytes()
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch()
     host_context = browser.new_context(viewport={'width': 1280, 'height': 800})
-    guest_context = browser.new_context(viewport={'width': 1280, 'height': 800})
+    guest_context = browser.new_context(viewport={'width': 800, 'height': 600})
     host = host_context.new_page()
     guest = guest_context.new_page()
     errors = []
@@ -47,9 +47,22 @@ with sync_playwright() as playwright:
     guest.get_by_role('button', name='Settings', exact=True).click()
     guest.get_by_role('button', name='Local data', exact=True).click()
     guest.get_by_role('heading', name='Downloaded games').wait_for()
-    guest.get_by_role('button', name='Delete game', exact=True).click()
-    guest.get_by_role('button', name='Confirm', exact=True).click()
+    guest.get_by_role('button', name='Delete game', exact=True).focus()
+    guest.keyboard.press('Enter')
+    guest.get_by_role('button', name='Cancel', exact=True).click()
+    guest.wait_for_function("document.activeElement?.textContent==='Delete game'")
+    guest.keyboard.press('Enter')
+    guest.get_by_role('button', name='Confirm', exact=True).focus()
+    guest.keyboard.press('Enter')
     guest.get_by_text('No downloaded games saved in this browser.').wait_for()
+    assert guest.get_by_role('button', name='Close local data').evaluate('(node)=>node===document.activeElement')
+    guest.get_by_role('button', name='Delete all local data', exact=True).focus()
+    guest.keyboard.press('Enter')
+    guest.get_by_role('button', name='Confirm', exact=True).focus()
+    guest.keyboard.press('Enter')
+    guest.get_by_test_id('local-data-status').filter(has_text='Local data updated.').wait_for()
+    assert guest.get_by_role('button', name='Delete all local data', exact=True).evaluate('(node)=>node===document.activeElement')
+    assert guest.evaluate('document.documentElement.scrollWidth<=document.documentElement.clientWidth')
     guest.get_by_role('button', name='Close local data').click()
     guest.get_by_role('button', name='Close settings').click()
     guest.get_by_role('button', name='Leave room', exact=True).click()
@@ -58,5 +71,6 @@ with sync_playwright() as playwright:
     assert not errors, errors
     print(json.dumps({'result': 'pass', 'failed_download_retry': True, 'host_phase_failed': True,
                       'prepared_without_picker': True, 'individual_cache_deletion': True,
+                      'keyboard_focus_after_single_and_all_deletion': True, 'narrow_width_no_overflow': True,
                       'leave_focus_search': True, 'page_errors': errors}))
     browser.close()
