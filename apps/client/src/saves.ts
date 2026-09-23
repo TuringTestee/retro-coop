@@ -2,7 +2,7 @@
 export type SaveSlot = {identity:string;slot:number;savedAt:number;bytes:ArrayBuffer};
 export type BatteryRecord = {identity:string;savedAt:number;bytes:ArrayBuffer};
 export type PreferencesRecord = {identity:string;savedAt:number;value:unknown};
-export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number};
+export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number;label?:string;source?:'import'|'download';lastUsedAt?:number;preview?:string};
 export function validSavedAt(value:unknown):value is number {return typeof value==='number' && Number.isFinite(value) && Math.abs(value)<=8640000000000000;}
 const database='retro-coop-local',store='saves';
 const stores=['saves','batteries','preferences','roms','meta'];
@@ -94,10 +94,20 @@ export async function putRom(record:RomRecord,generation:number,romGeneration:nu
   const meta=tx.objectStore('meta'),epoch=meta.get('generation'),individual=meta.get(`rom:${record.sha256}`);
   const check=()=>{if(epoch.readyState!=='done'||individual.readyState!=='done')return;
    if((epoch.result??0)!==generation||(individual.result??0)!==romGeneration){failure=Error('Downloaded game was deleted or local data was cleared in another view.');tx.abort();return;}
-   store.put(record);
+   const existing=store.get(record.sha256);
+   existing.addEventListener('success',()=>{
+    const old=existing.result as RomRecord|undefined;
+    // A guest download and local import of identical bytes share one row.
+    store.put({...old,...record,label:record.label??old?.label,source:record.source??old?.source,lastUsedAt:record.lastUsedAt??old?.lastUsedAt,preview:record.preview??old?.preview});
+   });
   };
   epoch.addEventListener('success',check);individual.addEventListener('success',check);return epoch;
  },['roms','meta']);}catch(error){throw failure??error;}
+}
+export async function listRoms():Promise<{generation:number;records:RomRecord[]}> {
+ let generation=0;
+ const records=await transaction('readonly',(store,tx)=>{const epoch=tx.objectStore('meta').get('generation');epoch.onsuccess=()=>{generation=epoch.result??0;};return store.getAll();},['roms','meta']);
+ return {generation,records:records.filter((row):row is RomRecord=>typeof row?.sha256==='string'&&row.bytes instanceof ArrayBuffer&&Number.isSafeInteger(row.size))};
 }
 export async function deleteRom(sha256:string,generation:number) {
  let failure:unknown;

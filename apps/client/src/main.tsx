@@ -19,6 +19,7 @@ import { Settings } from './Settings.tsx';
 import { defaults, type Controls } from './controls.ts';
 import {catalogEntry,catalogId} from '../../../packages/contracts/src/catalog.ts';
 import type {RoomView} from '../../../packages/contracts/src/rooms.ts';
+import {rememberImport,rememberPreview,capturePreview} from './rom-library.ts';
 
 function App() {
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null), helpDialog=useRef<HTMLDialogElement>(null);
@@ -36,11 +37,14 @@ function App() {
  const [identity] = useState(neutralDefaults);
  const [guest,setGuest] = useState(identity.guest);
  const rooms = useRef<RoomPanelHandle>(null);
+ const importFile=useRef<File|null>(null),previewed=useRef('');
  const [voice,setVoice]=useState<VoiceState>();
  const [policy,setPolicy]=useState<ConnectionPolicy>(readConnectionPolicy),[connection,setConnection]=useState('No peer connection.');
  const changePolicy=(value:ConnectionPolicy)=>{runtime.current?.pause();rememberConnectionPolicy(value);setPolicy(value);};
- const load = (file?:File,selectionCurrent?:()=>boolean):boolean => {if(!file||!runtime.current||selectionCurrent&&!selectionCurrent()||!selectionCurrent&&rooms.current?.beforeSelection()===false)return false;void runtime.current.load(file,(fingerprint,isCurrent)=>rooms.current?.approveSelection(fingerprint,isCurrent,file) ?? Promise.resolve(isCurrent()),true,selectionCurrent);return true;};
+ const load = (file?:File,selectionCurrent?:()=>boolean):boolean => {if(!file||!runtime.current||selectionCurrent&&!selectionCurrent()||!selectionCurrent&&rooms.current?.beforeSelection()===false)return false;if(!selectionCurrent)importFile.current=file;else importFile.current=null;void runtime.current.load(file,(fingerprint,isCurrent)=>rooms.current?.approveSelection(fingerprint,isCurrent,file) ?? Promise.resolve(isCurrent()),true,selectionCurrent);return true;};
  const [state,setState] = useState<PlayerState>({status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0});
+ useEffect(()=>{if(!state.loaded||!state.fingerprint)return;const file=importFile.current;if(!file)return;importFile.current=null;void rememberImport(file,state.fingerprint.romSha256).then(()=>setPersistenceMessage('Game saved in this browser.')).catch(()=>setPersistenceMessage('Available in this tab only. Browser storage did not save the game.'));},[state.loaded,state.fingerprint]);
+ useEffect(()=>{const hash=state.fingerprint?.romSha256;if(!hash||state.frames<1||state.frames%30!==0||previewed.current===hash)return;const preview=canvas.current&&capturePreview(canvas.current);if(!preview)return;void rememberPreview(hash,preview).then(saved=>{if(saved)previewed.current=hash;}).catch(()=>{});},[state.frames,state.fingerprint]);
  const [browsing,setBrowsing]=useState(false),[sessionOpen,setSessionOpen]=useState(false),[roomView,setRoomView]=useState<RoomView>();
  const [invitationHash,setInvitationHash]=useState(location.hash);
  useEffect(()=>{const sync=()=>{setInvitationHash(location.hash);if(new URLSearchParams(location.hash.slice(1)).has('invite'))setBrowsing(false);};addEventListener('hashchange',sync);addEventListener('popstate',sync);return()=>{removeEventListener('hashchange',sync);removeEventListener('popstate',sync);};},[]);

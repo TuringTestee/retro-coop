@@ -22,7 +22,7 @@ export async function acquireVerifiedRom(expected:{bytes:number;sha256:string},f
  check();const playable=file(bytes as Uint8Array<ArrayBuffer>);
  if(generation===undefined||romGeneration===undefined)return {file:playable,source:'download',persisted:false,notice:memoryNotice};
  try {
-  const record:RomRecord={sha256:expected.sha256,size:bytes.length,bytes:bytes.slice().buffer,savedAt:Date.now()};
+  const record:RomRecord={sha256:expected.sha256,size:bytes.length,bytes:bytes.slice().buffer,savedAt:Date.now(),source:'download',lastUsedAt:Date.now()};
   await putRom(record,generation,romGeneration);check();
   const stored=await readRom(expected.sha256);check();
   if(stored.record?.bytes instanceof ArrayBuffer && stored.record.bytes.byteLength===bytes.length && await sha256(new Uint8Array(stored.record.bytes))===expected.sha256){check();return {file:playable,source:'download',persisted:true};}
