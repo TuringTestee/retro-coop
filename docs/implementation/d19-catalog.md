@@ -2,7 +2,7 @@ Audience: Agent
 
 # D19 two-game catalog evidence
 
-Retro Coop now opens on live public lobbies with direct actions for Super Tilt Bro, From Below, and any local NES file. Loading a game replaces discovery with the largest fitting game canvas and usable controls; All lobbies returns to discovery while the emulator keeps running.
+This document records the earlier D19 catalog delivery and its browser evidence. The current [lobby refactor](lobby-refactor.md) replaces its direct Play and All lobbies controls with ordinary public room rows, host Start, and Public rooms. The exact asset and emulator evidence below remains historical proof for the supplied games.
 
 ## Candidate behavior
 

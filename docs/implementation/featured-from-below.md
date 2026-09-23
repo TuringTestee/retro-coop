@@ -25,7 +25,7 @@ Earlier inspected repository terms did not themselves grant redistribution. The 
 
 ## Game help and credits
 
-Keep the discovery launcher actionable: title, factual single-player label, **Play** and **Show lobbies** only. After the game loads, **Game help** may use the concise original description **“Clear falling blocks and hold back the Kraken.”** and identify these modes:
+In the current public directory, From Below is an ordinary 0/2 room that says **One controller; share turns** before Join. After the game loads, **Game help** may use the concise original description **“Clear falling blocks and hold back the Kraken.”** and identify these modes:
 
 - **Kraken Battle:** clear lines while timed tentacle attacks push more blocks onto the board.
 - **Classic:** falling-block play without the Kraken attacks.
@@ -43,7 +43,7 @@ Use the already planned optional **shared P1 handoff** for friends taking turns:
 
 ## Included-game journey
 
-The From Below catalog launcher must remain available with zero active rooms. Starting it creates a guest room with the approved defaults and loads the pinned included artifact in the browser. Joining an existing From Below room uses that same artifact automatically, verifies its identity, and follows the existing connection and late-join flow. No local file picker is needed for included content.
+The service publishes a From Below 0/2 room when its verified asset is available. The first joiner claims Host/P1, downloads and verifies the pinned artifact, then chooses when to Start. A second player can join the waiting room and use the same verified artifact without a local file picker. The one-controller arrangement and agreed handoff are explained before Join and in the waiting room. Joining after Start is deferred and has no Join action.
 
 The game retains its own menus and controls. “Start” on the website opens playable emulation; it must not be represented as proof that the game has already skipped its title/menu screens. D19 must measure the actual action count and label the resulting state accurately. Download or validation failure keeps the room recoverable with retry and an actionable error rather than a blank canvas. Game instructions and credits must be reachable without interrupting the shared timeline.
 

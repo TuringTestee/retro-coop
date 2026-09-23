@@ -54,7 +54,12 @@ try:
         dismissed.set_input_files('input[type=file]',{'name':'LOCAL-PRACTICE.nes','mimeType':'application/octet-stream','buffer':rom})
         dismissed.get_by_role('button',name='Start game',exact=True).wait_for()
         dismissed.on('dialog',lambda dialog:dialog.accept())
+        dismissed.goto(invitation)
+        assert dismissed.get_by_role('button',name='Leave room',exact=True).is_visible()
         dismissed.get_by_role('button',name='Leave room',exact=True).click()
+        dismissed.locator('.room-panel.invitation').wait_for(state='visible')
+        assert dismissed.get_by_role('button',name='Public rooms',exact=True).count()==0
+        dismissed.get_by_role('button',name='View public rooms',exact=True).click()
         dismissed.get_by_test_id('directory').wait_for(state='visible')
         dismissed.goto(invitation)
         dismissed.locator('.room-panel.invitation').wait_for(state='visible')

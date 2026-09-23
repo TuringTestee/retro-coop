@@ -4,13 +4,13 @@ Audience: Agent
 
 # Lobby refactor: architecture and delivery amendment
 
-**Status:** Proposed planning snapshot for [the human direction](../design/lobby-refactor.md). No affected implementation is authorized until this exact reviewed revision receives user approval and its governing documents merge. The existing epic and issues continue to own unaffected work.
+**Status:** Approved and merged in planning PR #72. This is the governing delivery plan for [the human direction](../design/lobby-refactor.md); the issue descriptions and gate #66 track live implementation and acceptance.
 
-## Current code and conflict
+## Code and conflict at the approved review snapshot
 
 At this review snapshot, `apps/coordinator/src/rooms.ts` stores only rooms whose host is a connected `Session`; `create` provides a fingerprint and `joinCode` reserves the guest place. `RoomPreview` in `packages/contracts/src/rooms.ts` permits only 1/2 or 2/2 occupancy. `apps/client/src/RoomPanel.tsx` renders two special catalog launchers plus a file launcher and automatically hosts when a local file loads. `DirectoryPanel.tsx` joins only waiting 1/2 rooms. `GameSession.ready` in `apps/coordinator/src/gameplay.ts` starts eligible shared games automatically and rejects a progressed host with “Shared late join is not available yet.” These concrete owners must change; styling alone cannot deliver the new behavior.
 
-The approved [catalog amendment](included-games.md) and [platform plan](browser-nes-platform.md) still prescribe those old interaction rules. Planning PR #65 is merged; D19/#23 and D15/#19 are closed, but integration and current-head evidence must be confirmed before dependent work is dispatched. D12/#16 is also closed, yet the coordinator rejects progressed late join. The essential refactor keeps that admission closed; later join requires separate planning and evidence. The new [human amendment](../design/lobby-refactor.md) supersedes the conflicting interaction rules only after its own approval and merge.
+At this snapshot, the approved [catalog amendment](included-games.md) and [platform plan](browser-nes-platform.md) still prescribed the old interaction rules. Planning PR #65 had merged; D19/#23 and D15/#19 were closed, but integration and current-head evidence still needed confirmation before dependent work. D12/#16 was also closed, yet the coordinator rejected progressed late join. The essential refactor keeps that admission closed; later join requires separate planning and evidence. The merged [human amendment](../design/lobby-refactor.md) now supersedes the conflicting interaction rules.
 
 ## Architecture and reuse decisions
 
