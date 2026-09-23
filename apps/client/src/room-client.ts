@@ -17,7 +17,7 @@ export function connectionStatus(state:RoomState) {
  return (state.connection?.status ?? 'No peer connection.')+(state.connection?.route ? ` Route: ${state.connection.route}.`:'');
 }
 const messages:Record<string,string> = {
- capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'Someone claimed Host first. Review the updated row to join as Guest or choose another room.',
+ capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'The guest place was just taken. Review the room or try another.',
  room_unavailable:'This room is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
  room_changed:'That room has changed. Review the current room before trying again.',membership_changed:'That guest has left or rejoined. Review the current guest before trying again.',
  host_only:'Only the host can change this room.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
@@ -82,7 +82,7 @@ export class RoomClient {
     let event:RoomEvent;try {event = JSON.parse(data);}catch{return;}
     if(event.type === 'result') {
      const pending = this.pending.get(event.requestId);if(!pending) return;clearTimeout(pending.timer);this.pending.delete(event.requestId);
-     if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'),{retryAfterMs:event.retryAfterMs}));}
+     if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(event.error==='place_taken'&&pending.kind==='claimCode'?'Someone claimed Host first. Review the updated row to join as Guest or choose another room.':messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'),{retryAfterMs:event.retryAfterMs}));}
     } else if(event.type==='chat') this.chat.receive(event);
     else if(event.type.startsWith('game'))this.game.handle(event as GameEvent);
     else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);

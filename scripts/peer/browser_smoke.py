@@ -103,7 +103,7 @@ try:
   denied.screenshot(path=str(out.with_suffix('.capacity.png')),full_page=True)
   # Explicit cancellation frees capacity; retry retains the original reservation.
   lease=waiting.get_by_test_id('room-view').text_content().split('Reservation expires at ')[1].split('.')[0]
-  open_connection(g).get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+  open_room(g).get_by_role('button',name='Leave room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
   open_connection(waiting).get_by_role('button',name='Retry connection',exact=True).click();retry_proof=connected(denied,waiting,'relay')
   assert lease in waiting.get_by_test_id('room-view').inner_text()
   # A local choice change reconnects even if the other player's stricter policy remains effective.
@@ -143,7 +143,7 @@ try:
   assert waiting.evaluate('peerProof.lastRoom.id')==original['id'] and waiting.evaluate('peerProof.lastRoom.reservationUntil')==original['lease']
   assert denied.locator('canvas').evaluate('canvas=>canvas.toDataURL()')==original_pixels
   waiting.screenshot(path=str(out.with_suffix('.policy-retry.png')),full_page=True)
-  open_connection(waiting).get_by_role('button',name='Cancel join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
+  open_room(waiting).get_by_role('button',name='Leave room',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
   guard=page(invite,'relay');guard.evaluate('window.lowerPolicy=true')
   guard.get_by_role('button',name='Retry join / Join',exact=True).click()
   guard.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('failed')")

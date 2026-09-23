@@ -87,7 +87,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useEffect(()=>{onRoomChange(state.room);},[state.room,onRoomChange]);
- useEffect(()=>{if(state.hostFailure)onBrowse();},[state.hostFailure]);
+ useEffect(()=>{if(state.hostFailure||!state.room&&!invite&&state.status==='Cancelled. Your local game is preserved.')onBrowse();},[state.hostFailure,state.status]);
  useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
   beforeSelection() {
    if(state.startingRoom)return false;
@@ -97,6 +97,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;
   seenFile.current = fingerprint;client.current?.selectedGame(fingerprint);
+  if(state.room?.role==='host'&&!matchesFile(state.room.fingerprint,fingerprint)){void client.current?.host(fingerprint,selectedVisibility.current);return;}
   if(state.room || invite) return;
   void client.current?.host(fingerprint,selectedVisibility.current);
  },[fingerprint,invite,state.room?.role]);
@@ -108,6 +109,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
  return <>{state.releaseNotice&&!showDiscovery&&<div className="release-notice" role="alert"><p>{state.releaseNotice}</p><button onClick={()=>{if(player()?.isLoaded()){player()?.allowLocalPlay();player()?.resume();}else onBrowse();client.current?.dismissRelease();}}>{player()?.isLoaded()?'Resume local game':'View rooms'}</button></div>}
+ {!showDiscovery&&!room&&!invite&&state.busy&&<div className="release-notice" role="status"><p>{state.status}</p><button onClick={()=>client.current?.cancelPending()}>Cancel room creation</button></div>}
  {showDiscovery&&<><section className="host-bar" aria-label="Host your NES file" onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();const input=document.querySelector<HTMLInputElement>('input[type=file]');if(input&&event.dataTransfer.files.length===1){const transfer=new DataTransfer();transfer.items.add(event.dataTransfer.files[0]);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}}}>
   <h2>Host your NES file</h2><label>Access <select aria-label="Room access" value={visibility} onChange={event=>setVisibility(event.target.value as Visibility)}><option value="public">Public</option><option value="unlisted">Unlisted</option></select></label><button onClick={onChoose}>Choose NES file</button><span>or drop a file here</span>
  </section>
@@ -119,6 +121,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}{room&&!room.started&&<small> · {room.visibility==='public'?`Public · ${room.code}`:'Unlisted'}</small>}</h2>
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}. {state.preview.catalogId ? `${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.` : 'Bring your own matching local game file.'}</p>}
   {room?.role==='guest'&&!room.catalogId&&(!fingerprint||!matchesFile(room.fingerprint,fingerprint))&&<div className="matching-file"><p>{fingerprint?'That file does not match this room. Choose the host’s exact NES file.':'This room needs the host’s exact NES file. The host’s file is not transferred.'}</p><button onClick={onChoose}>Choose matching NES file</button></div>}
+  {room&&selectionLoading&&!includedBusy&&<p role="status">Checking the selected file… <button onClick={()=>{player()?.cancel();client.current?.beginSelection();}}>Cancel loading</button></p>}
   {room&&!room.started?<div className="room-slots"><div><strong>Player 1 · Host</strong><span>{room.role==='host'?'You':room.host}</span></div><div><strong>Player 2 · Guest</strong><span>{room.role==='guest'?'You':room.guest??'Open'}</span></div></div>:room&&<ControllerOwnership room={room}/>}
   {(room?.peer.epoch||!state.connected)&&<p role="status" data-testid="connection-status">{connectionStatus(state)}</p>}
   {invite&&!room&&<p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>}

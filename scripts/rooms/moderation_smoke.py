@@ -77,8 +77,7 @@ try:
         assert host.get_by_role('button', name='Unmute', exact=True).count() == 0
         host.set_input_files('input[type=file]', {'name':'fixture.nes', 'mimeType':'application/octet-stream', 'buffer':rom})
         host.get_by_test_id('room-view').wait_for(state='attached')
-        unmute = host.get_by_role('button', name='Unmute', exact=True)
-        unmute.wait_for()
+        unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
         assert unmute.get_attribute('aria-pressed') == 'true'
         invitation = host.get_by_label('Room invitation', exact=True).input_value()
         first = page(invitation)
@@ -89,7 +88,7 @@ try:
         host.evaluate('window.holdKick=true')
         host.locator('.room-panel').get_by_role('button', name='Remove guest', exact=True).click()
         host.wait_for_function("typeof releaseKick==='function'")
-        open_connection(first).get_by_role('button', name='Cancel join', exact=True).click()
+        open_room(first).get_by_role('button', name='Leave room', exact=True).click()
         first.get_by_test_id('room-view').wait_for(state='detached')
         replacement = page(invitation)
         joined(replacement)

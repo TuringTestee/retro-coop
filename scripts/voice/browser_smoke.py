@@ -110,7 +110,7 @@ try:
         panel = open_room(tab)
         panel.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
         tab.wait_for_function(
-            "route=>document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+route)",
+            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route: '+route)",
             arg="relay" if args.relay else "direct",
         )
         if args.relay:
@@ -132,7 +132,7 @@ try:
     panel = host.locator(".room-panel")
     frame_before = host.get_by_test_id("frames").inner_text()
     panel.get_by_label("Voice mode", exact=True).select_option("push")
-    host.get_by_label("Local game screen", exact=True).focus()
+    host.get_by_role("button", name="Leave room", exact=True).focus()
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
@@ -156,7 +156,7 @@ try:
     host.get_by_role("button", name="Settings", exact=True).click()
     host.get_by_label("Input device", exact=True).select_option("0")
     host.get_by_role("button", name="Close settings", exact=True).click()
-    host.get_by_label("Local game screen", exact=True).focus()
+    host.get_by_role("button", name="Leave room", exact=True).focus()
     host.evaluate(
         "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
     )
@@ -285,10 +285,10 @@ try:
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     panel.get_by_role("button", name="Unmute microphone", exact=True).click()
     panel.get_by_label("Voice mode", exact=True).select_option("push")
-    host.get_by_label("Local game screen", exact=True).focus()
+    host.get_by_role("button", name="Leave room", exact=True).focus()
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
-    open_connection(guest).get_by_role("button", name="Cancel join", exact=True).click()
+    open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
     for tab in [host, guest]:
         tab.wait_for_function(
@@ -299,7 +299,7 @@ try:
     guest.get_by_role("button", name="Retry join / Join", exact=True).click()
     for tab in [host, guest]:
         tab.wait_for_function(
-            "document.querySelector('[data-testid=connection-status]').textContent.includes('Route:')"
+            "document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route:')"
         )
     assert host.evaluate("captures.length") == capture_count
     panel.get_by_role("button", name="Enable voice", exact=True).click()
@@ -314,11 +314,11 @@ try:
         "captures.at(-1).getAudioTracks().every(t=>!t.enabled)"
     ), "replaced peer retained old push-to-talk input"
     host.keyboard.up("KeyV")
-    host.get_by_label("Local game screen", exact=True).focus()
+    host.get_by_role("button", name="Leave room", exact=True).focus()
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
-    open_connection(guest).get_by_role("button", name="Cancel join", exact=True).click()
+    open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )
