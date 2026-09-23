@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import 'fake-indexeddb/auto';
 import type {RoomView} from '../../../packages/contracts/src/rooms.ts';
-import {acquireGuestRom} from './guest-rom.ts';
+import {acquireGuestRom,GuestPlaceExpiredError} from './guest-rom.ts';
 import {clearLocalData,deleteRom,putRom,readRom} from './saves.ts';
 
 const bytes=Uint8Array.from({length:16+16384},(_,i)=>i<4?[0x4e,0x45,0x53,0x1a][i]:i===4?1:0);
@@ -49,4 +49,9 @@ test('storage denial keeps verified bytes available for this tab',async()=>{
  const original=globalThis.indexedDB;(globalThis as {indexedDB?:IDBFactory}).indexedDB=undefined;
  try{const result=await acquireGuestRom(room,token,signal,()=>{},()=>true,(async()=>response()) as typeof fetch);assert.equal(result.persisted,false);assert.match(result.notice!,/download again next time/);assert.deepEqual(new Uint8Array(await result.file.arrayBuffer()),bytes);}
  finally{globalThis.indexedDB=original;}
+});
+test('denied room download requires a new room admission',async()=>{
+ const before=await readRom(hash);await clearLocalData(before.generation);
+ await assert.rejects(acquireGuestRom(room,token,signal,()=>{},()=>true,(async()=>new Response('{"error":"reservation_expired"}',{status:403})) as typeof fetch),GuestPlaceExpiredError);
+ assert.equal((await readRom(hash)).record,undefined);
 });

@@ -1,8 +1,7 @@
-"""Two independent browser processes join and play one host-shared public NES room.
+"""Two independent browser processes join and play one host-shared NES room.
 
-Run host and guest roles against one browser-server.ts URL. The host uploads the
-diagnostic file; the guest browser downloads it automatically. --rom supplies the
-host file and an expected hash for the guest's proof, never a guest file picker.
+Only the host process receives the NES file path. The guest learns the
+expected fingerprint from the published room and downloads bytes over HTTP.
 """
 
 import argparse
@@ -21,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--role", choices=("host", "guest", "verify", "run"), required=True)
 parser.add_argument("--url", help="URL printed by scripts/rooms/browser-server.ts")
-parser.add_argument("--rom", type=Path, help="Host diagnostic NES file; guest uses it only for the expected hash")
+parser.add_argument("--rom", type=Path, help="Host NES file; never supplied to the guest")
+parser.add_argument("--visibility", choices=("public", "unlisted"), default="public")
 parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
 args = parser.parse_args()
@@ -54,12 +54,15 @@ def verify():
     assert host["result"] == guest["result"] == "pass"
     assert host["role"] == "host" and guest["role"] == "guest"
     assert host["room_id"] == guest["room_id"]
+    assert host["visibility"] == guest["visibility"] == args.visibility
     assert host["room_code"] == guest["room_code"]
     assert host["rom_sha256"] == guest["rom_sha256"]
     assert host["game_status"] == guest["game_status"] == "paused"
     assert host["started"] == guest["started"] == "shared"
     assert host["established"] and guest["established"]
-    assert host["frames"] >= 120 and guest["frames"] >= 120
+    assert host["frames"] >= 200 and guest["frames"] >= 200
+    assert guest["rom_argument_received"] is False
+    assert guest["file_chooser_count"] == 0
     assert host["remote_input_packets"] > 0 and guest["remote_input_packets"] > 0
     assert host["last_hash"] and host["last_hash"] == guest["last_hash"]
     assert host["controller_ram"] == guest["controller_ram"]
@@ -71,9 +74,10 @@ def verify():
                for role in ("host", "guest") for view in ("playing", "room"))
     result = {
         "result": "pass",
-        "claim": "Two independent browser processes joined and played one public game",
+        "claim": "A guest process without the host ROM path downloaded and played 200 synchronized frames",
         "room_id": host["room_id"],
         "room_code": host["room_code"],
+        "visibility": args.visibility,
         "rom_sha256": host["rom_sha256"],
         "host_frames": host["frames"],
         "guest_frames": guest["frames"],
@@ -111,9 +115,11 @@ if args.role == "run":
             workers = []
             with (session / "host.log").open("w") as host_log, (session / "guest.log").open("w") as guest_log:
                 for role, log in (("host", host_log), ("guest", guest_log)):
+                    role_arguments = ["--rom", str(args.rom.resolve())] if role == "host" else []
                     worker = subprocess.Popen(
                         [sys.executable, __file__, "--role", role, "--url", url,
-                         "--rom", str(args.rom.resolve()), "--session-dir", str(session),
+                         *role_arguments, "--session-dir", str(session),
+                         "--visibility", args.visibility,
                          *(["--expect-controller-ram", args.expect_controller_ram] if args.expect_controller_ram else [])],
                         cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                     )
@@ -145,10 +151,10 @@ if args.role == "run":
             service.wait(timeout=5)
     verify()
     raise SystemExit(0)
-if not args.url or not args.rom:
-    parser.error("host and guest need --url and --rom")
-rom = args.rom.read_bytes()
-rom_hash = hashlib.sha256(rom).hexdigest()
+if not args.url or (args.role == "host" and not args.rom) or (args.role == "guest" and args.rom):
+    parser.error("host needs --url and --rom; guest needs --url without --rom")
+rom = args.rom.read_bytes() if args.rom else None
+rom_hash = hashlib.sha256(rom).hexdigest() if rom is not None else None
 errors = []
 started = time.monotonic()
 
@@ -172,21 +178,22 @@ with sync_playwright() as playwright:
         """)
         page.goto(args.url)
         page.get_by_test_id("directory").wait_for(state="visible")
-        selection = {
-            "name": "shared-game.nes",
-            "mimeType": "application/octet-stream",
-            "buffer": rom,
-        }
+        file_choosers = []
+        page.on("filechooser", lambda chooser: file_choosers.append(chooser))
 
         if args.role == "host":
-            page.get_by_label("Room access").select_option("public")
-            page.set_input_files("input[type=file]", selection)
+            page.get_by_label("Room access").select_option(args.visibility)
+            page.set_input_files("input[type=file]", {
+                "name": "shared-game.nes", "mimeType": "application/octet-stream", "buffer": rom,
+            })
             page.get_by_test_id("room-view").wait_for(state="attached")
-            page.wait_for_function("proof.room?.role==='host' && proof.room?.code", polling=50)
+            page.wait_for_function("proof.room?.role==='host'", polling=50)
             room = page.evaluate("proof.room")
-            assert room["occupancy"] == 1 and room["visibility"] == "public"
+            assert room["occupancy"] == 1 and room["visibility"] == args.visibility
+            assert "catalogId" not in room and room["romBytes"] == len(rom)
             assert page.get_by_role("button", name="Start game", exact=True).is_enabled()
-            save("host-ready.json", {"room_id": room["id"], "code": room["code"], "rom_sha256": rom_hash})
+            invitation=page.get_by_label("Room invitation").input_value() if args.visibility == "unlisted" else None
+            save("host-ready.json", {"room_id": room["id"], "code": room.get("code"), "invitation": invitation})
             wait_for("guest-ready.json")
             page.wait_for_function(
                 "proof.room?.guest && proof.room?.matches && proof.room?.game?.ready?.includes('guest')",
@@ -197,15 +204,20 @@ with sync_playwright() as playwright:
             page.get_by_role("button", name="Start game", exact=True).click()
         else:
             expected = wait_for("host-ready.json")
-            assert expected["rom_sha256"] == rom_hash, "Guest expected hash differs from the host diagnostic file"
-            search = page.get_by_label("Search room, game, host, or code")
-            search.fill(expected["code"])
-            # The room ID comes from the live directory; select that exact row.
-            row = page.locator(f'.room-list li[data-room-id="{expected["room_id"]}"]')
-            row.get_by_role("button", name="Join", exact=True).click()
+            if args.visibility == "unlisted":
+                page.goto(expected["invitation"])
+                page.get_by_role("button", name="Join room", exact=True).click()
+            else:
+                search = page.get_by_label("Search room, game, host, or code")
+                search.fill(expected["code"])
+                # The room ID comes from the live directory; select that exact row.
+                row = page.locator(f'.room-list li[data-room-id="{expected["room_id"]}"]')
+                row.get_by_role("button", name="Join", exact=True).click()
             page.get_by_test_id("room-view").wait_for(state="attached")
             page.wait_for_function("proof.room?.role==='guest'", polling=50)
             assert page.evaluate("proof.room.id") == expected["room_id"]
+            assert page.evaluate("!('catalogId' in proof.room) && proof.room.romBytes > 0")
+            rom_hash = page.evaluate("proof.room.fingerprint.romSha256")
             page.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30000)
             page.wait_for_function("proof.room?.matches===true", timeout=30000, polling=50)
             page.get_by_role("button", name="Prepare to play", exact=True).click()
@@ -222,7 +234,7 @@ with sync_playwright() as playwright:
         page.evaluate("releaseFrames()")
         page.locator("canvas").focus()
         page.keyboard.down("x" if args.role == "host" else "z")
-        page.wait_for_function("proof.frameCount>=180", timeout=30000, polling=50)
+        page.wait_for_function("proof.frameCount>=220", timeout=30000, polling=50)
         controller_ram = None
         if expected_ram is not None:
             page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
@@ -232,23 +244,34 @@ with sync_playwright() as playwright:
         page.keyboard.up("x" if args.role == "host" else "z")
         page.screenshot(path=str(session / f"{args.role}-playing.png"), full_page=True)
         if args.role == "host":
-            wait_for("guest-120.json", 30)
+            wait_for("guest-200.json", 30)
             page.get_by_role("button", name="Pause", exact=True).click()
         else:
-            save("guest-120.json", {"frames": page.evaluate("proof.frameCount")})
+            save("guest-200.json", {"frames": page.evaluate("proof.frameCount")})
         page.wait_for_function("proof.room?.game?.status==='paused'", timeout=15000, polling=50)
         page.wait_for_function("proof.hashes.length>0", timeout=15000, polling=50)
         page.get_by_role("button", name="Room", exact=True).click()
         page.locator(".room-panel").wait_for(state="visible")
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
         room = page.evaluate("proof.room")
+        assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 1
+        assert page.get_by_role("button", name="Choose another file", exact=True).count() == 0
+        back = page.get_by_role("button", name="Back to game", exact=True)
+        assert back.is_visible()
+        page.get_by_role("button", name="Ready to resume", exact=True).focus()
+        page.keyboard.press("Enter")
+        page.wait_for_function("role => proof.room?.game?.ready?.includes(role)", arg=args.role, timeout=15000)
+        back.focus()
+        page.keyboard.press("Enter")
+        assert page.locator("canvas").evaluate("node => node === document.activeElement")
         remote_inputs = page.evaluate("Object.values(proof.admission.lead).reduce((count, packets) => count + packets, 0)")
         assert remote_inputs > 0, "No remote controller input reached this browser"
         evidence = {
             "result": "pass",
             "role": args.role,
             "room_id": room["id"],
-            "room_code": room["code"],
+            "room_code": room.get("code"),
+            "visibility": room["visibility"],
             "rom_sha256": rom_hash,
             "started": room["started"],
             "game_status": room["game"]["status"],
@@ -261,12 +284,15 @@ with sync_playwright() as playwright:
             "browser": browser.version,
             "elapsed_seconds": round(time.monotonic() - started, 2),
             "page_errors": errors,
+            "rom_argument_received": args.rom is not None,
+            "file_chooser_count": len(file_choosers),
+            "single_keyboard_resume_action": True,
+            "back_to_game_focuses_canvas": True,
         }
         save(f"{args.role}.json", evidence)
-        if args.role == "host":
-            # Keep the host connected until the guest captures the intentional
-            # paused state; closing early changes that state to peer loss.
-            wait_for("guest.json", 15)
+        # Both browsers stay connected until each has checked keyboard resume,
+        # canvas focus, and the paused game hash. Early peer exit clears ready.
+        wait_for(f"{'guest' if args.role == 'host' else 'host'}.json", 15)
         print(json.dumps(evidence, indent=2))
     except Exception:
         page.screenshot(path=str(session / f"{args.role}-failure.png"), full_page=True)

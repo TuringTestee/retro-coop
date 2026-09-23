@@ -32,6 +32,8 @@ if [ "$D02_JOB" = entrypoint ]; then
   npm run build
   timeout --foreground 30s python3 scripts/featured/solo_release_browser.py --output spikes/d02/public-entrypoint.local/solo-release
   timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
+  timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility unlisted --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-unlisted
+  timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv
