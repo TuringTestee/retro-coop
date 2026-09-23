@@ -99,10 +99,13 @@ export class RoomClient {
     else if(event.type.startsWith('game'))this.game.handle(event as GameEvent);
     else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
     else if(event.type === 'directory') this.publish({directory:event.rooms,directoryStatus:'live',directoryError:undefined});
-    else if(event.type === 'room') this.setRoom(event.room);
+    // Admission results and reconnect hello install a room; broadcasts only update one already installed.
+    else if(event.type === 'room') {if(this.state.room?.id===event.room.id)this.setRoom(event.room);}
     else if(event.type === 'ended') {
      // cancelCreate is our own exact-intent command. Its late notice must not replace a newer attempt.
      if(event.reason==='creation_cancelled')return;
+     // A canceled, uninstalled claim can still emit ended after a newer selection begins.
+     if(!this.state.room && !this.intent)return;
      this.peer.close();this.setRoom(undefined);const status=messages[event.reason] ?? 'This room ended. Your local game is preserved.';
      if(['creation_expired','upload_expired'].includes(event.reason)&&this.intent) {
       ++this.creationGeneration;this.uploadAbort?.abort();this.uploadAbort=undefined;this.intent=undefined;
@@ -126,7 +129,7 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the room service.'});}
- beginSelection() {this.game.cancelIntent();this.cancelCreation();}
+ beginSelection() {this.game.cancelIntent();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({hostFailure:false,releaseNotice:undefined});}
  async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
   if(!this.token && !this.state.room) return isCurrent();
   try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.

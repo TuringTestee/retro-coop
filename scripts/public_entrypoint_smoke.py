@@ -224,6 +224,60 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         if screenshot_dir:
             claim_retry.screenshot(path=str(screenshot_dir / "included-claim-retry-success.png"), full_page=True)
         result["included_claim_failure_and_retry"] = True
+        for mode in ("add", "drop"):
+            changing = browser.new_page(viewport={"width": 1280, "height": 1050})
+            changing.add_init_script("""(() => { const Native = WebSocket;
+              window.WebSocket = class extends Native {
+                set onmessage(handler) { super.onmessage = event => {
+                  let message; try { message = JSON.parse(event.data); } catch {}
+                  if (message?.type === 'result' && message.ok && message.data?.room?.role === 'host' && message.data.room.catalogId && !window.releaseClaim) {
+                    window.heldInvite = message.data.room.invite;
+                    window.releaseClaim = () => { handler(event); window.claimReleased = true; };
+                  } else handler(event);
+                }; }
+              };
+            })();""")
+            changing.goto(url)
+            changing.get_by_role("button", name="Create game", exact=True).click()
+            changing.locator(".create-library li").filter(has_text="Super Tilt Bro").get_by_role("button").click()
+            changing.get_by_role("button", name="Create room", exact=True).click()
+            changing.wait_for_function("typeof releaseClaim === 'function'", timeout=15000)
+            new_name = f"{mode}-new.nes"
+            if mode == "add":
+                with changing.expect_file_chooser() as chooser:
+                    changing.get_by_role("button", name="Add NES file", exact=True).click()
+                chooser.value.set_files({"name": new_name, "mimeType": "application/octet-stream", "buffer": fixture.read_bytes()})
+            else:
+                import base64
+                changing.locator(".create-library").evaluate("(node, value) => { const bytes = Uint8Array.from(atob(value), char => char.charCodeAt(0)); const transfer = new DataTransfer(); transfer.items.add(new File([bytes], 'drop-new.nes', {type:'application/octet-stream'})); node.dispatchEvent(new DragEvent('drop', {bubbles:true,cancelable:true,dataTransfer:transfer})); }", base64.b64encode(fixture.read_bytes()).decode())
+            changing.wait_for_function("name => document.querySelector('.create-options strong')?.textContent === name && !document.querySelector('.create-actions button')?.disabled", arg=new_name, timeout=15000)
+            if screenshot_dir and mode == "add":
+                changing.screenshot(path=str(screenshot_dir / "claim-superseded-add.png"), full_page=True)
+            if mode == "add":
+                changing.get_by_role("button", name="Create room", exact=True).click()
+                changing.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
+                newer_invite = changing.get_by_label("Room invitation", exact=True).input_value()
+                assert newer_invite != changing.evaluate("heldInvite")
+            changing.evaluate("releaseClaim()")
+            changing.wait_for_function("claimReleased")
+            changing.wait_for_timeout(300)
+            assert changing.locator('.release-notice').count() == 0
+            if mode == "add":
+                assert changing.get_by_test_id("room-view").count() == 1
+                assert changing.get_by_label("Room invitation", exact=True).input_value() == newer_invite
+                assert __import__('hashlib').sha256(fixture.read_bytes()).hexdigest() in changing.get_by_test_id("fingerprint").text_content()
+            else:
+                assert changing.get_by_test_id("room-view").count() == 0
+                assert changing.get_by_test_id("create-game").is_visible()
+                assert changing.locator(".create-options strong").inner_text() == new_name
+                if screenshot_dir:
+                    changing.screenshot(path=str(screenshot_dir / "claim-superseded-drop.png"), full_page=True)
+            observer = browser.new_page()
+            observer.goto(url + "#invite=" + changing.evaluate("heldInvite"))
+            observer.get_by_test_id("room-status").filter(has_text="closed, unavailable").wait_for(timeout=15000)
+            observer.close()
+            changing.close()
+        result["included_claim_superseded_by_add_and_drop"] = True
         offline = browser.new_page()
         offline.add_init_script("""window.nativeRoomsSocket=WebSocket;
           window.WebSocket=function(){throw Error('Rooms temporarily offline')};""")
@@ -237,6 +291,31 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         offline.get_by_role("button", name="Create room", exact=True).click()
         offline.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         result["room_creation_failure_and_retry"] = True
+        recovering = browser.new_page(viewport={"width": 1280, "height": 1050})
+        recovering.route("**/rooms/*/rom", lambda route: route.abort())
+        recovering.goto(url)
+        recovering.get_by_role("button", name="Create game", exact=True).click()
+        recovering.set_input_files("input[type=file]", fixture)
+        recovering.get_by_role("button", name="Create room", exact=True).click()
+        feedback = recovering.locator('.create-options p[aria-live="polite"]')
+        feedback.filter(has_text="Upload connection failed").wait_for(timeout=15000)
+        assert recovering.get_by_test_id("room-view").count() == 0
+        recovering.set_input_files("input[type=file]", {"name": "invalid-after-upload.nes", "mimeType": "application/octet-stream", "buffer": b"invalid"})
+        feedback.filter(has_text="NES").wait_for(timeout=15000)
+        assert "Upload connection failed" not in feedback.inner_text()
+        assert recovering.get_by_test_id("room-view").count() == 0
+        if screenshot_dir:
+            recovering.screenshot(path=str(screenshot_dir / "upload-failure-new-invalid.png"), full_page=True)
+        saved_hash = __import__('hashlib').sha256(fixture.read_bytes()).hexdigest()
+        recovering.locator(".create-library li").filter(has_text=fixture.name).get_by_role("button").wait_for()
+        recovering.evaluate("hash => new Promise((resolve, reject) => { const request = indexedDB.open('retro-coop-local'); request.onerror = () => reject(request.error); request.onsuccess = () => { const db = request.result; const tx = db.transaction('roms','readwrite'); tx.objectStore('roms').delete(hash); tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => reject(tx.error); }; })", saved_hash)
+        recovering.locator(".create-library li").filter(has_text=fixture.name).get_by_role("button").click()
+        feedback.filter(has_text="saved game is missing or damaged").wait_for(timeout=15000)
+        assert "Upload connection failed" not in feedback.inner_text()
+        assert recovering.get_by_test_id("room-view").count() == 0
+        if screenshot_dir:
+            recovering.screenshot(path=str(screenshot_dir / "upload-failure-missing-saved.png"), full_page=True)
+        result["upload_failure_followed_by_new_selection_errors"] = True
         invalid = browser.new_page()
         invalid.goto(url)
         invalid.get_by_role("button", name="Create game", exact=True).click()
