@@ -6,6 +6,8 @@ Audience: Human
 
 This document records the earlier U1–U9 UI design and its interaction inventory. The approved [lobby experience amendment](lobby-refactor.md) and [current ASCII wireframe](lobby-wireframe-v3.md) govern the current directory, room entry, Start, and play layout. The older launcher, automatic-start, and later-join passages below remain only as historical design evidence; unaffected consent, accessibility, and recovery requirements still apply.
 
+The approved [room game download amendment](room-rom-transfer.md) replaces this earlier design's custom-room matching-file picker, no-transfer help text and no-upload scenario. Those lines describe the running app only until transfer issues #87–#91 integrate; included-game asset checks and other unaffected requirements remain.
+
 The S01–S37 interaction checklist remains useful for unaffected play, accessibility, and recovery states.
 
 ## Scope and reading guide
