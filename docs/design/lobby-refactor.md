@@ -6,6 +6,8 @@ Audience: Human
 
 **Status:** Approved and merged in planning PR #72. This document governs the current discovery and lobby behavior; the rendered implementation is verified separately at gate #66.
 
+The approved [room game download amendment](room-rom-transfer.md) supersedes this document's guest matching-file and no-transfer rules for host-provided custom rooms. Until its delivery issues #87–#91 integrate, those older lines still describe the running app. Included-game 0/2 offers and host Start stay as specified here.
+
 ## Product behavior
 
 - The main service keeps one joinable 0/2 public room for each healthy included game. The first player who joins becomes Host/P1 in that exact room; the service publishes a new 0/2 room when the last one is claimed. The service lists and coordinates rooms but does not emulate a game or count as a player.

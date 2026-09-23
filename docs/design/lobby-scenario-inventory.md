@@ -6,6 +6,8 @@ Audience: Human
 
 This is a historical interaction inventory, not proof that the application works. It covers the supported desktop browser scope and the earlier [lobby browser proposal](lobby-browser-proposal.md). The [current scenario inventory](lobby-scenarios-v2.md) and [lobby amendment](lobby-refactor.md) supersede the cases marked below once approved and merged. “Approved” records an earlier product requirement, not an implementation claim or priority over a later approved amendment. “Proposal” changes that requirement and needs alignment. “Later” means a deferred journey; it must not appear as a working promise. Operator-only actions are included only where a player sees their effect. Technical tests, pricing, and infrastructure are outside this player inventory.
 
+The approved [room game download amendment](room-rom-transfer.md) replaces this earlier inventory's host-provided matching-file and no-download scenarios. The running app still follows those earlier states until issues #87–#91 integrate; unaffected recovery and accessibility scenarios continue to apply.
+
 Each row follows **entry or trigger → player action → visible outcome or recovery**. The source references point to the existing [UI stories S01–S37](browser-nes-ui.md#story-coverage-and-critique-checklist) and [journey gate UJS-1–7](https://github.com/TuringTestee/retro-coop/issues/66). Some rows split one story into the ordinary and failure paths that need distinct UI states.
 
 ## A. Arrive, discover, and choose

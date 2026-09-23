@@ -6,6 +6,8 @@ Visitors can join ordinary public rooms for Super Tilt Bro or From Below without
 
 The approved [lobby experience amendment](lobby-refactor.md) replaces the launchers below with ordinary 0/2 public rooms and governs entry, room ownership, and Start timing. The launcher sketches and acceptance wording in this document are historical; its exact content identities, download checks, credits, and license placeholders remain relevant.
 
+The approved [room game download amendment](room-rom-transfer.md) also supersedes the local-only user-ROM rule below: a host-provided custom room will upload once and let admitted guests download the exact file. That feature is not in the running app until issues #87–#91 integrate. Included games continue using their pinned catalog assets and ordinary 0/2 rooms.
+
 ## Historical launcher direction and order
 
 This amendment records the user's 2026-09-20 request to add the supplied `Super_Tilt_Bro_(E).nes`, rank it above From Below, make both included games directly playable, and show license placeholders for now. “From the deep” in that request refers to the already selected From Below. It extends the existing [platform design](browser-nes-platform.md) and [UI](browser-nes-ui.md) without replacing their room, privacy, consent or recovery rules.

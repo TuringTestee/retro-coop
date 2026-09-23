@@ -1,10 +1,10 @@
 Audience: Agent
 
-# Room game transfer — proposed delivery plan
+# Room game transfer delivery plan
 
-This plan lets a room host upload a NES file once and lets each guest download and cache verified bytes automatically. It is a proposed amendment to the existing no-upload architecture, not a description of current support. [Human behavior and acceptance](../design/room-rom-transfer.md) are authoritative for the experience.
+This approved plan lets a room host upload a NES file once and lets each guest download and cache verified bytes automatically. It amends the original no-upload architecture; implementation is still in progress. [Human behavior and acceptance](../design/room-rom-transfer.md) are authoritative for the experience.
 
-**Review snapshot:** updated against `origin/main` `fa15c99` and the user's 2026-09-23 Lilac Harbor report. [PR #85](https://github.com/TuringTestee/retro-coop/pull/85) is merged: separate browser tabs, explicit guest Prepare, accurate host readiness, and continued background play are now the baseline. Plan review, user approval of this version, and merged governing documents are pending. Do not dispatch implementation from this draft.
+**Approved snapshot:** reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, based on `fa15c99` and the user's 2026-09-23 Lilac Harbor report; merged as `c66e092`. [Independent planning review](https://github.com/TuringTestee/retro-coop/pull/86#issuecomment-5791826936) accepted the plan, and the user explicitly chose “Approve PR #86 and proceed.” [PR #85](https://github.com/TuringTestee/retro-coop/pull/85) supplies the merged two-tab, explicit guest Prepare and background-play baseline. The [epic](https://github.com/TuringTestee/retro-coop/issues/2) and delivery issues #87–#91 own live dependencies and status. Runtime transfer remains unfinished until those issues integrate.
 
 ## Existing owners to reuse
 
@@ -48,9 +48,9 @@ One coherent release gate owns the host-to-guest acquisition and shared-start jo
 
 - Focused server tests cover authorization, immutable bytes, hash/length checks, storage capacity, transfer races and cleanup. Browser tests use a generated redistributable diagnostic NES, never a commercial fixture, and separate browser sessions.
 - Keep the README preflight under 60 seconds and pull-request build plus relevant browser journey within the five-minute shared CI deadline in the [current verification strategy](browser-nes-platform.md#verification-strategy). Run full browser/network qualification after integration under its existing budget; measure upload/download at representative file sizes and connection conditions before promising speed.
-- The local demo and staging proxy both need binary routes. Do not flip the guest UI until the server can serve every confirmed host-provided room. Remove the obsolete guest file picker, matching-file copy, no-upload wording, old tests, and alternate code paths in the same delivery. Update README and governing design/implementation documents when this plan is approved and merged.
+- The local demo and staging proxy both need binary routes. Do not flip the guest UI until the server can serve every confirmed host-provided room. Remove the obsolete guest file picker, matching-file copy, no-upload wording, old tests, and alternate code paths in the same delivery. Update the README's current-support instructions when the complete transfer path integrates.
 - Before public deployment, review content-sharing policy, server storage/bandwidth cost and retention operations. This is a release requirement, not a new step in the player's room flow.
 
 ## Review and alignment
 
-The requested behavior is explicit. The main review choices are the bounded server capacity, the five-minute maximum download reservation, and the in-memory fallback if browser storage fails. Those choices are proposed here for user approval with the whole plan. No production implementation is authorized by this draft alone.
+The requested behavior and technical bounds were approved with reviewed PR #86. The bounded server capacity, five-minute maximum download reservation, and in-memory fallback if browser storage fails are part of that accepted plan. Production support still requires the delivery issues and their integrated acceptance evidence.

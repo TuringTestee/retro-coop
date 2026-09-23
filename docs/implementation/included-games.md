@@ -6,6 +6,8 @@ Implement one small catalog with Super Tilt Bro first and From Below second, reu
 
 The approved [lobby refactor](lobby-refactor.md) replaces this amendment's special launcher and automatic-start presentation. This document continues to own exact asset identities, verified packaging, credits, and license placeholders. The old launcher/filter requirements and D19 delivery checklist below are historical planning evidence; gate #66 owns current integrated UI acceptance.
 
+The approved [room game transfer plan](room-rom-transfer.md) supersedes any local-only or no-upload statements below for host-provided custom rooms. Its implementation is tracked in issues #87–#91; included-game catalog ownership and pinned assets remain as specified here.
+
 Planning PR #65 was approved and merged, and D19/#23 is closed. The pending-approval and remaining-work language below records the earlier planning snapshot; live completed work and new dependencies are tracked by the issues and the merged lobby plan.
 
 ## Source and approval boundary

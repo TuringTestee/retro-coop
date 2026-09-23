@@ -6,6 +6,8 @@ Audience: Human
 
 This is the journey artifact based on [direction and reference evidence](lobby-server-rooms-direction.md). It is a proposed interaction map, not a claim that the current app implements these paths.
 
+The approved [room game download journeys](room-rom-transfer.md#journeys) replace J2's matching-file recovery and J5's bring-your-own-file outcome for host-provided custom rooms. The table below remains the earlier lobby baseline until transfer issues #87–#91 integrate. Included-game claim, host Start and friend discovery still apply.
+
 | Journey | Entry and decision | Action and feedback | Outcome and recovery |
 |---|---|---|---|
 | J1: Be first in an included-game room | Open the public list; see Super Tilt Bro or From Below at **0/2 · Waiting for host**. | Select **Join as host**. The service atomically assigns this visitor Host/P1; the browser downloads and verifies the included file. | Enter the same room at 1/2 with **Start game**, **Copy invite**, and **Leave**. If another visitor claimed first, show the new room state and offer Guest join or a fresh 0/2 room. If the asset fails, keep or release the claim honestly and offer Retry/Leave. |

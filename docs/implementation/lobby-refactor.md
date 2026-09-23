@@ -6,6 +6,8 @@ Audience: Agent
 
 **Status:** Approved and merged in planning PR #72. This is the governing delivery plan for [the human direction](../design/lobby-refactor.md); the issue descriptions and gate #66 track live implementation and acceptance.
 
+The approved [room game transfer plan](room-rom-transfer.md) supersedes this earlier local-only custom-room acquisition rule. RT1–RT5 in issues #87–#91 implement the host upload and authenticated guest download; the running app still follows the prior matching-file path until integration. Included-game first-host and host Start behavior remain.
+
 ## Code and conflict at the approved review snapshot
 
 At this review snapshot, `apps/coordinator/src/rooms.ts` stores only rooms whose host is a connected `Session`; `create` provides a fingerprint and `joinCode` reserves the guest place. `RoomPreview` in `packages/contracts/src/rooms.ts` permits only 1/2 or 2/2 occupancy. `apps/client/src/RoomPanel.tsx` renders two special catalog launchers plus a file launcher and automatically hosts when a local file loads. `DirectoryPanel.tsx` joins only waiting 1/2 rooms. `GameSession.ready` in `apps/coordinator/src/gameplay.ts` starts eligible shared games automatically and rejects a progressed host with “Shared late join is not available yet.” These concrete owners must change; styling alone cannot deliver the new behavior.

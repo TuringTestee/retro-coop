@@ -6,6 +6,8 @@ Audience: Human
 
 **Status:** Proposed essential release design. It follows [reference evidence](lobby-references-v2.md), [direction](lobby-server-rooms-direction.md), [journeys](lobby-journeys-v2.md), [scenarios](lobby-scenarios-v2.md), and the [v2 critique](lobby-critique-v2.md). [V2](lobby-wireframe-v2.md), [v1](lobby-wireframe-v1.md), and the [earlier proposal](lobby-browser-proposal.md) remain as three prior iterations. These sketches are not runtime evidence.
 
+The approved [room game download amendment](room-rom-transfer.md) replaces the custom-room guest matching-file states below with automatic download, then Prepare. The current app still shows the earlier states until that delivery integrates. Included-game rows and host Start remain.
+
 ## Page 1: Find or host a room
 
 ```text
