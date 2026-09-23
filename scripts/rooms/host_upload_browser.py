@@ -61,7 +61,7 @@ async def main():
             await host.get_by_role('button',name='Create room',exact=True).click()
             await host.wait_for_function("document.body.textContent.includes('Upload connection failed')",timeout=15000)
             await host.get_by_role('button',name='Create room',exact=True).wait_for()
-            failure_text=await host.locator('.create-options [role=status]').inner_text()
+            failure_text=await host.locator('.create-options [role=status]').first.inner_text()
             assert 'failed' in failure_text.lower() or 'timed out' in failure_text.lower(),failure_text
             assert await host.get_by_test_id('room-view').count()==0
             await host.unroute('**/rooms/*/rom',fail_once)

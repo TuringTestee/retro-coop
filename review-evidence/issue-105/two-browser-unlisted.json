@@ -1,25 +1,25 @@
 {
   "result": "pass",
   "claim": "A guest process without the host ROM path downloaded and played 200 synchronized frames",
-  "room_id": "KDh2arnvQV1yKx3UwGMKkROw1h8cLu0Y5nTI3NYn6xE",
+  "room_id": "vR6_tNN463_3bVki1ND7LZ9t-PU-yDb8w8VuIz6xyz0",
   "room_code": null,
   "visibility": "unlisted",
   "rom_sha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
-  "host_frames": 238,
-  "guest_frames": 238,
-  "host_received_inputs": 244,
-  "guest_received_inputs": 244,
+  "host_frames": 242,
+  "guest_frames": 242,
+  "host_received_inputs": 248,
+  "guest_received_inputs": 248,
   "matching_paused_hash": {
-    "hash": "21b2bfd586e0da2885066e103ec4df178b5d10deb24a9db367b4cf9cabad2702",
-    "frame": 238,
+    "hash": "aa984837fb9a152a4f65d1a5fa5d997d544781d41302b1f24cd729f90cd8fd5c",
+    "frame": 242,
     "fresh": false
   },
   "controller_ram": [
     128,
     64
   ],
-  "host_screenshot": "/tmp/cg2-two-agent-unlisted/host-playing.png",
-  "guest_screenshot": "/tmp/cg2-two-agent-unlisted/guest-playing.png",
-  "host_room_screenshot": "/tmp/cg2-two-agent-unlisted/host-room.png",
-  "guest_room_screenshot": "/tmp/cg2-two-agent-unlisted/guest-room.png"
+  "host_screenshot": "/tmp/cg2-current-two-unlisted-2/host-playing.png",
+  "guest_screenshot": "/tmp/cg2-current-two-unlisted-2/guest-playing.png",
+  "host_room_screenshot": "/tmp/cg2-current-two-unlisted-2/host-room.png",
+  "guest_room_screenshot": "/tmp/cg2-current-two-unlisted-2/guest-room.png"
 }
