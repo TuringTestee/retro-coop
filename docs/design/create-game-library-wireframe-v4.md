@@ -80,7 +80,8 @@ Player 2  Guest place: Open                   [Close place]
 [Copy invite]                               [Start game]
 
 When occupied: Player 2  Guest Amber · Preparing  [Remove guest]
-               Start now to play alone and release Guest Amber's place.
+               While preparing: Start now plays alone and releases the guest.
+               When prepared: Start plays together.
 Remove chosen: Remove Guest Amber? They cannot reconnect.
                [Confirm removal] [Cancel]
 When closed:   Player 2  Guest place: Closed        [Open place]
@@ -110,12 +111,13 @@ Join and download require no guest file picker. A closed invite has no Join. Fai
 ## P7 Playing
 
 ```text
-RETRO COOP / SHARED PLAY
+RETRO COOP / PLAYING
 ┌──────────────────── GAME CANVAS ─────────────────────┐ │ ROOM DETAILS
 │                                                     │ │ Host: You
 │                                                     │ │ Guest: Amber
 └─────────────────────────────────────────────────────┘ │ [Leave room]
-Controls  [Saves] [Rewind] [Game help]
+Controls  [Saves] [Game help]
+Local play only: [Rewind]
 Status: Connected directly.  OR  Reconnecting… [Retry]
 ```
 
@@ -149,22 +151,22 @@ Delete confirmation replaces the relevant row action, not the entire page. Clear
 ## P10 Saves / Rewind / Game help (separate pages)
 
 ```text
-RETRO COOP / SAVES                        [Back to shared play]
+RETRO COOP / SAVES                        [Back to playing]
 Slot 1 · Saved today               [Load] [Delete]
 Empty slot                         [Save]
 After Load: Replace current game progress? [Confirm load] [Cancel]
 
-RETRO COOP / REWIND                       [Back to shared play]
+RETRO COOP / REWIND                       [Back to local play]
 Available rewind points: 3
 Point 2 · 10 seconds ago            [Restore]
 After Restore: Replace current game progress? [Confirm restore] [Cancel]
 
-RETRO COOP / GAME HELP                    [Back to shared play]
+RETRO COOP / GAME HELP                    [Back to playing]
 Arrows move · X is A · Z is B · Enter is Start · Shift is Select
 Game-specific instructions/credits if available
 ```
 
-These are three distinct page states. The action or information is shown only when that page opens; confirmations replace their relevant action row. When shared-play policy disables a local tool, its entry is absent from play. C16,C17/J10.
+These are three distinct page states. The action or information is shown only when that page opens; confirmations replace their relevant action row. Rewind exists only in local play, consistent with the current shared-play policy. C16,C17/J10.
 
 ## Final rule check and limits
 
