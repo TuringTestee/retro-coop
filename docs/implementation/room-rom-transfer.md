@@ -4,7 +4,7 @@ Audience: Agent
 
 This plan lets a room host upload a NES file once and lets each guest download and cache verified bytes automatically. It is a proposed amendment to the existing no-upload architecture, not a description of current support. [Human behavior and acceptance](../design/room-rom-transfer.md) are authoritative for the experience.
 
-**Review snapshot:** drafted against `origin/main` `929f643` and the user's 2026-09-23 Lilac Harbor report. Plan review, user approval of this version, and merged governing documents are pending. Do not dispatch implementation from this draft. Reconcile with the three local two-tab/demo fixes before implementation; they do not implement ROM transfer.
+**Review snapshot:** updated against `origin/main` `fa15c99` and the user's 2026-09-23 Lilac Harbor report. [PR #85](https://github.com/TuringTestee/retro-coop/pull/85) is merged: separate browser tabs, explicit guest Prepare, accurate host readiness, and continued background play are now the baseline. Plan review, user approval of this version, and merged governing documents are pending. Do not dispatch implementation from this draft.
 
 ## Existing owners to reuse
 
