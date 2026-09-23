@@ -51,15 +51,29 @@ export async function candidateStillStored(candidate:SavedCandidate,loaded:Pick<
  const {generation,romGeneration,record}=await readRom(candidate.sha256);
  return generation===candidate.generation&&romGeneration===candidate.romGeneration&&record?.size===candidate.size&&record.bytes instanceof ArrayBuffer&&record.bytes.byteLength===candidate.size&&await sha256(new Uint8Array(record.bytes))===candidate.sha256;
 }
-export async function previewDisplay(recent:LibraryEntry|undefined,decode:(source:string)=>Promise<{width:number;height:number}>=decodeImage):Promise<{image:string;alt:string}|{text:'No preview yet.'}> {
+export async function previewDisplay(recent:LibraryEntry|undefined,decode:(source:string)=>Promise<{width:number;height:number;usable:boolean}>=inspectPreview):Promise<{image:string;alt:string}|{text:'No preview yet.'}> {
  if(recent?.preview&&validPreview(recent.preview))try{
-  const {width,height}=await decode(recent.preview);
-  if(width>0&&width<=128&&height>0&&height<=120)return {image:recent.preview,alt:`Recent game preview: ${recent.label}`};
+  const {width,height,usable}=await decode(recent.preview);
+  if(width>0&&width<=128&&height>0&&height<=120&&usable)return {image:recent.preview,alt:`Recent game preview: ${recent.label}`};
  }catch{/* A corrupt stored image must display the text fallback. */}
  return {text:'No preview yet.'};
 }
-async function decodeImage(source:string):Promise<{width:number;height:number}> {
- const image=new Image();image.src=source;await image.decode();return {width:image.naturalWidth,height:image.naturalHeight};
+export function meaningfulPreviewPixels(data:Uint8ClampedArray):boolean {
+ if(data.length!==128*120*4)return false;
+ // Emulator and capture borders can contrast with an otherwise blank playfield.
+ const count=(128-16)*(120-16);
+ const histograms=[new Uint32Array(256),new Uint32Array(256),new Uint32Array(256)];let opaque=0;
+ for(let y=8;y<112;y++)for(let x=8;x<120;x++){const i=(y*128+x)*4;if(data[i+3]<240)continue;opaque++;for(let channel=0;channel<3;channel++)histograms[channel][data[i+channel]]++;}
+ if(opaque<count*0.95)return false;
+ const percentile=(histogram:Uint32Array,rank:number)=>{let total=0;for(let value=0;value<256;value++){total+=histogram[value];if(total>=rank)return value;}return 255;};
+ return histograms.some(histogram=>percentile(histogram,Math.ceil(opaque*0.98))-percentile(histogram,Math.ceil(opaque*0.02))>=18);
+}
+async function inspectPreview(source:string):Promise<{width:number;height:number;usable:boolean}> {
+ const image=new Image();image.src=source;await image.decode();const width=image.naturalWidth,height=image.naturalHeight;
+ if(width!==128||height!==120)return {width,height,usable:false};
+ const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+ const context=canvas.getContext('2d',{willReadFrequently:true});if(!context)return {width,height,usable:false};
+ context.drawImage(image,0,0);return {width,height,usable:meaningfulPreviewPixels(context.getImageData(0,0,width,height).data)};
 }
 export async function rememberImport(file:File,hash:string):Promise<boolean> {
  const bytes=new Uint8Array(await file.arrayBuffer());if(await sha256(bytes)!==hash)throw Error('The selected file changed while loading. Add it again.');
@@ -73,11 +87,13 @@ export async function rememberPreview(sha256:string,preview:string):Promise<bool
  await putRom({...record,preview,lastUsedAt:Date.now()},generation,romGeneration);
  return true;
 }
-export function capturePreview(canvas:HTMLCanvasElement):string|undefined {
+export async function capturePreview(canvas:HTMLCanvasElement):Promise<string|undefined> {
  const context=canvas.getContext('2d',{willReadFrequently:true});if(!context)return;
  const {data}=context.getImageData(0,0,canvas.width,canvas.height);
  let min=255,max=0,opaque=0;for(let i=0;i<data.length;i+=4){const value=(data[i]+data[i+1]+data[i+2])/3;min=Math.min(min,value);max=Math.max(max,value);if(data[i+3]>0)opaque++;}
  if(opaque<data.length/16||max-min<12)return;
  const small=document.createElement('canvas');small.width=128;small.height=120;small.getContext('2d')?.drawImage(canvas,0,0,128,120);
- const value=small.toDataURL('image/webp',0.5);return validPreview(value)?value:undefined;
+ const value=small.toDataURL('image/webp',0.5);
+ if(!validPreview(value))return;
+ try{return (await inspectPreview(value)).usable?value:undefined;}catch{return;}
 }

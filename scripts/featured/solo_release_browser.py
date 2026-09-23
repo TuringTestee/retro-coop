@@ -37,7 +37,9 @@ def main():
 
             diagnostic = (root / "spikes/d02/fixture.local.nes").read_bytes()
             host = page()
+            host.get_by_role("button", name="Create game", exact=True).click()
             host.set_input_files("input[type=file]", {"name": "release-host.nes", "mimeType": "application/octet-stream", "buffer": diagnostic})
+            host.get_by_role("button", name="Create room", exact=True).click()
             host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=30_000)
             code = re.search(r"Public · (\S+)", host.get_by_test_id("room-view").text_content()).group(1)
             guest = page(block_peer=True)

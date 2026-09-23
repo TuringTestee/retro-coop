@@ -115,6 +115,8 @@ test('strict metadata schema rejects uploads, arbitrary fields and malformed val
  assert.ok(parseRoomCommand(command));
  const claim={type:'claimCode',requestId,code:'ABCDEFGH',intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')};
  assert.ok(parseRoomCommand(claim));
+ assert.ok(parseRoomCommand({...claim,visibility:'unlisted'}));
+ assert.equal(parseRoomCommand({...claim,visibility:'private'}),undefined);
  const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));assert.ok(parseRoomCommand({...start,type:'prepareHost'}));
  for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{...start,filename:'private.nes'},{...start,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
@@ -237,6 +239,22 @@ test('empty offers are opt-in, first claim is atomic, and the same room becomes 
  assert.deepEqual(rooms.attach(watcher.token,()=>{},()=>{}).data.room,undefined);
  assert.deepEqual(act(watcher.token,{type:'directory'}).directory,[]);
  now+=1;rooms.stop();
+});
+
+test('unlisted included claim atomically removes the old public offer and replenishes a new one',()=>{
+ const rooms=new Rooms(()=>1000,undefined,undefined,['from-below-1.0']);
+ const attach=()=>rooms.attach(undefined,()=>{},()=>{}).token;
+ const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const observer=attach(),host=attach();
+ const offer=act(observer,{type:'directory',includeEmptyOffers:true}).directory![0];
+ act(host,{type:'directory',includeEmptyOffers:true});
+ const room=act(host,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0'),visibility:'unlisted'}).room!;
+ assert.equal(room.id,offer.id);assert.equal(room.visibility,'unlisted');assert.equal(room.code,undefined);
+ const rows=act(observer,{type:'directory',includeEmptyOffers:true}).directory!;
+ assert.equal(rows.length,1);assert.equal(rows[0].occupancy,0);assert.notEqual(rows[0].id,offer.id);assert.notEqual(rows[0].code,offer.code);
+ assert.throws(()=>act(observer,{type:'lookupCode',code:offer.code!}),/room_unavailable/);
+ assert.equal(act(observer,{type:'preview',invite:room.invite}).preview?.id,room.id);
+ rooms.stop();
 });
 
 test('offer claim rejects wrong file and full capacity without mutating the empty room',()=>{

@@ -49,7 +49,7 @@ export class Rooms {
  private publishDirectory() {for(const session of this.sessions.values()) if(session.directory) session.send?.({type:'directory',rooms:this.directory(session)});}
  private publicRoom(code:string) {const id=this.codes.get(code),room=id && this.rooms.get(id);return room && room.confirmed && room.visibility==='public' ? room:undefined;}
  private publicOffer(session:Session,code:string) {const id=session.includeEmptyOffers&&this.codes.get(code);return id?this.offers.get(id):undefined;}
- private claim(session:Session,offer:EmptyOffer|undefined,intent:string,fingerprint:Fingerprint,policy?:ConnectionPolicy):RoomData {
+ private claim(session:Session,offer:EmptyOffer|undefined,intent:string,fingerprint:Fingerprint,policy?:ConnectionPolicy,visibility:Visibility='public'):RoomData {
   this.rate(session,'join',5,60_000);
   if(session.cancelled.has(intent))throw new RoomError('cancelled');
   if(session.room) {const current=this.room(session);if(current.host===session&&current.intent===intent)return {room:this.view(current,session)};throw new RoomError('already_in_room');}
@@ -58,8 +58,9 @@ export class Rooms {
   // Reserve the replacement code before changing the claimed offer, so allocation failure is transactional.
   const replacementId=secret(),replacementCode=this.code(replacementId);
   session.policy=policy??session.policy;
-  const room:Room={game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(offer.id);(role==='host'?current?.host:current?.guest)?.send?.(event);},offer.catalogId==='from-below-1.0'),catalogId:offer.catalogId,chat:new RoomChat(),id:offer.id,invite:secret(),code:offer.code,label:catalogEntry(offer.catalogId).title,visibility:'public',host:session,fingerprint,intent,confirmed:true,created:this.now(),kicked:new Set()};
+  const room:Room={game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(offer.id);(role==='host'?current?.host:current?.guest)?.send?.(event);},offer.catalogId==='from-below-1.0'),catalogId:offer.catalogId,chat:new RoomChat(),id:offer.id,invite:secret(),...(visibility==='public'?{code:offer.code}:{}),label:catalogEntry(offer.catalogId).title,visibility,host:session,fingerprint,intent,confirmed:true,created:this.now(),kicked:new Set()};
   this.offers.delete(offer.id);this.offers.set(replacementId,{id:replacementId,code:replacementCode,catalogId:offer.catalogId});
+  if(visibility==='unlisted')this.codes.delete(offer.code);
   this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room=room.id;session.heartbeat=this.now();this.publish(room);return {room:this.view(room,session)};
  }
  private reserve(session:Session,room:Room|undefined,intent:string,policy?:ConnectionPolicy):RoomData {
@@ -172,7 +173,7 @@ export class Rooms {
    case 'directory': {this.rate(session,'directory',20,60_000);session.directory=true;session.includeEmptyOffers=command.includeEmptyOffers===true;return {directory:this.directory(session)};}
    case 'lookupCode': {this.rate(session,'preview',20,60_000);const room=this.publicRoom(command.code),offer=this.publicOffer(session,command.code);if(!room&&!offer) throw new RoomError('room_unavailable');return {preview:room?this.preview(room):this.offerPreview(offer!)};}
    case 'joinCode': return this.reserve(session,this.publicRoom(command.code),command.intent,command.policy);
-   case 'claimCode': return this.claim(session,this.publicOffer(session,command.code),command.intent,command.fingerprint,command.policy);
+   case 'claimCode': return this.claim(session,this.publicOffer(session,command.code),command.intent,command.fingerprint,command.policy,command.visibility);
    case 'preview': { this.rate(session,'preview',20,60_000); const id = this.invites.get(command.invite), room = id && this.rooms.get(id); if(!room || !room.confirmed) throw new RoomError('room_unavailable'); return {preview:this.preview(room)}; }
    case 'create': {
     this.rate(session,'create',5,60_000);session.policy=command.policy??session.policy;

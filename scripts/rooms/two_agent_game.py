@@ -63,6 +63,9 @@ def verify():
     assert host["frames"] >= 200 and guest["frames"] >= 200
     assert guest["rom_argument_received"] is False
     assert guest["file_chooser_count"] == 0
+    assert host["store_verified_before_reload"] is True
+    assert host["saved_row_selected_after_reload"] is True
+    assert host["file_input_count_after_reload"] == 0
     assert host["remote_input_packets"] > 0 and guest["remote_input_packets"] > 0
     assert host["last_hash"] and host["last_hash"] == guest["last_hash"]
     assert host["controller_ram"] == guest["controller_ram"]
@@ -74,7 +77,7 @@ def verify():
                for role in ("host", "guest") for view in ("playing", "room"))
     result = {
         "result": "pass",
-        "claim": "A guest process without the host ROM path downloaded and played 200 synchronized frames",
+        "claim": "A reloaded saved library game reached 200 synchronized frames without a guest ROM path",
         "room_id": host["room_id"],
         "room_code": host["room_code"],
         "visibility": args.visibility,
@@ -85,6 +88,15 @@ def verify():
         "guest_received_inputs": guest["remote_input_packets"],
         "matching_paused_hash": host["last_hash"],
         "controller_ram": host["controller_ram"],
+        "store_verified_before_reload": host["store_verified_before_reload"],
+        "saved_row_selected_after_reload": host["saved_row_selected_after_reload"],
+        "file_input_count_after_reload": host["file_input_count_after_reload"],
+        "guest_rom_argument_received": guest["rom_argument_received"],
+        "guest_file_chooser_count": guest["file_chooser_count"],
+        "host_elapsed_seconds": host["elapsed_seconds"],
+        "guest_elapsed_seconds": guest["elapsed_seconds"],
+        "host_page_errors": host["page_errors"],
+        "guest_page_errors": guest["page_errors"],
         "host_screenshot": str(session / "host-playing.png"),
         "guest_screenshot": str(session / "guest-playing.png"),
         "host_room_screenshot": str(session / "host-room.png"),
@@ -180,12 +192,38 @@ with sync_playwright() as playwright:
         page.get_by_test_id("directory").wait_for(state="visible")
         file_choosers = []
         page.on("filechooser", lambda chooser: file_choosers.append(chooser))
+        store_verified_before_reload = False
+        saved_row_selected_after_reload = False
+        file_input_count_after_reload = None
 
         if args.role == "host":
-            page.get_by_label("Room access").select_option(args.visibility)
+            page.get_by_role("button", name="Create game", exact=True).click()
             page.set_input_files("input[type=file]", {
                 "name": "shared-game.nes", "mimeType": "application/octet-stream", "buffer": rom,
             })
+            page.get_by_text("Game saved in this browser.", exact=True).wait_for()
+            store_verified_before_reload = page.wait_for_function('''async ({hash,size})=>{
+              const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+              const record=await new Promise((resolve,reject)=>{const q=db.transaction('roms').objectStore('roms').get(hash);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
+              db.close();if(record?.sha256!==hash||record?.size!==size||record.bytes?.byteLength!==size||record.label!=='shared-game.nes')return false;
+              const digest=await crypto.subtle.digest('SHA-256',record.bytes);
+              return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('')===hash;
+            }''', arg={"hash": rom_hash, "size": len(rom)}, polling=50).json_value()
+            assert store_verified_before_reload
+            page.reload()
+            page.get_by_test_id("create-game").wait_for(state="visible")
+            file_input_count_after_reload = page.evaluate("document.querySelector('input[type=file]')?.files?.length")
+            assert file_input_count_after_reload == 0
+            saved_row = page.locator(".create-library li").filter(has_text="shared-game.nes")
+            saved_row.get_by_role("button").wait_for(state="visible")
+            assert "Saved" in saved_row.inner_text()
+            saved_row.get_by_role("button").click()
+            page.get_by_role("button", name="Create room", exact=True).wait_for()
+            page.wait_for_function("!document.querySelector('.create-actions button')?.disabled", polling=50)
+            assert page.locator(".create-options strong").inner_text() == "shared-game.nes"
+            saved_row_selected_after_reload = True
+            page.get_by_label("Room access").select_option(args.visibility)
+            page.get_by_role("button", name="Create room", exact=True).click()
             page.get_by_test_id("room-view").wait_for(state="attached")
             page.wait_for_function("proof.room?.role==='host'", polling=50)
             room = page.evaluate("proof.room")
@@ -286,6 +324,9 @@ with sync_playwright() as playwright:
             "page_errors": errors,
             "rom_argument_received": args.rom is not None,
             "file_chooser_count": len(file_choosers),
+            "store_verified_before_reload": store_verified_before_reload,
+            "saved_row_selected_after_reload": saved_row_selected_after_reload,
+            "file_input_count_after_reload": file_input_count_after_reload,
             "single_keyboard_resume_action": True,
             "back_to_game_focuses_canvas": True,
         }

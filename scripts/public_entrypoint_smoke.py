@@ -72,7 +72,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
         rows = host.locator(".room-list li")
         assert rows.filter(has_text="0/2 · Waiting for host").count() == 2
-        assert host.get_by_role("button", name="Choose NES file", exact=True).count() == 1
+        assert host.get_by_role("button", name="Create game", exact=True).count() == 1
         if screenshot_dir:
             screenshot_dir.mkdir(parents=True, exist_ok=True)
             host.screenshot(path=str(screenshot_dir / "directory.png"))
@@ -133,8 +133,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         fixture = ROOT / "apps/client/public/generated/diagnostic.nes"
         custom = browser.new_page(viewport={"width": 1280, "height": 800})
         custom.goto(url)
+        custom.get_by_role("button", name="Create game", exact=True).click()
         custom.get_by_label("Room access").select_option("unlisted")
         custom.set_input_files("input[type=file]", fixture)
+        custom.get_by_role("button", name="Create room", exact=True).click()
         custom.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         assert "Unlisted" in custom.locator("#room-heading").inner_text()
         assert custom.get_by_role("button", name="Leave room", exact=True).count() == 1
@@ -145,7 +147,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert custom.get_by_test_id("directory").is_visible()
         shared_host = browser.new_page()
         shared_host.goto(url)
+        shared_host.get_by_role("button", name="Create game", exact=True).click()
         shared_host.set_input_files("input[type=file]", fixture)
+        shared_host.get_by_role("button", name="Create room", exact=True).click()
         shared_host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         shared_code = shared_host.locator("#room-heading").inner_text().split(" · ")[-1]
         shared_guest = browser.new_page()
@@ -185,8 +189,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         failed_download.goto(url)
         failed_download.get_by_role("searchbox", name="Search room, game, host, or code").fill("Super Tilt Bro")
         failed_download.get_by_role("button", name="Join as host").first.click()
-        failed_download.get_by_role("button", name="Retry download").wait_for(timeout=15000)
-        assert "could not download. Retry download." in failed_download.get_by_test_id("included-status").inner_text()
+        failed_download.get_by_test_id("included-status").filter(has_text="could not download. Retry download.").wait_for(timeout=15000)
+        failed_download.get_by_role("button", name="Retry download").wait_for()
         assert failed_download.get_by_role("button", name="Choose local NES file").count() == 0
         if screenshot_dir:
             failed_download.screenshot(path=str(screenshot_dir / "included-download-failure.png"))
@@ -194,22 +198,130 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         failed_download.get_by_role("button", name="Retry download").click()
         failed_download.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)
         result["included_download_failure_and_retry"] = True
+        claim_retry = browser.new_page(viewport={"width": 1280, "height": 1050})
+        claim_retry.add_init_script("""(() => { const send = WebSocket.prototype.send;
+          WebSocket.prototype.send = function(data) { const command = JSON.parse(data);
+            if (command.type === 'claimCode' && !window.failedClaimInjected) {
+              window.failedClaimInjected = true; command.code = 'ZZZZZZZZ';
+              return send.call(this, JSON.stringify(command));
+            }
+            return send.call(this, data);
+          };
+        })();""")
+        claim_retry.goto(url)
+        claim_retry.get_by_role("button", name="Create game", exact=True).click()
+        claim_retry.locator(".create-library li").filter(has_text="Super Tilt Bro").get_by_role("button").click()
+        claim_retry.get_by_role("button", name="Create room", exact=True).wait_for()
+        claim_retry.get_by_role("button", name="Create room", exact=True).click()
+        claim_retry.get_by_text("Retry Create room or choose another game.", exact=False).wait_for(timeout=15000)
+        assert claim_retry.evaluate("failedClaimInjected") and claim_retry.get_by_test_id("room-view").count() == 0
+        assert claim_retry.get_by_text("Included offer ready:", exact=False).count() == 0
+        assert claim_retry.get_by_role("button", name="Create room", exact=True).is_enabled()
+        if screenshot_dir:
+            claim_retry.screenshot(path=str(screenshot_dir / "included-claim-failure.png"), full_page=True)
+        claim_retry.get_by_role("button", name="Create room", exact=True).click()
+        claim_retry.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
+        if screenshot_dir:
+            claim_retry.screenshot(path=str(screenshot_dir / "included-claim-retry-success.png"), full_page=True)
+        result["included_claim_failure_and_retry"] = True
+        for mode in ("add", "drop"):
+            changing = browser.new_page(viewport={"width": 1280, "height": 1050})
+            changing.add_init_script("""(() => { const Native = WebSocket;
+              window.WebSocket = class extends Native {
+                set onmessage(handler) { super.onmessage = event => {
+                  let message; try { message = JSON.parse(event.data); } catch {}
+                  if (message?.type === 'result' && message.ok && message.data?.room?.role === 'host' && message.data.room.catalogId && !window.releaseClaim) {
+                    window.heldInvite = message.data.room.invite;
+                    window.releaseClaim = () => { handler(event); window.claimReleased = true; };
+                  } else handler(event);
+                }; }
+              };
+            })();""")
+            changing.goto(url)
+            changing.get_by_role("button", name="Create game", exact=True).click()
+            changing.locator(".create-library li").filter(has_text="Super Tilt Bro").get_by_role("button").click()
+            changing.get_by_role("button", name="Create room", exact=True).click()
+            changing.wait_for_function("typeof releaseClaim === 'function'", timeout=15000)
+            new_name = f"{mode}-new.nes"
+            if mode == "add":
+                with changing.expect_file_chooser() as chooser:
+                    changing.get_by_role("button", name="Add NES file", exact=True).click()
+                chooser.value.set_files({"name": new_name, "mimeType": "application/octet-stream", "buffer": fixture.read_bytes()})
+            else:
+                import base64
+                changing.locator(".create-library").evaluate("(node, value) => { const bytes = Uint8Array.from(atob(value), char => char.charCodeAt(0)); const transfer = new DataTransfer(); transfer.items.add(new File([bytes], 'drop-new.nes', {type:'application/octet-stream'})); node.dispatchEvent(new DragEvent('drop', {bubbles:true,cancelable:true,dataTransfer:transfer})); }", base64.b64encode(fixture.read_bytes()).decode())
+            changing.wait_for_function("name => document.querySelector('.create-options strong')?.textContent === name && !document.querySelector('.create-actions button')?.disabled", arg=new_name, timeout=15000)
+            if screenshot_dir and mode == "add":
+                changing.screenshot(path=str(screenshot_dir / "claim-superseded-add.png"), full_page=True)
+            if mode == "add":
+                changing.get_by_role("button", name="Create room", exact=True).click()
+                changing.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
+                newer_invite = changing.get_by_label("Room invitation", exact=True).input_value()
+                assert newer_invite != changing.evaluate("heldInvite")
+            changing.evaluate("releaseClaim()")
+            changing.wait_for_function("claimReleased")
+            changing.wait_for_timeout(300)
+            assert changing.locator('.release-notice').count() == 0
+            if mode == "add":
+                assert changing.get_by_test_id("room-view").count() == 1
+                assert changing.get_by_label("Room invitation", exact=True).input_value() == newer_invite
+                assert __import__('hashlib').sha256(fixture.read_bytes()).hexdigest() in changing.get_by_test_id("fingerprint").text_content()
+            else:
+                assert changing.get_by_test_id("room-view").count() == 0
+                assert changing.get_by_test_id("create-game").is_visible()
+                assert changing.locator(".create-options strong").inner_text() == new_name
+                if screenshot_dir:
+                    changing.screenshot(path=str(screenshot_dir / "claim-superseded-drop.png"), full_page=True)
+            observer = browser.new_page()
+            observer.goto(url + "#invite=" + changing.evaluate("heldInvite"))
+            observer.get_by_test_id("room-status").filter(has_text="closed, unavailable").wait_for(timeout=15000)
+            observer.close()
+            changing.close()
+        result["included_claim_superseded_by_add_and_drop"] = True
         offline = browser.new_page()
         offline.add_init_script("""window.nativeRoomsSocket=WebSocket;
           window.WebSocket=function(){throw Error('Rooms temporarily offline')};""")
         offline.goto(url)
+        offline.get_by_role("button", name="Create game", exact=True).click()
         offline.set_input_files("input[type=file]", fixture)
-        offline.get_by_role("button", name="Retry upload").wait_for(timeout=15000)
-        assert offline.get_by_role("button", name="Choose NES file", exact=True).is_visible()
+        offline.get_by_role("button", name="Create room", exact=True).click()
+        offline.get_by_text("Rooms temporarily offline", exact=False).wait_for(timeout=15000)
+        assert offline.get_by_role("button", name="Add NES file", exact=True).is_visible()
         offline.evaluate("()=>{window.WebSocket=window.nativeRoomsSocket}")
-        offline.get_by_role("button", name="Retry upload").click()
+        offline.get_by_role("button", name="Create room", exact=True).click()
         offline.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         result["room_creation_failure_and_retry"] = True
+        recovering = browser.new_page(viewport={"width": 1280, "height": 1050})
+        recovering.route("**/rooms/*/rom", lambda route: route.abort())
+        recovering.goto(url)
+        recovering.get_by_role("button", name="Create game", exact=True).click()
+        recovering.set_input_files("input[type=file]", fixture)
+        recovering.get_by_role("button", name="Create room", exact=True).click()
+        feedback = recovering.locator('.create-options p[aria-live="polite"]')
+        feedback.filter(has_text="Upload connection failed").wait_for(timeout=15000)
+        assert recovering.get_by_test_id("room-view").count() == 0
+        recovering.set_input_files("input[type=file]", {"name": "invalid-after-upload.nes", "mimeType": "application/octet-stream", "buffer": b"invalid"})
+        feedback.filter(has_text="NES").wait_for(timeout=15000)
+        assert "Upload connection failed" not in feedback.inner_text()
+        assert recovering.get_by_test_id("room-view").count() == 0
+        if screenshot_dir:
+            recovering.screenshot(path=str(screenshot_dir / "upload-failure-new-invalid.png"), full_page=True)
+        saved_hash = __import__('hashlib').sha256(fixture.read_bytes()).hexdigest()
+        recovering.locator(".create-library li").filter(has_text=fixture.name).get_by_role("button").wait_for()
+        recovering.evaluate("hash => new Promise((resolve, reject) => { const request = indexedDB.open('retro-coop-local'); request.onerror = () => reject(request.error); request.onsuccess = () => { const db = request.result; const tx = db.transaction('roms','readwrite'); tx.objectStore('roms').delete(hash); tx.oncomplete = () => { db.close(); resolve(); }; tx.onerror = () => reject(tx.error); }; })", saved_hash)
+        recovering.locator(".create-library li").filter(has_text=fixture.name).get_by_role("button").click()
+        feedback.filter(has_text="saved game is missing or damaged").wait_for(timeout=15000)
+        assert "Upload connection failed" not in feedback.inner_text()
+        assert recovering.get_by_test_id("room-view").count() == 0
+        if screenshot_dir:
+            recovering.screenshot(path=str(screenshot_dir / "upload-failure-missing-saved.png"), full_page=True)
+        result["upload_failure_followed_by_new_selection_errors"] = True
         invalid = browser.new_page()
         invalid.goto(url)
+        invalid.get_by_role("button", name="Create game", exact=True).click()
         invalid.set_input_files("input[type=file]", {"name": "bad.nes", "mimeType": "application/octet-stream", "buffer": b"invalid"})
-        invalid.locator(".selection-status").wait_for()
-        assert invalid.get_by_role("button", name="Choose NES file", exact=True).is_visible()
+        invalid.get_by_role("button", name="Add NES file", exact=True).wait_for()
+        assert invalid.get_by_role("button", name="Create room", exact=True).is_disabled()
         result["invalid_file_recovery"] = True
         browser.close()
     return result
@@ -311,7 +423,8 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             }
             assert old_status == coordinator_status == source_status == 200
             assert b'/src/main.tsx' in home and b'/src/main.tsx' in old_route
-            assert b"Host your NES file" in source and b"Join as host" in (ROOT / "apps/client/src/DirectoryPanel.tsx").read_bytes()
+            directory = (ROOT / "apps/client/src/DirectoryPanel.tsx").read_bytes()
+            assert b"onCreate" in source and b"Create game" in directory and b"Join as host" in directory
             assert b"GOOD GAMES" not in old_route and b"Make yourself at home" not in old_route
             assert catalog == {"super_tilt_bro": 200, "from_below": 200}
             assert json.loads(health)["status"] == "ok"

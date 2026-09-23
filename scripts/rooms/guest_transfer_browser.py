@@ -25,7 +25,9 @@ with sync_playwright() as playwright:
     for page in (host, guest):
         page.on('pageerror', lambda error: errors.append(str(error)))
         page.goto(args.url)
+    host.get_by_role('button', name='Create game', exact=True).click()
     host.set_input_files('input[type=file]', {'name': 'diagnostic.nes', 'mimeType': 'application/octet-stream', 'buffer': rom})
+    host.get_by_role('button', name='Create room', exact=True).click()
     host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
     code = host.locator('#room-heading').inner_text().split(' · ')[-1]
     guest.get_by_role('searchbox').fill(code)

@@ -28,40 +28,79 @@ def fixture():
 parser = argparse.ArgumentParser()
 parser.add_argument('--url', required=True)
 parser.add_argument('--screenshot', type=Path)
+parser.add_argument('--narrow-screenshot', type=Path)
+parser.add_argument('--narrow-preview-screenshot', type=Path)
+parser.add_argument('--narrow-bottom-screenshot', type=Path)
+parser.add_argument('--keyboard-screenshot', type=Path)
+parser.add_argument('--fallback-screenshot', type=Path)
 args = parser.parse_args()
 with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
     rom = Path(directory) / 'original-preview.nes'
     rom.write_bytes(fixture())
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        page = browser.new_page(viewport={'width': 1280, 'height': 800})
+        page = browser.new_page(viewport={'width': 1280, 'height': 1050})
         page.goto(args.url)
+        page.get_by_role('button', name='Create game', exact=True).click()
         page.set_input_files('input[type=file]', str(rom))
-        page.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
-        page.get_by_role('button', name='Start game', exact=True).click()
+        page.get_by_role('button', name='Play locally', exact=True).click()
+        page.get_by_role('button', name='Resume', exact=True).click()
         page.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=90", timeout=30000)
-        if args.screenshot: page.screenshot(path=str(args.screenshot), full_page=True)
-        proof = page.evaluate('''async()=>{
+        diagnostic = page.evaluate('''async()=>{
           const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
           const rows=await new Promise((resolve,reject)=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});db.close();
-          const preview=rows[0]?.preview;const image=new Image();image.src=preview;await image.decode();
-          const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;const context=canvas.getContext('2d');context.drawImage(image,0,0);
-          const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;let min=255,max=0;
-          for(let i=0;i<pixels.length;i+=4){const y=Math.round((pixels[i]+pixels[i+1]+pixels[i+2])/3);min=Math.min(min,y);max=Math.max(max,y)}
-          const thumbnail=[];for(let row=0;row<12;row++){let line='';for(let col=0;col<32;col++){const i=(row*canvas.width+col)*4;line+=(pixels[i]+pixels[i+1]+pixels[i+2])/3>68?'#':'.'}thumbnail.push(line)}
-          const {previewDisplay,validPreview}=await import('/src/rom-library.ts');
+          const {capturePreview,previewDisplay,validPreview}=await import('/src/rom-library.ts');
+          const checker=document.createElement('canvas');checker.width=256;checker.height=240;const context=checker.getContext('2d');
+          for(let y=0;y<240;y++)for(let x=0;x<256;x++){context.fillStyle=(x+y)%2?'#000':'#fff';context.fillRect(x,y,1,1)}
+          const averaged=await capturePreview(checker);
+          const nearUniform=document.createElement('canvas');nearUniform.width=128;nearUniform.height=120;const flat=nearUniform.getContext('2d');flat.fillStyle='#818181';flat.fillRect(0,0,128,120);flat.fillStyle='#fff';flat.fillRect(0,0,1,1);
+          const nearUniformUrl=nearUniform.toDataURL('image/webp',0.5);
           const fake=new Uint8Array(30);fake.set(new TextEncoder().encode('RIFF'),0);fake[4]=22;fake.set(new TextEncoder().encode('WEBPVP8X'),8);fake[24]=127;fake[27]=119;
           const fakeUrl='data:image/webp;base64,'+btoa(String.fromCharCode(...fake));
           const fakeImage=new Image();fakeImage.src=fakeUrl;try{await fakeImage.decode()}catch{}
-          return {recordCount:rows.length,sha256:rows[0]?.sha256,size:rows[0]?.size,previewLength:preview?.length??0,previewWidth:image.naturalWidth,previewHeight:image.naturalHeight,previewMin:min,previewMax:max,thumbnail,syntheticHeaderAccepted:validPreview(fakeUrl),syntheticNaturalWidth:fakeImage.naturalWidth,syntheticFallback:await previewDisplay({label:'Broken',preview:fakeUrl})};
+          return {recordCount:rows.length,size:rows[0]?.size,diagnosticPreview:rows[0]?.preview??null,sourceCheckerRejected:averaged===undefined,nearUniformHeaderAccepted:validPreview(nearUniformUrl),nearUniformFallback:await previewDisplay({label:'Near uniform',preview:nearUniformUrl}),syntheticHeaderAccepted:validPreview(fakeUrl),syntheticNaturalWidth:fakeImage.naturalWidth,syntheticFallback:await previewDisplay({label:'Broken',preview:fakeUrl})};
         }''')
-        assert proof['recordCount'] == 1 and proof['size'] == len(fixture()), proof
-        assert proof['previewLength'] < 32000 and proof['previewWidth'] == 128 and proof['previewHeight'] == 120, proof
-        assert proof['previewMax'] - proof['previewMin'] >= 12, proof
-        assert proof['syntheticHeaderAccepted'] and proof['syntheticNaturalWidth'] == 0, proof
-        assert proof['syntheticFallback'] == {'text': 'No preview yet.'}, proof
-        page.reload()
-        count = page.evaluate('''async()=>{const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const q=await new Promise(r=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>r(q.result)});db.close();return q.length}''')
-        assert count == 1
-        print(json.dumps({'result': 'pass', **proof, 'afterReloadRows': count}))
+        assert diagnostic['recordCount'] == 1 and diagnostic['size'] == len(fixture()), diagnostic
+        assert diagnostic['diagnosticPreview'] is None and diagnostic['sourceCheckerRejected'], diagnostic
+        assert diagnostic['nearUniformHeaderAccepted'] and diagnostic['nearUniformFallback'] == {'text':'No preview yet.'}, diagnostic
+        assert diagnostic['syntheticHeaderAccepted'] and diagnostic['syntheticNaturalWidth'] == 0 and diagnostic['syntheticFallback'] == {'text':'No preview yet.'}, diagnostic
+        page.get_by_role('button',name='Public rooms',exact=True).click()
+        page.get_by_role('button',name='Create game',exact=True).click()
+        page.get_by_text('No preview yet.',exact=True).wait_for()
+        if args.fallback_screenshot: page.screenshot(path=str(args.fallback_screenshot),full_page=True)
+        page.locator('.create-library li').filter(has_text='Super Tilt Bro').get_by_role('button').click()
+        page.get_by_role('button',name='Play locally',exact=True).click()
+        page.get_by_role('button',name='Resume',exact=True).click()
+        page.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=180", timeout=30000)
+        page.wait_for_function('''async()=>{const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const rows=await new Promise(r=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>r(q.result)});db.close();return rows.some(row=>row.label==='Super Tilt Bro'&&row.preview)}''', timeout=30000)
+        page.evaluate('''async()=>{const canvas=document.createElement('canvas');canvas.width=128;canvas.height=120;const context=canvas.getContext('2d');context.fillStyle='#818181';context.fillRect(0,0,128,120);context.fillStyle='#fff';context.fillRect(0,0,1,1);const preview=canvas.toDataURL('image/webp',0.5);const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const tx=db.transaction('roms','readwrite'),store=tx.objectStore('roms');const rows=await new Promise(r=>{const q=store.getAll();q.onsuccess=()=>r(q.result)});const diagnostic=rows.find(row=>row.label==='original-preview.nes');store.put({...diagnostic,preview,lastUsedAt:Date.now()+10000});await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()}''')
+        page.get_by_role('button',name='Public rooms',exact=True).click()
+        page.get_by_role('button',name='Create game',exact=True).click()
+        page.wait_for_function("document.querySelector('.create-preview img')?.naturalWidth===128",timeout=15000)
+        page.locator('.create-library li').filter(has_text='Super Tilt Bro').get_by_role('button').click()
+        page.wait_for_function("!document.querySelector('.create-actions button')?.disabled",timeout=15000)
+        if args.screenshot: page.screenshot(path=str(args.screenshot),full_page=True)
+        result=page.evaluate('''async()=>{const image=document.querySelector('.create-preview img');const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const rows=await new Promise(r=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>r(q.result)});db.close();return {previewWidth:image.naturalWidth,previewHeight:image.naturalHeight,previewAlt:image.alt,storedRows:rows.length,storedPreviewLength:rows.find(row=>row.preview===image.src)?.preview?.length??0,selected:document.querySelector('.create-options strong')?.textContent,noRoom:!document.querySelector('[data-testid=room-view]')}}''')
+        assert result['previewWidth']==128 and result['previewHeight']==120 and result['storedPreviewLength']>0 and result['selected']=='Super Tilt Bro' and result['noRoom'],result
+        if args.narrow_screenshot:
+            page.set_viewport_size({'width':390,'height':700})
+            page.locator('.create-game').evaluate('(node)=>node.scrollTop=0')
+            page.screenshot(path=str(args.narrow_screenshot),full_page=True)
+            result['narrowNoOverflow']=page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            assert result['narrowNoOverflow'],result
+            if args.narrow_preview_screenshot:
+                page.locator('.create-preview').scroll_into_view_if_needed()
+                page.screenshot(path=str(args.narrow_preview_screenshot),full_page=True)
+            if args.narrow_bottom_screenshot:
+                page.locator('.create-game').evaluate('(node)=>node.scrollTop=node.scrollHeight')
+                page.screenshot(path=str(args.narrow_bottom_screenshot),full_page=True)
+            page.set_viewport_size({'width':1280,'height':1050})
+        if args.keyboard_screenshot:
+            page.get_by_role('button',name='Create room',exact=True).focus()
+            page.keyboard.press('Shift+Tab')
+            page.keyboard.press('Tab')
+            result['keyboardFocus']=page.evaluate("document.activeElement?.textContent?.trim()==='Create room'")
+            assert result['keyboardFocus'],result
+            page.screenshot(path=str(args.keyboard_screenshot),full_page=True)
+        print(json.dumps({'result':'pass','diagnostic':diagnostic,'meaningful':result}))
         browser.close()

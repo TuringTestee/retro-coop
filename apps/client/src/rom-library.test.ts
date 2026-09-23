@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import 'fake-indexeddb/auto';
 import {clearLocalData,deleteRom,listRoms,putRom,readRom} from './saves.ts';
-import {candidateStillStored,entry,gameLibrary,libraryEntries,previewDisplay,rememberImport,savedCandidate,validPreview,verifiedSavedFile} from './rom-library.ts';
+import {candidateStillStored,entry,gameLibrary,libraryEntries,meaningfulPreviewPixels,previewDisplay,rememberImport,savedCandidate,validPreview,verifiedSavedFile} from './rom-library.ts';
 
 const bytes=Uint8Array.from({length:16+16384},(_,i)=>i<4?[0x4e,0x45,0x53,0x1a][i]:i===4?1:0);
 const hash=createHash('sha256').update(bytes).digest('hex');
@@ -61,7 +61,18 @@ test('stored preview and label are bounded for display',async()=>{
  assert.deepEqual(await previewDisplay(row),{text:'No preview yet.'});
  const plausible=entry({sha256:hash,bytes:bytes.buffer,size:bytes.length,savedAt:12,preview:image});
  assert.deepEqual(await previewDisplay(plausible,async()=>{throw Error('Chromium cannot decode this image');}),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:0,height:0})),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:129,height:120})),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:128,height:120})),{image,alt:'Recent game preview: NES game'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:0,height:0,usable:true})),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:129,height:120,usable:true})),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:128,height:120,usable:false})),{text:'No preview yet.'});
+ assert.deepEqual(await previewDisplay(plausible,async()=>({width:128,height:120,usable:true})),{image,alt:'Recent game preview: NES game'});
+});
+test('final thumbnail needs visible structure, not one contrasting pixel',()=>{
+ const pixels=new Uint8ClampedArray(128*120*4);
+ for(let i=0;i<pixels.length;i+=4){pixels[i]=pixels[i+1]=pixels[i+2]=129;pixels[i+3]=255;}
+ assert.equal(meaningfulPreviewPixels(pixels),false);
+ pixels[0]=255;assert.equal(meaningfulPreviewPixels(pixels),false);
+ for(let y=0;y<120;y++)for(let x=0;x<8;x++)pixels[(y*128+x)*4]=7;
+ assert.equal(meaningfulPreviewPixels(pixels),false);
+ for(let y=20;y<100;y++)for(let x=48;x<56;x++)pixels[(y*128+x)*4]=255;
+ assert.equal(meaningfulPreviewPixels(pixels),true);
 });

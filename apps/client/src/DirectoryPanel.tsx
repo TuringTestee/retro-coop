@@ -17,7 +17,7 @@ function roomState(room:RoomPreview) {
  return '1/2 · Waiting for guest';
 }
 
-export function DirectoryPanel({state,onJoin,onClaim,onRetry,connection}:{state:RoomState;connection?:ReactNode;onJoin:(code:string)=>void;onClaim:(code:string,id:CatalogId)=>void;onRetry:()=>void}) {
+export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection}:{state:RoomState;connection?:ReactNode;onCreate:()=>void;onJoin:(code:string)=>void;onClaim:(code:string,id:CatalogId)=>void;onRetry:()=>void}) {
  const[query,setQuery]=useState(''),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(()=>innerHeight<700?2:innerHeight<820?3:4);
  const search=useRef<HTMLInputElement>(null),focusedRoom=useRef<string|undefined>(undefined);
  useEffect(()=>{const resize=()=>setPageSize(innerHeight<700?2:innerHeight<820?3:4);visualViewport?.addEventListener('resize',resize);addEventListener('resize',resize);return()=>{visualViewport?.removeEventListener('resize',resize);removeEventListener('resize',resize);};},[]);
@@ -25,7 +25,7 @@ export function DirectoryPanel({state,onJoin,onClaim,onRetry,connection}:{state:
  useLayoutEffect(()=>{const next=clampPage(page,rooms.length,pageSize);if(next!==page)setPage(next);if(focusedRoom.current&&!rooms.some(room=>room.id===focusedRoom.current)){search.current?.focus();focusedRoom.current=undefined;}else if(focusedRoom.current&&document.activeElement===document.body)document.querySelector<HTMLElement>(`[data-room-id="${CSS.escape(focusedRoom.current)}"]`)?.focus();},[rooms,page,pageSize]);
  const move=(next:number)=>{setPage(next);requestAnimationFrame(()=>document.querySelector<HTMLElement>('.room-list [data-room-id]')?.focus());};
  return <section className="directory-panel" aria-labelledby="directory-heading" data-testid="directory">
-  <div className="directory-title"><h2 id="directory-heading">Public rooms</h2><span role="status">{live?'Live':state.directoryStatus==='stale'?'Connection lost':'Loading…'}</span></div>
+  <div className="directory-title"><h2 id="directory-heading">Public rooms</h2><span role="status">{live?'Live':state.directoryStatus==='stale'?'Connection lost':'Loading…'}</span><button onClick={onCreate} disabled={!!state.room}>Create game</button></div>
   {connection}
   <label>Search room, game, host, or code <input ref={search} type="search" value={query} maxLength={80} onChange={event=>{setQuery(event.target.value);setPage(0);}} onFocus={()=>{focusedRoom.current=undefined;}}/></label>
   {query&&<button onClick={()=>{setQuery('');setPage(0);search.current?.focus();}}>Clear search</button>}

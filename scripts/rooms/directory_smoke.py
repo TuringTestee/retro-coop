@@ -39,13 +39,15 @@ try:
             return session
         viewer = page()
         viewer.get_by_text('No public rooms right now.', exact=True).wait_for()
-        chooser = viewer.get_by_role('button', name='Choose NES file', exact=True)
+        chooser = viewer.get_by_role('button', name='Create game', exact=True)
         chooser.focus()
         assert chooser.evaluate('(node)=>node===document.activeElement')
         hosts = [page(), page()]
         codes = []
         for host in hosts:
+            host.get_by_role('button', name='Create game', exact=True).click()
             host.set_input_files('input[type=file]', {'name': 'PRIVATE-DIRECTORY-GAME.nes', 'mimeType': 'application/octet-stream', 'buffer': rom})
+            host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for()
             settings = session_settings(host)
             settings.get_by_label('Room name', exact=True).fill('Duplicate Arcade')
@@ -78,7 +80,7 @@ try:
         assert observed.get_by_role('button', name='Join', exact=True).count() == 0
         assert 'Host-shared NES' in observed.inner_text()
         viewer.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
-        viewer.wait_for_function("proof.room?.matches===true")
+        viewer.get_by_test_id('room-view').get_by_text('Game verified. Preparing the shared-play connection.', exact=False).wait_for(state='attached')
         viewer.get_by_role('button', name='Leave room', exact=True).click()
         viewer.locator('.room-panel').wait_for(state='detached')
         observer.get_by_role('button', name='Join', exact=True).wait_for()
@@ -101,7 +103,7 @@ try:
         public = [event['rooms'] for event in received if event.get('type') == 'directory']
         public += [event['data']['directory'] for event in received if event.get('type') == 'result' and event.get('ok') and 'directory' in event['data']]
         assert public
-        allowed = {'id', 'label', 'host', 'visibility', 'code', 'status', 'occupancy', 'catalogId'}
+        allowed = {'id', 'label', 'host', 'visibility', 'code', 'status', 'occupancy', 'catalogId', 'romBytes'}
         assert all(set(room) <= allowed and room['visibility'] == 'public' for snapshot in public for room in snapshot)
         assert not any('PRIVATE-DIRECTORY' in json.dumps(frame) for frame in sent)
         result = {'result': 'pass', 'duplicate_codes': codes, 'search_and_live_focus': True, 'reserved_room_has_no_join': True, 'exact_guest_file': True, 'unlisted_removed': True, 'stale_rows_have_no_actions_and_retry': True, 'metadata_only': True, 'private_filenames_not_sent': True, 'page_errors': errors, 'elapsedSeconds': round(time.monotonic() - started, 2)}
