@@ -51,11 +51,13 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     # Headless Chromium disables real background throttling. Clamp its window
     # timers to Chrome's documented background cadence while keeping audio worklet
     # callbacks live; the game must advance without relying on window timers.
-    throttle_tab = """() => {
+    throttle_window = """() => {
       const timeout = window.setTimeout, interval = window.setInterval;
       window.setTimeout = (fn, ms, ...args) => timeout(fn, Math.max(ms ?? 0, 1000), ...args);
       window.setInterval = (fn, ms, ...args) => interval(fn, Math.max(ms ?? 0, 1000), ...args);
       window.requestAnimationFrame = () => 0;
+    }"""
+    hide_tab = """() => {
       Object.defineProperty(document, 'hidden', {configurable: true, value: true});
       window.dispatchEvent(new Event('blur'));
       document.dispatchEvent(new Event('visibilitychange'));
@@ -107,6 +109,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.get_by_role("button", name="Prepare to play", exact=True).click()
         guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).wait_for(timeout=30000)
         host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=30000)
+        if screenshot_dir:
+            guest.screenshot(path=str(screenshot_dir / "guest-ready.png"))
+            host.screenshot(path=str(screenshot_dir / "host-ready.png"))
         result["duplicate_tab_guest_ready_visible_to_host"] = True
         result["included_claim_replenish_join_chat"] = True
         guest.get_by_role("button", name="Leave room", exact=True).click()
@@ -116,8 +121,12 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10", timeout=30000)
         result["host_start_solo_after_guest_left"] = True
         solo_before = int(host.get_by_test_id("frames").inner_text().split(" ")[0])
-        host.evaluate(throttle_tab)
+        host.evaluate(throttle_window)
+        assert not host.evaluate("document.hidden")
         host.wait_for_function("frames => Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>frames+60", arg=solo_before, timeout=5000)
+        occluded_before = int(host.get_by_test_id("frames").inner_text().split(" ")[0])
+        host.evaluate(hide_tab)
+        host.wait_for_function("frames => Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>frames+60", arg=occluded_before, timeout=5000)
         assert host.get_by_test_id("player-status").inner_text().startswith("Playing locally")
         result["tab_switch_keeps_local_play_running"] = True
         fixture = ROOT / "apps/client/public/generated/diagnostic.nes"
@@ -156,6 +165,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         shared_guest.set_input_files("input[type=file]", {"name": "wrong.nes", "mimeType": "application/octet-stream", "buffer": fixture.read_bytes() + b"different identity"})
         shared_host.get_by_text("Guest is still preparing.", exact=False).wait_for(timeout=15000)
         assert shared_guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).count() == 0
+        if screenshot_dir:
+            shared_guest.screenshot(path=str(screenshot_dir / "guest-file-changed.png"))
+            shared_host.screenshot(path=str(screenshot_dir / "host-unready.png"))
         shared_guest.set_input_files("input[type=file]", fixture)
         shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
         shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
@@ -165,7 +177,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             tab.wait_for_function("Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>10", timeout=30000)
         before_switch = int(shared_host.get_by_test_id("game-frame").inner_text().split(" ")[0])
         guest_before_switch = int(shared_guest.get_by_test_id("game-frame").inner_text().split(" ")[0])
-        shared_host.evaluate(throttle_tab)
+        shared_host.evaluate(throttle_window)
+        shared_host.evaluate(hide_tab)
         for tab, before in ((shared_host, before_switch), (shared_guest, guest_before_switch)):
             tab.wait_for_function("frames => Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>frames+60", arg=before, timeout=15000)
             tab.wait_for_function("document.querySelector('[data-testid=game-status]')?.textContent === 'Playing together.'", timeout=5000)

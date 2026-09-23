@@ -245,7 +245,7 @@ export class LocalPlayer {
   void context.audioWorklet.addModule(new URL('./background-clock.js',import.meta.url)).then(()=>{
    if(this.disposed||this.context!==context)return;
    const clock=new AudioWorkletNode(context,'retro-coop-background-clock',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
-   clock.port.onmessage=()=>{if(!document.hidden||!this.state.running)return;const now=performance.now();if(this.game)this.pumpGame();else this.stepLocal(now);};
+   clock.port.onmessage=()=>{if(!this.state.running)return;const now=performance.now();if(this.game)this.pumpGame();else this.stepLocal(now);};
    clock.connect(this.gain!);this.backgroundClock=clock;this.backgroundClockFailed=false;if(context.state==='running')this.publish({audioIssue:undefined});
   }).catch(()=>{if(!this.disposed){this.backgroundClockFailed=true;this.publish({audioIssue:'Background play may slow because the audio clock is unavailable. Retry sound or keep this tab active.'});}}).finally(()=>{this.backgroundClockStarting=false;});
  }
