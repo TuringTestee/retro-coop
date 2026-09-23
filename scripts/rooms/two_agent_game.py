@@ -193,7 +193,7 @@ with sync_playwright() as playwright:
                 timeout=30000,
                 polling=50,
             )
-            page.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for()
+            page.get_by_text("Guest is prepared. Start together when you are ready.", exact=True).wait_for()
             page.get_by_role("button", name="Start game", exact=True).click()
         else:
             expected = wait_for("host-ready.json")
@@ -206,7 +206,7 @@ with sync_playwright() as playwright:
             page.get_by_test_id("room-view").wait_for(state="attached")
             page.wait_for_function("proof.room?.role==='guest'", polling=50)
             assert page.evaluate("proof.room.id") == expected["room_id"]
-            page.set_input_files("input[type=file]", selection)
+            page.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30000)
             page.wait_for_function("proof.room?.matches===true", timeout=30000, polling=50)
             page.get_by_role("button", name="Prepare to play", exact=True).click()
             save("guest-ready.json", {"room_id": expected["room_id"], "rom_sha256": rom_hash})

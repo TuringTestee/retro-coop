@@ -27,7 +27,7 @@ The approved [room game download amendment](room-rom-transfer.md) supersedes thi
 
 ## Reviewable screens and iterations
 
-The [current page-by-page ASCII wireframe](lobby-wireframe-v3.md) shows directory, direct local-file hosting, host/guest room, play, and in-place recovery. Its [earlier iterations](lobby-wireframe-v1.md), [v2](lobby-wireframe-v2.md), and [page critiques](lobby-critique-v1.md) show why labels and states changed; the [earlier lobby proposal](lobby-browser-proposal.md) remains a previous iteration. The five most recent iterations are retained; superseded older drafts can be removed without deleting an approved baseline or source evidence.
+The [current page-by-page ASCII wireframe](lobby-wireframe-v6.md) shows directory, direct local-file hosting, host/guest room, play, and in-place recovery. Its [earlier iterations](lobby-wireframe-v2.md), [v3](lobby-wireframe-v3.md), and [page critiques](lobby-critique-v5.md) show why labels and states changed; the [earlier lobby proposal](lobby-browser-proposal.md) remains a previous iteration. The five most recent iterations are retained; superseded older drafts can be removed without deleting an approved baseline or source evidence.
 
 The current wireframe has a six-rule design check. It is a proposal, not proof of rendered usability, accessibility, network behavior, or successful gameplay. Implementation acceptance must inspect the real product in independent browsers.
 

@@ -118,7 +118,7 @@ test('CLI presents exact action and cancellation leaves target connected',async(
 });
 test('actual coordinator entry point enables only private operator socket and shuts it down',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'retro-operator-entry-'));await chmod(directory,0o700);
- const child=spawn(process.execPath,['apps/coordinator/src/main.ts'],{env:{...process.env,COORDINATOR_STAGE:'local',COORDINATOR_PORT:'0',COORDINATOR_HOST:'127.0.0.1',COORDINATOR_OPERATOR_DIR:directory,COORDINATOR_TRUSTED_PROXIES:'',TURN_URLS:'',TURN_SECRET:''},stdio:['ignore','pipe','pipe']});
+ const child=spawn(process.execPath,['apps/coordinator/src/main.ts'],{env:{...process.env,COORDINATOR_STAGE:'local',COORDINATOR_PORT:'0',COORDINATOR_HOST:'127.0.0.1',COORDINATOR_OPERATOR_DIR:directory,COORDINATOR_ROM_DIR:join(directory,'roms'),COORDINATOR_TRUSTED_PROXIES:'',TURN_URLS:'',TURN_SECRET:''},stdio:['ignore','pipe','pipe']});
  const timer=setTimeout(()=>child.kill('SIGKILL'),5000);
  try {
   const output=String((await once(child.stdout,'data'))[0]),startup=JSON.parse(output);

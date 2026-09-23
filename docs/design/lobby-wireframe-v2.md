@@ -4,7 +4,7 @@ Audience: Human
 
 # Prior lobby UI design: ASCII wireframe v2
 
-**Status:** Superseded by [v3](lobby-wireframe-v3.md), kept as an iteration record. It was never implemented or approved production behavior. This version followed the [reference study](lobby-references-v2.md), [direction](lobby-server-rooms-direction.md), [journeys](lobby-journeys-v2.md), [scenarios](lobby-scenarios-v2.md), and [v1 critique](lobby-critique-v1.md). [V1](lobby-wireframe-v1.md) and the [earlier proposal](lobby-browser-proposal.md) remain available as earlier iterations.
+**Status:** Superseded by [v3](lobby-wireframe-v3.md), kept as an iteration record. It was never implemented or approved production behavior. This version followed the [reference study](lobby-references-v2.md), [direction](lobby-server-rooms-direction.md), [journeys](lobby-journeys-v2.md), [scenarios](lobby-scenarios-v2.md), The first draft and its critique were pruned when v6 became current; the [earlier proposal](lobby-browser-proposal.md) remains as source context.
 
 ## Design principles and review checks
 

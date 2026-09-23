@@ -108,7 +108,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_text("Ready when you are", exact=True).wait_for(timeout=15000)
         guest.get_by_role("button", name="Prepare to play", exact=True).click()
         guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).wait_for(timeout=30000)
-        host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=30000)
+        host.get_by_text("Guest is prepared. Start together when you are ready.", exact=True).wait_for(timeout=30000)
         if screenshot_dir:
             guest.screenshot(path=str(screenshot_dir / "guest-ready.png"))
             host.screenshot(path=str(screenshot_dir / "host-ready.png"))
@@ -151,26 +151,15 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         shared_guest.goto(url)
         shared_guest.get_by_role("searchbox", name="Search room, game, host, or code").fill(shared_code)
         shared_row = shared_guest.locator(".room-list li").filter(has_text=shared_code)
-        assert "Bring matching NES file" in shared_row.inner_text()
+        assert "Host-shared NES" in shared_row.inner_text()
+        file_choosers = []
+        shared_guest.on("filechooser", lambda chooser: file_choosers.append(chooser))
         shared_row.get_by_role("button", name="Join", exact=True).click()
-        shared_guest.get_by_role("button", name="Choose matching NES file").wait_for()
-        shared_guest.set_input_files("input[type=file]", {"name": "wrong.nes", "mimeType": "application/octet-stream", "buffer": fixture.read_bytes() + b"different identity"})
-        shared_guest.get_by_text("That file does not match this room.", exact=False).wait_for(timeout=15000)
-        assert shared_guest.get_by_role("button", name="Choose matching NES file").is_visible()
-        shared_guest.set_input_files("input[type=file]", fixture)
-        shared_host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')", timeout=15000)
-        assert shared_host.get_by_text("Guest is still preparing.", exact=False).is_visible()
+        shared_guest.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30000)
+        assert not file_choosers
+        assert shared_guest.get_by_role("button", name="Choose matching NES file").count() == 0
         shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
-        shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
-        shared_guest.set_input_files("input[type=file]", {"name": "wrong.nes", "mimeType": "application/octet-stream", "buffer": fixture.read_bytes() + b"different identity"})
-        shared_host.get_by_text("Guest is still preparing.", exact=False).wait_for(timeout=15000)
-        assert shared_guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).count() == 0
-        if screenshot_dir:
-            shared_guest.screenshot(path=str(screenshot_dir / "guest-file-changed.png"))
-            shared_host.screenshot(path=str(screenshot_dir / "host-unready.png"))
-        shared_guest.set_input_files("input[type=file]", fixture)
-        shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
-        shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
+        shared_host.get_by_text("Guest is prepared. Start together when you are ready.", exact=False).wait_for(timeout=15000)
         shared_guest.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
         shared_host.get_by_role("button", name="Start game", exact=True).click()
         for tab in (shared_host, shared_guest):

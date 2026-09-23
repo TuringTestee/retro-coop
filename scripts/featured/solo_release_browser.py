@@ -42,9 +42,8 @@ def main():
             code = re.search(r"Public · (\S+)", host.get_by_test_id("room-view").text_content()).group(1)
             guest = page(block_peer=True)
             guest.locator(".room-list [data-room-id]").filter(has_text=code).get_by_role("button", name="Join", exact=True).click()
-            with guest.expect_file_chooser() as chooser:
-                guest.get_by_role("button", name="Choose matching NES file", exact=True).click()
-            chooser.value.set_files({"name": "release-guest.nes", "mimeType": "application/octet-stream", "buffer": diagnostic})
+            guest.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30_000)
+            assert guest.get_by_role("button", name="Choose matching NES file").count() == 0
             guest.wait_for_function("proof.room?.matches === true", timeout=30_000, polling=50)
             auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,token:sessionStorage.getItem('retro-coop-guest')})""")
             request = Request(f"{url}/coordinator/rooms/{auth['roomId']}/rom",headers={"Origin":url,"Authorization":f"Bearer {auth['token']}","X-Room-Membership":auth['membership']})
