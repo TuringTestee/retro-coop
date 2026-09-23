@@ -79,7 +79,7 @@ test('strict metadata schema rejects uploads, arbitrary fields and malformed val
  assert.ok(parseRoomCommand(command));
  const claim={type:'claimCode',requestId,code:'ABCDEFGH',intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')};
  assert.ok(parseRoomCommand(claim));
- const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));
+ const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));assert.ok(parseRoomCommand({...start,type:'prepareHost'}));
  for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{...start,filename:'private.nes'},{...start,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
 
@@ -303,6 +303,8 @@ test('separate WebSocket browsers see host Start close an unready guest place',a
   const room=data(await request(host,{type:'confirmCreate',intent})).room!;
   const joined=data(await request(guest,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;
   assert.equal(joined.occupancy,2);
+  const beforeReady=await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});assert.equal(beforeReady.ok,false);if(!beforeReady.ok)assert.equal(beforeReady.error,'host_not_ready');
+  data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
   const started=data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!;
   assert.equal(started.started,'solo');assert.equal(started.status,'playing');assert.equal(started.occupancy,1);
   const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;

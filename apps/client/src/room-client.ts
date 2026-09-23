@@ -9,7 +9,7 @@ import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
+export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
 export function connectionStatus(state:RoomState) {
  const status=state.room?.peer.status;
  if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
@@ -24,7 +24,7 @@ const messages:Record<string,string> = {
  host_expired:'The host did not return. This room has closed.',host_closed:'The host closed the room.',removed:'The host removed you from this room.',left:'You left the room. Your local game is still available.',
  operator_removed:'An operator closed this room. Your local game is preserved.',admission_blocked:'Access is temporarily restricted by an operator. Retry later. Your local game is preserved.',
  service_restarted:'The service restarted. Ephemeral rooms have closed.',creation_cancelled:'Room creation cancelled. Your game stays local.',creation_expired:'Room creation timed out. Your game stays local.',cancelled:'Room creation cancelled.',
- room_started:'This game has started. Joining is unavailable.',host_started_solo:'The host started alone. Your local game is preserved.',game_mismatch:'The loaded game does not match this room. Choose the matching file before Start.',
+ room_started:'This game has started. Joining is unavailable.',host_started_solo:'The host started alone. Your local game is preserved.',host_not_ready:'Wait for your game to finish loading before Start.',late_join:'Your game has progressed. Shared start needs a fresh game; your progress is preserved.',game_mismatch:'The loaded game does not match this room. Choose the matching file before Start.',
 };
 export class RoomClient {
  readonly voice=new VoiceSession(voice=>this.publish({voice}));
@@ -50,7 +50,7 @@ export class RoomClient {
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
   const prior=this.state.room;
-  this.game.enter(room);this.publish({room,chat:this.chat.enter(room)});
+  this.game.enter(room);this.publish({room,chat:this.chat.enter(room),...(room?{releaseNotice:undefined}:{})});
   if(room?.role==='host'&&room.started==='solo'&&prior?.started!=='solo'&&this.selectedFile&&matchesFile(room.fingerprint,this.selectedFile)){
    this.game.cancelIntent();this.player()?.allowLocalPlay();this.player()?.resume();
    this.publish({status:'Room started. Playing locally; friends cannot join after Start.'});
@@ -88,7 +88,7 @@ export class RoomClient {
     else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
     else if(event.type === 'directory') this.publish({directory:event.rooms,directoryStatus:'live',directoryError:undefined});
     else if(event.type === 'room') this.setRoom(event.room);
-    else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);this.publish({busy:false,status:messages[event.reason] ?? 'This room ended. Your local game is preserved.'});}
+    else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);const status=messages[event.reason] ?? 'This room ended. Your local game is preserved.';this.publish({busy:false,status,releaseNotice:status});}
    };
    socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(data=>{
     clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(this.state.admissionBlocked && !data.room)this.peer.close('No peer connection.');this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
@@ -106,7 +106,7 @@ export class RoomClient {
   }).finally(()=>{this.connecting = undefined;});
   return this.connecting;
  }
- private failure(error:unknown) {this.publish({busy:false,status:error instanceof Error ? error.message:'Unable to reach the room service.'});}
+ private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the room service.'});}
  beginSelection() {this.game.cancelIntent();this.replacement=undefined;this.cancelCreation();}
  async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
   if(!this.token && !this.state.room) return isCurrent();
@@ -142,11 +142,17 @@ export class RoomClient {
  }
  async startRoom(fingerprint:Fingerprint) {
   const room=this.state.room;if(!room||room.role!=='host')return;
+  if(!this.player()?.isLoaded(fingerprint)){this.publish({status:messages.host_not_ready});return;}
   this.game.playIntent();
-  this.publish({busy:true,status:'Starting room…'});
-  try {await this.connect();this.apply(await this.request({type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint}));this.publish({busy:false});}
-  catch(error){this.failure(error);}
+  this.publish({busy:true,startingRoom:true,status:'Starting room…'});
+  try {await this.connect();if(!this.player()?.isLoaded(fingerprint))throw Error(messages.host_not_ready);
+   this.apply(await this.request({type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
+   if(this.state.room?.id!==room.id||this.state.room.chatMembership!==room.chatMembership||!this.player()?.isLoaded(fingerprint))throw Error('The room or loaded game changed. Review it before Start.');
+   this.apply(await this.request({type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint}));this.publish({busy:false,startingRoom:false});}
+  catch(error){if(this.state.room?.started)this.publish({busy:false,startingRoom:false});else this.failure(error);}
+  finally {this.publish({startingRoom:false});}
  }
+ dismissRelease(){this.publish({releaseNotice:undefined});}
  cancelCreation() {++this.creationGeneration;const intent = this.intent;this.intent = undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,status:'Room creation cancelled. Your game stays local.'});}}
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Guest for 120 seconds. You will need your own matching file.'});}catch(error){if(generation === this.generation) this.failure(error);}}
  async join(invite:string) {return this.joinTarget({type:'join',invite});}

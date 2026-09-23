@@ -13,8 +13,9 @@ export class GameSession {
  private paused=new Map<GameRole,{frame:number;hash:string}>();
  private state:GameView={status:'waiting',controllers:{...defaultControllers}};
  private controllerDeadline=0;
+ private sharedP1:boolean;
  private now:()=>number;private send:(role:GameRole,event:GameEvent)=>void;
- constructor(now:()=>number,send:(role:GameRole,event:GameEvent)=>void) {this.now=now;this.send=send;}
+ constructor(now:()=>number,send:(role:GameRole,event:GameEvent)=>void,sharedP1=false) {this.now=now;this.send=send;this.sharedP1=sharedP1;if(sharedP1)this.state.controllers={...defaultControllers,mode:'shared'};}
  view():GameView {return {...this.state,ready:[...this.offers.keys()],startRequested:this.startRequested};}
  private broadcast(event:GameEvent) {this.send('host',event);this.send('guest',event);}
  bind(peerEpoch:string|undefined) {
@@ -24,8 +25,9 @@ export class GameSession {
   return active;
  }
  requestStart() {
-  if(this.startRequested||!['waiting','paused','failed'].includes(this.state.status)||!this.peerEpoch||!this.offers.has('guest'))throw Error('game_prerequisites');
+  if(this.startRequested||!['waiting','paused','failed','late_join'].includes(this.state.status)||!this.peerEpoch||!this.offers.has('guest'))throw Error('game_prerequisites');
   this.startRequested=true;
+  this.deadline=this.now()+gameplayLimits.barrierMs;
   if(this.offers.has('host'))this.prepareInitial();
   else this.send('host',{type:'gameInspect',peerEpoch:this.peerEpoch});
  }
@@ -75,7 +77,7 @@ export class GameSession {
   if(this.paused.get('host')!.hash!==this.paused.get('guest')!.hash){this.stop('Pause states differ. Shared play remains paused; checkpoint recovery is not available yet.','failed');return;}
   this.stop(`${this.state.reason} Both players are paused at the same frame.`);
  }
- stop(reason:string,status:GameView['status']='paused') {this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,controllerProposal:undefined};this.broadcast({type:'gameStop',epoch:this.state.epoch,reason});}
+ stop(reason:string,status:GameView['status']='paused') {if(!this.state.epoch||status==='late_join')this.startRequested=false;this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,controllerProposal:undefined};this.broadcast({type:'gameStop',epoch:this.state.epoch,reason});}
  private controllerContext(command:{peerEpoch:string;epoch?:string}) {
   if(!this.peerEpoch||command.peerEpoch!==this.peerEpoch||command.epoch!==this.state.epoch)throw Error('stale_game');
  }
@@ -99,6 +101,6 @@ export class GameSession {
   if(proposal.accepted.length===2){this.state.controllers={mode:proposal.mode,p1:proposal.p1,revision:proposal.revision};this.stop('Controller assignment accepted. Release held buttons; both players must prepare before the host resumes.');}
  }
  /** A departed guest cannot leave controller ownership or consent for a replacement. */
- resetControllers() {this.state.controllers={...defaultControllers,revision:this.state.controllers!.revision+1};this.stop('Membership changed. Controller assignment reset; shared play remains paused.');}
- sweep() {if(this.state.controllerProposal&&this.now()>=this.controllerDeadline){this.stop('Controller request timed out. Previous ownership and progress are preserved.');return true;}if(['starting','pausing'].includes(this.state.status)&&this.now()>=this.deadline) {this.stop('Shared start timed out. Retry or cancel; the original game is preserved.','failed');return true;}return false;}
+ resetControllers() {this.state.controllers={...defaultControllers,mode:this.sharedP1?'shared':'separate',revision:this.state.controllers!.revision+1};this.stop('Membership changed. Controller assignment reset; shared play remains paused.');}
+ sweep() {if(this.state.controllerProposal&&this.now()>=this.controllerDeadline){this.stop('Controller request timed out. Previous ownership and progress are preserved.');return true;}if((this.state.status==='waiting'&&this.startRequested||['starting','pausing'].includes(this.state.status))&&this.now()>=this.deadline) {this.stop('Shared start timed out. Retry or cancel; the original game is preserved.','failed');return true;}return false;}
 }
