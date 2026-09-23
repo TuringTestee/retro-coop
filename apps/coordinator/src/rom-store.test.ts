@@ -20,7 +20,7 @@ async function setup(romLimits?:{file:number;total:number;concurrent:number}) {
  const hello=await command({type:'hello'});assert.equal(hello.ok,true);const token=hello.ok?hello.data.session!.token:'';
  const create=async(bytes=rom())=>{const intent=randomUUID(),result=await command({type:'create',intent,visibility:'public',fingerprint:fingerprint(bytes)});assert.equal(result.ok,true);return {intent,roomId:result.ok?result.data.room!.id:'',bytes};};
  const upload=(roomId:string,intent:string,bytes:Buffer,auth=token,headers:Record<string,string>={})=>fetch(`${url}/rooms/${roomId}/rom`,{method:'PUT',headers:{Origin:origin,Authorization:`Bearer ${auth}`,'X-Room-Intent':intent,'Content-Type':'application/octet-stream',...headers},body:new Uint8Array(bytes)});
- return {server,socket,command,create,upload,token,advance:(ms:number)=>{now+=ms;server.rooms.sweep();},close:async()=>{socket.terminate();await shutdown(server);}};
+ return {server,socket,url,command,create,upload,token,advance:(ms:number)=>{now+=ms;server.rooms.sweep();},close:async()=>{socket.terminate();await shutdown(server);}};
 }
 test('private upload commits exact bytes before a custom room is publishable',async()=>{
  const t=await setup();try {
@@ -32,6 +32,42 @@ test('private upload commits exact bytes before a custom room is publishable',as
   const path=t.server.romStore.pathForRoom(roomId)!;assert.deepEqual(readFileSync(path),bytes);
   assert.equal((await t.command({type:'confirmCreate',intent})).ok,true);
   await t.command({type:'close',roomId});assert.equal(existsSync(path),false);
+ }finally{await t.close();}
+});
+test('only the current guest membership can download private bytes',async()=>{
+ const t=await setup();try{
+  const {intent,roomId,bytes}=await t.create();assert.equal((await t.upload(roomId,intent,bytes)).status,201);
+  const confirmed=await t.command({type:'confirmCreate',intent});assert.equal(confirmed.ok,true);
+  const invite=confirmed.ok?confirmed.data.room!.invite:'';
+  const guest=t.server.rooms.attach(undefined,()=>{},()=>{}),other=t.server.rooms.attach(undefined,()=>{},()=>{});
+  const joined=t.server.rooms.handle(guest.token,{type:'join',requestId:randomUUID(),invite,intent:randomUUID()}).room!;
+  const get=(auth:string,membership:string,id=roomId,headers:Record<string,string>={})=>fetch(`${t.url}/rooms/${id}/rom`,{headers:{Origin:origin,Authorization:`Bearer ${auth}`,'X-Room-Membership':membership,...headers}});
+  assert.equal((await get(other.token,joined.chatMembership)).status,403);
+  assert.equal((await get(t.token,joined.chatMembership)).status,403);
+  assert.equal((await get(guest.token,'x'.repeat(43))).status,403);
+  assert.equal((await get(guest.token,joined.chatMembership,'x'.repeat(43))).status,403);
+  assert.equal((await get(guest.token,joined.chatMembership,roomId,{Origin:'https://evil.example'})).status,403);
+  const downloaded=await get(guest.token,joined.chatMembership);assert.equal(downloaded.status,200);assert.equal(downloaded.headers.get('Cache-Control'),'no-store');assert.equal(downloaded.headers.get('Content-Disposition'),null);assert.equal(Number(downloaded.headers.get('Content-Length')),bytes.length);assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()),bytes);
+  t.server.rooms.handle(guest.token,{type:'leave',requestId:randomUUID(),intent:joined.reservationIntent!});
+  const replacement=t.server.rooms.attach(undefined,()=>{},()=>{});
+  const next=t.server.rooms.handle(replacement.token,{type:'join',requestId:randomUUID(),invite,intent:randomUUID()}).room!;
+  assert.equal((await get(guest.token,joined.chatMembership)).status,403);
+  assert.equal((await get(replacement.token,joined.chatMembership)).status,403);
+  const replacementDownload=await get(replacement.token,next.chatMembership);assert.equal(replacementDownload.status,200);assert.deepEqual(Buffer.from(await replacementDownload.arrayBuffer()),bytes);
+ }finally{await t.close();}
+});
+test('download progress extends only its guest reservation within five minutes',async()=>{
+ const t=await setup();try{
+  const {intent,roomId,bytes}=await t.create();assert.equal((await t.upload(roomId,intent,bytes)).status,201);
+  const confirmed=await t.command({type:'confirmCreate',intent});const invite=confirmed.ok?confirmed.data.room!.invite:'';
+  const guest=t.server.rooms.attach(undefined,()=>{},()=>{}),joined=t.server.rooms.handle(guest.token,{type:'join',requestId:randomUUID(),invite,intent:randomUUID()}).room!;
+  const lease=t.server.rooms.beginDownload(guest.token,roomId,joined.chatMembership);
+  for(let i=0;i<4;i++){t.advance(25_000);t.server.rooms.handle(t.token,{type:'heartbeat',requestId:randomUUID()});t.server.rooms.downloadProgress(roomId,lease.id);}
+  assert.throws(()=>t.server.rooms.beginDownload(guest.token,roomId,joined.chatMembership),/download_busy/);
+  t.advance(31_000);assert.throws(()=>t.server.rooms.downloadProgress(roomId,lease.id),/download_expired/);
+  const retry=t.server.rooms.beginDownload(guest.token,roomId,joined.chatMembership);
+  for(let i=0;i<6;i++){t.advance(25_000);t.server.rooms.handle(t.token,{type:'heartbeat',requestId:randomUUID()});t.server.rooms.downloadProgress(roomId,retry.id);}
+  t.advance(20_000);assert.throws(()=>t.server.rooms.downloadProgress(roomId,retry.id),/download_expired|room_changed/);
  }finally{await t.close();}
 });
 test('bad bytes and cancellation release private capacity without publishing',async()=>{

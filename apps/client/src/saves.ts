@@ -1,15 +1,16 @@
-/** Sole IndexedDB owner for local saves and preferences. ROMs are never accepted here. */
+/** Sole IndexedDB owner for local saves, preferences, and verified ROM bytes. */
 export type SaveSlot = {identity:string;slot:number;savedAt:number;bytes:ArrayBuffer};
 export type BatteryRecord = {identity:string;savedAt:number;bytes:ArrayBuffer};
 export type PreferencesRecord = {identity:string;savedAt:number;value:unknown};
+export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number};
 export function validSavedAt(value:unknown):value is number {return typeof value==='number' && Number.isFinite(value) && Math.abs(value)<=8640000000000000;}
 const database='retro-coop-local',store='saves';
-const stores=['saves','batteries','preferences','meta'];
+const stores=['saves','batteries','preferences','roms','meta'];
 function open():Promise<IDBDatabase> {
  return new Promise((resolve,reject)=>{
-  const request=indexedDB.open(database,2);let abandoned=false;
+  const request=indexedDB.open(database,3);let abandoned=false;
   const timer=setTimeout(()=>{abandoned=true;reject(Error('Local storage did not respond. Retry later.'));},5000);
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(store))db.createObjectStore(store,{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'identity'});if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta');};
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(store))db.createObjectStore(store,{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'identity'});if(!db.objectStoreNames.contains('roms'))db.createObjectStore('roms',{keyPath:'sha256'});if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta');};
   request.onerror=()=>{clearTimeout(timer);reject(request.error ?? Error('Local storage unavailable'));};
   request.onblocked=()=>{clearTimeout(timer);abandoned=true;reject(Error('Close other Retro Coop tabs and retry.'));};
   request.onsuccess=()=>{clearTimeout(timer);if(abandoned){request.result.close();return;}request.result.onversionchange=()=>request.result.close();resolve(request.result);};
@@ -54,12 +55,12 @@ function sameBytes(a:ArrayBuffer,b:ArrayBuffer){const left=new Uint8Array(a),rig
 
 
 /** One epoch prevents automatic work from recreating data after a clear in any tab. */
-export async function readStored<T>(name:'batteries'|'preferences',identity:string):Promise<{generation:number;record:T|undefined}> {
+export async function readStored<T>(name:'batteries'|'preferences'|'roms',identity:string):Promise<{generation:number;record:T|undefined}> {
  let generation=0;
  const record=await transaction('readonly',(store,tx)=>{const epoch=tx.objectStore('meta').get('generation');epoch.onsuccess=()=>{generation=epoch.result ?? 0;};return store.get(identity);},[name,'meta']);
  return {generation,record:record as T|undefined};
 }
-async function automaticWrite(name:'batteries'|'preferences',generation:number,write:(store:IDBObjectStore,fail:(error:Error)=>void)=>void) {
+async function automaticWrite(name:'batteries'|'preferences'|'roms',generation:number,write:(store:IDBObjectStore,fail:(error:Error)=>void)=>void) {
  let failure:unknown;
  try {await transaction('readwrite',(store,tx)=>{
   const fail=(error:Error)=>{failure=error;tx.abort();};
@@ -79,11 +80,14 @@ export async function putBattery(record:BatteryRecord,expected:BatteryRecord|und
  });
 }
 export async function putPreferences(record:PreferencesRecord,generation:number) {await automaticWrite('preferences',generation,store=>{store.put(record);});}
-export type LocalData = {generation:number;saves:SaveSlot[];batteries:BatteryRecord[];preferences:PreferencesRecord[]};
+export async function readRom(sha256:string) {return readStored<RomRecord>('roms',sha256);}
+export async function putRom(record:RomRecord,generation:number) {await automaticWrite('roms',generation,store=>{store.put(record);});}
+export async function deleteRom(sha256:string) {await transaction('readwrite',store=>store.delete(sha256),['roms']);}
+export type LocalData = {generation:number;saves:SaveSlot[];batteries:BatteryRecord[];preferences:PreferencesRecord[];roms:RomRecord[]};
 export async function listLocalData():Promise<LocalData> {
- const result:LocalData={generation:0,saves:[],batteries:[],preferences:[]};
+ const result:LocalData={generation:0,saves:[],batteries:[],preferences:[],roms:[]};
  await transaction('readonly',(_,tx)=>{
-  for(const name of ['saves','batteries','preferences'] as const){const request=tx.objectStore(name).getAll();request.onsuccess=()=>{result[name]=request.result;};}
+  for(const name of ['saves','batteries','preferences','roms'] as const){const request=tx.objectStore(name).getAll();request.onsuccess=()=>{result[name]=request.result;};}
   const epoch=tx.objectStore('meta').get('generation');epoch.addEventListener('success',()=>{result.generation=epoch.result ?? 0;});return epoch;
  },stores);return result;
 }
@@ -96,7 +100,7 @@ export async function clearLocalData(generation:number) {
  let failure:unknown;
  try{await transaction('readwrite',(_,tx)=>{const meta=tx.objectStore('meta'),request=meta.get('generation');request.addEventListener('success',()=>{
   if((request.result ?? 0)!==generation){failure=Error('Local data changed. Reopen this panel before clearing it.');tx.abort();return;}
-  for(const name of ['saves','batteries','preferences'])tx.objectStore(name).clear();meta.put(generation+1,'generation');
+  for(const name of ['saves','batteries','preferences','roms'])tx.objectStore(name).clear();meta.put(generation+1,'generation');
  });return request;},stores);}catch(error){throw failure ?? error;}
 }
 export function sameRecord(current:BatteryRecord|undefined,expected:BatteryRecord|undefined) {return !current && !expected || !!current && !!expected && Object.is(current.savedAt,expected.savedAt) && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);}
