@@ -1,16 +1,28 @@
 """Keep a loaded client's emulator stable across a static release and rollback."""
 import argparse
-import functools
+import contextlib
 import hashlib
-import http.server
 import json
+import os
 import shutil
 import subprocess
 import tempfile
-import threading
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+
+
+@contextlib.contextmanager
+def room_test_server(root, site):
+    service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=root,
+                               env={**os.environ, 'RETRO_COOP_STATIC_ROOT': str(site)},
+                               stdout=subprocess.PIPE, text=True)
+    try:
+        yield json.loads(service.stdout.readline())['url']
+    finally:
+        if service.poll() is None:
+            service.terminate()
+        service.wait(timeout=5)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--chrome', action='store_true')
@@ -58,22 +70,24 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
                 shutil.copyfile(path, target)
         shutil.copyfile(release / 'index.html', site / 'index.html')
 
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(site))
-    with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
-        threading.Thread(target=server.serve_forever, daemon=True).start()
+    with room_test_server(root, site) as url:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(
                 **({'channel': 'chrome'} if args.chrome else {}),
                 ignore_default_args=['--mute-audio'])
-            url = f'http://127.0.0.1:{server.server_port}/'
             old = browser.new_page()
             old.goto(url)
             rom = (site / 'generated/diagnostic.nes').read_bytes()
 
-            def load(page, expected):
+            def load(page, expected, *, existing=False):
                 page.set_input_files('input[type=file]', {
                     'name': 'private-original.nes', 'mimeType': 'application/octet-stream',
                     'buffer': rom})
+                if existing:
+                    page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded. Preparing shared play')")
+                    page.get_by_role('button', name='Resume', exact=True).click()
+                else:
+                    page.get_by_role('button', name='Start game', exact=True).click()
                 page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
                 page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
                 observed = page.get_by_test_id('fingerprint').text_content()
@@ -91,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
             rollback = browser.new_page()
             rollback.goto(url)
             load(rollback, releases[0][2])
-            load(current, releases[1][2])
+            load(current, releases[1][2], existing=True)
             browser.close()
     result = {
         'result': 'pass', 'source': 'two builds of the current checkout; second has inert custom section',
