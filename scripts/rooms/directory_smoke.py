@@ -39,13 +39,15 @@ try:
             return session
         viewer = page()
         viewer.get_by_text('No public rooms right now.', exact=True).wait_for()
-        chooser = viewer.get_by_role('button', name='Choose NES file', exact=True)
+        chooser = viewer.get_by_role('button', name='Create game', exact=True)
         chooser.focus()
         assert chooser.evaluate('(node)=>node===document.activeElement')
         hosts = [page(), page()]
         codes = []
         for host in hosts:
+            host.get_by_role('button', name='Create game', exact=True).click()
             host.set_input_files('input[type=file]', {'name': 'PRIVATE-DIRECTORY-GAME.nes', 'mimeType': 'application/octet-stream', 'buffer': rom})
+            host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for()
             settings = session_settings(host)
             settings.get_by_label('Room name', exact=True).fill('Duplicate Arcade')

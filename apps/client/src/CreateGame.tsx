@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {catalogAvailability} from 'virtual:catalog';
-import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
+import {catalog,catalogEntry} from '../../../packages/contracts/src/catalog.ts';
 import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import type {Visibility,Fingerprint,RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 import {gameLibrary,previewDisplay,type GameLibraryEntry} from './rom-library.ts';
@@ -13,7 +13,7 @@ export function CreateGame({selected,loading,busy,status,persistenceMessage,visi
  const [entries,setEntries]=useState<GameLibraryEntry[]>([]),[libraryError,setLibraryError]=useState('');
  const [preview,setPreview]=useState<{image:string;alt:string}|{text:'No preview yet.'}>({text:'No preview yet.'});
  const [revision,setRevision]=useState(0);
- useEffect(()=>{let alive=true;void gameLibrary().then(rows=>{if(alive){setEntries(rows);setLibraryError('');}}).catch(()=>{if(alive)setLibraryError('Saved games are unavailable in this browser. Add a NES file to use it in this tab.');});return()=>{alive=false;};},[revision,selected?.entry.sha256,persistenceMessage]);
+ useEffect(()=>{let alive=true;void gameLibrary().then(rows=>{if(alive){setEntries(rows);setLibraryError('');}}).catch(()=>{if(alive){setEntries(catalog.map(item=>({kind:'included',catalogId:item.id,sha256:item.sha256,size:item.bytes,label:item.title,source:'download',lastUsedAt:0})));setLibraryError('Saved games are unavailable here. Included games and files added in this tab still work.');}});return()=>{alive=false;};},[revision,selected?.entry.sha256,persistenceMessage]);
  useEffect(()=>{let alive=true;const recent=[...entries].filter(row=>!!row.preview).sort((a,b)=>b.lastUsedAt-a.lastUsedAt)[0];void previewDisplay(recent).then(value=>{if(alive)setPreview(value);});return()=>{alive=false;};},[entries]);
  useEffect(()=>{const refresh=()=>{if(!document.hidden)setRevision(value=>value+1);};addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[]);
  const grouped=[...entries.filter(entry=>entry.kind==='saved').sort((a,b)=>b.lastUsedAt-a.lastUsedAt),...entries.filter(entry=>entry.kind==='included')];

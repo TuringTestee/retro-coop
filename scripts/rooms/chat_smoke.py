@@ -32,7 +32,7 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
             disclosure=panel.locator('details.chat-disclosure')
             if disclosure.count():disclosure.evaluate('(node)=>node.open=true')
             panel.locator('.chat-panel').wait_for();return panel
-        host=page();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_test_id('room-view').wait_for(state='attached');host.get_by_test_id('room-status').filter(has_text='Room created').wait_for(state='attached');open_chat(host)
+        host=page();host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_test_id('room-view').wait_for(state='attached');host.get_by_test_id('room-status').filter(has_text='Room created').wait_for(state='attached');open_chat(host)
         def send(page,text):
             open_chat(page);message=page.get_by_label('Chat message',exact=True);message.fill(text);assert message.input_value()==text
             button=page.get_by_role('button',name='Send message',exact=True);button.wait_for();assert button.is_enabled();sent=page.evaluate("chatProof.sent.filter(type=>type==='chat').length");button.click()

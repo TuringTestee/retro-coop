@@ -75,7 +75,9 @@ try:
             tab.wait_for_function("captures.length>0 && captures.at(-1).getAudioTracks().some(t=>t.enabled&&t.readyState==='live')")
         host = page(url)
         assert host.get_by_role('button', name='Unmute', exact=True).count() == 0
+        host.get_by_role('button', name='Create game', exact=True).click()
         host.set_input_files('input[type=file]', {'name':'fixture.nes', 'mimeType':'application/octet-stream', 'buffer':rom})
+        host.get_by_role('button', name='Create room', exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='attached')
         unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
         assert unmute.get_attribute('aria-pressed') == 'true'

@@ -39,7 +39,7 @@ try:
    return panel
   def host(url,policy='standard'):
    h=page(url,policy);h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True)
-   h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(h).get_by_label('Connection privacy',exact=True).input_value()==policy
+   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(h).get_by_label('Connection privacy',exact=True).input_value()==policy
    return h,h.get_by_label('Room invitation',exact=True).input_value()
   def join(invite,policy='standard',early_loss=False):
    g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Host-shared NES',exact=False).wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g

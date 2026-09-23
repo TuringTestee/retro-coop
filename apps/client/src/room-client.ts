@@ -49,7 +49,7 @@ export class RoomClient {
  private selectedFile?:Fingerprint;
  private joining?:string;
  private pending = new Map<string,{kind:Command['type'];resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
- private state:RoomState = {status:'Choose a file to create a room.',busy:false,connected:false};
+ private state:RoomState = {status:'No room selected.',busy:false,connected:false};
  constructor(private update:(state:RoomState)=>void,policy:ConnectionPolicy='standard',private player:()=>LocalPlayer|null=()=>null) {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){

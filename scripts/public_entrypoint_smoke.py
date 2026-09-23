@@ -318,7 +318,8 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             }
             assert old_status == coordinator_status == source_status == 200
             assert b'/src/main.tsx' in home and b'/src/main.tsx' in old_route
-            assert b"onCreate={onCreate}" in source and b"Join as host" in (ROOT / "apps/client/src/DirectoryPanel.tsx").read_bytes()
+            directory = (ROOT / "apps/client/src/DirectoryPanel.tsx").read_bytes()
+            assert b"onCreate" in source and b"Create game" in directory and b"Join as host" in directory
             assert b"GOOD GAMES" not in old_route and b"Make yourself at home" not in old_route
             assert catalog == {"super_tilt_bro": 200, "from_below": 200}
             assert json.loads(health)["status"] == "ok"

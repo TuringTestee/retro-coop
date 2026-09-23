@@ -56,7 +56,9 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             def pair():
                 host = page(url)
                 assert host.get_by_role('button', name='Unmute', exact=True).count() == 0
+                host.get_by_role('button', name='Create game', exact=True).click()
                 host.set_input_files('input[type=file]', {'name':'fixture.nes','mimeType':'application/octet-stream','buffer':rom})
+                host.get_by_role('button', name='Create room', exact=True).click()
                 host.get_by_test_id('room-view').wait_for(state='attached')
                 unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
                 assert unmute.get_attribute('aria-pressed') == 'true'
@@ -113,7 +115,9 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             fresh.get_by_role('button', name='Retry', exact=True).click()
             fresh.get_by_text('No public rooms right now.', exact=True).wait_for()
             assert 'Access restored' in fresh.get_by_test_id('room-notice').text_content()
+            fresh.get_by_role('button', name='Create game', exact=True).click()
             fresh.set_input_files('input[type=file]', {'name':'fixture.nes','mimeType':'application/octet-stream','buffer':rom})
+            fresh.get_by_role('button', name='Create room', exact=True).click()
             fresh.get_by_test_id('room-view').wait_for(state='attached')
             fresh.screenshot(path=str(output.with_suffix('.expired.png')), full_page=True, mask=[fresh.get_by_label('Room invitation', exact=True)])
             fresh.close()

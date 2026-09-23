@@ -20,7 +20,7 @@ type GuestAcquisition={phase:'checking'|'downloading'|'loading'|'loaded'|'failed
 const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/1000))} KB`:`${(bytes/1_000_000).toFixed(1)} MB`;
 export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void;createCustom(file:File,fingerprint:Fingerprint,visibility:Visibility,current:()=>boolean):Promise<void>;createIncluded(code:string,fingerprint:Fingerprint,visibility:Visibility):Promise<void>};
 export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onCreate():void;onBrowse():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void}>(function RoomPanel({showDiscovery,onChoose,onCreate,onBrowse,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange,onState},ref) {
- const [state,setState] = useState<RoomState>({status:'Choose a file to create a room.',busy:false,connected:false});
+ const [state,setState] = useState<RoomState>({status:'No room selected.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
  const [invite,setInvite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
@@ -141,7 +141,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  {showDiscovery&&<>
  {claiming&&<p className="catalog-status" role="status">Checking this room… <button onClick={()=>{++claimGeneration.current;setClaiming('');setIncludedStatus('');client.current?.cancelPending();}}>Cancel</button></p>}
  {includedStatus&&!room&&<p className="catalog-status" role="status" data-testid="included-status">{includedStatus}</p>}
- {!room&&state.status!=='Choose a file to create a room.'&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
+ {!room&&state.status!=='No room selected.'&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
  <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onCreate={onCreate} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
  {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading">
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}{room&&!room.started&&<small> · {room.visibility==='public'?`Public · ${room.code}`:'Unlisted'}</small>}</h2>
