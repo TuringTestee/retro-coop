@@ -36,9 +36,11 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
   const origin=request.headers.origin;
   const upload=/^\/rooms\/([A-Za-z0-9_-]{43})\/rom$/.exec(request.url ?? '');
   if(upload && (request.method==='PUT'||request.method==='GET'||request.method==='OPTIONS')) {
-   if(!origin || !origins.has(origin)){response.writeHead(403).end(JSON.stringify({error:'origin_denied'}));return;}
-   response.setHeader('Access-Control-Allow-Origin',origin);response.setHeader('Vary','Origin');
-   response.setHeader('Access-Control-Allow-Methods','PUT, GET, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-Room-Intent, X-Room-Membership');
+   if((request.method!=='GET' && !origin) || (origin!==undefined && !origins.has(origin))){response.writeHead(403).end(JSON.stringify({error:'origin_denied'}));return;}
+   if(origin){
+    response.setHeader('Access-Control-Allow-Origin',origin);response.setHeader('Vary','Origin');
+    response.setHeader('Access-Control-Allow-Methods','PUT, GET, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-Room-Intent, X-Room-Membership');
+   }
    if(request.method==='OPTIONS'){response.writeHead(204).end();return;}
    const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies);
    if(!address){response.writeHead(403).end(JSON.stringify({error:'admission_denied'}));return;}
