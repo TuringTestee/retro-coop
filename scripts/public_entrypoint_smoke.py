@@ -165,20 +165,29 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         browser.close()
     return result
 
-def startup_failure_check(environment):
-    blocker = socket.socket()
-    blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    blocker.bind(("127.0.0.1", 8765))
-    blocker.listen()
+def occupied_port_check(environment):
+    blockers = []
+    for port in (8765, 8787):
+        blocker = socket.socket()
+        blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        blocker.bind(("127.0.0.1", port))
+        blocker.listen()
+        blockers.append(blocker)
+    log_path = Path("/tmp/retro-coop-occupied-ports.log")
+    service, log = start_launcher(environment, log_path)
     try:
-        failed = subprocess.run(
-            ["sh", "scripts/demo.sh"], cwd=ROOT, env=environment,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=15,
-        )
+        wait_ready(service, log_path, 8766)
+        assert fetch("http://127.0.0.1:8788/health")[0] == 200
+        assert "Open http://127.0.0.1:8766/" in log_path.read_text()
+        stop_launcher(service, signal.SIGTERM, 8766, 8788)
     finally:
-        blocker.close()
-    assert failed.returncode != 0, failed.stdout
-    wait_closed(8787)
+        log.close()
+        if service.poll() is None:
+            os.killpg(service.pid, signal.SIGKILL)
+            service.wait()
+        for blocker in blockers:
+            blocker.close()
+    return {"client": 8766, "coordinator": 8788}
 
 
 def start_launcher(environment, log_path):
@@ -190,20 +199,20 @@ def start_launcher(environment, log_path):
     return service, log
 
 
-def wait_ready(service, log_path):
+def wait_ready(service, log_path, client_port=8765):
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if service.poll() is not None:
             raise AssertionError("Documented launcher exited early: " + log_path.read_text())
         try:
-            if fetch("http://127.0.0.1:8765/")[0] == 200:
+            if fetch(f"http://127.0.0.1:{client_port}/")[0] == 200 and f"Open http://127.0.0.1:{client_port}/" in log_path.read_text():
                 return
         except OSError:
             time.sleep(.1)
     raise AssertionError("Documented application URL did not become ready: " + log_path.read_text())
 
 
-def stop_launcher(service, signum):
+def stop_launcher(service, signum, client_port=8765, coordinator_port=8787):
     service.send_signal(signum)
     try:
         return_code = service.wait(timeout=5)
@@ -212,8 +221,8 @@ def stop_launcher(service, signum):
         service.wait()
         raise AssertionError(f"launcher ignored signal {signum}") from error
     assert return_code in (-signum, 128 + signum), return_code
-    wait_closed(8765)
-    wait_closed(8787)
+    wait_closed(client_port)
+    wait_closed(coordinator_port)
 
 
 def signal_lifecycle_check(environment):
@@ -235,7 +244,7 @@ def signal_lifecycle_check(environment):
 
 def runtime_check(with_browser=False, screenshot_dir=None):
     environment = dict(os.environ, RETRO_COOP_SKIP_INSTALL="1", RETRO_COOP_SKIP_PREPARE="1")
-    startup_failure_check(environment)
+    fallback = occupied_port_check(environment)
     lifecycle = signal_lifecycle_check(environment)
     log_path = Path("/tmp/retro-coop-public-entrypoint.log")
     service, log = start_launcher(environment, log_path)
@@ -264,7 +273,7 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             assert status == 200
             result = {"result": "pass", "url": "http://127.0.0.1:8765/",
                       "legacy_url_serves_current_app": True, "coordinator": "websocket accepted",
-                      "catalog": catalog, "client_startup_failure_released_ports": [8765, 8787],
+                      "catalog": catalog, "occupied_ports_select_next_available": fallback,
                       "launcher_signals": lifecycle}
             if with_browser:
                 result["browser"] = browser_check(screenshot_dir)
