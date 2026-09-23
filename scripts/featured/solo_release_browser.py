@@ -33,7 +33,7 @@ def main():
                 tab.get_by_test_id("directory").wait_for()
                 return tab
 
-            diagnostic = (root / "apps/client/dist/generated/diagnostic.nes").read_bytes()
+            diagnostic = (root / "spikes/d02/fixture.local.nes").read_bytes()
             host = page()
             host.set_input_files("input[type=file]", {"name": "release-host.nes", "mimeType": "application/octet-stream", "buffer": diagnostic})
             host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=30_000)
