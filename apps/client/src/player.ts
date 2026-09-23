@@ -129,6 +129,9 @@ export class LocalPlayer {
  private animation = 0;
  private context?: AudioContext;
  private gain?: GainNode;
+ private backgroundClock?:AudioWorkletNode;
+ private backgroundClockStarting=false;
+ private backgroundClockFailed=false;
  private muted = true;
  private audio = createAudioQueue(() => this.context, () => this.state.running, () => this.gain);
  private state: PlayerState = {status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
@@ -235,10 +238,22 @@ export class LocalPlayer {
  }
  setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : this.volume; this.audio.flush(); if(!value) this.activateAudio(); }
  retryAudio() { this.activateAudio(); }
+ private ensureBackgroundClock(context:AudioContext) {
+  if(this.backgroundClock||this.backgroundClockStarting)return;
+  if(!context.audioWorklet){this.backgroundClockFailed=true;this.publish({audioIssue:'Background play may slow because the audio clock is unavailable. Keep this tab active.'});return;}
+  this.backgroundClockStarting=true;
+  void context.audioWorklet.addModule(new URL('./background-clock.js',import.meta.url)).then(()=>{
+   if(this.disposed||this.context!==context)return;
+   const clock=new AudioWorkletNode(context,'retro-coop-background-clock',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
+   clock.port.onmessage=()=>{if(!document.hidden||!this.state.running)return;const now=performance.now();if(this.game)this.pumpGame();else this.stepLocal(now);};
+   clock.connect(this.gain!);this.backgroundClock=clock;this.backgroundClockFailed=false;if(context.state==='running')this.publish({audioIssue:undefined});
+  }).catch(()=>{if(!this.disposed){this.backgroundClockFailed=true;this.publish({audioIssue:'Background play may slow because the audio clock is unavailable. Retry sound or keep this tab active.'});}}).finally(()=>{this.backgroundClockStarting=false;});
+ }
  private activateAudio() {
   try {
    if(!this.context) { this.context = new AudioContext(); this.gain = this.context.createGain(); this.gain.gain.value = this.muted ? 0 : this.volume; this.gain.connect(this.context.destination); this.context.onstatechange=()=>this.publish({audioState:this.context?.state}); }
-   void this.context.resume().then(() => this.publish({audioIssue:this.context?.state === 'running' ? undefined : 'Sound is blocked. Retry sound to allow it; your game can continue.'})).catch(() => this.publish({audioIssue:'Sound could not start. Retry sound; your game can continue.'}));
+   this.ensureBackgroundClock(this.context);
+   void this.context.resume().then(() => this.publish({audioIssue:this.context?.state !== 'running' ? 'Sound is blocked. Retry sound to allow it; your game can continue.' : this.backgroundClockFailed ? 'Background play may slow because the audio clock is unavailable. Retry sound or keep this tab active.' : undefined})).catch(() => this.publish({audioIssue:'Sound could not start. Retry sound; your game can continue.'}));
   } catch { this.publish({audioIssue:'Sound is unavailable in this browser. Your game can continue.'}); }
  }
  private read(file: File): Promise<ArrayBuffer> {
@@ -317,7 +332,7 @@ export class LocalPlayer {
  }
  dispose() {
   clearInterval(this.persistenceTimer);clearInterval(this.backgroundTimer);window.removeEventListener('pagehide',this.pagehide);
-  this.disposed = true; clearTimeout(this.gameTimer); this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
+  this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
   window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
  }
 }
