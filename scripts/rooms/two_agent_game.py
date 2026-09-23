@@ -252,6 +252,16 @@ with sync_playwright() as playwright:
         page.locator(".room-panel").wait_for(state="visible")
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
         room = page.evaluate("proof.room")
+        assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 1
+        assert page.get_by_role("button", name="Choose another file", exact=True).count() == 0
+        back = page.get_by_role("button", name="Back to game", exact=True)
+        assert back.is_visible()
+        page.get_by_role("button", name="Ready to resume", exact=True).focus()
+        page.keyboard.press("Enter")
+        page.wait_for_function("role => proof.room?.game?.ready?.includes(role)", arg=args.role, timeout=15000)
+        back.focus()
+        page.keyboard.press("Enter")
+        assert page.locator("canvas").evaluate("node => node === document.activeElement")
         remote_inputs = page.evaluate("Object.values(proof.admission.lead).reduce((count, packets) => count + packets, 0)")
         assert remote_inputs > 0, "No remote controller input reached this browser"
         evidence = {
@@ -274,6 +284,8 @@ with sync_playwright() as playwright:
             "page_errors": errors,
             "rom_argument_received": args.rom is not None,
             "file_chooser_count": len(file_choosers),
+            "single_keyboard_resume_action": True,
+            "back_to_game_focuses_canvas": True,
         }
         save(f"{args.role}.json", evidence)
         if args.role == "host":

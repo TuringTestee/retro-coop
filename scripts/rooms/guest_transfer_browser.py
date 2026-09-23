@@ -119,9 +119,59 @@ with sync_playwright() as playwright:
     clearer.get_by_role('button', name='Local data', exact=True).click()
     clearer.get_by_text('No downloaded games saved in this browser.').wait_for()
     guest.unroute('**/rooms/*/rom', clear_during_download)
-    # A denied IndexedDB write must leave verified bytes playable for this tab.
     guest.get_by_role('button', name='Leave room', exact=True).click()
     guest.get_by_test_id('directory').wait_for()
+    redownloads = []
+    def count_redownload(route):
+        redownloads.append(route.request.url)
+        route.continue_()
+    guest.route('**/rooms/*/rom', count_redownload)
+    guest.get_by_role('searchbox').fill(code)
+    guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
+    guest.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
+    assert len(redownloads) == 1, 'Join after cross-tab Clear did not fetch the game again'
+    guest.unroute('**/rooms/*/rom', count_redownload)
+    guest.get_by_role('button', name='Leave room', exact=True).click()
+    guest.get_by_test_id('directory').wait_for()
+    # Same-length altered bytes must never show Prepare or enter the cache.
+    altered_context = browser.new_context(viewport={'width': 800, 'height': 600})
+    altered = altered_context.new_page()
+    altered.goto(args.url)
+    damaged = bytearray(rom)
+    damaged[-1] ^= 1
+    def corrupt_download(route):
+        route.fulfill(status=200, content_type='application/octet-stream', body=bytes(damaged))
+    altered.route('**/rooms/*/rom', corrupt_download)
+    altered.get_by_role('searchbox').fill(code)
+    altered.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
+    altered.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=30000)
+    assert altered.get_by_role('button', name='Prepare to play', exact=True).count() == 0
+    assert 'did not match' in altered.locator('.guest-acquisition').inner_text()
+    if args.output:
+        altered.screenshot(path=str(args.output / 'altered-download-rejected.png'))
+    altered.unroute('**/rooms/*/rom', corrupt_download)
+    altered.get_by_role('button', name='Retry download', exact=True).click()
+    altered.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
+    altered.get_by_role('button', name='Leave room', exact=True).click()
+    altered.get_by_test_id('directory').wait_for()
+    # A denied reservation is a new admission journey, not a retry of its GET.
+    expired_context = browser.new_context(viewport={'width': 800, 'height': 600})
+    expired = expired_context.new_page()
+    expired.goto(args.url)
+    expired.route('**/rooms/*/rom', lambda route: route.fulfill(status=403, content_type='application/json', body='{"error":"reservation_expired"}'))
+    expired.get_by_role('searchbox').fill(code)
+    expired.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
+    expired.get_by_role('button', name='Return to rooms', exact=True).wait_for(timeout=30000)
+    assert expired.get_by_role('button', name='Retry download', exact=True).count() == 0
+    assert expired.get_by_role('button', name='Prepare to play', exact=True).count() == 0
+    assert expired.get_by_role('button', name='Leave room', exact=True).count() == 0
+    if args.output:
+        expired.screenshot(path=str(args.output / 'reservation-expired.png'))
+    expired.get_by_role('button', name='Return to rooms', exact=True).focus()
+    expired.keyboard.press('Enter')
+    expired.get_by_test_id('directory').wait_for()
+    assert expired.get_by_role('searchbox').evaluate('(node)=>node===document.activeElement')
+    # A denied IndexedDB write must leave verified bytes playable for this tab.
     quota_context = browser.new_context(viewport={'width': 1280, 'height': 800})
     quota_context.add_init_script("""(() => {
       const original = IDBDatabase.prototype.transaction;
@@ -154,6 +204,8 @@ with sync_playwright() as playwright:
     result = {'result': 'pass', 'failed_download_retry': True, 'host_phase_failed': True,
                       'prepared_without_picker': True, 'individual_cache_deletion': True,
                       'repeat_join_uses_cache_without_get': True, 'cross_tab_clear_keeps_memory_only': True,
+                      'join_after_clear_redownloads': len(redownloads) == 1,
+                      'altered_bytes_rejected_then_retry': True, 'expired_reservation_returns_to_rooms': True,
                       'quota_denied_plays_in_memory': True, 'room_close_removes_blob': bool(args.rom_dir),
                       'keyboard_focus_after_single_and_all_deletion': True, 'narrow_width_no_overflow': True,
                       'leave_focus_search': True, 'page_errors': errors}
