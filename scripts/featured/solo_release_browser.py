@@ -19,7 +19,7 @@ def main():
         assert service.stdout
         url = json.loads(service.stdout.readline())["url"]
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(channel="chrome")
+            browser = playwright.chromium.launch()
             errors = []
 
             def page(block_peer=False):

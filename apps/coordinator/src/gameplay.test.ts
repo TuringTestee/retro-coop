@@ -88,6 +88,7 @@ test('host inspection timeout leaves room open for a fresh Start attempt',()=>{
 test('host Start with a prepared guest requests host inspection and one shared barrier',()=>{
  const t=setup();t.act(1,{type:'file',fingerprint});t.ready(1);
  const started=t.start().room!;assert.equal(started.started,undefined);assert.notEqual(started.game?.status,'starting');
+ assert.equal(t.start().room?.game?.startRequested,true,'repeated Start returns the same pending inspection');
  assert.equal(t.events[0].filter(event=>event.type==='gameInspect').length,1);
  const preparing=t.ready(0).room!;assert.equal(preparing.game?.status,'starting');assert.equal(preparing.started,'shared');
  assert.equal(t.start().room?.game?.epoch,preparing.game?.epoch);

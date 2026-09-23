@@ -180,6 +180,7 @@ export class Rooms {
     if(room.started)return {room:this.view(room,session)};
     if(!room.hostReady)throw new RoomError('host_not_ready');
     if(room.reconnectUntil)throw new RoomError('host_reconnecting');
+    if(room.game.view().startRequested)return {room:this.view(room,session)};
     const readyGuest=!!room.guest?.send&&!!room.guestFile&&matchesFile(room.fingerprint,room.guestFile)&&this.peers.view(room.id,session.policy).status==='connected'&&room.game.view().ready?.includes('guest');
     if(readyGuest){try {room.game.requestStart();}catch(error){throw new RoomError(error instanceof Error?error.message:'game_prerequisites');}if(room.game.view().status==='starting')room.started='shared';this.publish(room);if(room.game.view().status==='late_join'||room.game.view().status==='failed')throw new RoomError(room.game.view().status==='late_join'?'late_join':'game_prerequisites');}
     else {room.started='solo';if(room.guest)this.releaseGuest(room,'host_started_solo');else this.publish(room);}
