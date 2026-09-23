@@ -9,6 +9,8 @@ fi
 if [ "${RETRO_COOP_SKIP_PREPARE:-0}" != 1 ]; then
   sh scripts/foundation/prepare.sh
 fi
+client_port=${RETRO_COOP_CLIENT_PORT:-8765}
+coordinator_port=${RETRO_COOP_COORDINATOR_PORT:-8787}
 
 coordinator_pid=
 client_pid=
@@ -40,14 +42,15 @@ trap 'on_signal 129' HUP
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
 
-COORDINATOR_ORIGINS=http://127.0.0.1:8765 node apps/coordinator/src/main.ts > /tmp/retro-coop-coordinator.log 2>&1 &
+COORDINATOR_PORT="$coordinator_port" COORDINATOR_ORIGINS="http://127.0.0.1:$client_port" COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0 node apps/coordinator/src/main.ts > /tmp/retro-coop-coordinator.log 2>&1 &
 coordinator_pid=$!
-python3 - <<'PY'
+python3 - "$coordinator_port" <<'PY'
+import sys
 import time
 from urllib.request import urlopen
 for _ in range(100):
     try:
-        with urlopen('http://127.0.0.1:8787/health', timeout=.2) as response:
+        with urlopen(f'http://127.0.0.1:{sys.argv[1]}/health', timeout=.2) as response:
             if response.status == 200:
                 break
     except OSError:
@@ -56,16 +59,16 @@ else:
     raise SystemExit('The room coordinator did not start; see /tmp/retro-coop-coordinator.log')
 PY
 if ! kill -0 "$coordinator_pid" 2>/dev/null; then
-  echo 'The room coordinator exited; port 8787 may already be in use. See /tmp/retro-coop-coordinator.log.' >&2
+  echo "The room coordinator exited; port $coordinator_port may already be in use. See /tmp/retro-coop-coordinator.log." >&2
   exit 1
 fi
 
-printf '\nOpen http://127.0.0.1:8765/ to play or host a lobby. Ctrl-C stops Retro Coop.\n'
+printf '\nOpen http://127.0.0.1:%s/ to play or host a lobby. Ctrl-C stops Retro Coop.\n' "$client_port"
 (
   cd apps/client
-  exec env PUBLIC_COORDINATOR_URL=http://127.0.0.1:8787 \
+  exec env PUBLIC_COORDINATOR_URL="http://127.0.0.1:$coordinator_port" \
     PUBLIC_CATALOG_GAMES=super-tilt-bro-pal,from-below-1.0 \
-    node ../../node_modules/vite/bin/vite.js --host 127.0.0.1 --port 8765 --strictPort
+    node ../../node_modules/vite/bin/vite.js --host 127.0.0.1 --port "$client_port" --strictPort
 ) &
 client_pid=$!
 set +e

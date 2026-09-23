@@ -1,4 +1,5 @@
 import type {ReservationRequest,RoomPreview,Fingerprint} from './rooms.ts';
+import {catalogEntry} from './catalog.ts';
 /** Public codes identify listings; invitations and session tokens confer separate access. */
 export const PUBLIC_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const PUBLIC_CODE_LENGTH = 8;
@@ -13,5 +14,5 @@ export type DirectoryCommand =
  | (ReservationRequest & {type:'claimCode';code:string;fingerprint:Fingerprint});
 export function matchingRooms(rooms:readonly RoomPreview[],query:string):RoomPreview[] {
  const text=query.trim().toLocaleLowerCase(),code=publicCode(query);
- return rooms.filter(room=>!text || room.label.toLocaleLowerCase().includes(text) || room.host.toLocaleLowerCase().includes(text) || !!code && room.code===code);
+ return rooms.filter(room=>!text || room.label.toLocaleLowerCase().includes(text) || room.host.toLocaleLowerCase().includes(text) || !!room.catalogId && catalogEntry(room.catalogId).title.toLocaleLowerCase().includes(text) || !!code && room.code===code);
 }

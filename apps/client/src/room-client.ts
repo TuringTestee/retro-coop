@@ -9,7 +9,7 @@ import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
+export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
 export function connectionStatus(state:RoomState) {
  const status=state.room?.peer.status;
  if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
@@ -17,7 +17,7 @@ export function connectionStatus(state:RoomState) {
  return (state.connection?.status ?? 'No peer connection.')+(state.connection?.route ? ` Route: ${state.connection.route}.`:'');
 }
 const messages:Record<string,string> = {
- capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'That place was just taken. Try joining again when it becomes available.',
+ capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'Someone claimed Host first. Review the updated row to join as Guest or choose another room.',
  room_unavailable:'This room is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
  room_changed:'That room has changed. Review the current room before trying again.',membership_changed:'That guest has left or rejoined. Review the current guest before trying again.',
  host_only:'Only the host can change this room.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
@@ -121,7 +121,7 @@ export class RoomClient {
  }
  async host(fingerprint:Fingerprint,visibility:Visibility) {
   this.cancelCreation();const intent = crypto.randomUUID(), generation = this.creationGeneration;this.intent = intent;
-  this.publish({busy:true,status:'Creating your room…',retryAfterMs:undefined});
+  this.publish({busy:true,hostFailure:false,status:'Creating your room…',retryAfterMs:undefined});
   try {
    await this.connect();if(this.intent !== intent || generation !== this.creationGeneration) return;
    const currentRoom=this.state.room;
@@ -137,8 +137,8 @@ export class RoomClient {
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
    const data = await this.request({type:'confirmCreate',intent});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
-   this.apply(data);this.intent = undefined;this.publish({busy:false,status:'Room created. You can play locally while your friend prepares their matching file.'});
-  }catch(error) {if(this.intent === intent) {this.intent = undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.failure(error);}}
+   this.apply(data);this.intent = undefined;this.publish({busy:false,hostFailure:false,status:'Room created. You can play locally while your friend prepares their matching file.'});
+  }catch(error) {if(this.intent === intent) {this.intent = undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({hostFailure:true});this.failure(error);}}
  }
  async startRoom(fingerprint:Fingerprint) {
   const room=this.state.room;if(!room||room.role!=='host')return;
@@ -157,10 +157,11 @@ export class RoomClient {
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Guest for 120 seconds. You will need your own matching file.'});}catch(error){if(generation === this.generation) this.failure(error);}}
  async join(invite:string) {return this.joinTarget({type:'join',invite});}
  async joinCode(code:string) {return this.joinTarget({type:'joinCode',code});}
- private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}) {const generation = ++this.generation,intent = crypto.randomUUID();this.joining = intent;this.publish({busy:true,status:'Reserving Guest…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.game.playIntent();this.publish({busy:false,status:'Guest reserved for 120 seconds. Choose your matching file and wait for the host to Start.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
+ async claimCode(code:string,fingerprint:Fingerprint) {return this.joinTarget({type:'claimCode',code,fingerprint});}
+ private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}|{type:'claimCode';code:string;fingerprint:Fingerprint}) {const generation = ++this.generation,intent = crypto.randomUUID(),claim=target.type==='claimCode';this.joining = intent;this.publish({busy:true,status:claim?'Claiming Host…':'Reserving Guest…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.game.playIntent();this.publish({busy:false,status:claim?'You are Host. Loading the included game before Start.':'Guest reserved for 120 seconds. Choose your matching file and wait for the host to Start.'});}catch(error){if(generation === this.generation) this.failure(error);}finally{if(this.joining === intent) this.joining = undefined;}}
  cancelPending() {++this.generation;this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {try {await this.connect();this.apply(await this.request(command));}catch(error){this.failure(error);}}
- private async refreshDirectory() {try {this.apply(await this.request({type:'directory'}));}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
+ private async refreshDirectory() {try {this.apply(await this.request({type:'directory',includeEmptyOffers:true}));}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async watchDirectory() {this.watchingDirectory=true;this.publish({directoryStatus:'loading',directoryError:undefined});const connected=this.state.connected;try {await this.connect();if(connected) await this.refreshDirectory();}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async setPolicy(policy:ConnectionPolicy) {if(policy===this.policy) return;this.policy=policy;this.peer.close(this.state.room?.peer.epoch ? 'Connection policy changed. Preparing a new connection…':'Connection preference saved. Choose a game or join a room.');if(this.state.connected) await this.act({type:'peerPolicy',policy});}
  async retryPeer() {this.game.retryConnection();const epoch=this.state.room?.peer.epoch;if(epoch) await this.act({type:'peerRetry',epoch});}

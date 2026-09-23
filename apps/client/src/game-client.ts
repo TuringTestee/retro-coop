@@ -60,7 +60,12 @@ export class GameClient {
  async resumeTogether(){const epoch=this.room?.game?.epoch,serial=this.serial;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){if(serial===this.serial)this.publish({status:String(error),busy:false});}}
  handle(event:GameEvent){
   if(event.type==='gameInspect') {if(this.peerEpoch!==event.peerEpoch){this.inspect=event.peerEpoch;return;}void this.offer();return;}
-  if(event.type==='gameStop'){this.clear(event.reason);return;}
+  if(event.type==='gameStop'){
+   const replacementReady=event.reason==='Guest game changed. Shared play is paused.'&&this.room?.role==='guest'&&!this.room.established&&!this.room.started&&!!this.file&&matchesFile(this.room.fingerprint,this.file);
+   this.clear(event.reason);
+   if(replacementReady){this.intent=true;void this.offerGuest();}
+   return;
+  }
   if(event.type==='gamePauseAt'){
    const scheduler=this.scheduler;if(!scheduler||event.epoch!==scheduler.epoch)return;
    if(event.frame<scheduler.frame||event.frame>scheduler.frame+gameplayLimits.inputWindow){this.fail('Invalid pause boundary.','network');return;}
