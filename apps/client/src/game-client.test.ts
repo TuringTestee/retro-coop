@@ -24,6 +24,7 @@ test('a completed old readiness request cannot overwrite a later membership chan
  const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
  game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
  game.selected(fingerprint);
+ game.playIntent();
  game.ready({readyState:'open'} as RTCDataChannel,'peer');
  await setImmediate();assert.equal(typeof finish,'function');
  game.enter(undefined);const latest=updates.at(-1)!.status;
@@ -49,7 +50,7 @@ test('explicit host retry submits readiness regardless of guest inspection order
  }
 });
 
-test('correcting a wrong guest file rearms readiness after the old-file stop',async()=>{
+test('correcting a wrong guest file requires explicit preparation after the old-file stop',async()=>{
  const {setImmediate}=await import('node:timers/promises');
  const sent:unknown[]=[];
  const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
@@ -59,9 +60,12 @@ test('correcting a wrong guest file rearms readiness after the old-file stop',as
  const room={id:'room',role:'guest',matches:false,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView;
  game.enter(room);game.ready({readyState:'open'} as RTCDataChannel,'peer');game.selected(wrong);
  game.selected(fingerprint);game.enter({...room,matches:true});await setImmediate();
+ assert.equal(sent.length,0,'loading a matching file must not prepare the guest automatically');
+ game.playIntent();await setImmediate();
  assert.equal(sent.length,1);
  game.handle({type:'gameStop',reason:'Guest game changed. Shared play is paused.'});await setImmediate();
- assert.equal(sent.length,2,'old-file stop stranded the corrected guest before Start');
+ assert.equal(sent.length,1,'old-file stop must not silently renew preparation');
+ game.playIntent();await setImmediate();assert.equal(sent.length,2);
 });
 
 test('canceling an in-flight readiness offer releases only that operation ownership',async()=>{
@@ -72,16 +76,29 @@ test('canceling an in-flight readiness offer releases only that operation owners
   const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
   const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
   game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
-  game.selected(fingerprint);game.ready({readyState:'open'} as RTCDataChannel,'peer');await setImmediate();
+  game.selected(fingerprint);game.playIntent();game.ready({readyState:'open'} as RTCDataChannel,'peer');await setImmediate();
   assert.equal(finish.length,1);game.cancelIntent();
   if(completeOldFirst){finish[0]();await setImmediate();}
-  game.selected(fingerprint);await setImmediate();assert.equal(finish.length,2,'canceled readiness retained its in-flight lock');
+  game.selected(fingerprint);game.playIntent();await setImmediate();assert.equal(finish.length,2,'canceled readiness retained its in-flight lock');
   if(!completeOldFirst){finish[0]();await setImmediate();}
   game.retry();await setImmediate();assert.equal(finish.length,2,'old completion released the newer offer');
-  finish[1]();await setImmediate();assert.equal(sent.length,1,'only current readiness may publish');
+  finish[1]();await setImmediate();assert.deepEqual(sent.map(command=>(command as {type:string}).type),['gameUnready','gameReady'],'only current readiness may publish after retraction');
   game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
   await setImmediate();assert.equal(finish.length,2,'retry during preparation invalidated completed readiness');
  }
+});
+test('changing a prepared guest file retracts the server offer',async()=>{
+ const {setImmediate}=await import('node:timers/promises');
+ const sent:{type:string;peerEpoch?:string}[]=[];
+ const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
+ game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+ game.selected(fingerprint);game.playIntent();game.ready({readyState:'open'} as RTCDataChannel,'peer');await setImmediate();
+ assert.equal(sent[0]?.type,'gameReady');
+ game.selected({...fingerprint,romSha256:'d'.repeat(64)});await setImmediate();
+ assert.deepEqual(sent.map(command=>command.type),['gameReady','gameUnready']);
+ assert.equal(sent[1]?.peerEpoch,'peer');
 });
 
 test('current input and completed state hash wake the existing frame owner without polling',async()=>{
@@ -93,7 +110,7 @@ test('current input and completed state hash wake the existing frame owner witho
  const game=new GameClient(()=>player,async()=>{},()=>{});
  const channel={readyState:'open',send(){},onmessage:undefined} as unknown as RTCDataChannel;
  game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:peerEpoch},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
- game.selected(fingerprint);game.ready(channel,peerEpoch);await setImmediate();
+ game.selected(fingerprint);game.playIntent();game.ready(channel,peerEpoch);await setImmediate();
  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:6});await setImmediate();
  game.handle({type:'gameStart',peerEpoch,epoch,delay:6});
  const receive=(frame:number,packetEpoch=epoch)=>channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch:packetEpoch,frame,mask:0})}));
@@ -113,7 +130,7 @@ test('both clients map acknowledged P1 ownership and shared P1 discards even for
   const game=new GameClient(()=>player,async()=>{},()=>{}),controllers={mode,p1,revision:1};
   const channel={readyState:'open',send(raw:string){sent.push(JSON.parse(raw));},onmessage:undefined} as unknown as RTCDataChannel;
   game.enter({id:'room',role,matches:true,fingerprint,peer:{epoch:peerEpoch},game:{controllers,status:'paused'}} as import('../../../packages/contracts/src/rooms.ts').RoomView);
-  game.selected(fingerprint);game.ready(channel,peerEpoch);await setImmediate();
+  game.selected(fingerprint);game.playIntent();game.ready(channel,peerEpoch);await setImmediate();
   game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:3,controllers});await setImmediate();game.handle({type:'gameStart',peerEpoch,epoch,delay:3,controllers});
   const local=role==='host'?1:2,remote=role==='host'?2:1;
   for(let frame=0;frame<4;frame++){

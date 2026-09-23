@@ -84,6 +84,16 @@ test('host inspection timeout leaves room open for a fresh Start attempt',()=>{
  assert.equal(timedOut.started,undefined);assert.equal(timedOut.game?.status,'failed');assert.equal(timedOut.game?.startRequested,false);
  t.ready(1);t.ready(0);assert.equal(t.start().room?.started,'shared');
 });
+test('guest file replacement revokes readiness and cancels a pending Start',()=>{
+ const t=setup(),peerEpoch=t.joined.peer.epoch!;
+ t.act(1,{type:'file',fingerprint});t.ready(1);
+ assert.deepEqual(t.start().room?.game?.ready,['guest']);
+ const cancelled=t.act(1,{type:'gameUnready',peerEpoch}).room!;
+ assert.deepEqual(cancelled.game?.ready,[]);assert.equal(cancelled.game?.startRequested,false);
+ assert.equal(cancelled.started,undefined);
+ assert.throws(()=>t.act(1,{type:'gameUnready',peerEpoch:'stale'}),/stale_game/);
+ t.ready(1);t.ready(0);assert.equal(t.start().room?.game?.status,'starting');
+});
 
 test('host Start with a prepared guest requests host inspection and one shared barrier',()=>{
  const t=setup();t.act(1,{type:'file',fingerprint});t.ready(1);

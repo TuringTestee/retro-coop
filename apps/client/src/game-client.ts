@@ -3,7 +3,7 @@ import {matchesFile,type Fingerprint,type RoomView} from '../../../packages/cont
 import type {LocalPlayer} from './player.ts';
 import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
-export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean};
+export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;intent?:boolean};
 /** Coordinates one installed peer receiver, one worker and one acknowledged timeline. */
 export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private renew=false;
@@ -24,9 +24,9 @@ export class GameClient {
   this.room=room;if(!room)return;
   void this.offerGuest();
  }
- selected(file:Fingerprint){this.file=file;this.intent=true;this.offered=undefined;void this.offerGuest();}
- playIntent(){this.intent=true;this.offered=undefined;void this.offerGuest();}
- cancelIntent(){if(!this.room?.established){this.intent=false;++this.serial;this.offered=undefined;}}
+ selected(file:Fingerprint){if(this.room?.role==='guest'&&this.file)this.cancelIntent();this.file=file;this.intent=this.room?.role!=='guest';this.offered=undefined;this.publish({intent:this.intent});void this.offerGuest();}
+ playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,status:this.channel?.readyState==='open'?'Preparing your game for shared play…':'Waiting for the peer connection before preparation can finish…'});void this.offerGuest();}
+ cancelIntent(){if(!this.room?.established){const epoch=this.peerEpoch,shouldRevoke=this.room?.role==='guest'&&!!this.offered&&!!epoch;this.intent=false;++this.serial;this.offered=undefined;this.publish({intent:false});if(shouldRevoke)void this.send({type:'gameUnready',peerEpoch:epoch}).catch(()=>{});}}
  retry(){void this.renewOffer();}
  retryConnection(){this.renew=true;}
  ready(channel:RTCDataChannel,epoch:string,roundTripMs=0){
@@ -38,7 +38,7 @@ export class GameClient {
  closed(epoch?:string){if(epoch&&epoch===this.peerEpoch){this.peerEpoch=undefined;this.channel=undefined;this.clear('Connection changed. Shared play is paused; retry explicitly.');}}
  private clear(status:string,leave=false){
   ++this.serial;this.intent=false;this.offered=undefined;this.offeringSerial=undefined;this.prepared=undefined;this.scheduler=undefined;this.early=[];this.fence=undefined;this.awaitingFence=false;this.hashing=false;
-  if(this.controlled)this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.controlled=false;this.publish({status,busy:false});
+  if(this.controlled)this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.controlled=false;this.publish({status,busy:false,intent:false});
  }
  private eligible(){return !!this.intent&&!!this.room&&!!this.file&&matchesFile(this.room.fingerprint,this.file)&&this.room.matches&&!this.room.game?.controllerProposal&&this.channel?.readyState==='open'&&this.peerEpoch===this.room.peer.epoch;}
  private async offerGuest(){if(this.room?.role==='guest'&&!this.room.established&&this.eligible())await this.offer();}
@@ -61,9 +61,7 @@ export class GameClient {
  handle(event:GameEvent){
   if(event.type==='gameInspect') {if(this.peerEpoch!==event.peerEpoch){this.inspect=event.peerEpoch;return;}void this.offer();return;}
   if(event.type==='gameStop'){
-   const replacementReady=event.reason==='Guest game changed. Shared play is paused.'&&this.room?.role==='guest'&&!this.room.established&&!this.room.started&&!!this.file&&matchesFile(this.room.fingerprint,this.file);
    this.clear(event.reason);
-   if(replacementReady){this.intent=true;void this.offerGuest();}
    return;
   }
   if(event.type==='gamePauseAt'){

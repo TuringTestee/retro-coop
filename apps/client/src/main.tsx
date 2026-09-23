@@ -45,7 +45,7 @@ function App() {
  const [invitationHash,setInvitationHash]=useState(location.hash);
  useEffect(()=>{const sync=()=>{setInvitationHash(location.hash);if(new URLSearchParams(location.hash.slice(1)).has('invite'))setBrowsing(false);};addEventListener('hashchange',sync);addEventListener('popstate',sync);return()=>{removeEventListener('hashchange',sync);removeEventListener('popstate',sync);};},[]);
  const syncRoom=useCallback((room?:RoomView)=>{setRoomView(room);if(room)setBrowsing(false);},[]);
- const roomStartRequired=roomView?.role==='host'&&!roomView.started;
+ const roomStartRequired=!!roomView&&!roomView.started;
  const [muted,setMuted] = useState(true), [drag,setDrag] = useState(false);
  const preferencesIdentity=state.fingerprint ? fileIdentity(state.fingerprint) : undefined;
  const preferences=usePreferences(preferencesIdentity,value=>{setControls(value.controls);runtime.current?.configureControls(value.controls);setFilter(value.filter);setVolume(value.volume);runtime.current?.setVolume(value.volume);});
@@ -73,7 +73,7 @@ function App() {
    <p role="status" data-testid="player-status" aria-live="polite">{state.status}</p>{state.audioIssue && <p className="hint" role="status">{state.audioIssue} <button onClick={() => runtime.current?.retryAudio()}>Retry sound</button></p>}
    <p className="hint">Uncompressed iNES / NES 2.0 cartridges. Support varies by cartridge hardware and available memory. Archives and disk images cannot load.</p>
    <p className="hint">Experimental compatibility: a loaded game is not a guarantee that every mapper feature works.</p>
-   <details><summary>Game details</summary><p className="hint">Focus the screen to play. Default arrows: move · X: A · Z: B · Enter: Start · Shift is Select. Open Settings to choose a controller, remap buttons, and test inputs. Switching windows pauses play.</p>
+   <details><summary>Game details</summary><p className="hint">Focus the screen to control it. Default arrows: move · X: A · Z: B · Enter: Start · Shift is Select. Open Settings to choose a controller, remap buttons, and test inputs. Switching tabs releases held buttons while play continues.</p>
    {state.fingerprint && <dl data-testid="fingerprint"><dt>Cartridge</dt><dd>{state.fingerprint.cartridge.format} · mapper {state.fingerprint.cartridge.mapper} / {state.fingerprint.cartridge.submapper} · {state.fingerprint.cartridge.region} · {state.fingerprint.cartridge.bytes} bytes</dd><dt>Exact file SHA-256</dt><dd>{state.fingerprint.romSha256}</dd><dt>Emulator build SHA-256</dt><dd>{state.fingerprint.coreSha256}</dd><dt>Local settings (schema {state.fingerprint.localSchema})</dt><dd>{state.fingerprint.settings}</dd></dl>}</details>
    <span aria-label="Rendered frames" data-testid="frames">{state.frames} frames</span>
    {(state.storageIssue || preferences.issue || persistenceMessage) && <p role="status" data-testid="persistence-status">{state.storageIssue || preferences.issue || persistenceMessage} <button onClick={()=>openLocalData()}>Manage local data</button></p>}

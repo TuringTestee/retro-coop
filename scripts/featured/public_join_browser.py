@@ -37,6 +37,7 @@ try:
             row.get_by_role('button', name='Join', exact=True).click()
             return row
         def shared(host, guest):
+            guest.get_by_role('button', name='Prepare to play', exact=True).click()
             host.get_by_text('Guest is ready. Start together when you are ready.', exact=True).wait_for(timeout=30000)
             host.get_by_role('button', name='Start game', exact=True).click()
             for tab in (host, guest):

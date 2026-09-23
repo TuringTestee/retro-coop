@@ -7,6 +7,7 @@ import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {ConnectionPolicy,PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
+import {TabSession} from './tab-session.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
 export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
@@ -38,6 +39,8 @@ export class RoomClient {
  private disposed = false;
  private watchingDirectory = false;
  private token?:string;
+ private tabSession=new TabSession();
+ private tokenCheck?:Promise<void>;
  private intent?:string;
  private generation = 0;
  private creationGeneration = 0;
@@ -73,6 +76,14 @@ export class RoomClient {
  private async connect() {
   if(this.state.connected && this.socket?.readyState === WebSocket.OPEN) return;
   if(this.connecting) return this.connecting;
+  if(this.token){
+   this.tokenCheck??=this.tabSession.claim(this.token).then(claimed=>{
+    if(!claimed){this.token=undefined;try{sessionStorage.removeItem('retro-coop-guest');}catch{}}
+   }).finally(()=>{this.tokenCheck=undefined;});
+   await this.tokenCheck;
+  }
+  if(this.disposed)throw Error('Room client disposed');
+  if(this.connecting)return this.connecting;
   const endpoint = new URL(clientConfig.coordinatorUrl,location.href);endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:':'ws:';endpoint.pathname = endpoint.pathname.replace(/\/$/,'')+'/ws';endpoint.hash = '';endpoint.search = '';
   const socket = new WebSocket(endpoint);this.socket = socket;
   this.connecting = new Promise<void>((resolve,reject)=>{
@@ -90,8 +101,8 @@ export class RoomClient {
     else if(event.type === 'room') this.setRoom(event.room);
     else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);const status=messages[event.reason] ?? 'This room ended. Your local game is preserved.';this.publish({busy:false,status,releaseNotice:status});}
    };
-   socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(data=>{
-    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(this.state.admissionBlocked && !data.room)this.peer.close('No peer connection.');this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
+   socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(async data=>{
+    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token))throw Error('This browser cannot reserve a separate room session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.peer.close('No peer connection.');this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
@@ -158,7 +169,7 @@ export class RoomClient {
  async join(invite:string) {return this.joinTarget({type:'join',invite});}
  async joinCode(code:string) {return this.joinTarget({type:'joinCode',code});}
  async claimCode(code:string,fingerprint:Fingerprint) {return this.joinTarget({type:'claimCode',code,fingerprint});}
- private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}|{type:'claimCode';code:string;fingerprint:Fingerprint}) {const generation = ++this.generation,intent = crypto.randomUUID(),claim=target.type==='claimCode';this.joining = intent;this.publish({busy:true,status:claim?'Claiming Host…':'Reserving Guest…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}this.apply(data);this.game.playIntent();this.publish({busy:false,status:claim?'You are Host. Loading the included game before Start.':'Guest reserved for 120 seconds. Choose your matching file and wait for the host to Start.'});}catch(error){if(generation === this.generation){const code=(error as Error & {code?:string}).code;if(target.type==='join'&&['room_unavailable','place_taken','room_started','host_reconnecting'].includes(code??''))this.publish({preview:undefined});this.failure(error);}}finally{if(this.joining === intent) this.joining = undefined;}}
+ private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}|{type:'claimCode';code:string;fingerprint:Fingerprint}) {const generation = ++this.generation,intent = crypto.randomUUID(),claim=target.type==='claimCode';this.joining = intent;this.publish({busy:true,status:claim?'Claiming Host…':'Reserving Guest…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}if(!claim)this.game.cancelIntent();this.apply(data);if(claim)this.game.playIntent();this.publish({busy:false,status:claim?'You are Host. Loading the included game before Start.':'Guest reserved for 120 seconds. Load the matching game, then choose Prepare to play.'});}catch(error){if(generation === this.generation){const code=(error as Error & {code?:string}).code;if(target.type==='join'&&['room_unavailable','place_taken','room_started','host_reconnecting'].includes(code??''))this.publish({preview:undefined});this.failure(error);}}finally{if(this.joining === intent) this.joining = undefined;}}
  cancelPending() {++this.generation;this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {try {await this.connect();this.apply(await this.request(command));return true;}catch(error){this.failure(error);return false;}}
  private async refreshDirectory() {try {this.apply(await this.request({type:'directory',includeEmptyOffers:true}));}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
@@ -166,8 +177,9 @@ export class RoomClient {
  async setPolicy(policy:ConnectionPolicy) {if(policy===this.policy) return;this.policy=policy;this.peer.close(this.state.room?.peer.epoch ? 'Connection policy changed. Preparing a new connection…':'Connection preference saved. Choose a game or join a room.');if(this.state.connected) await this.act({type:'peerPolicy',policy});}
  async retryPeer() {this.game.retryConnection();const epoch=this.state.room?.peer.epoch;if(epoch) await this.act({type:'peerRetry',epoch});}
  async reconnect() {try {await this.connect();this.publish({status:this.state.room ? 'Room connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous room or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
- newGuest() {++this.generation;this.cancelCreation();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.setRoom(undefined);this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
+ newGuest() {++this.generation;this.cancelCreation();this.tabSession.close();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.setRoom(undefined);this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
  localPlayIntent(){this.game.playIntent();}
+ prepareGuest(){if(this.state.room?.role==='guest'&&!this.state.room.started)this.game.playIntent();}
  selectedGame(file:Fingerprint){this.selectedFile=file;this.game.selected(file);}
  isGuest(){return this.state.room?.role==='guest';}
  retryGame(){this.game.retry();}
@@ -176,5 +188,5 @@ export class RoomClient {
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {++this.generation;this.game.dispose();this.peer.close();this.cancelCreation();this.disposed = true;this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {++this.generation;this.game.dispose();this.peer.close();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }

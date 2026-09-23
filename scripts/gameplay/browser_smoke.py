@@ -96,6 +96,7 @@ try:
    g.set_input_files('input[type=file]',{'name':'matching.nes','mimeType':'application/octet-stream','buffer':rom})
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
+   g.get_by_role('button',name='Prepare to play',exact=True).click()
    h.wait_for_function("proof.room?.game?.ready?.includes('guest')",timeout=15000,polling=50)
    h.get_by_role('button',name='Start game',exact=True).click()
    if args.cancel_barrier:
@@ -188,18 +189,22 @@ try:
    h.keyboard.up('x');g.keyboard.up('z')
    if args.fault=='device':
     h.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());h.get_by_role('button',name='Settings',exact=True).click();h.get_by_label('Input device',exact=True).select_option('0');h.get_by_role('button',name='Close settings',exact=True).click();h.evaluate('padConnected=false')
-   elif args.fault=='focus':h.evaluate("window.dispatchEvent(new Event('blur'))")
+   elif args.fault=='focus':
+    h.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
+    before=h.evaluate('proof.frameCount')
+    h.wait_for_function('frames=>proof.frameCount>=frames+60',arg=before,timeout=15000,polling=50)
+    assert all(tab.evaluate("proof.room.game.status==='playing'") for tab in [h,g])
+    h.get_by_role('button',name='Pause',exact=True).click()
    else:h.get_by_role('button',name='Pause',exact=True).click()
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
    if args.screenshots:
     h.screenshot(path=str(out.with_name('paused.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     h.set_viewport_size({'width':390,'height':844});h.screenshot(path=str(out.with_name('paused-mobile.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')]);h.set_viewport_size({'width':1280,'height':1050})
    before=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert before[0]==before[1],before
-   if args.fault in ['focus','device']:
+   if args.fault=='device':
     open_room(h).get_by_role('button',name='Ready to resume',exact=True).click()
     assert h.evaluate('proof.room.game.status')=='paused'
-    if args.fault=='focus':h.evaluate("window.dispatchEvent(new Event('focus'))")
-    else:h.get_by_role('button',name='Use keyboard',exact=True).click()
+    h.get_by_role('button',name='Use keyboard',exact=True).click()
    open_room(h).get_by_role('button',name='Ready to resume',exact=True).click()
    h.wait_for_function("proof.room.game.ready?.includes('host')",polling=50)
    assert h.get_by_role('button',name='Resume together',exact=True).is_disabled()

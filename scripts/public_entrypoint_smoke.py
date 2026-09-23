@@ -48,10 +48,25 @@ def wait_closed(port):
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     from playwright.sync_api import sync_playwright
 
+    # Headless Chromium disables real background throttling. Clamp its window
+    # timers to Chrome's documented background cadence while keeping audio worklet
+    # callbacks live; the game must advance without relying on window timers.
+    throttle_window = """() => {
+      const timeout = window.setTimeout, interval = window.setInterval;
+      window.setTimeout = (fn, ms, ...args) => timeout(fn, Math.max(ms ?? 0, 1000), ...args);
+      window.setInterval = (fn, ms, ...args) => interval(fn, Math.max(ms ?? 0, 1000), ...args);
+      window.requestAnimationFrame = () => 0;
+    }"""
+    hide_tab = """() => {
+      Object.defineProperty(document, 'hidden', {configurable: true, value: true});
+      window.dispatchEvent(new Event('blur'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    }"""
     result = {}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        host = browser.new_page(viewport={"width": 1280, "height": 800})
+        tabs = browser.new_context(viewport={"width": 1280, "height": 800})
+        host = tabs.new_page()
         host.goto(url)
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
         rows = host.locator(".room-list li")
@@ -68,9 +83,21 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         if screenshot_dir:
             host.screenshot(path=str(screenshot_dir / "waiting-room.png"))
         code = host.locator("#room-heading").inner_text().split(" · ")[-1]
-        guest = browser.new_page(viewport={"width": 760, "height": 680})
+        # Duplicating a browser tab copies sessionStorage. The new tab must get its
+        # own guest identity instead of silently taking over the host connection.
+        host_token = host.evaluate("sessionStorage.getItem('retro-coop-guest')")
+        assert host_token
+        # The source tab may be busy emulating. Its silence must not let a copy
+        # reuse the host token and replace the original room connection.
+        host.evaluate("setTimeout(() => { window.__busyStarted = true; const end = performance.now() + 3000; while (performance.now() < end) {} }, 0)")
+        guest = tabs.new_page()
+        guest.set_viewport_size({"width": 760, "height": 680})
+        guest.add_init_script(f"sessionStorage.setItem('retro-coop-guest', {json.dumps(host_token)})")
         guest.goto(url)
         guest.get_by_role("button", name="Join as host").first.wait_for()
+        guest.wait_for_function("old => sessionStorage.getItem('retro-coop-guest') !== old", arg=host_token)
+        assert host.get_by_role("button", name="Start game", exact=True).is_enabled()
+        result["duplicate_tab_gets_independent_guest_session"] = True
         guest.get_by_role("searchbox", name="Search room, game, host, or code").fill(code)
         target = guest.locator(".room-list li").filter(has_text=code)
         assert target.count() == 1 and "1/2 · Waiting for guest" in target.inner_text()
@@ -79,6 +106,13 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.get_by_label("Chat message").fill("Ready when you are")
         guest.get_by_role("button", name="Send message").click()
         host.get_by_text("Ready when you are", exact=True).wait_for(timeout=15000)
+        guest.get_by_role("button", name="Prepare to play", exact=True).click()
+        guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).wait_for(timeout=30000)
+        host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=30000)
+        if screenshot_dir:
+            guest.screenshot(path=str(screenshot_dir / "guest-ready.png"))
+            host.screenshot(path=str(screenshot_dir / "host-ready.png"))
+        result["duplicate_tab_guest_ready_visible_to_host"] = True
         result["included_claim_replenish_join_chat"] = True
         guest.get_by_role("button", name="Leave room", exact=True).click()
         guest.locator(".room-panel").wait_for(state="detached")
@@ -86,6 +120,15 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Start game", exact=True).click()
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10", timeout=30000)
         result["host_start_solo_after_guest_left"] = True
+        solo_before = int(host.get_by_test_id("frames").inner_text().split(" ")[0])
+        host.evaluate(throttle_window)
+        assert not host.evaluate("document.hidden")
+        host.wait_for_function("frames => Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>frames+60", arg=solo_before, timeout=5000)
+        occluded_before = int(host.get_by_test_id("frames").inner_text().split(" ")[0])
+        host.evaluate(hide_tab)
+        host.wait_for_function("frames => Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>frames+60", arg=occluded_before, timeout=5000)
+        assert host.get_by_test_id("player-status").inner_text().startswith("Playing locally")
+        result["tab_switch_keeps_local_play_running"] = True
         fixture = ROOT / "apps/client/public/generated/diagnostic.nes"
         custom = browser.new_page(viewport={"width": 1280, "height": 800})
         custom.goto(url)
@@ -116,11 +159,31 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert shared_guest.get_by_role("button", name="Choose matching NES file").is_visible()
         shared_guest.set_input_files("input[type=file]", fixture)
         shared_host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')", timeout=15000)
+        assert shared_host.get_by_text("Guest is still preparing.", exact=False).is_visible()
+        shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
         shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
+        shared_guest.set_input_files("input[type=file]", {"name": "wrong.nes", "mimeType": "application/octet-stream", "buffer": fixture.read_bytes() + b"different identity"})
+        shared_host.get_by_text("Guest is still preparing.", exact=False).wait_for(timeout=15000)
+        assert shared_guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).count() == 0
+        if screenshot_dir:
+            shared_guest.screenshot(path=str(screenshot_dir / "guest-file-changed.png"))
+            shared_host.screenshot(path=str(screenshot_dir / "host-unready.png"))
+        shared_guest.set_input_files("input[type=file]", fixture)
+        shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
+        shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
+        shared_guest.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
         shared_host.get_by_role("button", name="Start game", exact=True).click()
         for tab in (shared_host, shared_guest):
             tab.wait_for_function("Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>10", timeout=30000)
+        before_switch = int(shared_host.get_by_test_id("game-frame").inner_text().split(" ")[0])
+        guest_before_switch = int(shared_guest.get_by_test_id("game-frame").inner_text().split(" ")[0])
+        shared_host.evaluate(throttle_window)
+        shared_host.evaluate(hide_tab)
+        for tab, before in ((shared_host, before_switch), (shared_guest, guest_before_switch)):
+            tab.wait_for_function("frames => Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>frames+60", arg=before, timeout=15000)
+            tab.wait_for_function("document.querySelector('[data-testid=game-status]')?.textContent === 'Playing together.'", timeout=5000)
         result["local_file_public_discovery_and_shared_play"] = True
+        result["tab_switch_keeps_shared_play_running"] = True
         failed_download = browser.new_page()
         failed_download.route("**/catalog/super-tilt-bro-*.nes", lambda route: route.abort())
         failed_download.goto(url)
@@ -152,20 +215,29 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         browser.close()
     return result
 
-def startup_failure_check(environment):
-    blocker = socket.socket()
-    blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    blocker.bind(("127.0.0.1", 8765))
-    blocker.listen()
+def occupied_port_check(environment):
+    blockers = []
+    for port in (8765, 8787):
+        blocker = socket.socket()
+        blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        blocker.bind(("127.0.0.1", port))
+        blocker.listen()
+        blockers.append(blocker)
+    log_path = Path("/tmp/retro-coop-occupied-ports.log")
+    service, log = start_launcher(environment, log_path)
     try:
-        failed = subprocess.run(
-            ["sh", "scripts/demo.sh"], cwd=ROOT, env=environment,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=15,
-        )
+        wait_ready(service, log_path, 8766)
+        assert fetch("http://127.0.0.1:8788/health")[0] == 200
+        assert "Open http://127.0.0.1:8766/" in log_path.read_text()
+        stop_launcher(service, signal.SIGTERM, 8766, 8788)
     finally:
-        blocker.close()
-    assert failed.returncode != 0, failed.stdout
-    wait_closed(8787)
+        log.close()
+        if service.poll() is None:
+            os.killpg(service.pid, signal.SIGKILL)
+            service.wait()
+        for blocker in blockers:
+            blocker.close()
+    return {"client": 8766, "coordinator": 8788}
 
 
 def start_launcher(environment, log_path):
@@ -177,20 +249,20 @@ def start_launcher(environment, log_path):
     return service, log
 
 
-def wait_ready(service, log_path):
+def wait_ready(service, log_path, client_port=8765):
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         if service.poll() is not None:
             raise AssertionError("Documented launcher exited early: " + log_path.read_text())
         try:
-            if fetch("http://127.0.0.1:8765/")[0] == 200:
+            if fetch(f"http://127.0.0.1:{client_port}/")[0] == 200 and f"Open http://127.0.0.1:{client_port}/" in log_path.read_text():
                 return
         except OSError:
             time.sleep(.1)
     raise AssertionError("Documented application URL did not become ready: " + log_path.read_text())
 
 
-def stop_launcher(service, signum):
+def stop_launcher(service, signum, client_port=8765, coordinator_port=8787):
     service.send_signal(signum)
     try:
         return_code = service.wait(timeout=5)
@@ -199,8 +271,8 @@ def stop_launcher(service, signum):
         service.wait()
         raise AssertionError(f"launcher ignored signal {signum}") from error
     assert return_code in (-signum, 128 + signum), return_code
-    wait_closed(8765)
-    wait_closed(8787)
+    wait_closed(client_port)
+    wait_closed(coordinator_port)
 
 
 def signal_lifecycle_check(environment):
@@ -222,7 +294,7 @@ def signal_lifecycle_check(environment):
 
 def runtime_check(with_browser=False, screenshot_dir=None):
     environment = dict(os.environ, RETRO_COOP_SKIP_INSTALL="1", RETRO_COOP_SKIP_PREPARE="1")
-    startup_failure_check(environment)
+    fallback = occupied_port_check(environment)
     lifecycle = signal_lifecycle_check(environment)
     log_path = Path("/tmp/retro-coop-public-entrypoint.log")
     service, log = start_launcher(environment, log_path)
@@ -251,7 +323,7 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             assert status == 200
             result = {"result": "pass", "url": "http://127.0.0.1:8765/",
                       "legacy_url_serves_current_app": True, "coordinator": "websocket accepted",
-                      "catalog": catalog, "client_startup_failure_released_ports": [8765, 8787],
+                      "catalog": catalog, "occupied_ports_select_next_available": fallback,
                       "launcher_signals": lifecycle}
             if with_browser:
                 result["browser"] = browser_check(screenshot_dir)

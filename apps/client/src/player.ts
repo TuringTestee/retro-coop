@@ -25,6 +25,7 @@ export class LocalPlayer {
  private expectedFrame?:{epoch:string;frame:number};
  private batterySession?:BatterySession;
  private persistenceTimer=0;
+ private backgroundTimer?:ReturnType<typeof setInterval>;
  private pagehide=()=>{void this.persistBattery();};
  private nextRequest = 0;
  private pending = new Map<number,{worker:Worker;resolve:(value:WorkerResponse)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
@@ -41,8 +42,8 @@ export class LocalPlayer {
  }
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
  frameRate(){return this.fps;}
- async holdForGame() {if(!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game and reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
- startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available||document.hidden||!this.windowFocused)throw Error('Return to the game with a connected controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});this.canvas.focus();this.pumpGame();}
+ async holdForGame() {if(!this.inputDevice().available)throw Error('Reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
+ startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available)throw Error('Reconnect your controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});if(!document.hidden)this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
  stopGame(status:string,leave=false) {clearTimeout(this.gameTimer);this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
  private async prepareBattery(worker:Worker,isCurrent:()=>boolean):Promise<{session?:BatterySession;issue?:string}> {
@@ -119,7 +120,6 @@ export class LocalPlayer {
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
- private windowFocused=true;
  private keys = new Set<string>();
  private controls: Controls = defaults();
  private volume = 1;
@@ -129,13 +129,16 @@ export class LocalPlayer {
  private animation = 0;
  private context?: AudioContext;
  private gain?: GainNode;
+ private backgroundClock?:AudioWorkletNode;
+ private backgroundClockStarting=false;
+ private backgroundClockFailed=false;
  private muted = true;
  private audio = createAudioQueue(() => this.context, () => this.state.running, () => this.gain);
  private state: PlayerState = {status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
  constructor(private canvas: HTMLCanvasElement, private update: (state: PlayerState) => void) {
   this.persistenceTimer=window.setInterval(()=>{void this.persistBattery();},10000);window.addEventListener('pagehide',this.pagehide);
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
-  window.addEventListener('blur',this.blur);window.addEventListener('focus',this.focus); document.addEventListener('visibilitychange',this.hidden);
+  window.addEventListener('blur',this.blur);document.addEventListener('visibilitychange',this.hidden);
   canvas.addEventListener('blur',this.canvasBlur);
   this.animation = requestAnimationFrame(this.tick);
  }
@@ -154,9 +157,14 @@ export class LocalPlayer {
  useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
  private canvasBlur = () => {this.release();};
- private focus = () => {this.windowFocused=true;};
- private blur = () => { this.windowFocused=false;this.pause('focus'); void this.persistBattery(); };
- private hidden = () => { if(document.hidden) {this.pause('focus');void this.persistBattery();} void this.persistBattery(); };
+ private blur = () => { this.release();void this.persistBattery(); };
+ private hidden = () => {
+  if(document.hidden){
+   this.release();
+   this.backgroundTimer ??=setInterval(()=>this.stepLocal(performance.now()),16);
+  }else {clearInterval(this.backgroundTimer);this.backgroundTimer=undefined;}
+  void this.persistBattery();
+ };
  private inputDevice() {
   const selected = this.controls.device;
   const pad = selected ? navigator.getGamepads()[selected.index] : undefined;
@@ -169,6 +177,9 @@ export class LocalPlayer {
  }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
+  this.stepLocal(now);
+ };
+ private stepLocal(now:number) {
   const {pad,available} = this.inputDevice();
   this.releasedPad.sample(padInputs(pad));
   if(!available) {
@@ -181,7 +192,7 @@ export class LocalPlayer {
   this.last = now-(now-this.last)%(1000/this.fps);
   const mask=this.controllerMask(pad);
   this.busy=true;this.send(this.active,{type:'frame',p1:mask,p2:0});
- };
+ }
  // As in the qualified D02 scheduler, wall time sets an absolute target. Input
  // waits retain debt; each worker request still commits exactly one known frame.
  private pumpGame = () => {
@@ -191,7 +202,7 @@ export class LocalPlayer {
   if(!this.active||!this.state.running)return;
   if(this.game.draining()){this.drainGame();return;}
   const {pad,available}=this.inputDevice();
-  if(!available||document.hidden||!this.windowFocused){this.pause(available?'focus':'device');return;}
+  if(!available){this.pause('device');return;}
   const elapsed=performance.now()-this.gameStarted;
   if(elapsed-this.gameFrames*1000/this.fps>gameplayLimits.stallMs){this.pause('network');return;}
   if(this.busy||this.gameFrames>=Math.floor(elapsed*this.fps/1000))return;
@@ -227,10 +238,22 @@ export class LocalPlayer {
  }
  setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : this.volume; this.audio.flush(); if(!value) this.activateAudio(); }
  retryAudio() { this.activateAudio(); }
+ private ensureBackgroundClock(context:AudioContext) {
+  if(this.backgroundClock||this.backgroundClockStarting)return;
+  if(!context.audioWorklet){this.backgroundClockFailed=true;this.publish({audioIssue:'Background play may slow because the audio clock is unavailable. Keep this tab active.'});return;}
+  this.backgroundClockStarting=true;
+  void context.audioWorklet.addModule(new URL('./background-clock.js',import.meta.url)).then(()=>{
+   if(this.disposed||this.context!==context)return;
+   const clock=new AudioWorkletNode(context,'retro-coop-background-clock',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
+   clock.port.onmessage=()=>{if(!this.state.running)return;const now=performance.now();if(this.game)this.pumpGame();else this.stepLocal(now);};
+   clock.connect(this.gain!);this.backgroundClock=clock;this.backgroundClockFailed=false;if(context.state==='running')this.publish({audioIssue:undefined});
+  }).catch(()=>{if(!this.disposed){this.backgroundClockFailed=true;this.publish({audioIssue:'Background play may slow because the audio clock is unavailable. Retry sound or keep this tab active.'});}}).finally(()=>{this.backgroundClockStarting=false;});
+ }
  private activateAudio() {
   try {
    if(!this.context) { this.context = new AudioContext(); this.gain = this.context.createGain(); this.gain.gain.value = this.muted ? 0 : this.volume; this.gain.connect(this.context.destination); this.context.onstatechange=()=>this.publish({audioState:this.context?.state}); }
-   void this.context.resume().then(() => this.publish({audioIssue:this.context?.state === 'running' ? undefined : 'Sound is blocked. Retry sound to allow it; your game can continue.'})).catch(() => this.publish({audioIssue:'Sound could not start. Retry sound; your game can continue.'}));
+   this.ensureBackgroundClock(this.context);
+   void this.context.resume().then(() => this.publish({audioIssue:this.context?.state !== 'running' ? 'Sound is blocked. Retry sound to allow it; your game can continue.' : this.backgroundClockFailed ? 'Background play may slow because the audio clock is unavailable. Retry sound or keep this tab active.' : undefined})).catch(() => this.publish({audioIssue:'Sound could not start. Retry sound; your game can continue.'}));
   } catch { this.publish({audioIssue:'Sound is unavailable in this browser. Your game can continue.'}); }
  }
  private read(file: File): Promise<ArrayBuffer> {
@@ -299,6 +322,7 @@ export class LocalPlayer {
      if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();
      else if(this.game)this.pumpGame();
+     else if(document.hidden)this.stepLocal(performance.now());
     }
    };
    this.send(worker,{type:'load',rom},[rom]);
@@ -307,8 +331,8 @@ export class LocalPlayer {
   }
  }
  dispose() {
-  clearInterval(this.persistenceTimer);window.removeEventListener('pagehide',this.pagehide);
-  this.disposed = true; clearTimeout(this.gameTimer); this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
-  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('focus',this.focus); document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
+  clearInterval(this.persistenceTimer);clearInterval(this.backgroundTimer);window.removeEventListener('pagehide',this.pagehide);
+  this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
+  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
  }
 }
