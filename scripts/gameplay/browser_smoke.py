@@ -59,11 +59,32 @@ try:
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
    h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
+    # Progress-preserving late Join is deferred: an active room offers no admission path.
     invite=h.get_by_label('Room invitation',exact=True).input_value();h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
-    g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
-    g.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('game has started')",polling=50)
+    g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
+    preview=g.locator('.room-panel.invitation');preview.get_by_text('playing',exact=False).wait_for()
+    assert preview.get_by_role('button',name='Join room',exact=True).count()==0
+    assert preview.get_by_role('button',name='Retry invitation',exact=True).is_visible()
+    denial=g.evaluate('''invite=>new Promise((resolve,reject)=>{
+      const socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);
+      const helloId=crypto.randomUUID(),joinId=crypto.randomUUID();
+      const timeout=setTimeout(()=>{socket.close();reject(Error('late join probe timed out'))},5000);
+      socket.onerror=()=>{clearTimeout(timeout);reject(Error('late join probe failed'))};
+      socket.onopen=()=>socket.send(JSON.stringify({type:'hello',requestId:helloId}));
+      socket.onmessage=event=>{const result=JSON.parse(event.data);if(result.type!=='result')return;
+        if(result.requestId===helloId){if(!result.ok){clearTimeout(timeout);socket.close();reject(Error('late join hello failed'));return;}
+          socket.send(JSON.stringify({type:'join',requestId:joinId,intent:crypto.randomUUID(),invite:new URLSearchParams(new URL(invite).hash.slice(1)).get('invite')}));}
+        if(result.requestId===joinId){clearTimeout(timeout);socket.close();resolve({ok:result.ok,error:result.error});}
+      };
+    })''',invite)
+    assert denial=={'ok':False,'error':'room_started'},denial
+    host_after_denial=int(h.get_by_test_id('frames').inner_text().split()[0])
+    preview.get_by_role('button',name='View public rooms',exact=True).click();g.get_by_role('heading',name='Public rooms',exact=True).wait_for()
+    playing_row=g.locator('.room-list li').filter(has_text='Playing; Join unavailable');playing_row.wait_for()
+    assert playing_row.get_by_role('button',name='Join',exact=True).count()==0
     assert g.get_by_test_id('room-view').count()==0
-    result={'result':'pass','scenario':'late guest denied after solo Start','host_frames':h.get_by_test_id('frames').inner_text(),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=host_after_denial,polling=50)
+    result={'result':'pass','scenario':'late guest denied after solo Start','host_frames':h.get_by_test_id('frames').inner_text(),'invitation_join_hidden':True,'server_denied':'room_started','public_row_join_unavailable':True,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
