@@ -44,15 +44,13 @@ export class RoomClient {
  private tokenCheck?:Promise<void>;
  private intent?:string;
  private uploadAbort?:AbortController;
- private selectedUploadFile?:File;
  private generation = 0;
  private creationGeneration = 0;
- private replacement?:{room:string;fingerprint:Fingerprint};
  private selectedFile?:Fingerprint;
  private joining?:string;
  private pending = new Map<string,{kind:Command['type'];resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'Choose a file to create a room.',busy:false,connected:false};
- constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false,policy:ConnectionPolicy='standard',private player:()=>LocalPlayer|null=()=>null) {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
+ constructor(private update:(state:RoomState)=>void,policy:ConnectionPolicy='standard',private player:()=>LocalPlayer|null=()=>null) {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
   const prior=this.state.room;
@@ -128,36 +126,25 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the room service.'});}
- beginSelection() {this.game.cancelIntent();this.replacement=undefined;this.cancelCreation();}
- async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean,file?:File):Promise<boolean> {
-  if(!this.token && !this.state.room) {if(isCurrent()&&file)this.selectedUploadFile=file;return isCurrent();}
-  try {await this.connect();}catch {if(isCurrent()&&file)this.selectedUploadFile=file;return isCurrent();} // Local play remains available offline; hosting still requires consent.
+ beginSelection() {this.game.cancelIntent();this.cancelCreation();}
+ async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
+  if(!this.token && !this.state.room) return isCurrent();
+  try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
   if(!isCurrent()) return false;
   const room=this.state.room;
   if(room?.established){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
-  if(!room || room.role!=='host' || matchesFile(room.fingerprint,fingerprint)) {if(file)this.selectedUploadFile=file;return true;}
-  if(!this.confirmReplacement()) return false;
-  if(!isCurrent()) return false;
-  this.replacement={room:room.id,fingerprint};if(file)this.selectedUploadFile=file;return true;
+  if(room?.role==='host'&&!matchesFile(room.fingerprint,fingerprint)){this.publish({status:'Leave this room before choosing a different game.'});return false;}
+  return true;
  }
- async host(fingerprint:Fingerprint,visibility:Visibility) {
-  const file=this.selectedUploadFile;
-  if(!file){this.publish({hostFailure:true,status:'Choose the NES file again before uploading.'});return;}
+ async host(file:File,fingerprint:Fingerprint,visibility:Visibility,current:()=>boolean) {
+  if(!current()||!this.player()?.isLoaded(fingerprint)||file.size!==fingerprint.cartridge.bytes){this.publish({hostFailure:true,status:'The selected game changed or is not loaded. Select it again.'});return;}
   this.cancelCreation();const intent = crypto.randomUUID(), generation = this.creationGeneration;this.intent = intent;
   this.publish({busy:true,hostFailure:false,uploading:false,confirmingRoom:false,status:'Creating a hidden room…',retryAfterMs:undefined});
   try {
-   await this.connect();if(this.intent !== intent || generation !== this.creationGeneration) return;
-   const currentRoom=this.state.room;
-   if(currentRoom) {
-    if(currentRoom.role !== 'host') {this.intent = undefined;this.publish({busy:false});return;}
-    if(matchesFile(currentRoom.fingerprint,fingerprint)) {this.intent = undefined;this.publish({busy:false,status:'Your local file matches the existing room. Its guest reservation is preserved.'});return;}
-    const approved=this.replacement?.room===currentRoom.id && matchesFile(this.replacement.fingerprint,fingerprint);
-    if(!approved && !this.confirmReplacement()) {this.intent=undefined;this.publish({busy:false,status:'Room replacement cancelled. Your existing room is preserved.'});return;}
-    this.replacement=undefined;
-    await this.request({type:'close',roomId:currentRoom.id});if(this.intent !== intent) return;
-   }
+   await this.connect();if(this.intent !== intent || generation !== this.creationGeneration || !current()) return;
+   if(this.state.room)throw Error('Leave the current room before creating another.');
    const created=await this.request({type:'create',intent,visibility,fingerprint,policy:this.policy});
-   if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
+   if(this.intent !== intent || !current()) {await this.request({type:'cancelCreate',intent});return;}
    if(!created.room?.id||!this.token)throw Error('The room service did not return an upload session. Retry upload.');
    const controller=new AbortController();this.uploadAbort=controller;
    this.publish({uploading:true,status:'Uploading game…'});
@@ -166,10 +153,10 @@ export class RoomClient {
    },controller.signal);
    if(this.uploadAbort===controller)this.uploadAbort=undefined;
    if(receipt.sha256!==fingerprint.romSha256)throw Error('The room server verified a different game. Retry upload.');
-   if(this.intent !== intent || generation !== this.creationGeneration) {await this.request({type:'cancelCreate',intent});return;}
+   if(this.intent !== intent || generation !== this.creationGeneration || !current() || !this.player()?.isLoaded(fingerprint)) {await this.request({type:'cancelCreate',intent});return;}
    this.publish({uploading:false,confirmingRoom:true,status:'Publishing room…'});
    const data = await this.request({type:'confirmCreate',intent});
-   if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
+   if(this.intent !== intent || !current() || !this.player()?.isLoaded(fingerprint)) {await this.request({type:'cancelCreate',intent});return;}
    this.apply(data);this.intent = undefined;this.publish({busy:false,uploading:false,confirmingRoom:false,hostFailure:false,status:'Room created. You can play locally or wait for a guest.'});
   }catch(error) {if(this.intent === intent) {this.intent = undefined;this.uploadAbort=undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({hostFailure:true,uploading:false,confirmingRoom:false});this.failure(error);}}
  }
@@ -190,8 +177,8 @@ export class RoomClient {
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Guest and downloads the room game.'});}catch(error){if(generation === this.generation){this.publish({preview:undefined});this.failure(error);}}}
  async join(invite:string) {return this.joinTarget({type:'join',invite});}
  async joinCode(code:string) {return this.joinTarget({type:'joinCode',code});}
- async claimCode(code:string,fingerprint:Fingerprint) {return this.joinTarget({type:'claimCode',code,fingerprint});}
- private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}|{type:'claimCode';code:string;fingerprint:Fingerprint}) {const generation = ++this.generation,intent = crypto.randomUUID(),claim=target.type==='claimCode';this.joining = intent;this.publish({busy:true,status:claim?'Claiming Host…':'Reserving Guest…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}if(!claim)this.game.cancelIntent();this.apply(data);if(claim)this.game.playIntent();this.publish({busy:false,status:claim?'You are Host. Loading the included game before Start.':'Guest reserved. Preparing the room game…'});}catch(error){if(generation === this.generation){const code=(error as Error & {code?:string}).code;if(target.type==='join'&&['room_unavailable','place_taken','room_started','host_reconnecting'].includes(code??''))this.publish({preview:undefined});this.failure(error);}}finally{if(this.joining === intent) this.joining = undefined;}}
+ async claimCode(code:string,fingerprint:Fingerprint,visibility:Visibility='public') {return this.joinTarget({type:'claimCode',code,fingerprint,visibility});}
+ private async joinTarget(target:{type:'join';invite:string}|{type:'joinCode';code:string}|{type:'claimCode';code:string;fingerprint:Fingerprint;visibility:Visibility}) {const generation = ++this.generation,intent = crypto.randomUUID(),claim=target.type==='claimCode';this.joining = intent;this.publish({busy:true,status:claim?'Claiming Host…':'Reserving Guest…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({...target,intent,policy:this.policy});if(generation !== this.generation) {void this.request({type:'leave',intent}).catch(()=>{});return;}if(!claim)this.game.cancelIntent();this.apply(data);if(claim)this.game.playIntent();this.publish({busy:false,status:claim?'You are Host. Loading the included game before Start.':'Guest reserved. Preparing the room game…'});}catch(error){if(generation === this.generation){const code=(error as Error & {code?:string}).code;if(target.type==='join'&&['room_unavailable','place_taken','room_started','host_reconnecting'].includes(code??''))this.publish({preview:undefined});this.failure(error);}}finally{if(this.joining === intent) this.joining = undefined;}}
  cancelPending() {++this.generation;this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {try {await this.connect();this.apply(await this.request(command));return true;}catch(error){this.failure(error);return false;}}
  private async refreshDirectory() {try {this.apply(await this.request({type:'directory',includeEmptyOffers:true}));}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}

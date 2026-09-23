@@ -36,9 +36,10 @@ with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
         browser = playwright.chromium.launch()
         page = browser.new_page(viewport={'width': 1280, 'height': 800})
         page.goto(args.url)
+        page.get_by_role('button', name='Create game', exact=True).click()
         page.set_input_files('input[type=file]', str(rom))
-        page.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
-        page.get_by_role('button', name='Start game', exact=True).click()
+        page.get_by_role('button', name='Play locally', exact=True).click()
+        page.get_by_role('button', name='Resume', exact=True).click()
         page.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=90", timeout=30000)
         if args.screenshot: page.screenshot(path=str(args.screenshot), full_page=True)
         proof = page.evaluate('''async()=>{

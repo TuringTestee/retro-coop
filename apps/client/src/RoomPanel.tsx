@@ -18,14 +18,13 @@ import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../
 type GuestOperation={roomId:string;membership:string;controller:AbortController;sawLoading:boolean};
 type GuestAcquisition={phase:'checking'|'downloading'|'loading'|'loaded'|'failed'|'expired';message:string;notice?:string};
 const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/1000))} KB`:`${(bytes/1_000_000).toFixed(1)} MB`;
-export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean,file?:File):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onBrowse():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void}>(function RoomPanel({showDiscovery,onChoose,onBrowse,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange},ref) {
+export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void;createCustom(file:File,fingerprint:Fingerprint,visibility:Visibility,current:()=>boolean):Promise<void>;createIncluded(code:string,fingerprint:Fingerprint,visibility:Visibility):Promise<void>};
+export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onCreate():void;onBrowse():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void}>(function RoomPanel({showDiscovery,onChoose,onCreate,onBrowse,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange,onState},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
- const [visibility,setVisibility] = useState<Visibility>('public');
  const [invite,setInvite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
- const client = useRef<RoomClient|null>(null), selectedVisibility = useRef<Visibility>('public');
+ const client = useRef<RoomClient|null>(null);
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentGuestFile = useRef('');
  const [includedStatus,setIncludedStatus]=useState(''),[includedBusy,setIncludedBusy]=useState<CatalogId>(),[claiming,setClaiming]=useState('');
  const [guestAcquisition,setGuestAcquisition]=useState<GuestAcquisition>();
@@ -64,10 +63,9 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   cancelIncluded('');
   if(fingerprint && player()?.isLoaded(fingerprint) && catalogId(fingerprint)===id){
    setIncludedStatus(`Using ${entry.title} already loaded in this tab without resetting progress.`);
-   if(state.room?.role!=='guest'&&!state.room)void client.current?.host(fingerprint,visibility);
    return;
   }
-  client.current?.beginSelection();selectedVisibility.current=visibility;
+  client.current?.beginSelection();
   const operation={id,controller:new AbortController(),membership,candidate:false,sawLoading:false};included.current=operation;
   setIncludedBusy(id);setIncludedStatus(`Downloading ${entry.title}…`);
   const current=()=>included.current===operation && !operation.controller.signal.aborted;
@@ -105,7 +103,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  useEffect(()=>{const sync=()=>{if(!state.room)setInvite(new URLSearchParams(location.hash.slice(1)).get('invite'));};addEventListener('hashchange',sync);addEventListener('popstate',sync);return()=>{removeEventListener('hashchange',sync);removeEventListener('popstate',sync);};},[state.room?.id]);
 
  useEffect(()=>{
-  const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'),policy,player);client.current = rooms;
+  const rooms = new RoomClient(setState,policy,player);client.current = rooms;
   void rooms.watchDirectory();
   if(invite) void rooms.preview(invite);
   return ()=>{rooms.dispose();client.current = null;};
@@ -118,19 +116,19 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useEffect(()=>{if(invite&&!state.room)requestAnimationFrame(()=>document.querySelector<HTMLSelectElement>('.room-panel.invitation .connection-policy select')?.focus());},[invite]);
  useEffect(()=>{onRoomChange(state.room);},[state.room,onRoomChange]);
- useEffect(()=>{if(state.hostFailure||!state.room&&!invite&&state.status==='Cancelled. Your local game is preserved.')onBrowse();},[state.hostFailure,state.status]);
+ useEffect(()=>{onState(state);},[state,onState]);
  useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},
   beforeSelection() {
    if(state.startingRoom||state.room?.role==='guest'&&!state.room.started&&!state.room.catalogId)return false;
-   cancelIncluded();client.current?.beginSelection();selectedVisibility.current = visibility;return true;
- },approveSelection(fingerprint,isCurrent,file){if(state.room?.role==='guest'&&!state.room.catalogId){const operation=guestOperation.current;return Promise.resolve(!!operation&&guestCurrent(operation)&&isCurrent()&&matchesFile(state.room.fingerprint,fingerprint));}return client.current?.approveSelection(fingerprint,isCurrent,file) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.beginSelection();}
- }),[visibility,state.room]);
+   cancelIncluded();client.current?.beginSelection();return true;
+ },approveSelection(fingerprint,isCurrent){if(state.room?.role==='guest'&&!state.room.catalogId){const operation=guestOperation.current;return Promise.resolve(!!operation&&guestCurrent(operation)&&isCurrent()&&matchesFile(state.room.fingerprint,fingerprint));}return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.cancelPending();},
+ createCustom(file,fingerprint,visibility,current){return client.current?.host(file,fingerprint,visibility,current)??Promise.resolve();},
+ createIncluded(code,fingerprint,visibility){return client.current?.claimCode(code,fingerprint,visibility)??Promise.resolve();}
+ }),[state.room]);
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;
   seenFile.current = fingerprint;client.current?.selectedGame(fingerprint);
-  if(state.room?.role==='host'&&!matchesFile(state.room.fingerprint,fingerprint)){void client.current?.host(fingerprint,selectedVisibility.current);return;}
-  if(state.room || invite) return;
-  void client.current?.host(fingerprint,selectedVisibility.current);
+  // Loading a game is local. Only the Create room action publishes a room.
  },[fingerprint,invite,state.room?.role]);
  useEffect(()=>{
   if(!fingerprint || state.room?.role !== 'guest') {sentGuestFile.current = '';return;}
@@ -140,14 +138,11 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  const room = state.room;
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
  return <>{state.releaseNotice&&<div className="release-notice" role="alert"><p>{state.releaseNotice}</p><button onClick={()=>{if(player()?.isLoaded()){player()?.allowLocalPlay();player()?.resume();}else onBrowse();client.current?.dismissRelease();}}>{player()?.isLoaded()?'Resume local game':'View rooms'}</button></div>}
- {!showDiscovery&&!room&&!invite&&(state.busy||state.hostFailure)&&<div className="release-notice" role="status"><p>{state.status}</p>{state.busy&&!state.confirmingRoom&&<button onClick={()=>client.current?.cancelCreation()}>Cancel</button>}{state.hostFailure&&fingerprint&&<button onClick={()=>void client.current?.host(fingerprint,selectedVisibility.current)}>Retry upload</button>}</div>}
- {showDiscovery&&<><section className="host-bar" aria-label="Host your NES file" onDragOver={event=>event.preventDefault()} onDrop={event=>{event.preventDefault();const input=document.querySelector<HTMLInputElement>('input[type=file]');if(input&&event.dataTransfer.files.length===1){const transfer=new DataTransfer();transfer.items.add(event.dataTransfer.files[0]);input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));}}}>
-  <h2>Host your NES file</h2><label>Access <select aria-label="Room access" value={visibility} onChange={event=>setVisibility(event.target.value as Visibility)}><option value="public">Public</option><option value="unlisted">Unlisted</option></select></label><button onClick={onChoose}>Choose NES file</button><span>or drop a file here</span><p>Guests download this game. The room server keeps it while the room is open.</p>
- </section>
+ {showDiscovery&&<>
  {claiming&&<p className="catalog-status" role="status">Checking this room… <button onClick={()=>{++claimGeneration.current;setClaiming('');setIncludedStatus('');client.current?.cancelPending();}}>Cancel</button></p>}
  {includedStatus&&!room&&<p className="catalog-status" role="status" data-testid="included-status">{includedStatus}</p>}
- {!room&&state.status!=='Choose a file to create a room.'&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&!state.confirmingRoom&&<button onClick={()=>client.current?.cancelCreation()}>Cancel</button>} {state.hostFailure&&fingerprint&&<button onClick={()=>void client.current?.host(fingerprint,selectedVisibility.current)}>Retry upload</button>}</p>}
- <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
+ {!room&&state.status!=='Choose a file to create a room.'&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
+ <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onCreate={onCreate} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
  {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading">
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}{room&&!room.started&&<small> · {room.visibility==='public'?`Public · ${room.code}`:'Unlisted'}</small>}</h2>
   {invite && !room && state.preview && <p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/2 places · {state.preview.status}. {state.preview.catalogId ? `${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.${state.preview.catalogId==='from-below-1.0'?' One controller; share turns with the other player.':''}` : `Host-shared NES · ${state.preview.romBytes?`${gameSize(state.preview.romBytes)} download`:'download size unavailable'}`}</p>}

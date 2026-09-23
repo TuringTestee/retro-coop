@@ -72,7 +72,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
         rows = host.locator(".room-list li")
         assert rows.filter(has_text="0/2 · Waiting for host").count() == 2
-        assert host.get_by_role("button", name="Choose NES file", exact=True).count() == 1
+        assert host.get_by_role("button", name="Create game", exact=True).count() == 1
         if screenshot_dir:
             screenshot_dir.mkdir(parents=True, exist_ok=True)
             host.screenshot(path=str(screenshot_dir / "directory.png"))
@@ -133,8 +133,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         fixture = ROOT / "apps/client/public/generated/diagnostic.nes"
         custom = browser.new_page(viewport={"width": 1280, "height": 800})
         custom.goto(url)
+        custom.get_by_role("button", name="Create game", exact=True).click()
         custom.get_by_label("Room access").select_option("unlisted")
         custom.set_input_files("input[type=file]", fixture)
+        custom.get_by_role("button", name="Create room", exact=True).click()
         custom.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         assert "Unlisted" in custom.locator("#room-heading").inner_text()
         assert custom.get_by_role("button", name="Leave room", exact=True).count() == 1
@@ -145,7 +147,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert custom.get_by_test_id("directory").is_visible()
         shared_host = browser.new_page()
         shared_host.goto(url)
+        shared_host.get_by_role("button", name="Create game", exact=True).click()
         shared_host.set_input_files("input[type=file]", fixture)
+        shared_host.get_by_role("button", name="Create room", exact=True).click()
         shared_host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         shared_code = shared_host.locator("#room-heading").inner_text().split(" · ")[-1]
         shared_guest = browser.new_page()
@@ -198,18 +202,21 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         offline.add_init_script("""window.nativeRoomsSocket=WebSocket;
           window.WebSocket=function(){throw Error('Rooms temporarily offline')};""")
         offline.goto(url)
+        offline.get_by_role("button", name="Create game", exact=True).click()
         offline.set_input_files("input[type=file]", fixture)
-        offline.get_by_role("button", name="Retry upload").wait_for(timeout=15000)
-        assert offline.get_by_role("button", name="Choose NES file", exact=True).is_visible()
+        offline.get_by_role("button", name="Create room", exact=True).click()
+        offline.get_by_text("Rooms temporarily offline", exact=False).wait_for(timeout=15000)
+        assert offline.get_by_role("button", name="Add NES file", exact=True).is_visible()
         offline.evaluate("()=>{window.WebSocket=window.nativeRoomsSocket}")
-        offline.get_by_role("button", name="Retry upload").click()
+        offline.get_by_role("button", name="Create room", exact=True).click()
         offline.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         result["room_creation_failure_and_retry"] = True
         invalid = browser.new_page()
         invalid.goto(url)
+        invalid.get_by_role("button", name="Create game", exact=True).click()
         invalid.set_input_files("input[type=file]", {"name": "bad.nes", "mimeType": "application/octet-stream", "buffer": b"invalid"})
-        invalid.locator(".selection-status").wait_for()
-        assert invalid.get_by_role("button", name="Choose NES file", exact=True).is_visible()
+        invalid.get_by_role("button", name="Add NES file", exact=True).wait_for()
+        assert invalid.get_by_role("button", name="Create room", exact=True).is_disabled()
         result["invalid_file_recovery"] = True
         browser.close()
     return result
@@ -311,7 +318,7 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             }
             assert old_status == coordinator_status == source_status == 200
             assert b'/src/main.tsx' in home and b'/src/main.tsx' in old_route
-            assert b"Host your NES file" in source and b"Join as host" in (ROOT / "apps/client/src/DirectoryPanel.tsx").read_bytes()
+            assert b"onCreate={onCreate}" in source and b"Join as host" in (ROOT / "apps/client/src/DirectoryPanel.tsx").read_bytes()
             assert b"GOOD GAMES" not in old_route and b"Make yourself at home" not in old_route
             assert catalog == {"super_tilt_bro": 200, "from_below": 200}
             assert json.loads(health)["status"] == "ok"

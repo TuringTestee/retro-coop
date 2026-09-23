@@ -182,10 +182,12 @@ with sync_playwright() as playwright:
         page.on("filechooser", lambda chooser: file_choosers.append(chooser))
 
         if args.role == "host":
+            page.get_by_role("button", name="Create game", exact=True).click()
             page.get_by_label("Room access").select_option(args.visibility)
             page.set_input_files("input[type=file]", {
                 "name": "shared-game.nes", "mimeType": "application/octet-stream", "buffer": rom,
             })
+            page.get_by_role("button", name="Create room", exact=True).click()
             page.get_by_test_id("room-view").wait_for(state="attached")
             page.wait_for_function("proof.room?.role==='host'", polling=50)
             room = page.evaluate("proof.room")

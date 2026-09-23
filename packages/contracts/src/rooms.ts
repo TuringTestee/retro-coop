@@ -60,7 +60,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'kick': valid=keys(value,[...base,'roomId','guestMembership']) && token(value.roomId) && token(value.guestMembership);break;
   case 'lookupCode': valid = keys(value,[...base,'code']) && typeof value.code === 'string' && !!publicCode(value.code); break;
   case 'joinCode': valid = keys(value,[...base,'code','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent); break;
-  case 'claimCode': valid = keys(value,[...base,'code','intent','fingerprint'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent) && validFingerprint(value.fingerprint); break;
+  case 'claimCode': valid = keys(value,[...base,'code','intent','fingerprint'],['policy','visibility']) && (value.policy===undefined || validPolicy(value.policy)) && (value.visibility===undefined || value.visibility==='public' || value.visibility==='unlisted') && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent) && validFingerprint(value.fingerprint); break;
   case 'preview': valid = keys(value,[...base,'invite']) && token(value.invite); break;
   case 'join': valid = keys(value,[...base,'invite','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && token(value.invite) && token(value.intent); break;
   case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;

@@ -16,7 +16,8 @@ const gateway = createServer(async(request,response)=>{
   upstream.on('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});
   request.pipe(upstream);return;
  }
- const file = resolve(root,'.'+new URL(request.url!,'http://localhost').pathname.replace(/\/$/,'/index.html'));
+ const pathname=new URL(request.url!,'http://localhost').pathname;
+ const file = resolve(root,'.'+(pathname==='/create'?'/index.html':pathname.replace(/\/$/,'/index.html')));
  if(!file.startsWith(root+'/')) {response.writeHead(404).end();return;}
  try {const bytes = await readFile(file);response.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.wasm':'application/wasm'} as Record<string,string>)[extname(file)] ?? 'application/octet-stream');response.end(bytes);}catch{response.writeHead(404).end();}
 });
