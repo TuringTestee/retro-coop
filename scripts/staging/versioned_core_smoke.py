@@ -87,7 +87,13 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
                     page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded. Preparing shared play')")
                     page.get_by_role('button', name='Resume', exact=True).click()
                 else:
-                    page.get_by_role('button', name='Start game', exact=True).click()
+                    start = page.get_by_role('button', name='Start game', exact=True)
+                    start.wait_for()
+                    frames = page.get_by_test_id('frames')
+                    assert frames.inner_text() == '0 frames', 'Waiting room advanced before Host Start'
+                    page.wait_for_timeout(200)
+                    assert frames.inner_text() == '0 frames', 'Waiting room advanced before Host Start'
+                    start.click()
                 page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
                 page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
                 observed = page.get_by_test_id('fingerprint').text_content()
