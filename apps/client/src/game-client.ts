@@ -25,7 +25,7 @@ export class GameClient {
   void this.offerGuest();
  }
  selected(file:Fingerprint){this.file=file;this.intent=this.room?.role!=='guest';this.offered=undefined;this.publish({intent:this.intent});void this.offerGuest();}
- playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,status:'Preparing your game for shared play…'});void this.offerGuest();}
+ playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,status:this.channel?.readyState==='open'?'Preparing your game for shared play…':'Waiting for the peer connection before preparation can finish…'});void this.offerGuest();}
  cancelIntent(){if(!this.room?.established){this.intent=false;++this.serial;this.offered=undefined;this.publish({intent:false});}}
  retry(){void this.renewOffer();}
  retryConnection(){this.renew=true;}

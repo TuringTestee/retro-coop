@@ -51,7 +51,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     result = {}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
-        host = browser.new_page(viewport={"width": 1280, "height": 800})
+        tabs = browser.new_context(viewport={"width": 1280, "height": 800})
+        host = tabs.new_page()
         host.goto(url)
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
         rows = host.locator(".room-list li")
@@ -68,9 +69,18 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         if screenshot_dir:
             host.screenshot(path=str(screenshot_dir / "waiting-room.png"))
         code = host.locator("#room-heading").inner_text().split(" · ")[-1]
-        guest = browser.new_page(viewport={"width": 760, "height": 680})
+        # Duplicating a browser tab copies sessionStorage. The new tab must get its
+        # own guest identity instead of silently taking over the host connection.
+        host_token = host.evaluate("sessionStorage.getItem('retro-coop-guest')")
+        assert host_token
+        guest = tabs.new_page()
+        guest.set_viewport_size({"width": 760, "height": 680})
+        guest.add_init_script(f"sessionStorage.setItem('retro-coop-guest', {json.dumps(host_token)})")
         guest.goto(url)
         guest.get_by_role("button", name="Join as host").first.wait_for()
+        guest.wait_for_function("old => sessionStorage.getItem('retro-coop-guest') !== old", arg=host_token)
+        assert host.get_by_role("button", name="Start game", exact=True).is_enabled()
+        result["duplicate_tab_gets_independent_guest_session"] = True
         guest.get_by_role("searchbox", name="Search room, game, host, or code").fill(code)
         target = guest.locator(".room-list li").filter(has_text=code)
         assert target.count() == 1 and "1/2 · Waiting for guest" in target.inner_text()
@@ -79,6 +89,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.get_by_label("Chat message").fill("Ready when you are")
         guest.get_by_role("button", name="Send message").click()
         host.get_by_text("Ready when you are", exact=True).wait_for(timeout=15000)
+        guest.get_by_role("button", name="Prepare to play", exact=True).click()
+        guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).wait_for(timeout=30000)
+        host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=30000)
+        result["duplicate_tab_guest_ready_visible_to_host"] = True
         result["included_claim_replenish_join_chat"] = True
         guest.get_by_role("button", name="Leave room", exact=True).click()
         guest.locator(".room-panel").wait_for(state="detached")

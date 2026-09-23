@@ -7,6 +7,7 @@ import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {ConnectionPolicy,PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
+import {TabSession} from './tab-session.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
 export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
@@ -38,6 +39,8 @@ export class RoomClient {
  private disposed = false;
  private watchingDirectory = false;
  private token?:string;
+ private tabSession=new TabSession(()=>this.token);
+ private tokenCheck?:Promise<void>;
  private intent?:string;
  private generation = 0;
  private creationGeneration = 0;
@@ -73,6 +76,14 @@ export class RoomClient {
  private async connect() {
   if(this.state.connected && this.socket?.readyState === WebSocket.OPEN) return;
   if(this.connecting) return this.connecting;
+  if(this.token){
+   this.tokenCheck??=this.tabSession.alreadyClaimed(this.token).then(claimed=>{
+    if(claimed){this.token=undefined;try{sessionStorage.removeItem('retro-coop-guest');}catch{}}
+   }).finally(()=>{this.tokenCheck=undefined;});
+   await this.tokenCheck;
+  }
+  if(this.disposed)throw Error('Room client disposed');
+  if(this.connecting)return this.connecting;
   const endpoint = new URL(clientConfig.coordinatorUrl,location.href);endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:':'ws:';endpoint.pathname = endpoint.pathname.replace(/\/$/,'')+'/ws';endpoint.hash = '';endpoint.search = '';
   const socket = new WebSocket(endpoint);this.socket = socket;
   this.connecting = new Promise<void>((resolve,reject)=>{
@@ -177,5 +188,5 @@ export class RoomClient {
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {++this.generation;this.game.dispose();this.peer.close();this.cancelCreation();this.disposed = true;this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {++this.generation;this.game.dispose();this.peer.close();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }
