@@ -46,7 +46,7 @@ def wait_closed(port):
 
 
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
     # Headless Chromium disables real background throttling. Clamp its window
     # timers to Chrome's documented background cadence while keeping audio worklet
@@ -170,7 +170,13 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         shared_host.evaluate(hide_tab)
         for tab, before in ((shared_host, before_switch), (shared_guest, guest_before_switch)):
             tab.wait_for_function("frames => Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>frames+60", arg=before, timeout=15000)
-            tab.wait_for_function("document.querySelector('[data-testid=game-status]')?.textContent === 'Playing together.'", timeout=5000)
+            try:
+                # Background input can briefly show a wait state even while frames advance.
+                tab.wait_for_function("document.querySelector('[data-testid=game-status]')?.textContent === 'Playing together.'", timeout=10000)
+            except PlaywrightTimeoutError as error:
+                status = tab.get_by_test_id("game-status").inner_text()
+                frame = tab.get_by_test_id("game-frame").inner_text()
+                raise AssertionError(f"Shared play did not return to Playing together after tab switch: status={status!r}, frame={frame!r}") from error
         result["local_file_public_discovery_and_shared_play"] = True
         result["tab_switch_keeps_shared_play_running"] = True
         failed_download = browser.new_page()
