@@ -1,10 +1,10 @@
+Retro Coop lets visitors browse live rooms and play together while each browser runs its own NES game. A host uploads a chosen custom game to a temporary room so guests can download it; the service does not emulate the game.
+
 Audience: Human
 
 # Browser NES lobby platform
 
-Retro Coop lets visitors browse live game sessions, drop a legally supplied NES ROM to host a session, and play together while each browser runs its own copy. Included homebrew games remain available to start, even when no players are online. Servers list lobbies and connect people; they do not run games or receive user ROMs.
-
-The approved [room game download amendment](room-rom-transfer.md) supersedes the no-upload and guest-matching-file rules here for host-provided custom rooms. The current app still uses the local-file baseline until issues #87–#91 integrate. Browser-local emulation and the included-game rules remain.
+The approved [room game download amendment](room-rom-transfer.md) supersedes the no-upload and guest-matching-file rules here for host-provided custom rooms; issues #87–#91 are integrated. The proposed [Create Game direction](create-game-library-direction.md) changes the inline host entry after its own reviewed approval and implementation. Browser-local emulation and the included-game rules remain.
 
 The [included-games amendment](included-games.md) governs the two ordered included choices, license placeholders and arbitrary-NES admission clarification; it supersedes earlier singular-featured wording and the initial blanket file-size ceiling where they conflict.
 

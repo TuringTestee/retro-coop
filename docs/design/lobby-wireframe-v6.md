@@ -4,7 +4,7 @@ Audience: Human
 
 # Lobby wireframe v6: preparation exits
 
-**Current sketch:** Revises [v5](lobby-wireframe-v5.md) after its [critique](lobby-critique-v5.md). Approved behavior remains [room game downloads](room-rom-transfer.md); unaffected pages remain in [v3](lobby-wireframe-v3.md).
+**Current room-preparation sketch:** Revises [v5](lobby-wireframe-v5.md) after its [critique](lobby-critique-v5.md). Approved behavior remains [room game downloads](room-rom-transfer.md); unaffected room pages remain in [v3](lobby-wireframe-v3.md). The proposed [Create Game v2](create-game-library-wireframe-v2.md) becomes the current public-browser and host-setup sketch after reviewed approval; this page continues to own guest preparation and waiting-room recovery.
 
 ## Public directory and unlisted invitation
 

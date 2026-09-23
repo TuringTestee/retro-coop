@@ -12,6 +12,7 @@ Uses [references](create-game-library-references.md), [direction](create-game-li
 RETRO COOP                         Guest Lilac 2204  [Settings]
 PUBLIC ROOMS                                     [Create game]
 Live  Search room, game, host, or code [____________]
+Connection: [Standard v]  (Relay-only available before Join)
 
 Super Tilt Bro · 0/2 Waiting for host            [Join as host]
 Lilac Harbor · 1/2 Waiting for guest             [Join]
@@ -41,11 +42,12 @@ YOUR GAMES  (in this browser)
 
 Selected game: Lilac Harbor game · 2.1 MB
 Room access: (•) Public   ( ) Unlisted
+Connection: [Standard v]  (or Relay-only)
 Guests download this game while the room is open.
                                                [Create room]
 ```
 
-Selecting a row verifies its bytes and updates Selected game; Create room → P4. Add opens the system picker; one-file drop works on this page. Back returns to P1. The preview displays recent history but is not another selection control. C02–C05, C11–C12/J2–J4.
+Selecting a row verifies and loads its exact bytes in the host browser, then updates Selected game; Create room → P4. Add opens the system picker; one-file drop works on this page. Back returns to P1. Standard/Relay-only is chosen before Create or Join and is never changed silently after failure. The preview displays recent history but is not another selection control. C02–C05, C11–C12/J2–J4.
 
 ## P3 Create Game: empty, validating, unavailable, tab-only
 
@@ -59,11 +61,12 @@ After success: Selected game: My game · 2.1 MB
                Saved in this browser.
                OR Available in this tab only; add it again after reload.
 If invalid:    This file is not a supported NES game. [Add NES file]
-If saved copy missing/corrupt:
+If saved copy missing/corrupt or local load fails:
                This saved game is unavailable.        [Add NES file]
 
 Room access: (•) Public   ( ) Unlisted
-                                               [Create room] disabled until verified
+Connection: [Standard v]  (or Relay-only)
+                                               [Create room] disabled until verified and loaded
 ```
 
 Validation never replaces a previous good selection until success. One Add control remains after an error. A missing saved entry is deselected, and no room is created. C04, C07–C08/J2–J4.
@@ -103,7 +106,7 @@ This reuses the approved waiting-room and guest acquisition states. Start → pl
 | --- | --- |
 | Complete journeys | J1–J6 trace P1–P5 and Settings → Local data; P3/P4 show failure and exit routes. |
 | Feature support | C01–C12 map every new control and visible state to entry, feedback and recovery. |
-| Information just in time | Download size stays by Join; upload effect/access appear by Create room; tab-only notice appears after a failed local save. |
+| Information just in time | Download size and connection policy stay by Join; upload effect, access and connection policy appear by Create room; tab-only notice appears after a failed local save. |
 | One clear forward path | One Create entry on P1, one Add action on P2/P3, one Create room action after verified selection; preview is display only. |
 | Concise and consistent | No inline host bar, promotional copy, duplicate picker, or invented artwork. Access and room labels match P1/P5. |
 | Borrow before inventing | Separate browse/host from DST, game choice before lobby from Warcraft III, visibility and host Start from AoE2. Preview rendering is explicitly our adaptation. |
