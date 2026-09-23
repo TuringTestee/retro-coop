@@ -15,7 +15,7 @@ import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
 import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../../packages/contracts/src/rooms.ts';
 export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():void;readyToResume():void;isGuest():boolean;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void};
-export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onBrowse():void;onIncluded:(file:File,current:()=>boolean)=>void;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void}>(function RoomPanel({showDiscovery,onChoose,onBrowse,onIncluded,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange},ref) {
+export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onChoose():void;onBrowse():void;onInvitationDismiss():void;onIncluded:(file:File,current:()=>boolean)=>void;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void}>(function RoomPanel({showDiscovery,onChoose,onBrowse,onInvitationDismiss,onIncluded,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange},ref) {
  const [state,setState] = useState<RoomState>({status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
  const [visibility,setVisibility] = useState<Visibility>('public');
@@ -27,7 +27,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  const claimGeneration=useRef(0);
  const included=useRef<{id:CatalogId;controller:AbortController;membership:string;candidate:boolean;sawLoading:boolean}|undefined>(undefined),attemptedGuest=useRef('');
  const membership=state.room ? `${state.room.id}:${state.room.role}:${state.room.chatMembership}` : '';
- const clearInvitation=()=>{history.replaceState(null,'',location.pathname+location.search);setInvite(null);onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());};
+ const clearInvitation=()=>{history.replaceState(null,'',location.pathname+location.search);setInvite(null);onInvitationDismiss();onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());};
  const cancelIncluded=(message='Included loading canceled. Your previous game is preserved.')=>{
   const operation=included.current;included.current=undefined;operation?.controller.abort();
   if(operation?.candidate)player()?.cancel();
@@ -74,6 +74,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
   finally {if(generation===claimGeneration.current)setClaiming('');}
  };
  useEffect(()=>()=>{const operation=included.current;included.current=undefined;operation?.controller.abort();if(operation?.candidate)player()?.cancel();},[]);
+ useEffect(()=>{const sync=()=>{if(!state.room)setInvite(new URLSearchParams(location.hash.slice(1)).get('invite'));};addEventListener('hashchange',sync);addEventListener('popstate',sync);return()=>{removeEventListener('hashchange',sync);removeEventListener('popstate',sync);};},[state.room?.id]);
 
  useEffect(()=>{
   const rooms = new RoomClient(setState,()=>window.confirm('Choosing a different valid game closes this room and releases its guest. Continue?'),policy,player);client.current = rooms;

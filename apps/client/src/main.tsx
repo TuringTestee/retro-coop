@@ -42,6 +42,8 @@ function App() {
  const load = (file?:File,selectionCurrent?:()=>boolean) => {if(file && (selectionCurrent || rooms.current?.beforeSelection() !== false)) void runtime.current?.load(file,(fingerprint,isCurrent)=>rooms.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent()),true,selectionCurrent);};
  const [state,setState] = useState<PlayerState>({status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0});
  const [browsing,setBrowsing]=useState(false),[sessionOpen,setSessionOpen]=useState(false),[roomView,setRoomView]=useState<RoomView>();
+ const [invitationHash,setInvitationHash]=useState(location.hash);
+ useEffect(()=>{const sync=()=>{setInvitationHash(location.hash);if(new URLSearchParams(location.hash.slice(1)).has('invite'))setBrowsing(false);};addEventListener('hashchange',sync);addEventListener('popstate',sync);return()=>{removeEventListener('hashchange',sync);removeEventListener('popstate',sync);};},[]);
  const syncRoom=useCallback((room?:RoomView)=>{setRoomView(room);if(room)setBrowsing(false);},[]);
  const roomStartRequired=roomView?.role==='host'&&!roomView.started;
  const [muted,setMuted] = useState(true), [drag,setDrag] = useState(false);
@@ -52,12 +54,13 @@ function App() {
 
  useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
  const choose = () => { picker.current!.value = ''; picker.current!.click(); };
- const showDiscovery=browsing||(!roomView&&!state.loaded),showRoom=!!roomView&&!roomView.started&&!browsing,known=state.fingerprint?catalogId(state.fingerprint):undefined;
- const inviting=showDiscovery&&!roomView&&new URLSearchParams(location.hash.slice(1)).has('invite');
+ const invitationRequested=new URLSearchParams(invitationHash.slice(1)).has('invite');
+ const showDiscovery=browsing||(!roomView&&(invitationRequested||!state.loaded)),showRoom=!!roomView&&!roomView.started&&!browsing,known=state.fingerprint?catalogId(state.fingerprint):undefined;
+ const inviting=showDiscovery&&!roomView&&invitationRequested;
  return <main className={`${showDiscovery?'discovery':showRoom?'waiting-room':'playing'}${browsing?' browsing':''}${inviting?' inviting':''}${state.shared?' shared-session':''}${sessionOpen?' session-open':''}`} data-coordinator={clientConfig.coordinatorUrl}>
   <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{guest}</span>{(roomView||state.loaded)&&<button onClick={()=>{setBrowsing(value=>!value);setSessionOpen(false);}}>{browsing?roomView?'Return to room':'Return to game':'Public rooms'}</button>}{!browsing&&roomView?.started&&<button aria-expanded={sessionOpen} aria-controls="room-session" onClick={()=>{setSessionOpen(value=>!value);if(sessionOpen)canvas.current?.focus();}}>{sessionOpen?'Close room':'Room'}</button>}<button onClick={()=>setSettings(true)}>Settings</button></header>
   <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => load(event.target.files?.[0])}/>
-  <RoomPanel showDiscovery={showDiscovery} onChoose={choose} onBrowse={()=>setBrowsing(true)} onIncluded={load} selectionLoading={state.loading} ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onRoomChange={syncRoom}/>
+  <RoomPanel showDiscovery={showDiscovery} onChoose={choose} onBrowse={()=>setBrowsing(true)} onInvitationDismiss={()=>setInvitationHash('')} onIncluded={load} selectionLoading={state.loading} ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onRoomChange={syncRoom}/>
   {showDiscovery&&state.status!=='Choose a game to start playing.'&&<p className="selection-status" role="status">{state.status}</p>}
   <section ref={panel} className={`panel ${drag ? 'drag' : ''}`} aria-labelledby="player-title" onDragOver={event => {event.preventDefault(); setDrag(true);}} onDragLeave={event => {if(!event.currentTarget.contains(event.relatedTarget as Node)) setDrag(false);}} onDrop={event => {event.preventDefault();setDrag(false);if(event.dataTransfer.files.length === 1) load(event.dataTransfer.files[0]); else runtime.current?.rejectSelection('Choose one NES cartridge at a time. Your previous game is preserved.');}}>
    <div className="player-info"><p className="eyebrow">{state.shared?'Shared play · your controller':'Local practice · your controls'}</p><h2 id="player-title">{state.shared ? (state.running?'Playing together':'Shared game paused') : state.loaded ? 'Your local game' : 'Drop your NES game here'}</h2>
