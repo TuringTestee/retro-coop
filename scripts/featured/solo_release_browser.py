@@ -1,9 +1,11 @@
 """Prove a guest with a loaded ROM sees and can recover from solo release."""
 import argparse
+from hashlib import sha256
 import json
 import re
 import subprocess
 from pathlib import Path
+from urllib.request import Request, urlopen
 
 from playwright.sync_api import sync_playwright
 
@@ -44,8 +46,15 @@ def main():
                 guest.get_by_role("button", name="Choose matching NES file", exact=True).click()
             chooser.value.set_files({"name": "release-guest.nes", "mimeType": "application/octet-stream", "buffer": diagnostic})
             guest.wait_for_function("proof.room?.matches === true", timeout=30_000, polling=50)
+            auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,token:sessionStorage.getItem('retro-coop-guest')})""")
+            request = Request(f"{url}/coordinator/rooms/{auth['roomId']}/rom",headers={"Origin":url,"Authorization":f"Bearer {auth['token']}","X-Room-Membership":auth['membership']})
+            with urlopen(request,timeout=5) as response:
+                bytes_received=response.read()
+                download={"status":response.status,"bytes":len(bytes_received),"sha256":sha256(bytes_received).hexdigest()}
+            assert download == {"status": 200, "bytes": len(diagnostic), "sha256": sha256(diagnostic).hexdigest()}, download
             host.get_by_role("button", name="Start game", exact=True).click()
             host.wait_for_function("proof.room?.started === 'solo'", timeout=30_000, polling=50)
+            host.get_by_test_id("player-status").filter(has_text="Playing locally. The game runs in this browser.").wait_for()
             notice = guest.get_by_role("alert").filter(has_text="The host started alone")
             notice.wait_for(timeout=30_000)
             resume = notice.get_by_role("button", name="Resume local game")
@@ -53,9 +62,9 @@ def main():
             guest.screenshot(path=str(args.output / "loaded-guest-solo-release.png"), full_page=True)
             resume.click()
             notice.wait_for(state="detached")
-            guest.wait_for_function("document.querySelector('[data-testid=player-status]')?.textContent?.includes('Playing locally')", timeout=15_000)
+            guest.get_by_test_id("player-status").filter(has_text="Playing locally. The game runs in this browser.").wait_for(timeout=15_000)
             assert not errors, errors
-            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "journey": "loaded matching guest -> peer unavailable -> host starts solo -> guest sees release -> resumes local game", "errors": errors}
+            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "loaded matching guest -> peer unavailable -> host starts solo -> guest sees release -> resumes local game", "errors": errors}
             (args.output / "solo-release.json").write_text(json.dumps(result, indent=2) + "\n")
             print(json.dumps(result, indent=2))
             browser.close()

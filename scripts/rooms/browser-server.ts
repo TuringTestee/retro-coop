@@ -9,7 +9,7 @@ import {listenOperator} from '../../apps/coordinator/src/operator.ts';
 const root = resolve(process.env.RETRO_COOP_STATIC_ROOT ?? 'apps/client/dist');
 const gateway = createServer(async(request,response)=>{
  const upload=/^\/coordinator(\/rooms\/[A-Za-z0-9_-]{43}\/rom)$/.exec(request.url??'');
- if(upload && (request.method==='PUT'||request.method==='OPTIONS')){
+ if(upload && (request.method==='PUT'||request.method==='GET'||request.method==='OPTIONS')){
   const upstream=httpRequest({hostname:'127.0.0.1',port:coordinatorPort,path:upload[1],method:request.method,headers:request.headers},incoming=>{
    response.writeHead(incoming.statusCode??502,incoming.headers);incoming.pipe(response);
   });
