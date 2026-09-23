@@ -52,7 +52,8 @@ export class RomStore {
      rooms.uploadProgress(roomId,lease);if(!this.entries.has(roomId))throw new RoomError('upload_cancelled');
      const data=chunk as Buffer;if(received+data.length>bytes)throw new RoomError('length_mismatch');
      if(received<16)data.copy(header,received,0,Math.min(data.length,16-received));
-     received+=data.length;hash.update(data);await handle.write(data);
+     received+=data.length;hash.update(data);
+     for(let offset=0;offset<data.length;){const {bytesWritten}=await handle.write(data,offset,data.length-offset);if(!bytesWritten)throw new RoomError('upload_write_failed');offset+=bytesWritten;}
     }
     await handle.sync();
    } finally {await handle.close();}
