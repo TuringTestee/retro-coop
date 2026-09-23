@@ -50,7 +50,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
 
     result = {}
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel="chrome")
+        browser = playwright.chromium.launch()
         host = browser.new_page(viewport={"width": 1280, "height": 800})
         host.goto(url)
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
