@@ -49,7 +49,11 @@ test('cross-tab clear and deletion prevent an old import write',async()=>{
  assert.equal((await readRom(hash)).record,undefined);
 });
 test('stored preview and label are bounded for display',()=>{
- assert.equal(validPreview('data:image/webp;base64,AAAA'),true);
+ const webp=new Uint8Array(30);webp.set(new TextEncoder().encode('RIFF'),0);webp[4]=22;webp.set(new TextEncoder().encode('WEBPVP8X'),8);webp[24]=127;webp[27]=119;
+ const image='data:image/webp;base64,'+Buffer.from(webp).toString('base64');
+ assert.equal(validPreview(image),true);
+ assert.equal(validPreview('data:image/webp;base64,AAAA'),false);
+ webp[24]=200;assert.equal(validPreview('data:image/webp;base64,'+Buffer.from(webp).toString('base64')),false);
  assert.equal(validPreview('data:image/svg+xml;base64,AAAA'),false);
  assert.equal(validPreview('data:image/webp;base64,'+'A'.repeat(32_001)),false);
  const row=entry({sha256:hash,bytes:bytes.buffer,size:bytes.length,savedAt:12,label:'X'.repeat(100),preview:'data:image/svg+xml;base64,AAAA'});

@@ -9,7 +9,19 @@ export type GameLibraryEntry=LibraryEntry&({kind:'saved'}|{kind:'included';catal
 export type SavedCandidate={file:File;sha256:string;size:number;generation:number;romGeneration:number};
 export const safeLabel=(name:string)=>name.replace(/[\p{C}]/gu,'').trim().slice(0,maxLabel)||'NES game';
 export function validPreview(value:unknown):value is string {
- return typeof value==='string'&&value.length<=maxPreview&&/^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+ if(typeof value!=='string'||value.length>maxPreview||!/^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/.test(value))return false;
+ try{
+  const raw=atob(value.slice('data:image/webp;base64,'.length));
+  if(raw.length<30||raw.slice(0,4)!=='RIFF'||raw.slice(8,12)!=='WEBP')return false;
+  const u8=(i:number)=>raw.charCodeAt(i),u16=(i:number)=>u8(i)|(u8(i+1)<<8),u24=(i:number)=>u8(i)|(u8(i+1)<<8)|(u8(i+2)<<16);
+  const size=(u8(4)|(u8(5)<<8)|(u8(6)<<16)|(u8(7)<<24))>>>0;
+  if(size!==raw.length-8)return false;
+  const chunk=raw.slice(12,16);let width=0,height=0;
+  if(chunk==='VP8 '&&raw.slice(23,26)==='\x9d\x01\x2a'){width=u16(26)&0x3fff;height=u16(28)&0x3fff;}
+  else if(chunk==='VP8L'&&u8(20)===0x2f){width=1+(u8(21)|((u8(22)&0x3f)<<8));height=1+((u8(22)>>6)|(u8(23)<<2)|((u8(24)&0xf)<<10));}
+  else if(chunk==='VP8X'){width=1+u24(24);height=1+u24(27);}
+  return width>0&&width<=128&&height>0&&height<=120;
+ }catch{return false;}
 }
 export function entry(record:RomRecord):LibraryEntry {
  return {sha256:record.sha256,size:record.size,label:safeLabel(record.label??'NES game'),source:record.source==='import'?'import':'download',lastUsedAt:Number.isFinite(record.lastUsedAt)?record.lastUsedAt!:record.savedAt,...(validPreview(record.preview)?{preview:record.preview}:{})};
