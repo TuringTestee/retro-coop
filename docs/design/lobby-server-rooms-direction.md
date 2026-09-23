@@ -6,6 +6,8 @@ Audience: Human
 
 This is the direction artifact for the next UI iteration. It records the user's September 22 corrections to the [earlier lobby proposal](lobby-browser-proposal.md). It describes intended behavior, not what the running application already supports.
 
+The approved [room game download amendment](room-rom-transfer.md) supersedes the local-only custom-room file rule below. The host will upload once, then admitted guests download the exact bytes. The current app still follows the earlier rule until issues #87–#91 integrate; included-game 0/2 offers and host Start remain.
+
 ## User direction
 
 - Super Tilt Bro and From Below are ordinary public lobbies. They have no special game cards, Play buttons, or separate lobby browser.

@@ -6,6 +6,8 @@ Audience: Human
 
 The [earlier exhaustive inventory](lobby-scenario-inventory.md) still covers file validation, controls, voice, chat, saves, accessibility, moderation, and general failures. Its special included-game launcher and automatic solo-start cases are superseded by [the new direction](lobby-server-rooms-direction.md) and the scenarios below. These scenarios are design requirements, not observed product behavior.
 
+The approved [room game download amendment](room-rom-transfer.md) replaces N17's custom-room matching-file rule and any no-transfer recovery below. Its download, verification, cache and retry states govern issues #87–#91; the running app still uses the earlier rule until integration.
+
 Each row names the trigger, visible result, and recovery. J1–J7 refer to the [journey map](lobby-journeys-v2.md).
 
 ## Discover and claim a room
