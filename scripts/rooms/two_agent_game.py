@@ -208,6 +208,7 @@ with sync_playwright() as playwright:
             assert page.evaluate("proof.room.id") == expected["room_id"]
             page.set_input_files("input[type=file]", selection)
             page.wait_for_function("proof.room?.matches===true", timeout=30000, polling=50)
+            page.get_by_role("button", name="Prepare to play", exact=True).click()
             save("guest-ready.json", {"room_id": expected["room_id"], "rom_sha256": rom_hash})
 
         page.wait_for_function(

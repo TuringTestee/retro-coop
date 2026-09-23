@@ -86,6 +86,11 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Start game", exact=True).click()
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10", timeout=30000)
         result["host_start_solo_after_guest_left"] = True
+        solo_before = int(host.get_by_test_id("frames").inner_text().split(" ")[0])
+        host.evaluate("window.requestAnimationFrame = () => 0; Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
+        host.wait_for_function("frames => Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>frames+60", arg=solo_before, timeout=15000)
+        assert host.get_by_test_id("player-status").inner_text().startswith("Playing locally")
+        result["tab_switch_keeps_local_play_running"] = True
         fixture = ROOT / "apps/client/public/generated/diagnostic.nes"
         custom = browser.new_page(viewport={"width": 1280, "height": 800})
         custom.goto(url)
@@ -116,11 +121,19 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert shared_guest.get_by_role("button", name="Choose matching NES file").is_visible()
         shared_guest.set_input_files("input[type=file]", fixture)
         shared_host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Files match')", timeout=15000)
+        assert shared_host.get_by_text("Guest is still preparing.", exact=False).is_visible()
+        shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
         shared_host.get_by_text("Guest is ready. Start together when you are ready.", exact=True).wait_for(timeout=15000)
+        shared_guest.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
         shared_host.get_by_role("button", name="Start game", exact=True).click()
         for tab in (shared_host, shared_guest):
             tab.wait_for_function("Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>10", timeout=30000)
+        before_switch = int(shared_host.get_by_test_id("game-frame").inner_text().split(" ")[0])
+        shared_host.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
+        shared_host.wait_for_function("frames => Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>frames+60", arg=before_switch, timeout=15000)
+        assert all(tab.get_by_test_id("game-status").inner_text() == "Playing together." for tab in (shared_host, shared_guest))
         result["local_file_public_discovery_and_shared_play"] = True
+        result["tab_switch_keeps_shared_play_running"] = True
         failed_download = browser.new_page()
         failed_download.route("**/catalog/super-tilt-bro-*.nes", lambda route: route.abort())
         failed_download.goto(url)

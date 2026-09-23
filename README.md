@@ -14,6 +14,15 @@ Open **http://127.0.0.1:8765/**. The public room list starts with empty **Super 
 
 This command starts the current client and a local room coordinator, and Ctrl-C stops both. It supports testing two browser windows on this computer. A friend on another network needs the deployed HTTPS application; local loopback addresses are not reachable from their computer.
 
+### Test with two browser tabs
+
+1. In tab A, open **http://127.0.0.1:8765/** and choose **Join as host** on an empty Super Tilt Bro room. Wait for the game to load. Note the room code beside its name.
+2. In a new tab B, open the same URL, search for that code, and choose **Join** on the **1/2 · Waiting for guest** row. Wait for the included game to load, then choose **Prepare to play**. Before this click, tab A should say the guest is still preparing; afterward, it should say the guest is ready.
+3. In tab A, choose **Start game**. Both tabs should show **Playing together** and increasing shared-frame counts. Focus each game screen and press Enter to start the NES game; tab A controls Player 1 and tab B controls Player 2.
+4. Switch between the tabs while the game runs. The room should stay in **Playing together** and frame counts should keep increasing. Switching tabs releases held buttons, so press a movement or action key again after returning.
+
+To test your own NES file, create a **Public** room with the file in tab A. In tab B, search its room code, choose **Join**, select the same file when asked, then choose **Prepare to play**. Both copies must match exactly. If a room has already started or its guest place is full, leave it and claim a new empty room before repeating the steps.
+
 ## Application
 
 The application plays included or local NES files with keyboard/gamepad controls, sound, saves and local rewind. The [room coordinator](docs/implementation/d08-rooms.md) creates anonymous public or unlisted rooms; matching fresh games can use shared play, text chat and [optional voice](docs/implementation/d17-voice.md). Progress-preserving late join, reconnect/resynchronization and shared load/rewind remain later deliveries. Hardware qualification and public-route release testing are separate from the current representative browser evidence.
