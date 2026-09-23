@@ -288,10 +288,9 @@ with sync_playwright() as playwright:
             "back_to_game_focuses_canvas": True,
         }
         save(f"{args.role}.json", evidence)
-        if args.role == "host":
-            # Keep the host connected until the guest captures the intentional
-            # paused state; closing early changes that state to peer loss.
-            wait_for("guest.json", 15)
+        # Both browsers stay connected until each has checked keyboard resume,
+        # canvas focus, and the paused game hash. Early peer exit clears ready.
+        wait_for(f"{'guest' if args.role == 'host' else 'host'}.json", 15)
         print(json.dumps(evidence, indent=2))
     except Exception:
         page.screenshot(path=str(session / f"{args.role}-failure.png"), full_page=True)
