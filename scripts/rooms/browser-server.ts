@@ -23,7 +23,7 @@ const gateway = createServer(async(request,response)=>{
 gateway.listen(0,'127.0.0.1');await once(gateway,'listening');
 const url = `http://127.0.0.1:${(gateway.address() as {port:number}).port}`;
 const offerCatalogIds=config({...process.env,COORDINATOR_ORIGINS:url}).offerCatalogIds;
-const coordinator = createCoordinator({origins:[url],offerCatalogIds});coordinator.listen(0,'127.0.0.1');await once(coordinator,'listening');
+const coordinator = createCoordinator({origins:[url],offerCatalogIds,romDirectory:process.env.COORDINATOR_ROM_DIR});coordinator.listen(0,'127.0.0.1');await once(coordinator,'listening');
 const operator=process.env.COORDINATOR_OPERATOR_DIR ? await listenOperator(process.env.COORDINATOR_OPERATOR_DIR,coordinator.operator):undefined;
 const coordinatorPort = (coordinator.address() as {port:number}).port;
 const connections = new Set<ReturnType<typeof connect>>();
