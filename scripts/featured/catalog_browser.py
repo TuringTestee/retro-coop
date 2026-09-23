@@ -56,8 +56,10 @@ try:
         assert wide.locator('.room-panel').is_visible() is False
         narrow = page(760, 680)
         fit(narrow)
+        assert 'One controller; share turns' in narrow.locator('.room-list li').filter(has_text='From Below').first.inner_text()
         narrow.screenshot(path=str(args.output / 'directory-narrow.png'))
         claim(narrow, 'From Below')
+        assert 'Both players must agree to a handoff' in narrow.locator('.room-panel').inner_text()
         fit(narrow)
         narrow.screenshot(path=str(args.output / 'from-below-waiting.png'))
         narrow.get_by_role('button', name='Start game', exact=True).click()

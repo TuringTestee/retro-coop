@@ -82,6 +82,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         result["included_claim_replenish_join_chat"] = True
         guest.get_by_role("button", name="Leave room", exact=True).click()
         guest.locator(".room-panel").wait_for(state="detached")
+        assert guest.get_by_test_id("directory").is_visible()
         host.get_by_role("button", name="Start game", exact=True).click()
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10", timeout=30000)
         result["host_start_solo_after_guest_left"] = True
@@ -97,6 +98,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         custom.on("dialog", lambda dialog: dialog.accept())
         custom.get_by_role("button", name="Leave room", exact=True).click()
         custom.locator(".room-panel").wait_for(state="detached")
+        assert custom.get_by_test_id("directory").is_visible()
         shared_host = browser.new_page()
         shared_host.goto(url)
         shared_host.set_input_files("input[type=file]", fixture)

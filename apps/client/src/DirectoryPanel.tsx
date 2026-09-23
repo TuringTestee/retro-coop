@@ -9,11 +9,11 @@ import {clampPage,pageRows} from './directory-page.ts';
 function roomState(room:RoomPreview) {
  if(room.occupancy===0)return room.status==='unavailable'?'0/2 · Room capacity full':'0/2 · Waiting for host';
  if(room.status==='reserved')return '2/2 · Guest preparing';
+ if(room.status==='reconnecting')return `${room.occupancy}/2 · Reconnecting; Join unavailable`;
+ if(room.status==='playing')return `${room.occupancy}/2 · Playing; Join unavailable`;
+ if(room.status==='paused')return `${room.occupancy}/2 · Paused; Join unavailable`;
  if(room.occupancy===2)return '2/2 · Full';
- if(room.status==='waiting')return '1/2 · Waiting for guest';
- if(room.status==='reconnecting')return `${room.occupancy}/2 · Reconnecting`;
- if(room.status==='playing')return '1/2 · Playing; Join unavailable';
- return `${room.occupancy}/2 · Paused; Join unavailable`;
+ return '1/2 · Waiting for guest';
 }
 
 export function DirectoryPanel({state,onJoin,onClaim,onRetry,connection}:{state:RoomState;connection?:ReactNode;onJoin:(code:string)=>void;onClaim:(code:string,id:CatalogId)=>void;onRetry:()=>void}) {
@@ -38,7 +38,7 @@ export function DirectoryPanel({state,onJoin,onClaim,onRetry,connection}:{state:
     const claim=available&&room.occupancy===0,join=available&&room.occupancy===1;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
      <strong>{room.label}</strong>
-     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'Shared P1 · included':'P1/P2 · included'}`:'Bring matching NES file'}</span>
+     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'One controller; share turns':'P1/P2 controllers'} · included`:'Bring matching NES file'}</span>
      <span>{room.host}</span><code>{room.code}</code><span>{roomState(room)}</span>
      {claim&&room.catalogId&&<button onClick={()=>onClaim(room.code!,room.catalogId!)}>Join as host</button>}
      {join&&<button onClick={()=>onJoin(room.code!)}>Join</button>}

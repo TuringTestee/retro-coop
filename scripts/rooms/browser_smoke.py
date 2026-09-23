@@ -36,6 +36,18 @@ try:
         invitation=host.get_by_label('Room invitation',exact=True).input_value()
         assert '#invite=' in invitation and len(invitation.split('#invite=')[1])>=22
         host.screenshot(path=str(output.with_suffix('.host.png')),full_page=True)
+        dismissed=page();dismissed.goto(invitation)
+        privacy=dismissed.locator('.room-panel.invitation').get_by_label('Connection privacy',exact=True)
+        privacy.wait_for();assert privacy.is_visible()
+        dismissed.wait_for_function("document.activeElement?.getAttribute('aria-label')==='Connection privacy'")
+        assert dismissed.locator('.host-bar').is_hidden()
+        privacy.select_option('relay')
+        assert privacy.input_value()=='relay'
+        dismissed.get_by_role('button',name='View public rooms',exact=True).click()
+        assert dismissed.get_by_test_id('directory').is_visible()
+        assert dismissed.locator('.room-panel.invitation').count()==0
+        assert '#invite=' not in dismissed.url
+        dismissed.close()
         first=page();second=page()
         for guest in [first,second]:
             guest.goto(invitation)
@@ -81,6 +93,9 @@ try:
         leave=first.get_by_role('button',name='Leave room',exact=True)
         leave.wait_for();leave.click()
         first.get_by_test_id('room-view').wait_for(state='detached')
+        assert first.get_by_test_id('directory').is_visible()
+        assert first.locator('.room-panel.invitation').count()==0
+        assert '#invite=' not in first.url
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='attached')
         second.get_by_role('button',name='Leave room',exact=True).click()
@@ -102,6 +117,10 @@ try:
         host.on('dialog',lambda dialog:dialog.accept())
         host.get_by_role('button',name='Leave room',exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='detached')
+        assert host.get_by_test_id('directory').is_visible()
+        second.goto(invitation)
+        second.reload()
+        second.screenshot(path=str(output.with_suffix('.closed-preview.png')),full_page=True)
         second.get_by_role('button',name='Retry join / Join',exact=True).click()
         second.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('closed, unavailable')")
         assert int(host.get_by_test_id('frames').inner_text().split()[0])>10
