@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
                 assert unmute.get_attribute('aria-pressed') == 'true'
                 guest = page(host.get_by_label('Room invitation', exact=True).input_value())
-                guest.get_by_role('button', name='Retry join / Join', exact=True).click()
+                guest.get_by_role('button', name='Join room', exact=True).click()
                 guest.get_by_test_id('room-view').wait_for(state='attached')
                 for tab in [host,guest]:
                     panel = open_room(tab)

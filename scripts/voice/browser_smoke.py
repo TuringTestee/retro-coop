@@ -103,7 +103,7 @@ try:
         "relay" if args.relay else "standard"
     )
     guest = page(host.get_by_label("Room invitation", exact=True).input_value())
-    guest.get_by_role("button", name="Retry join / Join", exact=True).click()
+    guest.get_by_role("button", name="Join room", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="attached")
     timeline_before = host.evaluate("timelineWrites")
     for tab in [host, guest]:
@@ -296,7 +296,8 @@ try:
         )
     # Rejoining must not retain a held push-to-talk key from the previous peer.
     capture_count = host.evaluate("captures.length")
-    guest.get_by_role("button", name="Retry join / Join", exact=True).click()
+    guest.goto(host.get_by_label("Room invitation", exact=True).input_value())
+    guest.get_by_role("button", name="Join room", exact=True).click()
     for tab in [host, guest]:
         tab.wait_for_function(
             "document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route:')"

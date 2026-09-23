@@ -42,7 +42,7 @@ try:
             tab.goto(address)
             return tab
         def joined(tab):
-            tab.get_by_role('button', name='Retry join / Join', exact=True).click()
+            tab.get_by_role('button', name='Join room', exact=True).click()
             tab.get_by_test_id('room-view').wait_for(state='attached')
             open_room(tab)
         def connected(tab):
@@ -111,10 +111,11 @@ try:
         replacement.get_by_test_id('room-view').wait_for(state='detached')
         for tab in [host, replacement]:
             tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-        replacement.get_by_role('button', name='Retry join / Join', exact=True).click()
+        replacement.get_by_role('button', name='Join room', exact=True).click()
         replacement.get_by_test_id('room-status').filter(has_text='closed, unavailable').wait_for()
         assert replacement.get_by_test_id('room-view').count() == 0
         # Removing one membership does not ban the earlier guest who left voluntarily.
+        first.goto(invitation)
         joined(first)
         connected(host)
         assert host.evaluate('timelineWrites') == writes

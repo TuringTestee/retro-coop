@@ -49,7 +49,7 @@ try:
         assert '#invite=' not in dismissed.url
         dismissed.goto(invitation)
         dismissed.locator('.room-panel.invitation').wait_for(state='visible')
-        assert dismissed.get_by_role('button',name='Retry join / Join',exact=True).is_visible()
+        assert dismissed.get_by_role('button',name='Join room',exact=True).is_visible()
         dismissed.get_by_role('button',name='View public rooms',exact=True).click()
         dismissed.set_input_files('input[type=file]',{'name':'LOCAL-PRACTICE.nes','mimeType':'application/octet-stream','buffer':rom})
         dismissed.get_by_role('button',name='Start game',exact=True).wait_for()
@@ -67,12 +67,12 @@ try:
         first=page();second=page()
         for guest in [first,second]:
             guest.goto(invitation)
-            guest.get_by_role('button',name='Retry join / Join',exact=True).wait_for()
+            guest.get_by_role('button',name='Join room',exact=True).wait_for()
             assert guest.get_by_test_id('room-view').count()==0
             assert guest.get_by_test_id('frames').inner_text()=='0 frames'
         # Independent clients race without loading a game first.
-        first.get_by_role('button',name='Retry join / Join',exact=True).evaluate('(button)=>button.click()')
-        second.get_by_role('button',name='Retry join / Join',exact=True).evaluate('(button)=>button.click()')
+        first.get_by_role('button',name='Join room',exact=True).evaluate('(button)=>button.click()')
+        second.get_by_role('button',name='Join room',exact=True).evaluate('(button)=>button.click()')
         deadline=time.monotonic()+30
         while time.monotonic()<deadline:
             candidates=[first,second]
@@ -112,7 +112,7 @@ try:
         assert first.get_by_test_id('directory').is_visible()
         assert first.locator('.room-panel.invitation').count()==0
         assert '#invite=' not in first.url
-        second.get_by_role('button',name='Retry join / Join',exact=True).click()
+        second.get_by_role('button',name='Join room',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='attached')
         second.get_by_role('button',name='Leave room',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='detached')
@@ -137,7 +137,7 @@ try:
         second.goto(invitation)
         second.reload()
         second.screenshot(path=str(output.with_suffix('.closed-preview.png')),full_page=True)
-        second.get_by_role('button',name='Retry join / Join',exact=True).click()
+        second.get_by_role('button',name='Retry invitation',exact=True).click()
         second.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('closed, unavailable')")
         assert int(host.get_by_test_id('frames').inner_text().split()[0])>10
         # Recover the host before committing a replacement: decline preserves room/guest and active game.
@@ -146,7 +146,7 @@ try:
         replacement.get_by_test_id('room-view').wait_for(state='attached')
         old_invite=replacement.get_by_label('Room invitation',exact=True).input_value()
         waiting=page();waiting.goto(old_invite)
-        waiting.get_by_role('button',name='Retry join / Join',exact=True).click()
+        waiting.get_by_role('button',name='Join room',exact=True).click()
         waiting.get_by_test_id('room-view').wait_for(state='attached')
         declines=[]
         def decline(dialog):
@@ -204,16 +204,16 @@ try:
         race_invite=unlisted.get_by_label('Room invitation',exact=True).input_value()
         raced.goto(race_invite)
         raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
-        raced.get_by_role('button',name='Retry join / Join',exact=True).click()
+        raced.get_by_role('button',name='Join room',exact=True).click()
         raced.wait_for_function('typeof releaseJoinA === "function"')
         raced.get_by_role('button',name='Cancel pending room action',exact=True).click()
         raced.get_by_test_id('room-view').wait_for(state='detached')
-        raced.get_by_role('button',name='Retry join / Join',exact=True).click()
+        raced.get_by_role('button',name='Join room',exact=True).click()
         raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Guest reserved')")
         raced.evaluate('releaseJoinA()')
         competing=page();competing.goto(race_invite)
         competing.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
-        competing.get_by_role('button',name='Retry join / Join',exact=True).click()
+        competing.get_by_role('button',name='Join room',exact=True).click()
         competing.wait_for_function("document.querySelector('[data-testid=room-view]') || document.querySelector('[data-testid=room-status]')?.textContent.includes('place was just taken')")
         assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
         assert raced.get_by_test_id('room-view').count()==1

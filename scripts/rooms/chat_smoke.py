@@ -41,7 +41,7 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
                 print(json.dumps({'failed':'send action','value':message.input_value(),'buttons':page.get_by_role('button').all_text_contents(),'panelVisible':page.locator('.room-panel').is_visible(),'chatVisible':page.locator('.chat-panel').is_visible(),'mainClass':page.locator('main').get_attribute('class'),'statuses':page.locator('[role=status]').all_text_contents(),'sent':page.evaluate('chatProof.sent')}),flush=True);raise
             page.locator('.chat-panel li p').filter(has_text=text).wait_for(state='attached')
         send(host,'only before join')
-        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Retry join / Join',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("document.querySelector('[data-testid=room-view]')?.textContent.includes('has the reserved guest place')")
+        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("document.querySelector('[data-testid=room-view]')?.textContent.includes('has the reserved guest place')")
         for tab in [host,guest]:tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route: direct')")
         open_chat(guest)
         assert guest.get_by_test_id('frames').inner_text()=='0 frames'
@@ -102,7 +102,7 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         guest.get_by_role('button',name='Send message',exact=True).click()
         host.locator('.chat-panel').get_by_text('text survives peer denial',exact=True).wait_for(state='attached')
         open_room(guest).get_by_role('button',name='Leave room',exact=True).click();guest.locator('.chat-panel').wait_for(state='detached')
-        guest.get_by_role('button',name='Retry join / Join',exact=True).click();open_chat(guest);guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
+        guest.goto(invite);guest.get_by_role('button',name='Join room',exact=True).click();open_chat(guest);guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
         assert not errors,errors
         result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_relay_denial_keeps_chat_usable':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()

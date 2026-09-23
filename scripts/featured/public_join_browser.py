@@ -60,7 +60,7 @@ try:
         friend = page()
         row = friend.locator('.room-list li').filter(has_text=included_code)
         assert '1/2 · Waiting for guest' in row.inner_text()
-        assert 'P1/P2 · included' in row.inner_text()
+        assert 'P1/P2 controllers · included' in row.inner_text()
         friend.screenshot(path=str(args.output / 'included-directory.png'))
         file_choosers = []
         friend.on('filechooser', lambda chooser: file_choosers.append(chooser))
@@ -87,7 +87,7 @@ try:
         listing.get_by_role('searchbox').fill(unlisted_host.locator('#room-heading').inner_text().split(' · ')[0])
         assert listing.get_by_text('No matching public rooms.', exact=True).is_visible()
         invited = page(invitation)
-        invited.get_by_role('button', name='Retry join / Join', exact=True).click()
+        invited.get_by_role('button', name='Join room', exact=True).click()
         invited.get_by_role('button', name='Choose matching NES file').wait_for()
         invited.set_input_files('input[type=file]', {'name': 'PRIVATE-UNLISTED-GUEST.nes', 'mimeType': 'application/octet-stream', 'buffer': diagnostic})
         unlisted = shared(unlisted_host, invited)
