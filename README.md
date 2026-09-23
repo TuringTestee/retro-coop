@@ -10,7 +10,7 @@ Install Node.js 24.13.1, npm 11.8.0, Python 3, and Rust 1.95.0 with the `wasm32-
 sh scripts/demo.sh
 ```
 
-Open **http://127.0.0.1:8765/**. The page shows public lobbies and buttons to load **Super Tilt Bro** or **From Below**. You can also drop or choose another `.nes` file to host it; that file stays in your browser. After loading, open **Start game** to start your room alone or with a prepared guest. The canvas then becomes the main view. In the NES game, press Enter for its Start button, use the arrow keys to move, X for A, Z for B, and Shift for Select.
+Open **http://127.0.0.1:8765/**. The public room list starts with empty **Super Tilt Bro** and **From Below** rooms. Choose **Join as host** to claim one; the service publishes a fresh empty room when capacity allows. You can also choose or drop another `.nes` file to create a public or unlisted room; that file stays in your browser. A friend can use **Join** on your public 1/2 row or the invitation link for an unlisted room. The host can **Start game** alone or with a prepared guest. In the NES game, press Enter for its Start button, use the arrow keys to move, X for A, Z for B, and Shift for Select.
 
 This command starts the current client and a local room coordinator, and Ctrl-C stops both. It supports testing two browser windows on this computer. A friend on another network needs the deployed HTTPS application; local loopback addresses are not reachable from their computer.
 

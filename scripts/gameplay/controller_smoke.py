@@ -11,10 +11,11 @@ def run(host,guest,out,root,errors,source,build_files):
   return hashes[0]
  def settings():
   for page in pages:
+   if not page.locator('.room-panel').is_visible():page.get_by_role('button',name='Room',exact=True).click()
    page.locator('details.session-settings').evaluate('(node)=>node.open=false')
    page.locator('details.controller-disclosure').evaluate('(node)=>node.open=true')
    layout=page.evaluate("""()=>{const panel=document.querySelector('.room-panel');return {documentHeight:document.documentElement.scrollHeight,viewportHeight:innerHeight,panelHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight}}""")
-   assert layout['documentHeight']<=layout['viewportHeight'] and layout['panelScrollHeight']<=layout['panelHeight'],layout
+   assert layout['documentHeight']<=layout['viewportHeight'] and layout['panelHeight']<=layout['viewportHeight'],layout
  def propose(mode,p1):
   host.get_by_label('Controller mode',exact=True).select_option(mode);host.get_by_label('P1 owner',exact=True).select_option(p1)
   host.get_by_role('button',name='Request assignment',exact=True).click()

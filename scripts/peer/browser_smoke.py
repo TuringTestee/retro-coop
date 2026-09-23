@@ -42,7 +42,7 @@ try:
    h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(h).get_by_label('Connection privacy',exact=True).input_value()==policy
    return h,h.get_by_label('Room invitation',exact=True).input_value()
   def join(invite,policy='standard',early_loss=False):
-   g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Bring your own matching local game file.',exact=False).wait_for();g.get_by_role('button',name='Retry join / Join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g
+   g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Bring your own matching local game file.',exact=False).wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g
   def connected(h,g,route):
    try:
     for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peer.status==='connected' && document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
@@ -103,7 +103,7 @@ try:
   denied.screenshot(path=str(out.with_suffix('.capacity.png')),full_page=True)
   # Explicit cancellation frees capacity; retry retains the original reservation.
   lease=waiting.get_by_test_id('room-view').text_content().split('Reservation expires at ')[1].split('.')[0]
-  open_connection(g).get_by_role('button',name='Cancel join',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+  open_room(g).get_by_role('button',name='Leave room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
   open_connection(waiting).get_by_role('button',name='Retry connection',exact=True).click();retry_proof=connected(denied,waiting,'relay')
   assert lease in waiting.get_by_test_id('room-view').inner_text()
   # A local choice change reconnects even if the other player's stricter policy remains effective.
@@ -143,9 +143,9 @@ try:
   assert waiting.evaluate('peerProof.lastRoom.id')==original['id'] and waiting.evaluate('peerProof.lastRoom.reservationUntil')==original['lease']
   assert denied.locator('canvas').evaluate('canvas=>canvas.toDataURL()')==original_pixels
   waiting.screenshot(path=str(out.with_suffix('.policy-retry.png')),full_page=True)
-  open_connection(waiting).get_by_role('button',name='Cancel join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
+  open_room(waiting).get_by_role('button',name='Leave room',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
   guard=page(invite,'relay');guard.evaluate('window.lowerPolicy=true')
-  guard.get_by_role('button',name='Retry join / Join',exact=True).click()
+  guard.get_by_role('button',name='Join room',exact=True).click()
   guard.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('failed')")
   assert guard.evaluate('peerProof.pcs.length')==0
   # Exercise real coordinator wall-clock deadlines, without extending or accelerating them.
@@ -155,7 +155,7 @@ try:
   for phase in ['preparing','connecting']:
    dh,di=host(direct);dg=page(di)
    for tab in [dh,dg]:tab.evaluate('(mode)=>window.deadlineMode=mode',phase)
-   dg.get_by_role('button',name='Retry join / Join',exact=True).click();dg.get_by_test_id('room-view').wait_for(state='attached');open_connection(dg)
+   dg.get_by_role('button',name='Join room',exact=True).click();dg.get_by_test_id('room-view').wait_for(state='attached');open_connection(dg)
    original=dg.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil})')
    for tab in [dh,dg]:
     tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('timed out')",timeout=25000)

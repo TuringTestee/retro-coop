@@ -49,6 +49,21 @@ test('explicit host retry submits readiness regardless of guest inspection order
  }
 });
 
+test('correcting a wrong guest file rearms readiness after the old-file stop',async()=>{
+ const {setImmediate}=await import('node:timers/promises');
+ const sent:unknown[]=[];
+ const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
+ const wrong={...fingerprint,romSha256:'d'.repeat(64)};
+ const room={id:'room',role:'guest',matches:false,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView;
+ game.enter(room);game.ready({readyState:'open'} as RTCDataChannel,'peer');game.selected(wrong);
+ game.selected(fingerprint);game.enter({...room,matches:true});await setImmediate();
+ assert.equal(sent.length,1);
+ game.handle({type:'gameStop',reason:'Guest game changed. Shared play is paused.'});await setImmediate();
+ assert.equal(sent.length,2,'old-file stop stranded the corrected guest before Start');
+});
+
 test('canceling an in-flight readiness offer releases only that operation ownership',async()=>{
  const {setImmediate}=await import('node:timers/promises');
  for(const completeOldFirst of [true,false]){

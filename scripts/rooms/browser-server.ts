@@ -4,7 +4,7 @@ import {connect} from 'node:net';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import {once} from 'node:events';
-import {createCoordinator,shutdown} from '../../apps/coordinator/src/server.ts';
+import {config,createCoordinator,shutdown} from '../../apps/coordinator/src/server.ts';
 import {listenOperator} from '../../apps/coordinator/src/operator.ts';
 const root = resolve('apps/client/dist');
 const gateway = createServer(async(request,response)=>{
@@ -14,7 +14,8 @@ const gateway = createServer(async(request,response)=>{
 });
 gateway.listen(0,'127.0.0.1');await once(gateway,'listening');
 const url = `http://127.0.0.1:${(gateway.address() as {port:number}).port}`;
-const coordinator = createCoordinator({origins:[url]});coordinator.listen(0,'127.0.0.1');await once(coordinator,'listening');
+const offerCatalogIds=config({...process.env,COORDINATOR_ORIGINS:url}).offerCatalogIds;
+const coordinator = createCoordinator({origins:[url],offerCatalogIds});coordinator.listen(0,'127.0.0.1');await once(coordinator,'listening');
 const operator=process.env.COORDINATOR_OPERATOR_DIR ? await listenOperator(process.env.COORDINATOR_OPERATOR_DIR,coordinator.operator):undefined;
 const coordinatorPort = (coordinator.address() as {port:number}).port;
 const connections = new Set<ReturnType<typeof connect>>();

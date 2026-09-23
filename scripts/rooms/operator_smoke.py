@@ -58,11 +58,10 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 assert host.get_by_role('button', name='Unmute', exact=True).count() == 0
                 host.set_input_files('input[type=file]', {'name':'fixture.nes','mimeType':'application/octet-stream','buffer':rom})
                 host.get_by_test_id('room-view').wait_for(state='attached')
-                unmute = host.get_by_role('button', name='Unmute', exact=True)
-                unmute.wait_for()
+                unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
                 assert unmute.get_attribute('aria-pressed') == 'true'
                 guest = page(host.get_by_label('Room invitation', exact=True).input_value())
-                guest.get_by_role('button', name='Retry join / Join', exact=True).click()
+                guest.get_by_role('button', name='Join room', exact=True).click()
                 guest.get_by_test_id('room-view').wait_for(state='attached')
                 for tab in [host,guest]:
                     panel = open_room(tab)
@@ -76,11 +75,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 return host,guest
             def stopped(tab, message):
                 tab.get_by_test_id('room-view').wait_for(state='detached')
-                panel = open_room(tab)
-                status = panel.get_by_test_id('room-status').filter(has_text=message)
-                if not status.is_visible() and panel.locator('details.session-settings').count():
-                    open_connection(tab)
-                status.wait_for()
+                tab.get_by_text(message, exact=False).first.wait_for()
                 tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
             host,guest = pair()
             writes = host.evaluate('timelineWrites')
@@ -100,11 +95,11 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             for tab in [host,guest]: stopped(tab,'Access is temporarily restricted')
             assert host.evaluate('timelineWrites') == writes
             host.screenshot(path=str(output.with_suffix('.blocked.png')), full_page=True)
-            host.get_by_role('button', name='All lobbies', exact=True).click()
-            host.get_by_role('button', name='Retry directory', exact=True).click()
+            host.get_by_role('button', name='Public rooms', exact=True).click()
+            host.get_by_role('button', name='Retry', exact=True).click()
             host.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()
             host.get_by_role('button', name='Return to game', exact=True).click()
-            open_connection(host).get_by_test_id('room-status').filter(has_text='Access is temporarily restricted').wait_for()
+            host.get_by_text('Access is temporarily restricted', exact=False).first.wait_for()
             assert host.evaluate('timelineWrites') == writes
             fresh = page(url)
             fresh.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()
@@ -115,10 +110,9 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             while any(s.get('blockedUntil') for s in request({'type':'list'})['subjects']):
                 assert time.monotonic() < expiry_deadline, 'temporary block did not expire'
                 time.sleep(0.05)
-            fresh.get_by_role('button', name='Retry directory', exact=True).click()
-            fresh.locator('.directory-panel [role=status]').filter(has_text='No public lobbies yet. Start a game above.').wait_for()
-            assert 'Access restored' in fresh.get_by_test_id('room-status').text_content()
-            assert 'No peer connection' in fresh.get_by_test_id('connection-status').text_content()
+            fresh.get_by_role('button', name='Retry', exact=True).click()
+            fresh.get_by_text('No public rooms right now.', exact=True).wait_for()
+            assert 'Access restored' in fresh.get_by_test_id('room-notice').text_content()
             fresh.set_input_files('input[type=file]', {'name':'fixture.nes','mimeType':'application/octet-stream','buffer':rom})
             fresh.get_by_test_id('room-view').wait_for(state='attached')
             fresh.screenshot(path=str(output.with_suffix('.expired.png')), full_page=True, mask=[fresh.get_by_label('Room invitation', exact=True)])

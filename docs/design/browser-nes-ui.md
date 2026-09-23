@@ -4,9 +4,9 @@ Audience: Human
 
 # Retro Coop UI design
 
-The [included-games amendment](included-games.md) updates U1/U3/U4/U9: before play it shows the complete lobby directory plus one-click launchers for Super Tilt Bro and From Below; after load it enlarges the game and exposes play controls. It removes promotional copy and standalone About tabs. Other interaction and consent rules below remain unchanged.
+This document records the earlier U1–U9 UI design and its interaction inventory. The approved [lobby experience amendment](lobby-refactor.md) and [current ASCII wireframe](lobby-wireframe-v3.md) govern the current directory, room entry, Start, and play layout. The older launcher, automatic-start, and later-join passages below remain only as historical design evidence; unaffected consent, accessibility, and recovery requirements still apply.
 
-The proposed [lobby experience amendment](lobby-refactor.md) and its [current ASCII wireframe](lobby-wireframe-v3.md) replace those launcher and automatic-start sketches once reviewed, approved, and merged. The S01–S37 interaction checklist remains useful for unaffected play, accessibility, and recovery states.
+The S01–S37 interaction checklist remains useful for unaffected play, accessibility, and recovery states.
 
 ## Scope and reading guide
 
@@ -26,7 +26,7 @@ Use at least 16 px body text, clear focus outlines, comfortably sized controls, 
 
 ## Iteration record
 
-The first three passes below are historical; pass 4–6 and U1–U9 describe the current candidate.
+All passes below record the earlier candidate. Current entry and room behavior follow the merged lobby amendment; use these sketches only for unaffected requirements and the iteration history.
 
 ### Pass 1: discovery sketch
 
@@ -70,9 +70,9 @@ S04/S08/S33 → duplicate names, slot squatting and a late guest can strand or d
 
 S21/S34/S36/S37 → push-to-talk-only voice, untested hardware and unmeasured setup undermine the requested experience → added conversational voice/device recovery, separate local/netplay qualification, and startup/action-count evidence. Rechecked existing save, privacy, abuse, reconnect and accessibility paths. The catalog identities are fixed by [the catalog amendment](included-games.md); exact-artifact packaging/runtime checks under D19 and the measured supported-hardware matrix under D20 remain release gates. No additional product decisions are silently filled in. These are author walkthroughs, not observed user tests.
 
-## U1 — Directory
+## Historical U1 — Directory
 
-[Included games and arbitrary NES files](included-games.md) is the sole full definition and current wireframe for U1. It places compact **Play** and **Show lobbies** actions for Super Tilt Bro and From Below plus compact arbitrary-file hosting above the live directory. The directory is the dominant content. There is no marketing hero, tagline, passive game-information panel, pre-play About action, or page scrolling. Overflowing lobby results use deterministic pagination.
+The earlier [included-games design](included-games.md) defined the launcher version of U1. Its **Play** and **Show lobbies** actions have been replaced by the one-list 0/2 claim path in the [current wireframe](lobby-wireframe-v3.md). The remaining text in this section records the earlier sketch, not current entry instructions.
 
 Default listing shows all admitted public sessions, including multiple sessions with the same label. Each row includes host, content source, occupancy, lifecycle status, and an accurate action. The platform does not certify user-entered game labels; an adjacent information label says “Host-provided title.” Do not show private filenames, ROM hashes, third-party download links, private sessions, or auto-generated artwork. Guest identity is a temporary nickname; Settings explains that it is not an account.
 

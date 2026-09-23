@@ -24,7 +24,7 @@ jobs:
       - name: Enforce the shared workflow deadline
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 spikes/d02/ci_budget.py watch --gate preflight
+        run: python3 spikes/d02/ci_budget.py watch --gate ${{ github.event_name == 'pull_request' && 'entrypoint' || 'preflight' }}
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -98,6 +98,9 @@ jobs:
           path: spikes/d02/public-entrypoint.local/**
           if-no-files-found: warn
           retention-days: 7
+      - name: Complete the focused pull-request gate within the original deadline
+        if: github.event_name == 'pull_request'
+        run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
   core:
     if: github.event_name == 'push'
     needs: build
@@ -203,7 +206,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   preflight:
-    if: always()
+    if: ${{ always() && github.event_name == 'push' }}
     needs: [build, entrypoint, core, network]
     runs-on: ubuntu-latest
     timeout-minutes: 5

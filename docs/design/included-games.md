@@ -2,11 +2,11 @@ Audience: Human
 
 # Included games and arbitrary NES files
 
-Visitors can start Super Tilt Bro or From Below without choosing a local ROM. Super Tilt Bro appears first. Visitors can also drop their own NES files and host internet rooms; the included catalog never limits which titles they may try.
+Visitors can join ordinary public rooms for Super Tilt Bro or From Below without choosing a local ROM. They can also drop their own NES files and host internet rooms; the included catalog never limits which titles they may try.
 
-The [lobby experience amendment](lobby-refactor.md) proposes showing these games as ordinary 0/2 public rooms instead of the launchers below. Once approved and merged, it governs entry, room ownership, and Start timing; this document retains the exact content identities, download checks, credits, and license placeholders.
+The approved [lobby experience amendment](lobby-refactor.md) replaces the launchers below with ordinary 0/2 public rooms and governs entry, room ownership, and Start timing. The launcher sketches and acceptance wording in this document are historical; its exact content identities, download checks, credits, and license placeholders remain relevant.
 
-## Direction and order
+## Historical launcher direction and order
 
 This amendment records the user's 2026-09-20 request to add the supplied `Super_Tilt_Bro_(E).nes`, rank it above From Below, make both included games directly playable, and show license placeholders for now. “From the deep” in that request refers to the already selected From Below. It extends the existing [platform design](browser-nes-platform.md) and [UI](browser-nes-ui.md) without replacing their room, privacy, consent or recovery rules.
 
@@ -23,7 +23,7 @@ Start loads the selected included game and uses the normal anonymous room flow. 
 
 Show lobbies filters the already-visible directory by the selected catalog identity and offers Show all lobbies. It never opens a separate informational screen. The directory preserves distinct rooms, live counts, keyboard focus, stale-result protection and public/unlisted rules.
 
-## Screen states
+## Historical launcher screen states
 
 Before a game starts, the live lobby directory is the largest part of the screen. It is visible without opening a tab, scrolling past a marketing hero, or choosing a game first. Above it, Super Tilt Bro and From Below each have a one-click Play action. A compact **Host your NES file** drop/picker action sits beside the launchers. Search, connection policy and public/unlisted choice stay close to the action they affect. Remove slogans such as “Make yourself at home,” “Your game. Your browser,” “Pick a classic. Press play,” “Good games. Good company,” “A little nostalgia. A new game night,” and “Try the local player. Drop your NES game and start playing.” Do not replace them with another tagline.
 
@@ -72,6 +72,6 @@ Universal flawless emulation is not yet demonstrated. Malformed files, unavailab
 
 The application supplies synchronized controller inputs and room networking. It does not invent native multiplayer in a single-player game or delegate room networking to a cartridge's own online menu. From Below's supplied version remains single-player with optional shared-P1 handoff. Super Tilt Bro's exact supplied build needs actual controller/menu qualification before claiming its supported versus mode. Do not infer behavior from a different upstream release sharing the filename.
 
-## Success
+## Historical launcher acceptance snapshot
 
 Before play, the public lobby directory is immediately visible and every admitted lobby is reachable through in-window pagination; both included choices are one-click Play actions in the requested order. After load, the canvas is the main surface and play controls appear. The document never scrolls; marketing copy and standalone informational tabs are absent. Both games support the existing Start/Join/retry/cancel flow with exact identity validation. Arbitrary local files still use the same player and room owners. Existing consent, progress-preserving joining, controller handoff, public internet and release qualification remain required by their owning issues.

@@ -1,35 +1,80 @@
-"""Capture D19 discovery/play journeys against the real built client and coordinator."""
-import argparse,hashlib,json,subprocess,time
+"""Capture the directory, waiting room, and both included games from the real client."""
+import argparse
+import json
+import os
+import subprocess
+import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
-def main():
- parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,required=True);a=parser.parse_args();a.output.mkdir(parents=True,exist_ok=True);root=Path(__file__).resolve().parents[2];diagnostic=(root/'apps/client/dist/generated/diagnostic.nes').read_bytes();started=time.monotonic();service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,stdout=subprocess.PIPE,text=True)
- try:
-  url=json.loads(service.stdout.readline())['url'];evidence={'states':{},'routes':{}}
-  with sync_playwright()as pw:
-   browser=pw.chromium.launch(channel='chrome',ignore_default_args=['--mute-audio']);errors=[]
-   def page(width=1280,height=800):
-    p=browser.new_page(viewport={'width':width,'height':height});p.on('pageerror',lambda e:errors.append(str(e)));p.goto(url);p.wait_for_function("document.querySelector('[data-testid=directory]')");return p
-   def metrics(p,name):
-    value=p.evaluate('''()=>({innerWidth,innerHeight,scrollWidth:document.documentElement.scrollWidth,scrollHeight:document.documentElement.scrollHeight,bodyWidth:document.body.scrollWidth,bodyHeight:document.body.scrollHeight})''');assert value['scrollWidth']<=value['innerWidth']and value['scrollHeight']<=value['innerHeight'];evidence['states'][name]=value;return value
-   def start_room(tab):
-    tab.get_by_test_id('room-view').wait_for(state='attached',timeout=30000);tab.get_by_role('button',name='Start game',exact=True).click();tab.locator('.room-start button').click();tab.get_by_role('button',name='Close details',exact=True).click()
-   def play_metrics(p,name):
-    value=metrics(p,name);screen=p.locator('canvas').bounding_box();assert screen and screen['height']>=value['innerHeight']*.68 and screen['width']>=screen['height'];value['canvas']=screen;value['canvas_viewport_area_ratio']=round(screen['width']*screen['height']/(value['innerWidth']*value['innerHeight']),3);return value
-   wide=page();metrics(wide,'wide-discovery');assert wide.get_by_role('button',name='Play Super Tilt Bro').is_visible();assert wide.get_by_role('button',name='Play From Below').is_visible();assert wide.get_by_role('button',name='Choose NES file').is_visible();assert wide.get_by_role('button',name='Pause').count()==0;assert wide.get_by_label('Lobby pages').count()==0;wide.screenshot(path=str(a.output/'wide-discovery.png'))
-   wide.get_by_role('button',name='Play Super Tilt Bro').click();start_room(wide);wide.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>30",timeout=30000);play_metrics(wide,'super-playing');assert wide.get_by_role('button',name='Retry battery saving').count()==0;before=int(wide.get_by_test_id('frames').inner_text().split()[0]);wide.screenshot(path=str(a.output/'super-playing.png'));wide.get_by_role('button',name='All lobbies').click();wide.get_by_test_id('directory').wait_for();time.sleep(.25);during=int(wide.get_by_test_id('frames').inner_text().split()[0]);assert during>before;metrics(wide,'all-lobbies-progressing');wide.get_by_role('button',name='Return to game').click();assert int(wide.get_by_test_id('frames').inner_text().split()[0])>=during;wide.get_by_role('button',name='Game help').click();assert 'has not been verified' in wide.get_by_role('dialog').inner_text();metrics(wide,'game-help-dialog');wide.screenshot(path=str(a.output/'game-help.png'));wide.get_by_role('button',name='Close').click();wide.get_by_role('button',name='Pause').click();metrics(wide,'paused');evidence['routes']['super_tilt']={'playable':True,'progress_preserved':True,'frames_before_lobbies':before,'frames_after_lobbies':during}
-   narrow=page(760,680);metrics(narrow,'narrow-discovery');host=narrow.locator('.room-list li').first.locator('span').nth(1);assert host.is_visible() and host.inner_text().strip();narrow.screenshot(path=str(a.output/'narrow-discovery.png'));narrow.get_by_role('button',name='Play From Below').click();start_room(narrow);narrow.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>120",timeout=30000);narrow.wait_for_function("()=>{const c=document.querySelector('canvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.some((v,i)=>i%4!==3&&v!==0)}",timeout=30000);before_pixels=narrow.locator('canvas').evaluate("c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.reduce((n,v,i)=>(n+v*(i%251+1))>>>0,0)}");narrow.keyboard.press('Enter');time.sleep(.5);after_pixels=narrow.locator('canvas').evaluate("c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.reduce((n,v,i)=>(n+v*(i%251+1))>>>0,0)}");assert before_pixels!=after_pixels;play_metrics(narrow,'from-below-playing');narrow.screenshot(path=str(a.output/'from-below-playing.png'));narrow.get_by_role('button',name='Room').click();assert 'Playing alone; new guests cannot join.' in narrow.locator('.room-panel').text_content();assert narrow.locator('.room-panel').evaluate('e=>e.scrollHeight<=e.clientHeight');metrics(narrow,'narrow-room-session');narrow.screenshot(path=str(a.output/'narrow-room-session.png'));narrow.get_by_role('button',name='Close details').click();narrow.get_by_role('button',name='Pause').click();evidence['routes']['from_below']={'playable':True,'nonblack_pixels':True,'input_followed_by_pixel_change':True,'narrow_room_nested_scroll':False}
-   own=page();own.set_input_files('input[type=file]',{'name':'arbitrary-private.nes','mimeType':'application/octet-stream','buffer':diagnostic});own.get_by_role('button',name='Start game').click();invite_url=own.get_by_label('Room invitation',exact=True).input_value();own.locator('.room-start button').click();own.get_by_role('button',name='Close details').click();own.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10");assert not own.locator('.room-panel').is_visible();own.get_by_role('button',name='Room').click();own.locator('.room-panel').wait_for();assert 'Playing alone; new guests cannot join.' in own.locator('.room-panel').text_content();assert own.locator('.room-panel').evaluate('e=>e.scrollHeight<=e.clientHeight');assert own.get_by_role('button',name='Enable voice').count()==0;assert not own.get_by_text('Experimental compatibility:',exact=False).is_visible();metrics(own,'wide-room-session');own.screenshot(path=str(a.output/'room-session.png'));invited=browser.new_page(viewport={'width':760,'height':680});invited.goto(invite_url);invited.get_by_role('button',name='Retry join / Join',exact=True).wait_for();invite_box=invited.locator('.room-panel').evaluate('e=>({scrollHeight:e.scrollHeight,clientHeight:e.clientHeight})');assert invite_box['scrollHeight']<=invite_box['clientHeight'],invite_box;metrics(invited,'narrow-invitation');invited.screenshot(path=str(a.output/'narrow-invitation.png'));assert 'arbitrary-private' not in own.locator('body').inner_text();own.get_by_role('button',name='Pause').click();evidence['routes']['arbitrary']={'playable_and_hosted':True,'room_behind_deliberate_control':True,'room_panel_nested_scroll':False,'invitation_action_visible_without_scroll':True,'sha256':hashlib.sha256(diagnostic).hexdigest(),'filename_absent':True}
-   invalid=page();invalid.set_input_files('input[type=file]',{'name':'invalid.nes','mimeType':'application/octet-stream','buffer':b'not a rom'});invalid.locator('.selection-status').wait_for();assert 'This is not an NES cartridge' in invalid.locator('.selection-status').inner_text();assert invalid.get_by_role('button',name='Choose NES file').is_visible();metrics(invalid,'invalid-recovery')
-   hosts=[wide,narrow,own];
-   for index in range(3):
-    h=page();h.get_by_role('button',name='Play From Below' if index%2 else 'Play Super Tilt Bro').click();h.get_by_test_id('room-view').wait_for(state='attached',timeout=30000);start_room(h);h.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>2");h.get_by_role('button',name='Pause').click();hosts.append(h)
-   listing=page();listing.get_by_text('Page 1 of 2').wait_for();assert listing.locator('.room-list [data-room-id]').count()==3;listing.get_by_role('button',name='Next').click();listing.get_by_text('Page 2 of 2').wait_for();assert listing.locator('.room-list [data-room-id]').count()==3;assert listing.locator('.room-list').evaluate('e=>e.scrollHeight<=e.clientHeight');listing.screenshot(path=str(a.output/'multi-page-lobbies.png'));listing.get_by_label('Lobby pages').get_by_role('button',name='Previous').focus();listing.get_by_role('button',name='Previous').click();listing.wait_for_function("document.activeElement?.matches('.room-list [data-room-id]')");evidence['routes']['directory']={'rooms':6,'pages':2,'page_size':3,'focus_moves_to_first_row':True,'nested_scroll':False}
-   listing.evaluate("document.documentElement.style.fontSize='125%'");metrics(listing,'large-text');listing.evaluate("document.documentElement.style.fontSize='100%'");listing.set_viewport_size({'width':800,'height':600});metrics(listing,'browser-zoom-equivalent-constrained');assert listing.get_by_role('button',name='Play Super Tilt Bro').is_visible();assert listing.get_by_role('button',name='Choose NES file').is_visible()
-   assert not errors,errors;evidence.update({'result':'pass','browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'page_errors':errors,'limits':'Local same-origin coordinator and desktop Chrome; no Internet route, physical controller, assistive-technology session, or audible-device capture.'});(a.output/'browser.json').write_text(json.dumps(evidence,indent=2)+'\n');print(json.dumps(evidence,indent=2));browser.close()
- finally:
-  service.terminate()
-  try:service.wait(timeout=5)
-  except subprocess.TimeoutExpired:service.kill();service.wait()
-if __name__=='__main__':main()
+parser = argparse.ArgumentParser()
+parser.add_argument('--output', type=Path, required=True)
+args = parser.parse_args()
+args.output.mkdir(parents=True, exist_ok=True)
+root = Path(__file__).resolve().parents[2]
+started = time.monotonic()
+service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=root,
+    env={**os.environ, 'COORDINATOR_EMPTY_OFFERS': 'super-tilt-bro-pal,from-below-1.0'}, stdout=subprocess.PIPE, text=True)
+try:
+    url = json.loads(service.stdout.readline())['url']
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        errors = []
+        def page(width, height):
+            tab = browser.new_page(viewport={'width': width, 'height': height})
+            tab.on('pageerror', lambda error: errors.append(str(error)))
+            tab.goto(url)
+            tab.get_by_role('button', name='Join as host').first.wait_for()
+            return tab
+        def fit(tab):
+            bounds = tab.evaluate('({width:document.documentElement.scrollWidth,height:document.documentElement.scrollHeight,viewportWidth:innerWidth,viewportHeight:innerHeight})')
+            assert bounds['width'] <= bounds['viewportWidth'] and bounds['height'] <= bounds['viewportHeight'], bounds
+            return bounds
+        def claim(tab, title):
+            row = tab.locator('.room-list li').filter(has_text=title).filter(has_text='0/2 · Waiting for host').first
+            row.get_by_role('button', name='Join as host').click()
+            tab.get_by_role('button', name='Start game', exact=True).wait_for()
+            tab.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)
+            assert 'Player 1 · Host' in tab.locator('.room-slots').inner_text()
+        wide = page(1280, 800)
+        assert wide.locator('.room-list li').filter(has_text='0/2 · Waiting for host').count() == 2
+        fit(wide)
+        wide.screenshot(path=str(args.output / 'directory-wide.png'))
+        claim(wide, 'Super Tilt Bro')
+        fit(wide)
+        wide.screenshot(path=str(args.output / 'waiting-room.png'))
+        wide.get_by_role('button', name='Start game', exact=True).click()
+        wide.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>30", timeout=30000)
+        wide.screenshot(path=str(args.output / 'super-tilt-playing.png'))
+        wide.get_by_role('button', name='Public rooms', exact=True).click()
+        before = int(wide.get_by_test_id('frames').inner_text().split()[0])
+        wide.locator('.room-list li').first.wait_for()
+        assert wide.locator('.room-list li button').count() == 0
+        wide.wait_for_timeout(200)
+        assert int(wide.get_by_test_id('frames').inner_text().split()[0]) > before
+        wide.get_by_role('button', name='Return to room', exact=True).click()
+        assert wide.locator('.room-panel').is_visible() is False
+        narrow = page(760, 680)
+        fit(narrow)
+        assert 'One controller; share turns' in narrow.locator('.room-list li').filter(has_text='From Below').first.inner_text()
+        narrow.screenshot(path=str(args.output / 'directory-narrow.png'))
+        claim(narrow, 'From Below')
+        assert 'Both players must agree to a handoff' in narrow.locator('.room-panel').inner_text()
+        fit(narrow)
+        narrow.screenshot(path=str(args.output / 'from-below-waiting.png'))
+        narrow.get_by_role('button', name='Start game', exact=True).click()
+        narrow.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>120", timeout=30000)
+        narrow.wait_for_function("()=>{const c=document.querySelector('canvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.some((v,i)=>i%4!==3&&v!==0)}", timeout=30000)
+        narrow.screenshot(path=str(args.output / 'from-below-playing.png'))
+        narrow.get_by_role('button', name='Room', exact=True).click()
+        assert narrow.locator('.room-panel').is_visible()
+        fit(narrow)
+        narrow.screenshot(path=str(args.output / 'room-overlay.png'))
+        assert not errors, errors
+        proof = {'result': 'pass', 'included_rooms': 2, 'claim_and_replenish': True, 'both_games_rendered': True, 'narrow_and_wide_fit': True, 'browser': browser.version, 'seconds': round(time.monotonic() - started, 2), 'page_errors': errors}
+        (args.output / 'browser.json').write_text(json.dumps(proof, indent=2) + '\n')
+        print(json.dumps(proof, indent=2))
+        browser.close()
+finally:
+    service.terminate()
+    service.wait(timeout=5)
