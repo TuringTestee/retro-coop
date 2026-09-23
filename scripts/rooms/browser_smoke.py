@@ -64,6 +64,21 @@ try:
         dismissed.goto(invitation)
         dismissed.locator('.room-panel.invitation').wait_for(state='visible')
         dismissed.close()
+        stale_host=page();stale_host.goto(url)
+        stale_host.get_by_label('Room access').select_option('unlisted')
+        stale_host.set_input_files('input[type=file]',{'name':'STALE-PREVIEW.nes','mimeType':'application/octet-stream','buffer':rom})
+        stale_host.get_by_test_id('room-view').wait_for(state='attached')
+        stale_guest=page();stale_guest.goto(stale_host.get_by_label('Room invitation',exact=True).input_value())
+        stale_guest.get_by_role('button',name='Join room',exact=True).wait_for()
+        stale_host.on('dialog',lambda dialog:dialog.accept())
+        stale_host.get_by_role('button',name='Leave room',exact=True).click()
+        stale_host.get_by_test_id('room-view').wait_for(state='detached')
+        stale_guest.get_by_role('button',name='Join room',exact=True).click()
+        stale_guest.get_by_test_id('room-status').filter(has_text='closed, unavailable').wait_for()
+        assert stale_guest.get_by_role('button',name='Join room',exact=True).count()==0
+        assert stale_guest.get_by_role('button',name='Retry invitation',exact=True).is_visible()
+        stale_guest.screenshot(path=str(output.with_suffix('.stale-invite.png')),full_page=True)
+        stale_host.close();stale_guest.close()
         first=page();second=page()
         for guest in [first,second]:
             guest.goto(invitation)
@@ -112,6 +127,8 @@ try:
         assert first.get_by_test_id('directory').is_visible()
         assert first.locator('.room-panel.invitation').count()==0
         assert '#invite=' not in first.url
+        second.get_by_role('button',name='Retry invitation',exact=True).click()
+        second.get_by_role('button',name='Join room',exact=True).wait_for()
         second.get_by_role('button',name='Join room',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='attached')
         second.get_by_role('button',name='Leave room',exact=True).click()
@@ -213,8 +230,9 @@ try:
         raced.evaluate('releaseJoinA()')
         competing=page();competing.goto(race_invite)
         competing.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
-        competing.get_by_role('button',name='Join room',exact=True).click()
-        competing.wait_for_function("document.querySelector('[data-testid=room-view]') || document.querySelector('[data-testid=room-status]')?.textContent.includes('place was just taken')")
+        assert '2/2 places · reserved' in competing.locator('.room-panel.invitation').inner_text()
+        assert competing.get_by_role('button',name='Join room',exact=True).count()==0
+        assert competing.get_by_role('button',name='Retry invitation',exact=True).is_visible()
         assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
         assert raced.get_by_test_id('room-view').count()==1
         raced.get_by_role('button',name='Leave room',exact=True).click()
