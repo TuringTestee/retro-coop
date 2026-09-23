@@ -4,6 +4,7 @@ import {operatorHandler} from './operator.ts';
 import {relayConfig} from './peer.ts';
 import {peerLimits} from '../../../packages/contracts/src/peer.ts';
 import { createServer } from 'node:http';
+import {createReadStream} from 'node:fs';
 import { WebSocket, WebSocketServer } from 'ws';
 import { health } from '../../../packages/contracts/src/index.ts';
 import { parseRoomCommand, ROOM_METADATA_BYTES, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
@@ -34,10 +35,10 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
   response.setHeader('Cache-Control', 'no-store');response.setHeader('Content-Type', 'application/json');response.setHeader('Referrer-Policy','no-referrer');
   const origin=request.headers.origin;
   const upload=/^\/rooms\/([A-Za-z0-9_-]{43})\/rom$/.exec(request.url ?? '');
-  if(upload && (request.method==='PUT'||request.method==='OPTIONS')) {
+  if(upload && (request.method==='PUT'||request.method==='GET'||request.method==='OPTIONS')) {
    if(!origin || !origins.has(origin)){response.writeHead(403).end(JSON.stringify({error:'origin_denied'}));return;}
    response.setHeader('Access-Control-Allow-Origin',origin);response.setHeader('Vary','Origin');
-   response.setHeader('Access-Control-Allow-Methods','PUT, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-Room-Intent');
+   response.setHeader('Access-Control-Allow-Methods','PUT, GET, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-Room-Intent, X-Room-Membership');
    if(request.method==='OPTIONS'){response.writeHead(204).end();return;}
    const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies);
    if(!address){response.writeHead(403).end(JSON.stringify({error:'admission_denied'}));return;}
@@ -45,6 +46,21 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
    if(recent.length>=30 || (!transferAttempts.has(address)&&transferAttempts.size>=1000)){response.writeHead(429).end(JSON.stringify({error:'rate_limited'}));return;}
    recent.push(now());transferAttempts.set(address,recent);
    const authorization=/^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '');
+   if(request.method==='GET') {
+    const membership=request.headers['x-room-membership'];
+    if(!authorization || typeof membership!=='string' || !validToken(membership)){response.writeHead(403).end(JSON.stringify({error:'session_expired'}));return;}
+    let download:ReturnType<typeof rooms.beginDownload>;
+    try{download=rooms.beginDownload(authorization[1],upload[1],membership);}
+    catch(error){const code=error instanceof RoomError?error.code:'server_error';response.writeHead(code==='rate_limited'||code==='download_busy'?429:code==='server_error'?500:403).end(JSON.stringify({error:code}));return;}
+    const file=createReadStream(download.path,{highWaterMark:64*1024});
+    response.setHeader('Content-Type','application/octet-stream');response.setHeader('Content-Length',download.bytes);
+    response.setHeader('X-Content-Type-Options','nosniff');
+    void (async()=>{try{
+     for await(const chunk of file){if(response.destroyed)break;rooms.downloadProgress(upload[1],download.id);if(!response.write(chunk))await new Promise<void>(resolve=>{const done=()=>{response.off('drain',done);response.off('close',done);resolve();};response.once('drain',done);response.once('close',done);});}
+     if(!response.destroyed)response.end();
+    }catch{if(!response.destroyed)response.destroy();}finally{file.destroy();rooms.endDownload(upload[1],download.id);}})();
+    response.on('close',()=>file.destroy());return;
+   }
    const intent=request.headers['x-room-intent'];
    const length=request.headers['content-length'];
    if(!authorization || typeof intent!=='string' || !validToken(intent) || !length || !/^[0-9]+$/.test(length) || request.headers['content-type']!=='application/octet-stream' || request.headers['transfer-encoding']) {
