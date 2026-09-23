@@ -1,6 +1,7 @@
 """Actual core-cycle history, mapper CPU writes, exact replay and local confirmation."""
 import json
 from worker_probe import prepare_worker_probe, finish_worker_probe
+from lobby_start import start_solo
 
 
 def verify_rewind_worker(browser,url,rom,worker_path):
@@ -70,7 +71,7 @@ def verify_rewind_ui(browser,url,rom,output):
       AudioBuffer.prototype.copyToChannel=function(samples,...args){rewindAudio.buffers++;for(const value of samples){rewindAudio.finite &&= Number.isFinite(value);rewindAudio.peak=Math.max(rewindAudio.peak,Math.abs(value))}return copy.call(this,samples,...args)};''')
     page.goto(url)
     page.get_by_label('NES cartridge file').set_input_files({'name':'rewind-local.nes','mimeType':'application/octet-stream','buffer':rom})
-    page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
+    start_solo(page,rom)
     page.get_by_role('button',name='Rewind',exact=True).click();dialog=page.get_by_role('dialog',name='Rewind local game')
     dialog.get_by_text('Not enough history yet.',exact=False).wait_for();assert dialog.get_by_role('button',name='Rewind 1 second',exact=True).is_disabled()
     dialog.get_by_role('button',name='Close rewind').click();page.get_by_role('button',name='Resume',exact=True).click()

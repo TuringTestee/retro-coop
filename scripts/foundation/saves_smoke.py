@@ -1,5 +1,6 @@
 """Real IndexedDB transactions and visible manual-slot workflows, using actual WASM."""
 import json
+from lobby_start import start_solo
 
 
 def verify_saves(browser,url,rom,output):
@@ -7,6 +8,7 @@ def verify_saves(browser,url,rom,output):
     errors=[];requests=[]
     page.on('pageerror',lambda error:errors.append(str(error)))
     page.on('request',lambda request:requests.append((request.method,request.url)))
+    page.on('dialog',lambda dialog:dialog.accept())
     page.add_init_script('''window.fileCalls=[];window.fileReplies=[];window.abortNextSave=false;
       const NativeWorker=Worker;window.Worker=class extends NativeWorker{
         constructor(...args){super(...args);this.addEventListener('message',event=>{const data=event.data;if(data.type==='state-info' && window.holdInfo){event.stopImmediatePropagation();window.heldInfo={worker:this,data};return}if('requestId' in data)fileReplies.push(data)})}
@@ -19,7 +21,7 @@ def verify_saves(browser,url,rom,output):
     ''')
     def load():
         page.get_by_label('NES cartridge file').set_input_files({'name':'private-slots.nes','mimeType':'application/octet-stream','buffer':rom})
-        page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
+        start_solo(page,rom)
     def open_saves(wait_for_slots=True):
         page.get_by_role('button',name='Saves',exact=True).click()
         page.get_by_role('button',name='Save current point',exact=True).wait_for()
@@ -140,9 +142,21 @@ def verify_saves(browser,url,rom,output):
     assert dialog.get_by_role('button',name='Load Slot 1',exact=True).count()==0
     dialog.get_by_role('button',name='Close saves',exact=True).click()
     # An unvalidated profile has an explicit save limitation, not a loading gate.
+    # Delay closing the old solo room so a stale Resume stays visible while the
+    # replacement loads. The test must wait for the new room's explicit Start.
+    page.evaluate('''() => {
+      const send = WebSocket.prototype.send;
+      WebSocket.prototype.send = function(data) {
+        if (typeof data === 'string' && JSON.parse(data).type === 'close') {
+          setTimeout(() => send.call(this, data), 2000);
+          return;
+        }
+        return send.call(this, data);
+      };
+    }''')
     variant=bytearray(rom);variant[4]=2;variant[16+16384:16+16384]=rom[16:16+16384];variant[6]=0xd2;variant[7]=0x90
     page.get_by_label('NES cartridge file').set_input_files({'name':'unvalidated.nes','mimeType':'application/octet-stream','buffer':bytes(variant)})
-    page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
+    start_solo(page,variant,require_start=True)
     page.get_by_role('button',name='Saves',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('not yet validated')")
     assert dialog.get_by_role('button',name='Save current point',exact=True).is_disabled()

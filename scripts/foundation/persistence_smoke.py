@@ -1,5 +1,6 @@
 """Actual candidate battery restore, IndexedDB upgrade/recovery and preferences."""
 import json
+from lobby_start import start_solo
 
 
 def verify_persistence(browser,url,rom,worker_path,output):
@@ -26,7 +27,7 @@ def verify_persistence(browser,url,rom,worker_path,output):
     }''',{'rom':list(variant),'workerPath':worker_path})
     def load(target=page):
         target.get_by_label('NES cartridge file').set_input_files({'name':'battery-private.nes','mimeType':'application/octet-stream','buffer':bytes(variant)})
-        target.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
+        start_solo(target,variant)
     def data(target=page):
         return target.evaluate('''()=>new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{const db=request.result,result={version:db.version},tx=db.transaction(['saves','batteries','preferences','meta']);for(const name of ['saves','batteries','preferences']){const q=tx.objectStore(name).getAll();q.onsuccess=()=>result[name]=q.result.map(row=>({...row,...(row.bytes ? {bytes:Array.from(new Uint8Array(row.bytes))} : {})}))}const epoch=tx.objectStore('meta').get('generation');epoch.onsuccess=()=>result.generation=epoch.result ?? 0;tx.oncomplete=()=>{db.close();resolve(result)};tx.onabort=()=>reject(tx.error)}})''')
     def local_data():
@@ -135,7 +136,7 @@ def verify_replacement(browser,url,rom):
     page.goto(url)
     def select():
         page.get_by_label('NES cartridge file').set_input_files({'name':'replacement.nes','mimeType':'application/octet-stream','buffer':bytes(rom)})
-        page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5 && document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
+        start_solo(page,rom)
     select()
     assert page.evaluate('exports')==0, 'Regression must precede the first periodic/lifecycle capture'
     select()
