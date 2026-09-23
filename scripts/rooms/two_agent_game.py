@@ -1,6 +1,6 @@
 """Two independent browser processes join and play one host-shared NES room.
 
-Only the host process receives the diagnostic file path. The guest learns the
+Only the host process receives the NES file path. The guest learns the
 expected fingerprint from the published room and downloads bytes over HTTP.
 """
 
@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--role", choices=("host", "guest", "verify", "run"), required=True)
 parser.add_argument("--url", help="URL printed by scripts/rooms/browser-server.ts")
-parser.add_argument("--rom", type=Path, help="Host diagnostic NES file; never supplied to the guest")
+parser.add_argument("--rom", type=Path, help="Host NES file; never supplied to the guest")
 parser.add_argument("--visibility", choices=("public", "unlisted"), default="public")
 parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
@@ -190,6 +190,7 @@ with sync_playwright() as playwright:
             page.wait_for_function("proof.room?.role==='host'", polling=50)
             room = page.evaluate("proof.room")
             assert room["occupancy"] == 1 and room["visibility"] == args.visibility
+            assert "catalogId" not in room and room["romBytes"] == len(rom)
             assert page.get_by_role("button", name="Start game", exact=True).is_enabled()
             invitation=page.get_by_label("Room invitation").input_value() if args.visibility == "unlisted" else None
             save("host-ready.json", {"room_id": room["id"], "code": room.get("code"), "invitation": invitation})
@@ -215,6 +216,7 @@ with sync_playwright() as playwright:
             page.get_by_test_id("room-view").wait_for(state="attached")
             page.wait_for_function("proof.room?.role==='guest'", polling=50)
             assert page.evaluate("proof.room.id") == expected["room_id"]
+            assert page.evaluate("!('catalogId' in proof.room) && proof.room.romBytes > 0")
             rom_hash = page.evaluate("proof.room.fingerprint.romSha256")
             page.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30000)
             page.wait_for_function("proof.room?.matches===true", timeout=30000, polling=50)

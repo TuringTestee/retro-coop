@@ -40,6 +40,27 @@ test('unlisted preview excludes hashes and codes, host alone controls room mutat
  assert.equal(t.act(host.token,{type:'visibility',roomId:room.id,visibility:'unlisted'}).room!.code,undefined);
  t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
 });
+test('uploaded catalog-identical bytes stay host-shared while a claimed offer stays included',()=>{
+ const rooms=new Rooms(()=>1000,undefined,undefined,['super-tilt-bro-pal']);
+ const attach=()=>rooms.attach(undefined,()=>{},()=>{}).token;
+ const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const host=attach(),guest=attach(),watcher=attach(),bytes=includedFingerprint('super-tilt-bro-pal');
+ const intent=randomUUID(),custom=act(host,{type:'create',intent,visibility:'public',fingerprint:bytes}).room!;
+ assert.equal(custom.catalogId,undefined);assert.equal(custom.romBytes,bytes.cartridge.bytes);
+ act(host,{type:'confirmCreate',intent});
+ const rows=act(watcher,{type:'directory',includeEmptyOffers:true}).directory!;
+ assert.equal(rows.filter(row=>row.occupancy===0&&row.catalogId==='super-tilt-bro-pal').length,1);
+ assert.equal(rows.find(row=>row.id===custom.id)?.catalogId,undefined);
+ const customRow=rows.find(row=>row.id===custom.id)!;
+ assert.ok('romBytes' in customRow);assert.equal(customRow.romBytes,bytes.cartridge.bytes);
+ const joined=act(guest,{type:'join',invite:custom.invite,intent:randomUUID()}).room!;
+ assert.equal(joined.catalogId,undefined);assert.equal(joined.romBytes,bytes.cartridge.bytes);
+ const claimer=attach(),offer=rows.find(row=>row.occupancy===0)!;
+ act(claimer,{type:'directory',includeEmptyOffers:true});
+ const included=act(claimer,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:bytes}).room!;
+ assert.equal(included.catalogId,'super-tilt-bro-pal');assert.equal(included.romBytes,undefined);
+ assert.equal(act(watcher,{type:'directory',includeEmptyOffers:true}).directory!.filter(row=>row.occupancy===0&&row.catalogId==='super-tilt-bro-pal').length,1);
+});
 test('guest acquisition phase belongs to the current reservation and clears on leave',()=>{
  const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token);
  const first=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
