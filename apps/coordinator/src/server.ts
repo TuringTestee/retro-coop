@@ -9,6 +9,8 @@ import { health } from '../../../packages/contracts/src/index.ts';
 import { parseRoomCommand, ROOM_METADATA_BYTES, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
 import { Rooms, RoomError, limits, type Sender } from './rooms.ts';
 import {catalog,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
+import {RomStore,type RomLimits} from './rom-store.ts';
+import {token as validToken} from '../../../packages/contracts/src/protocol-validation.ts';
 export function config(env: NodeJS.ProcessEnv) {
  const stage = env.COORDINATOR_STAGE ?? 'local';
  if (!['local', 'staging'].includes(stage)) throw Error('COORDINATOR_STAGE must be local or staging');
@@ -21,18 +23,48 @@ export function config(env: NodeJS.ProcessEnv) {
  if(new Set(offerCatalogIds).size!==offerCatalogIds.length || offerCatalogIds.some(id=>!catalog.some(entry=>entry.id===id)))throw Error('COORDINATOR_EMPTY_OFFERS must list unique included game IDs');
  return { stage, port, host: env.COORDINATOR_HOST ?? '127.0.0.1',origins,trustedProxies,offerCatalogIds:offerCatalogIds as CatalogId[] };
 }
-export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; trustedProxies?:string[]; offerCatalogIds?:readonly CatalogId[]; now?:()=>number} = {}) {
- const rooms = options.rooms ?? new Rooms(Date.now,undefined,relayConfig(process.env),options.offerCatalogIds);
+export function createCoordinator(options: {origins?:string[]; trustedProxies?:string[]; offerCatalogIds?:readonly CatalogId[]; now?:()=>number; romDirectory?:string; romLimits?:RomLimits; requireCustomUpload?:boolean} = {}) {
+ const store=new RomStore(options.romDirectory,options.romLimits);
+ const rooms = new Rooms(options.now??Date.now,undefined,relayConfig(process.env),options.offerCatalogIds,{requireCustomUpload:options.requireCustomUpload??false,discard:id=>store.discard(id)});
  const origins = new Set(options.origins ?? config({}).origins);
  const trustedProxies=new Set(trustedProxyAddresses(options.trustedProxies ?? []));
+ const now=options.now??Date.now;
+ const transferAttempts=new Map<string,number[]>();
  const server = createServer((request, response) => {
   response.setHeader('Cache-Control', 'no-store');response.setHeader('Content-Type', 'application/json');response.setHeader('Referrer-Policy','no-referrer');
+  const origin=request.headers.origin;
+  const upload=/^\/rooms\/([A-Za-z0-9_-]{43})\/rom$/.exec(request.url ?? '');
+  if(upload && (request.method==='PUT'||request.method==='OPTIONS')) {
+   if(!origin || !origins.has(origin)){response.writeHead(403).end(JSON.stringify({error:'origin_denied'}));return;}
+   response.setHeader('Access-Control-Allow-Origin',origin);response.setHeader('Vary','Origin');
+   response.setHeader('Access-Control-Allow-Methods','PUT, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-Room-Intent');
+   if(request.method==='OPTIONS'){response.writeHead(204).end();return;}
+   const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies);
+   if(!address){response.writeHead(403).end(JSON.stringify({error:'admission_denied'}));return;}
+   const recent=(transferAttempts.get(address)??[]).filter(time=>time>now()-60_000);
+   if(recent.length>=30 || (!transferAttempts.has(address)&&transferAttempts.size>=1000)){response.writeHead(429).end(JSON.stringify({error:'rate_limited'}));return;}
+   recent.push(now());transferAttempts.set(address,recent);
+   const authorization=/^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '');
+   const intent=request.headers['x-room-intent'];
+   const length=request.headers['content-length'];
+   if(!authorization || typeof intent!=='string' || !validToken(intent) || !length || !/^[0-9]+$/.test(length) || request.headers['content-type']!=='application/octet-stream' || request.headers['transfer-encoding']) {
+    response.writeHead(400).end(JSON.stringify({error:'invalid_upload_request'}));return;
+   }
+   void store.upload(rooms,authorization[1],upload[1],intent,Number(length),request).then(result=>{
+    if(!response.destroyed)response.writeHead(201).end(JSON.stringify(result));
+   },error=>{
+    if(response.destroyed)return;
+    const code=error instanceof RoomError?error.code:'server_error';
+    const status=code==='session_expired'||code==='host_only'||code==='host_disconnected'?403:code==='upload_capacity'||code==='rate_limited'?429:code==='upload_size_limit'?413:code==='server_error'?500:400;
+    response.writeHead(status).end(JSON.stringify({error:code}));
+   });
+   return;
+  }
   if (request.url === '/health' && request.method === 'GET') response.writeHead(200).end(JSON.stringify(health));
   else response.writeHead(404).end(JSON.stringify({ error: 'not_found' }));
  });
  const sockets = new WebSocketServer({noServer:true,maxPayload:peerLimits.frame,perMessageDeflate:false});
  // The transport peer owns address identity unless an explicit trusted proxy boundary applies.
- const now=options.now??Date.now;
  const admission = new Map<string,{id:string;times:number[];clients:Set<WebSocket>;revision:number;blockedUntil:number}>();
  const revokers=new Map<WebSocket,()=>void>();
  const sweepAdmission=()=>{for(const [key,item] of admission)if(!item.clients.size && item.blockedUntil<=now() && item.times.every(time=>time<=now()-60_000))admission.delete(key);};
@@ -86,10 +118,10 @@ export function createCoordinator(options: {origins?:string[]; rooms?:Rooms; tru
   });
   ws.once('close',()=>{clearTimeout(authDeadline);if(token) rooms.detach(token,send);});
  });
- const timer = setInterval(()=>rooms.sweep(),1000);timer.unref();
- const stop = () => {clearInterval(timer);rooms.stop();for(const client of sockets.clients) client.terminate();sockets.close();};
+ const timer = setInterval(()=>{rooms.sweep();for(const [address,times] of transferAttempts)if(times.every(time=>time<=now()-60_000))transferAttempts.delete(address);},1000);timer.unref();
+ const stop = () => {clearInterval(timer);rooms.stop();store.stop();for(const client of sockets.clients) client.terminate();sockets.close();};
  server.once('close',stop);
- return Object.assign(server,{stopRooms:stop,operator});
+ return Object.assign(server,{stopRooms:stop,operator,romStore:store,rooms});
 }
 export async function shutdown(server: ReturnType<typeof createCoordinator>) {
  server.stopRooms();

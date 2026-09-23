@@ -11,7 +11,7 @@ import { matchesFile } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
 type Session = { directory?:boolean; includeEmptyOffers?:boolean; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
-type Room = { game:GameSession; hostReady?:boolean; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestMembership?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; reconnectUntil?:number; kicked:Set<string> };
+type Room = { game:GameSession; hostReady?:boolean; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; guestIntent?:string; guestMembership?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; uploadAttempted?:boolean; upload?:{id:string;lastProgress:number}; content?:string; reconnectUntil?:number; kicked:Set<string> };
 type EmptyOffer = {id:string;code:string;catalogId:CatalogId};
 export type Sender = (event:RoomEvent)=>void;
 export class RoomError extends Error { code:string;retryAfterMs?:number;constructor(code:string,retryAfterMs?:number) { super(code);this.code = code;this.retryAfterMs = retryAfterMs; } }
@@ -30,7 +30,8 @@ export class Rooms {
  private now:()=>number;
  private peers:PeerBroker;
  private codeCandidate:()=>string;
- constructor(now:()=>number = Date.now,codeCandidate:()=>string = ()=>Array.from({length:PUBLIC_CODE_LENGTH},()=>PUBLIC_CODE_ALPHABET[randomInt(PUBLIC_CODE_ALPHABET.length)]).join(''),relay?:RelayConfig,offerCatalogIds:readonly CatalogId[] = []) {this.now = now;this.codeCandidate=codeCandidate;this.peers=new PeerBroker(now,relay);for(const id of new Set(offerCatalogIds))this.makeOffer(id);}
+ private transfer?:{requireCustomUpload:boolean;discard:(roomId:string)=>void};
+ constructor(now:()=>number = Date.now,codeCandidate:()=>string = ()=>Array.from({length:PUBLIC_CODE_LENGTH},()=>PUBLIC_CODE_ALPHABET[randomInt(PUBLIC_CODE_ALPHABET.length)]).join(''),relay?:RelayConfig,offerCatalogIds:readonly CatalogId[] = [],transfer?:{requireCustomUpload:boolean;discard:(roomId:string)=>void}) {this.now = now;this.codeCandidate=codeCandidate;this.peers=new PeerBroker(now,relay);this.transfer=transfer;for(const id of new Set(offerCatalogIds))this.makeOffer(id);}
  private session(token:string) { const session = this.sessions.get(token); if(!session) throw new RoomError('session_expired'); return session; }
  private rate(session:Session,kind:string,count:number,windowMs:number) {
   const now = this.now(), times = (session.rates.get(kind) ?? []).filter(time => time > now-windowMs);
@@ -76,6 +77,7 @@ export class Rooms {
  private publish(room:Room,directory=true) {this.peers.sync(room.confirmed && room.guest && !room.reconnectUntil ? {id:room.id,host:room.host,guest:room.guest,reservation:room.guestIntent!}:undefined,room.id); const peer=this.peers.view(room.id,room.host.policy);room.game.bind(peer.status==='connected'?peer.epoch:undefined);for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)});if(directory) this.publishDirectory(); }
  private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.game.stop('Guest left. Your local game is preserved.');room.game.resetControllers();room.established=false;room.guestReconnectUntil=undefined;room.chat.leave(room.guestMembership!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.reservationUntil = undefined; room.guestIntent = undefined; room.guestMembership = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
+  this.transfer?.discard(room.id);
   room.game.stop('The room closed. Your local game is preserved.');this.peers.clear(room.id);
   this.rooms.delete(room.id); this.invites.delete(room.invite); if(room.code) this.codes.delete(room.code);
   for(const session of [room.host,room.guest]) if(session) {session.room = undefined;session.send?.({type:'ended',reason});}
@@ -83,6 +85,17 @@ export class Rooms {
  }
  private room(session:Session) { const room = session.room && this.rooms.get(session.room); if(!room) throw new RoomError('not_in_room'); return room; }
  private hosted(session:Session,expectedRoom?:string) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); if(expectedRoom!==undefined && room.id!==expectedRoom) throw new RoomError('room_changed'); return room; }
+ beginUpload(token:string,roomId:string,intent:string,bytes:number) {
+  this.sweep();const session=this.session(token),room=this.hosted(session,roomId),now=this.now();
+  if(room.confirmed || room.intent!==intent || room.content || room.upload || now-room.created>=300_000)throw new RoomError('upload_unavailable');
+  if(room.host.send===undefined)throw new RoomError('host_disconnected');
+  if(bytes!==room.fingerprint.cartridge.bytes)throw new RoomError('length_mismatch');
+  this.rate(session,'upload',5,60_000);
+  const id=secret();room.upload={id,lastProgress:now};room.uploadAttempted=true;return {id,fingerprint:room.fingerprint};
+ }
+ uploadProgress(roomId:string,id:string) {const room=this.rooms.get(roomId),now=this.now();if(!room?.upload || room.upload.id!==id || room.confirmed || now-room.created>=300_000 || now-room.upload.lastProgress>=30_000)throw new RoomError('upload_expired');room.upload.lastProgress=now;room.host.heartbeat=now;room.host.touched=now;}
+ commitUpload(roomId:string,id:string,content:string) {this.uploadProgress(roomId,id);const room=this.rooms.get(roomId)!;room.content=content;room.upload=undefined;}
+ failUpload(roomId:string,id:string) {const room=this.rooms.get(roomId);if(room?.upload?.id===id)room.upload=undefined;}
  attach(token:string|undefined,send:Sender,disconnect:()=>void,policy?:ConnectionPolicy): {token:string;data:RoomData} {
   this.sweep();
   let session:Session;
@@ -99,7 +112,7 @@ export class Rooms {
   if(room) {if(room.host===session){room.reconnectUntil=undefined;room.hostReady=false;}else room.guestReconnectUntil=undefined;this.publish(room);}
   return {token:session.token,data:{session:{token:session.token,nickname:session.nickname,expiresInMs:limits.sessionIdle},...(room ? {room:this.view(room,session)}:{})}};
  }
- detach(token:string,send:Sender) { const session = this.sessions.get(token); if(session?.send === send) {session.send = undefined;session.disconnect = undefined;const room=session.room && this.rooms.get(session.room);if(room) this.publish(room);} }
+ detach(token:string,send:Sender) { const session = this.sessions.get(token); if(session?.send === send) {session.send = undefined;session.disconnect = undefined;const room=session.room && this.rooms.get(session.room);if(room && !room.confirmed && room.host===session)this.close(room,'creation_cancelled');else if(room)this.publish(room);} }
  handle(token:string,command:Exclude<RoomCommand,{type:'hello'}>,sender?:Sender): RoomData {
   this.sweep(); const session = this.session(token); if(sender && session.send!==sender) throw new RoomError('session_replaced');this.rate(session,'messages',60,10_000); session.touched = this.now();
   if(command.type==='peerPolicy') {this.rate(session,'peerPolicy',10,60_000);session.policy=command.policy;const room=session.room && this.rooms.get(session.room);if(room) this.publish(room,false);return room?{room:this.view(room,session)}:{};}
@@ -157,7 +170,7 @@ export class Rooms {
     this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room = room.id;session.heartbeat = this.now();this.publishDirectory();
     return {room:this.view(room,session)};
    }
-   case 'confirmCreate': {const room = this.hosted(session);if(room.intent !== command.intent || session.cancelled.has(command.intent)) throw new RoomError('cancelled');room.confirmed = true;this.publishDirectory();return {room:this.view(room,session)};}
+   case 'confirmCreate': {const room = this.hosted(session);if(room.intent !== command.intent || session.cancelled.has(command.intent)) throw new RoomError('cancelled');if((this.transfer?.requireCustomUpload || room.uploadAttempted) && !room.content)throw new RoomError('upload_required');room.confirmed = true;this.publishDirectory();return {room:this.view(room,session)};}
    case 'cancelCreate': {
     // A bounded tombstone also rejects a delayed create arriving after cancellation.
     this.cancelIntent(session,command.intent);
@@ -201,7 +214,8 @@ export class Rooms {
   // Rooms is the sole publisher of membership plus peer state, including timer transitions.
   for(const id of this.peers.sweep()) {const room=this.rooms.get(id);if(room) this.publish(room,false);}
   for(const room of this.rooms.values()) {
-   if(!room.confirmed && now-room.created >= 5000) {this.close(room,'creation_expired');continue;}
+   if(!room.confirmed && room.upload && (now-room.created>=300_000 || now-room.upload.lastProgress>=30_000)) {this.close(room,'upload_expired');continue;}
+   if(!room.confirmed && now-room.created >= (room.uploadAttempted ? 300_000:5000)) {this.close(room,'creation_expired');continue;}
    for(const token of room.kicked) if(!this.sessions.has(token)) room.kicked.delete(token);
    if(room.game.sweep()) this.publish(room,false);
    if(room.established && room.guest && !room.guestReconnectUntil && now-room.guest.heartbeat>=limits.missedHeartbeat) {room.guestReconnectUntil=room.guest.heartbeat+limits.missedHeartbeat+limits.reconnect;room.game.stop('Guest is reconnecting. Shared play is paused.');this.publish(room);}
