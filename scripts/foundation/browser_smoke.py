@@ -1,10 +1,9 @@
 """Exercise local file admission, transactional replacement, real input/audio and privacy."""
 import argparse
-import functools
+import contextlib
 import hashlib
-import http.server
 import json
-import threading
+import subprocess
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -15,6 +14,18 @@ from persistence_smoke import verify_persistence
 from rewind_smoke import verify_rewind_worker, verify_rewind_ui
 from settings_smoke import verify_settings, verify_disconnected_load
 
+
+@contextlib.contextmanager
+def room_test_server(root):
+    service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=root,
+                               stdout=subprocess.PIPE, text=True)
+    try:
+        yield json.loads(service.stdout.readline())['url']
+    finally:
+        if service.poll() is None:
+            service.terminate()
+        service.wait(timeout=5)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', default='foundation.local.json')
 parser.add_argument('--chrome', action='store_true')
@@ -23,9 +34,7 @@ started = time.monotonic()
 root = Path(__file__).resolve().parents[2]
 output = Path(args.output)
 rom = (root / 'apps/client/dist/generated/diagnostic.nes').read_bytes()
-handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root / 'apps/client/dist'))
-with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+with room_test_server(root) as url:
     with sync_playwright() as p:
         browser = p.chromium.launch(ignore_default_args=['--mute-audio'], **({'channel': 'chrome'} if args.chrome else {}))
         page = browser.new_page(viewport={'width': 1280, 'height': 1000})
@@ -48,16 +57,29 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         for(const type of types)document.addEventListener(type,record,true);
         window.finishPickerProof=()=>{for(const type of types)document.removeEventListener(type,record,true);return {...pickerProof,active:describe(document.activeElement),focused:document.hasFocus(),activation:navigator.userActivation.isActive};};
         ''')
-        page.goto(f'http://127.0.0.1:{server.server_port}/')
+        page.goto(url)
+        page.on('dialog', lambda dialog: dialog.accept())
         page.screenshot(path=str(output.with_suffix('.before.png')), full_page=True)
         def select(data=rom, name='unknown-private-title.nes'):
             page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
         def running():
+            page.get_by_role('button', name='Start game', exact=True).click()
             page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
             page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        def run_fresh_variant(data, name):
+            variant_page = browser.new_page()
+            try:
+                variant_page.goto(url)
+                variant_page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
+                variant_page.get_by_role('button', name='Start game', exact=True).click()
+                variant_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+                variant_page.get_by_text('Game details', exact=True).click()
+                assert hashlib.sha256(data).hexdigest() in variant_page.locator('[data-testid=fingerprint]').inner_text()
+            finally:
+                variant_page.close()
         def fingerprint():
             return page.locator('[data-testid=fingerprint]').inner_text()
-        # A single keyboard-accessible picker action goes directly to playable frames.
+        # The keyboard picker enters a waiting room; Host Start then begins local frames.
         picker_result = {'browser':browser.version,'channel':'chrome' if args.chrome else 'default-headless-shell','protocolEvents':[]}
         # Python's listener subscription is sent without awaiting its protocol reply.
         # Confirm native-dialog interception before the one user action; keep testing
@@ -159,13 +181,11 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
             variant[4] = 2
             variant[16+16384:16+16384] = rom[16:16+16384]
             variant[6] = mapper << 4
-            select(variant,f'unknown-mapper-{mapper}.nes'); running()
-            assert hashlib.sha256(variant).hexdigest() in fingerprint()
+            run_fresh_variant(variant,f'unknown-mapper-{mapper}.nes')
         # NES 2.0 and a >8 MiB file are not silently excluded by the application.
         large = bytearray(rom); large[7] = 8; large.extend(bytes(9*1024*1024-len(large)))
-        select(large); running()
-        assert hashlib.sha256(large).hexdigest() in fingerprint()
-        # Drag/drop is also a one-action local start.
+        run_fresh_variant(large,'large-nes2.nes')
+        # Drag/drop enters the same host room and explicit Start path.
         transfer = page.evaluate_handle('''bytes=>{const dt=new DataTransfer();dt.items.add(new File([new Uint8Array(bytes)],'drag-private.nes'));return dt}''',list(rom))
         page.locator('.panel').dispatch_event('drop',{'dataTransfer':transfer}); running()
         assert old_hash in fingerprint()
@@ -183,29 +203,29 @@ with http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler) as server:
         audio_page = browser.new_page()
         audio_page.add_init_script('''const resume=AudioContext.prototype.resume; window.denySound=true;
           AudioContext.prototype.resume=function(){return denySound ? Promise.reject(new Error('denied')) : resume.call(this)};''')
-        audio_page.goto(f'http://127.0.0.1:{server.server_port}/')
+        audio_page.goto(url)
         audio_page.set_input_files('input[type=file]', {'name':'audio-check.nes','mimeType':'application/octet-stream','buffer':rom})
+        audio_page.get_by_role('button', name='Start game', exact=True).click()
         audio_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         assert audio_page.get_by_role('button',name='Retry sound').is_visible()
         audio_page.evaluate('denySound=false')
         audio_page.get_by_role('button',name='Retry sound').click()
         audio_page.get_by_role('button',name='Retry sound').wait_for(state='detached')
         audio_page.close()
-        disconnected_proof = verify_disconnected_load(browser,f'http://127.0.0.1:{server.server_port}/',rom)
-        settings_proof = verify_settings(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
+        disconnected_proof = verify_disconnected_load(browser,url,rom)
+        settings_proof = verify_settings(browser,url,rom,output)
         assert not errors, errors
-        assert all(method == 'GET' and url.startswith(f'http://127.0.0.1:{server.server_port}/') for method,url in requests), requests
+        assert all(method == 'GET' and request_url.startswith(url) for method,request_url in requests), requests
         assert not any(name in url for _,url in requests for name in ['private','unknown','drag-'])
         worker_path='/assets/'+next((root/'apps/client/dist/assets').glob('worker-*.js')).name
-        battery=verify_battery(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path)
+        battery=verify_battery(browser,url,rom,worker_path)
         assert battery['coreSha256']==hashlib.sha256(wasm).hexdigest()
-        state=verify_state(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path)
-        saves=verify_saves(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
-        rewind_worker=verify_rewind_worker(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path)
-        rewind_ui=verify_rewind_ui(browser,f'http://127.0.0.1:{server.server_port}/',rom,output)
-        persistence=verify_persistence(browser,f'http://127.0.0.1:{server.server_port}/',rom,worker_path,output)
-        result = {'rewind_worker':rewind_worker,'rewind_ui':rewind_ui,'persistence':persistence,'saves':saves,'state':state,'battery':battery,'result':'pass','settings':settings_proof,'disconnected_startup':disconnected_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_start_automatically':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
+        state=verify_state(browser,url,rom,worker_path)
+        saves=verify_saves(browser,url,rom,output)
+        rewind_worker=verify_rewind_worker(browser,url,rom,worker_path)
+        rewind_ui=verify_rewind_ui(browser,url,rom,output)
+        persistence=verify_persistence(browser,url,rom,worker_path,output)
+        result = {'rewind_worker':rewind_worker,'rewind_ui':rewind_ui,'persistence':persistence,'saves':saves,'state':state,'battery':battery,'result':'pass','settings':settings_proof,'disconnected_startup':disconnected_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_host_then_start':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
         output.write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result,indent=2))
         browser.close()
-    server.shutdown()

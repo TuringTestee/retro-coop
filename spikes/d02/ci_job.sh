@@ -49,7 +49,7 @@ if [ "$D02_JOB" = core ]; then
   trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
   timeout --foreground 1200s python3 browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
   python3 verify_results.py browser-ci.local.json
-  (cd ../.. && timeout --foreground 90s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
+  (cd ../.. && timeout --foreground 120s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/banked_ram_smoke.py --output spikes/d02/banked-ram.local.json)
   (cd ../.. && timeout --foreground 60s python3 scripts/staging/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
