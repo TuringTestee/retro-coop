@@ -198,7 +198,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         failed_download.get_by_role("button", name="Retry download").click()
         failed_download.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)
         result["included_download_failure_and_retry"] = True
-        claim_retry = browser.new_page()
+        claim_retry = browser.new_page(viewport={"width": 1280, "height": 1050})
         claim_retry.add_init_script("""(() => { const send = WebSocket.prototype.send;
           WebSocket.prototype.send = function(data) { const command = JSON.parse(data);
             if (command.type === 'claimCode' && !window.failedClaimInjected) {
@@ -215,6 +215,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         claim_retry.get_by_role("button", name="Create room", exact=True).click()
         claim_retry.get_by_text("Retry Create room or choose another game.", exact=False).wait_for(timeout=15000)
         assert claim_retry.evaluate("failedClaimInjected") and claim_retry.get_by_test_id("room-view").count() == 0
+        assert claim_retry.get_by_text("Included offer ready:", exact=False).count() == 0
         assert claim_retry.get_by_role("button", name="Create room", exact=True).is_enabled()
         if screenshot_dir:
             claim_retry.screenshot(path=str(screenshot_dir / "included-claim-failure.png"), full_page=True)
