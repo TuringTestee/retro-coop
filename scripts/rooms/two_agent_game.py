@@ -22,8 +22,12 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--role", choices=("host", "guest", "verify", "run"), required=True)
 parser.add_argument("--url", help="URL printed by scripts/rooms/browser-server.ts")
 parser.add_argument("--rom", type=Path, help="The same local .nes file on both agents")
+parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
 args = parser.parse_args()
+expected_ram = [int(value) for value in args.expect_controller_ram.split(",")] if args.expect_controller_ram else None
+if expected_ram is not None and (len(expected_ram) != 2 or any(value < 0 or value > 255 for value in expected_ram)):
+    parser.error("--expect-controller-ram needs two byte values")
 session = args.session_dir.resolve()
 session.mkdir(parents=True, exist_ok=True)
 
@@ -58,6 +62,9 @@ def verify():
     assert host["frames"] >= 120 and guest["frames"] >= 120
     assert host["remote_input_packets"] > 0 and guest["remote_input_packets"] > 0
     assert host["last_hash"] and host["last_hash"] == guest["last_hash"]
+    assert host["controller_ram"] == guest["controller_ram"]
+    if expected_ram is not None:
+        assert host["controller_ram"] == expected_ram
     assert "Route: direct." in host["connection"] and "Route: direct." in guest["connection"]
     assert not host["page_errors"] and not guest["page_errors"]
     assert all((session / f"{role}-{view}.png").stat().st_size > 0
@@ -73,6 +80,7 @@ def verify():
         "host_received_inputs": host["remote_input_packets"],
         "guest_received_inputs": guest["remote_input_packets"],
         "matching_paused_hash": host["last_hash"],
+        "controller_ram": host["controller_ram"],
         "host_screenshot": str(session / "host-playing.png"),
         "guest_screenshot": str(session / "guest-playing.png"),
         "host_room_screenshot": str(session / "host-room.png"),
@@ -105,7 +113,8 @@ if args.role == "run":
                 for role, log in (("host", host_log), ("guest", guest_log)):
                     worker = subprocess.Popen(
                         [sys.executable, __file__, "--role", role, "--url", url,
-                         "--rom", str(args.rom.resolve()), "--session-dir", str(session)],
+                         "--rom", str(args.rom.resolve()), "--session-dir", str(session),
+                         *(["--expect-controller-ram", args.expect_controller_ram] if args.expect_controller_ram else [])],
                         cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
                     )
                     workers.append(worker)
@@ -212,7 +221,13 @@ with sync_playwright() as playwright:
         page.evaluate("releaseFrames()")
         page.locator("canvas").focus()
         page.keyboard.down("x" if args.role == "host" else "z")
-        page.wait_for_function("proof.frameCount>=120", timeout=30000, polling=50)
+        page.wait_for_function("proof.frameCount>=180", timeout=30000, polling=50)
+        controller_ram = None
+        if expected_ram is not None:
+            page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
+            page.wait_for_function("Array.isArray(proof.controllerRam)", timeout=10000, polling=50)
+            controller_ram = page.evaluate("proof.controllerRam")
+            assert controller_ram == expected_ram, f"Both controllers did not change diagnostic game memory: {controller_ram}"
         page.keyboard.up("x" if args.role == "host" else "z")
         page.screenshot(path=str(session / f"{args.role}-playing.png"), full_page=True)
         if args.role == "host":
@@ -240,6 +255,7 @@ with sync_playwright() as playwright:
             "frames": page.evaluate("proof.frameCount"),
             "remote_input_packets": remote_inputs,
             "last_hash": page.evaluate("proof.hashes.at(-1)"),
+            "controller_ram": controller_ram,
             "connection": connection,
             "browser": browser.version,
             "elapsed_seconds": round(time.monotonic() - started, 2),
