@@ -45,9 +45,9 @@ try:
    g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Bring your own matching local game file.',exact=False).wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g
   def connected(h,g,route):
    try:
-    for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peer.status==='connected' && document.querySelector('[data-testid=connection-status]').textContent.includes('Route: '+r)",arg=route,timeout=25000)
+    for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peer.status==='connected' && document.querySelector('[data-testid=connection-status]')?.textContent?.includes('Route: '+r)",arg=route,timeout=25000)
    except Exception:
-    failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]').textContent,states:peerProof.pcs.map(pc=>pc.connectionState),earlySendModel:{enabled:window.modelEarlySendLoss===true,count:window.earlySendDrops??0},probeSuppression:{enabled:window.suppressTransportProbe===true,count:window.suppressedProbes??0},errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
+    failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]')?.textContent,states:peerProof.pcs.map(pc=>pc.connectionState),earlySendModel:{enabled:window.modelEarlySendLoss===true,count:window.earlySendDrops??0},probeSuppression:{enabled:window.suppressTransportProbe===true,count:window.suppressedProbes??0},errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
      'turn_error_codes':turn.error_codes()}
     out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True)
     raise
@@ -75,7 +75,7 @@ try:
   direct_proof=connected(h,g,'direct');h.screenshot(path=str(out.with_suffix('.direct.png')),full_page=True)
   # Changing either participant to stricter policy tears down direct, and unavailable relay never falls back.
   open_connection(g).get_by_label('Connection privacy',exact=True).select_option('relay')
-  h.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Relay service is unavailable')")
+  h.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('Relay service is unavailable')")
   assert h.evaluate("peerProof.pcs.every(pc=>pc.connectionState==='closed')")
   before=g.evaluate('peerProof.pcs.length');open_connection(g).get_by_role('button',name='Retry connection',exact=True).click()
   assert g.evaluate('peerProof.pcs.length')==before
@@ -98,7 +98,7 @@ try:
   code=denied.get_by_test_id('room-view').locator('strong').inner_text().split(' · ')[1]
   assert waiting.get_by_label('Connection privacy',exact=True).first.input_value()=='standard'
   waiting.locator('.room-list li').filter(has_text=code).get_by_role('button',name='Join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='attached');open_connection(waiting)
-  denied.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Relay capacity is full')")
+  denied.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('Relay capacity is full')")
   assert denied.evaluate('peerProof.pcs.length')==0 and waiting.evaluate('peerProof.pcs.length')==0
   denied.screenshot(path=str(out.with_suffix('.capacity.png')),full_page=True)
   # Explicit cancellation frees capacity; retry retains the original reservation.
@@ -128,7 +128,7 @@ try:
   for tab in [denied,waiting]:tab.evaluate('window.suppressTransportProbe=true')
   open_connection(waiting).get_by_label('Connection privacy',exact=True).select_option('relay')
   for tab in [denied,waiting]:
-   tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('timed out')",timeout=25000)
+   tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('timed out')",timeout=25000)
    observed=tab.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil,status:peerProof.lastRoom.peer.status,policy:peerProof.lastRoom.peer.policy,epoch:peerProof.lastRoom.peer.epoch,probes:window.suppressedProbes??0})')
    assert observed['id']==original['id'] and observed['lease']==original['lease'] and observed['epoch']!=original['epoch']
    assert observed['status']=='failed' and observed['policy']=='relay',observed
@@ -146,7 +146,8 @@ try:
   open_room(waiting).get_by_role('button',name='Leave room',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
   guard=page(invite,'relay');guard.evaluate('window.lowerPolicy=true')
   guard.get_by_role('button',name='Join room',exact=True).click()
-  guard.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('failed')")
+  guard.get_by_test_id('room-view').wait_for(state='attached')
+  guard.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('failed')")
   assert guard.evaluate('peerProof.pcs.length')==0
   # Exercise real coordinator wall-clock deadlines, without extending or accelerating them.
   # Suppress only preparation acknowledgement or Start delivery; answer a withheld request
@@ -158,7 +159,7 @@ try:
    dg.get_by_role('button',name='Join room',exact=True).click();dg.get_by_test_id('room-view').wait_for(state='attached');open_connection(dg)
    original=dg.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil})')
    for tab in [dh,dg]:
-    tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('timed out')",timeout=25000)
+    tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('timed out')",timeout=25000)
     observed=tab.evaluate('({status:peerProof.lastRoom.peer.status,id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil})')
     assert observed=={'status':'failed',**original},observed
     panel=open_connection(tab)
