@@ -152,9 +152,11 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         for tab in (shared_host, shared_guest):
             tab.wait_for_function("Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>10", timeout=30000)
         before_switch = int(shared_host.get_by_test_id("game-frame").inner_text().split(" ")[0])
+        guest_before_switch = int(shared_guest.get_by_test_id("game-frame").inner_text().split(" ")[0])
         shared_host.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
-        shared_host.wait_for_function("frames => Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>frames+60", arg=before_switch, timeout=15000)
-        assert all(tab.get_by_test_id("game-status").inner_text() == "Playing together." for tab in (shared_host, shared_guest))
+        for tab, before in ((shared_host, before_switch), (shared_guest, guest_before_switch)):
+            tab.wait_for_function("frames => Number(document.querySelector('[data-testid=game-frame]')?.textContent.split(' ')[0])>frames+60", arg=before, timeout=15000)
+            tab.wait_for_function("document.querySelector('[data-testid=game-status]')?.textContent === 'Playing together.'", timeout=5000)
         result["local_file_public_discovery_and_shared_play"] = True
         result["tab_switch_keeps_shared_play_running"] = True
         failed_download = browser.new_page()
