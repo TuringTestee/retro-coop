@@ -6,7 +6,7 @@ Audience: Human
 
 **Status:** Approved and merged in planning PR #72. This document governs the current discovery and lobby behavior; the rendered implementation is verified separately at gate #66.
 
-The [room game download amendment](room-rom-transfer.md) supersedes this document's guest matching-file and no-transfer rules; its delivery issues #87–#91 are integrated. The proposed [Create Game amendment](create-game-library-direction.md) changes this document's inline **Host your NES file** and automatic-create path after its own reviewed approval and merge. Until that implementation integrates, the inline bar is still the running UI. Included-game 0/2 offers and host Start remain.
+The [room game download amendment](room-rom-transfer.md) supersedes this document's guest matching-file and no-transfer rules; its delivery issues #87–#91 are integrated. PR #101 approved the [Create Game baseline](create-game-library-wireframe-v2.md), which replaces this document's inline **Host your NES file** and automatic-create path after CG1/CG2 implementation. [v4](create-game-library-wireframe-v4.md) is a pending PR #103 proposal for Guest-place and stable pages. Until implementation integrates, the inline bar remains in the running UI. Included-game 0/2 offers and host Start remain.
 
 ## Product behavior
 

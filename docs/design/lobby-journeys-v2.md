@@ -6,7 +6,7 @@ Audience: Human
 
 This is the journey artifact based on [direction and reference evidence](lobby-server-rooms-direction.md). It is a proposed interaction map, not a claim that the current app implements these paths.
 
-The approved [room game download journeys](room-rom-transfer.md#journeys) replace J2's matching-file recovery and J5's bring-your-own-file outcome for host-provided custom rooms; transfer issues #87–#91 are integrated. The proposed [Create Game journeys](create-game-library-journeys.md) replace the immediate-host entry in J5 after their own approval and implementation. Included-game claim, host Start and friend discovery still apply.
+The approved [room game download journeys](room-rom-transfer.md#journeys) replace J2's matching-file recovery and J5's bring-your-own-file outcome for host-provided custom rooms; transfer issues #87–#91 are integrated. PR #101 approved Create Game J1–J6 in the [current journey file](create-game-library-journeys.md), replacing immediate host entry after CG1/CG2 implementation. J7–J10 there are pending PR #103 Guest-place/no-overlay additions. Included-game claim, host Start and friend discovery still apply.
 
 | Journey | Entry and decision | Action and feedback | Outcome and recovery |
 |---|---|---|---|

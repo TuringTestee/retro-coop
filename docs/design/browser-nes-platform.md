@@ -4,7 +4,7 @@ Audience: Human
 
 # Browser NES lobby platform
 
-The approved [room game download amendment](room-rom-transfer.md) supersedes the no-upload and guest-matching-file rules here for host-provided custom rooms; issues #87–#91 are integrated. The proposed [Create Game direction](create-game-library-direction.md) changes the inline host entry after its own reviewed approval and implementation. Browser-local emulation and the included-game rules remain.
+The approved [room game download amendment](room-rom-transfer.md) supersedes the no-upload and guest-matching-file rules here for host-provided custom rooms; issues #87–#91 are integrated. PR #101 approved the [Create Game v2 baseline](create-game-library-wireframe-v2.md), which changes the inline host entry after CG1/CG2 implementation; [v4](create-game-library-wireframe-v4.md) is the pending PR #103 Guest-place/no-overlay proposal. Browser-local emulation and the included-game rules remain.
 
 The [included-games amendment](included-games.md) governs the two ordered included choices, license placeholders and arbitrary-NES admission clarification; it supersedes earlier singular-featured wording and the initial blanket file-size ceiling where they conflict.
 
