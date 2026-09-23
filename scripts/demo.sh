@@ -77,7 +77,7 @@ trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
 
 coordinator_log="/tmp/retro-coop-coordinator-$coordinator_port.log"
-COORDINATOR_PORT="$coordinator_port" COORDINATOR_ORIGINS="http://127.0.0.1:$client_port" COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0 node apps/coordinator/src/main.ts > "$coordinator_log" 2>&1 &
+COORDINATOR_PORT="$coordinator_port" COORDINATOR_ORIGINS="http://127.0.0.1:$client_port" COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0 COORDINATOR_REQUIRE_CUSTOM_UPLOAD=1 node apps/coordinator/src/main.ts > "$coordinator_log" 2>&1 &
 coordinator_pid=$!
 python3 - "$coordinator_port" "$coordinator_log" <<'PY'
 import sys

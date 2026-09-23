@@ -8,9 +8,10 @@ import type {ConnectionPolicy,PeerEvent} from '../../../packages/contracts/src/p
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import {TabSession} from './tab-session.ts';
+import {uploadRoomFile} from './room-upload.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
+export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; uploading?:boolean; confirmingRoom?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
 export function connectionStatus(state:RoomState) {
  const status=state.room?.peer.status;
  if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
@@ -24,7 +25,7 @@ const messages:Record<string,string> = {
  host_only:'Only the host can change this room.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
  host_expired:'The host did not return. This room has closed.',host_closed:'The host closed the room.',removed:'The host removed you from this room.',left:'You left the room. Your local game is still available.',
  operator_removed:'An operator closed this room. Your local game is preserved.',admission_blocked:'Access is temporarily restricted by an operator. Retry later. Your local game is preserved.',
- service_restarted:'The service restarted. Ephemeral rooms have closed.',creation_cancelled:'Room creation cancelled. Your game stays local.',creation_expired:'Room creation timed out. Your game stays local.',cancelled:'Room creation cancelled.',
+ service_restarted:'The service restarted. Ephemeral rooms have closed.',creation_cancelled:'Room creation cancelled. Your game stays local.',creation_expired:'Upload timed out. Retry upload to create a fresh room.',upload_expired:'Upload timed out. Retry upload to create a fresh room.',cancelled:'Room creation cancelled.',
  room_started:'This game has started. Joining is unavailable.',host_started_solo:'The host started alone. Your local game is preserved.',host_not_ready:'Wait for your game to finish loading before Start.',late_join:'Your game has progressed. Shared start needs a fresh game; your progress is preserved.',game_mismatch:'The loaded game does not match this room. Choose the matching file before Start.',
 };
 export class RoomClient {
@@ -42,13 +43,15 @@ export class RoomClient {
  private tabSession=new TabSession();
  private tokenCheck?:Promise<void>;
  private intent?:string;
+ private uploadAbort?:AbortController;
+ private selectedUploadFile?:File;
  private generation = 0;
  private creationGeneration = 0;
  private replacement?:{room:string;fingerprint:Fingerprint};
  private selectedFile?:Fingerprint;
  private joining?:string;
  private pending = new Map<string,{kind:Command['type'];resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
- private state:RoomState = {status:'Choose a file to create a room. Your file stays here.',busy:false,connected:false};
+ private state:RoomState = {status:'Choose a file to create a room.',busy:false,connected:false};
  constructor(private update:(state:RoomState)=>void,private confirmReplacement:()=>boolean = ()=>false,policy:ConnectionPolicy='standard',private player:()=>LocalPlayer|null=()=>null) {this.policy=policy;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
@@ -99,7 +102,14 @@ export class RoomClient {
     else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
     else if(event.type === 'directory') this.publish({directory:event.rooms,directoryStatus:'live',directoryError:undefined});
     else if(event.type === 'room') this.setRoom(event.room);
-    else if(event.type === 'ended') {this.peer.close();this.setRoom(undefined);const status=messages[event.reason] ?? 'This room ended. Your local game is preserved.';this.publish({busy:false,status,releaseNotice:status});}
+    else if(event.type === 'ended') {
+     // cancelCreate is our own exact-intent command. Its late notice must not replace a newer attempt.
+     if(event.reason==='creation_cancelled')return;
+     this.peer.close();this.setRoom(undefined);const status=messages[event.reason] ?? 'This room ended. Your local game is preserved.';
+     if(['creation_expired','upload_expired'].includes(event.reason)&&this.intent) {
+      ++this.creationGeneration;this.uploadAbort?.abort();this.uploadAbort=undefined;this.intent=undefined;
+      this.publish({busy:false,uploading:false,hostFailure:true,status:'Upload timed out. Retry upload to create a fresh room.',releaseNotice:undefined});
+     }else this.publish({busy:false,status,releaseNotice:status});}
    };
    socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(async data=>{
     clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token))throw Error('This browser cannot reserve a separate room session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.peer.close('No peer connection.');this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});
@@ -119,20 +129,22 @@ export class RoomClient {
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the room service.'});}
  beginSelection() {this.game.cancelIntent();this.replacement=undefined;this.cancelCreation();}
- async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
-  if(!this.token && !this.state.room) return isCurrent();
-  try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
+ async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean,file?:File):Promise<boolean> {
+  if(!this.token && !this.state.room) {if(isCurrent()&&file)this.selectedUploadFile=file;return isCurrent();}
+  try {await this.connect();}catch {if(isCurrent()&&file)this.selectedUploadFile=file;return isCurrent();} // Local play remains available offline; hosting still requires consent.
   if(!isCurrent()) return false;
   const room=this.state.room;
   if(room?.established){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
-  if(!room || room.role!=='host' || matchesFile(room.fingerprint,fingerprint)) return true;
+  if(!room || room.role!=='host' || matchesFile(room.fingerprint,fingerprint)) {if(file)this.selectedUploadFile=file;return true;}
   if(!this.confirmReplacement()) return false;
   if(!isCurrent()) return false;
-  this.replacement={room:room.id,fingerprint};return true;
+  this.replacement={room:room.id,fingerprint};if(file)this.selectedUploadFile=file;return true;
  }
  async host(fingerprint:Fingerprint,visibility:Visibility) {
+  const file=this.selectedUploadFile;
+  if(!file){this.publish({hostFailure:true,status:'Choose the NES file again before uploading.'});return;}
   this.cancelCreation();const intent = crypto.randomUUID(), generation = this.creationGeneration;this.intent = intent;
-  this.publish({busy:true,hostFailure:false,status:'Creating your room…',retryAfterMs:undefined});
+  this.publish({busy:true,hostFailure:false,uploading:false,confirmingRoom:false,status:'Creating a hidden room…',retryAfterMs:undefined});
   try {
    await this.connect();if(this.intent !== intent || generation !== this.creationGeneration) return;
    const currentRoom=this.state.room;
@@ -144,12 +156,22 @@ export class RoomClient {
     this.replacement=undefined;
     await this.request({type:'close',roomId:currentRoom.id});if(this.intent !== intent) return;
    }
-   await this.request({type:'create',intent,visibility,fingerprint,policy:this.policy});
+   const created=await this.request({type:'create',intent,visibility,fingerprint,policy:this.policy});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
+   if(!created.room?.id||!this.token)throw Error('The room service did not return an upload session. Retry upload.');
+   const controller=new AbortController();this.uploadAbort=controller;
+   this.publish({uploading:true,status:'Uploading game…'});
+   const receipt=await uploadRoomFile(clientConfig.coordinatorUrl,created.room.id,intent,this.token,file,(sent,total)=>{
+    if(this.intent===intent&&generation===this.creationGeneration)this.publish({status:`Uploading game… ${Math.round(sent/1024)} / ${Math.ceil(total/1024)} KiB`});
+   },controller.signal);
+   if(this.uploadAbort===controller)this.uploadAbort=undefined;
+   if(receipt.sha256!==fingerprint.romSha256)throw Error('The room server verified a different game. Retry upload.');
+   if(this.intent !== intent || generation !== this.creationGeneration) {await this.request({type:'cancelCreate',intent});return;}
+   this.publish({uploading:false,confirmingRoom:true,status:'Publishing room…'});
    const data = await this.request({type:'confirmCreate',intent});
    if(this.intent !== intent) {await this.request({type:'cancelCreate',intent});return;}
-   this.apply(data);this.intent = undefined;this.publish({busy:false,hostFailure:false,status:'Room created. You can play locally while your friend prepares their matching file.'});
-  }catch(error) {if(this.intent === intent) {this.intent = undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({hostFailure:true});this.failure(error);}}
+   this.apply(data);this.intent = undefined;this.publish({busy:false,uploading:false,confirmingRoom:false,hostFailure:false,status:'Room created. You can play locally or wait for a guest.'});
+  }catch(error) {if(this.intent === intent) {this.intent = undefined;this.uploadAbort=undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({hostFailure:true,uploading:false,confirmingRoom:false});this.failure(error);}}
  }
  async startRoom(fingerprint:Fingerprint) {
   const room=this.state.room;if(!room||room.role!=='host')return;
@@ -164,7 +186,7 @@ export class RoomClient {
   finally {this.publish({startingRoom:false});}
  }
  dismissRelease(){this.publish({releaseNotice:undefined});}
- cancelCreation() {++this.creationGeneration;const intent = this.intent;this.intent = undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,status:'Room creation cancelled. Your game stays local.'});}}
+ cancelCreation() {++this.creationGeneration;this.uploadAbort?.abort();this.uploadAbort=undefined;const intent = this.intent;this.intent = undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,hostFailure:true,uploading:false,confirmingRoom:false,status:'Upload cancelled. Retry upload when ready.'});}}
  async preview(invite:string) {const generation = ++this.generation;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.apply(data);this.publish({busy:false,status:'Join reserves Guest for 120 seconds. You will need your own matching file.'});}catch(error){if(generation === this.generation){this.publish({preview:undefined});this.failure(error);}}}
  async join(invite:string) {return this.joinTarget({type:'join',invite});}
  async joinCode(code:string) {return this.joinTarget({type:'joinCode',code});}

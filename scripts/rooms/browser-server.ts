@@ -1,5 +1,5 @@
 /** Test-only same-origin static gateway; production proxy provisioning belongs to D24. */
-import {createServer} from 'node:http';
+import {createServer,request as httpRequest} from 'node:http';
 import {connect} from 'node:net';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
@@ -8,6 +8,14 @@ import {config,createCoordinator,shutdown} from '../../apps/coordinator/src/serv
 import {listenOperator} from '../../apps/coordinator/src/operator.ts';
 const root = resolve(process.env.RETRO_COOP_STATIC_ROOT ?? 'apps/client/dist');
 const gateway = createServer(async(request,response)=>{
+ const upload=/^\/coordinator(\/rooms\/[A-Za-z0-9_-]{43}\/rom)$/.exec(request.url??'');
+ if(upload && (request.method==='PUT'||request.method==='GET'||request.method==='OPTIONS')){
+  const upstream=httpRequest({hostname:'127.0.0.1',port:coordinatorPort,path:upload[1],method:request.method,headers:request.headers},incoming=>{
+   response.writeHead(incoming.statusCode??502,incoming.headers);incoming.pipe(response);
+  });
+  upstream.on('error',()=>{if(!response.headersSent)response.writeHead(502);response.end();});
+  request.pipe(upstream);return;
+ }
  const file = resolve(root,'.'+new URL(request.url!,'http://localhost').pathname.replace(/\/$/,'/index.html'));
  if(!file.startsWith(root+'/')) {response.writeHead(404).end();return;}
  try {const bytes = await readFile(file);response.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.wasm':'application/wasm'} as Record<string,string>)[extname(file)] ?? 'application/octet-stream');response.end(bytes);}catch{response.writeHead(404).end();}
