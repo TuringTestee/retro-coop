@@ -61,7 +61,6 @@ try:
    if args.late_join:
     # Progress-preserving late Join is deferred: an active room offers no admission path.
     invite=h.get_by_label('Room invitation',exact=True).input_value();h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
-    host_before=int(h.get_by_test_id('frames').inner_text().split()[0])
     g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
     preview=g.locator('.room-panel.invitation');preview.get_by_text('playing',exact=False).wait_for()
     assert preview.get_by_role('button',name='Join room',exact=True).count()==0
@@ -79,11 +78,12 @@ try:
       };
     })''',invite)
     assert denial=={'ok':False,'error':'room_started'},denial
-    preview.get_by_role('button',name='Retry invitation',exact=True).click();preview.get_by_text('playing',exact=False).wait_for()
+    host_after_denial=int(h.get_by_test_id('frames').inner_text().split()[0])
     preview.get_by_role('button',name='View public rooms',exact=True).click();g.get_by_role('heading',name='Public rooms',exact=True).wait_for()
-    g.get_by_text('Playing; Join unavailable',exact=False).wait_for()
+    playing_row=g.locator('.room-list li').filter(has_text='Playing; Join unavailable');playing_row.wait_for()
+    assert playing_row.get_by_role('button',name='Join',exact=True).count()==0
     assert g.get_by_test_id('room-view').count()==0
-    h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=host_before,polling=50)
+    h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=host_after_denial,polling=50)
     result={'result':'pass','scenario':'late guest denied after solo Start','host_frames':h.get_by_test_id('frames').inner_text(),'invitation_join_hidden':True,'server_denied':'room_started','public_row_join_unavailable':True,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
