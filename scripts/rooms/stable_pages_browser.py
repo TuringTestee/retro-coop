@@ -74,7 +74,7 @@ def main():
             host.get_by_role('button', name='Make public', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
             host.keyboard.press('Escape')
-            assert visibility.evaluate('node => node === document.activeElement')
+            host.wait_for_function("document.activeElement?.matches('.visibility input')")
             visibility.click()
             host.get_by_role('button', name='Make public', exact=True).click()
             host.wait_for_function("document.querySelector('#room-heading')?.textContent.includes('Public')")
@@ -121,7 +121,7 @@ def main():
             host.get_by_role('button', name='Confirm leave', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
             host.keyboard.press('Escape')
-            assert host.get_by_role('button', name='Leave room', exact=True).evaluate('node => node === document.activeElement')
+            host.wait_for_function("document.activeElement?.matches('[data-leave-room]')")
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).click()
             host.get_by_test_id('directory').wait_for(state='visible')
