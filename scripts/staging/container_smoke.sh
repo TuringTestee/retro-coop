@@ -17,12 +17,12 @@ trap cleanup EXIT HUP INT TERM
 
 openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout "$certificate_dir/tls.key" -out "$certificate_dir/tls.crt" \
-  -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost' -days 1 >/dev/null 2>&1
+  -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' -days 1 >/dev/null 2>&1
 chmod 755 "$certificate_dir"
 chmod 644 "$certificate_dir/tls.key"
 
 docker run -d --network host --name "$coordinator_name" \
-  --env COORDINATOR_ORIGINS=https://localhost:8443 "$coordinator_image" >/dev/null
+  --env COORDINATOR_ORIGINS=https://127.0.0.1:8443 "$coordinator_image" >/dev/null
 docker run -d --network host --name "$edge_name" \
   --mount "type=bind,source=$certificate_dir,target=/run/tls,readonly" "$edge_image" >/dev/null
 
@@ -30,7 +30,7 @@ ready=0
 attempt=0
 while [ "$attempt" -lt 50 ]; do
   if curl --silent --fail http://127.0.0.1:8787/health >/dev/null && \
-     curl --silent --fail --cacert "$certificate_dir/tls.crt" https://localhost:8443/healthz >/dev/null; then
+     curl --silent --fail --cacert "$certificate_dir/tls.crt" https://127.0.0.1:8443/healthz >/dev/null; then
     ready=1
     break
   fi
@@ -44,4 +44,4 @@ if [ "$ready" -ne 1 ]; then
   exit 1
 fi
 
-NODE_EXTRA_CA_CERTS="$certificate_dir/tls.crt" node scripts/staging/edge_probe.mjs https://localhost:8443
+NODE_EXTRA_CA_CERTS="$certificate_dir/tls.crt" node scripts/staging/edge_probe.mjs https://127.0.0.1:8443
