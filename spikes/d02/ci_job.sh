@@ -23,7 +23,9 @@ fi
 if [ "$D02_JOB" = entrypoint ]; then
   python3 -m venv /tmp/d02-entrypoint-venv
   /tmp/d02-entrypoint-venv/bin/pip install playwright==1.58.0
-  /tmp/d02-entrypoint-venv/bin/playwright install --with-deps chromium
+  # The pinned Ubuntu runner already has Chromium's libraries. Installing apt
+  # fonts/upgrades here has variable latency and can exhaust the PR deadline.
+  /tmp/d02-entrypoint-venv/bin/playwright install chromium
   export PATH="/tmp/d02-entrypoint-venv/bin:$PATH"
   npm ci
   RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh

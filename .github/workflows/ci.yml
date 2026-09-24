@@ -24,7 +24,12 @@ jobs:
       - name: Enforce the shared workflow deadline
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 spikes/d02/ci_budget.py watch --gate ${{ github.event_name == 'pull_request' && 'entrypoint' || 'preflight' }}
+        run: |
+          if [ "${{ github.event_name }}" = pull_request ]; then
+            python3 spikes/d02/ci_budget.py watch --gate entrypoint --gate images
+          else
+            python3 spikes/d02/ci_budget.py watch --gate preflight
+          fi
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -101,6 +106,28 @@ jobs:
       - name: Complete the focused pull-request gate within the original deadline
         if: github.event_name == 'pull_request'
         run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+  images:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        timeout-minutes: 1
+        with:
+          node-version-file: .node-version
+      - name: Build and probe exact staging images within the shared deadline
+        run: |
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target edge --tag retro-coop-staging-edge:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target coordinator --tag retro-coop-staging-coordinator:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/container_smoke.sh
+          python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
   core:
     if: github.event_name == 'push'
     needs: build
@@ -207,13 +234,14 @@ jobs:
           retention-days: 7
   preflight:
     if: ${{ always() && github.event_name == 'push' }}
-    needs: [build, entrypoint, core, network]
+    needs: [build, entrypoint, images, core, network]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
       D02_BUILD: ${{ needs.build.result }}
       D02_ENTRYPOINT: ${{ needs.entrypoint.result }}
+      D02_IMAGES: ${{ needs.images.result }}
       D02_CORE: ${{ needs.core.result }}
       D02_NETWORK: ${{ needs.network.result }}
     steps:
@@ -227,6 +255,7 @@ jobs:
         run: |
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
+          test "$D02_IMAGES" = success
           test "$D02_CORE" = success
           test "$D02_NETWORK" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"

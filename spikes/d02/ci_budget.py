@@ -104,7 +104,8 @@ def run_command(deadline, command):
 
 def watch(gate, poll_seconds=5):
     deadline = run_deadline()
-    if not gate or not 0 < poll_seconds <= 10:
+    gates = [gate] if isinstance(gate, str) else list(gate)
+    if not gates or len(gates) != len(set(gates)) or not all(gates) or not 0 < poll_seconds <= 10:
         raise ValueError('Gate and polling interval must be bounded')
     while remaining(deadline) > 0:
         try:
@@ -112,14 +113,15 @@ def watch(gate, poll_seconds=5):
                        timeout=min(15, remaining(deadline)))
             if jobs['total_count'] > 100:
                 raise ValueError('Job count exceeds the bounded watchdog query')
-            matches = [job for job in jobs['jobs'] if job['name'] == gate]
-            if len(matches) > 1:
+            matches = {name: [job for job in jobs['jobs'] if job['name'] == name] for name in gates}
+            if any(len(found) > 1 for found in matches.values()):
                 raise ValueError('Final gate name must be unique')
-            if matches and matches[0]['status'] == 'completed':
-                job = matches[0]
-                in_budget = (timestamp(job['completed_at']) < deadline
-                             and remaining(deadline) > 0)
-                return 0 if in_budget and job['conclusion'] == 'success' else 1
+            complete = [found[0] for found in matches.values() if found and found[0]['status'] == 'completed']
+            if any(job['conclusion'] != 'success' or timestamp(job['completed_at']) >= deadline
+                   for job in complete) or remaining(deadline) <= 0:
+                return 1
+            if len(complete) == len(gates):
+                return 0
         except (OSError, TimeoutError):
             # A transient observation failure cannot reset or extend the clock.
             print('Watchdog observation unavailable; original deadline retained.',
@@ -141,7 +143,7 @@ def main():
             child.add_argument('--namespace', action='store_true')
             child.add_argument('command', nargs=argparse.REMAINDER)
     child = commands.add_parser('watch')
-    child.add_argument('--gate', default='preflight')
+    child.add_argument('--gate', action='append')
     args = parser.parse_args()
     reject_retry()
     if args.action == 'deadline':
@@ -150,7 +152,7 @@ def main():
     if args.action == 'check':
         return 0 if remaining(args.deadline) > 0 else 124
     if args.action == 'watch':
-        return watch(args.gate)
+        return watch(args.gate or ['preflight'])
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
     if args.namespace:
         command = namespace_command(command)

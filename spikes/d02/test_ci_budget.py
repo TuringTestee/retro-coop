@@ -112,6 +112,25 @@ class BudgetTests(unittest.TestCase):
                     jobs['jobs'][1]['conclusion'] = 'failure'
                     self.assertEqual(budget.watch('preflight'), 1)
 
+    def test_watch_requires_both_pr_gates_under_one_deadline(self):
+        jobs = {'total_count': 2, 'jobs': [
+            {'name': 'entrypoint', 'status': 'completed', 'conclusion': 'success',
+             'completed_at': '1970-01-01T00:01:30Z'},
+            {'name': 'images', 'status': 'completed', 'conclusion': 'success',
+             'completed_at': '1970-01-01T00:01:31Z'},
+        ]}
+        with patch.object(budget, 'run_deadline', return_value=100):
+            with patch.object(budget.time, 'time', return_value=95):
+                with patch.object(budget, 'api', return_value=jobs):
+                    self.assertEqual(budget.watch(['entrypoint', 'images']), 0)
+                    jobs['jobs'][1]['conclusion'] = 'failure'
+                    self.assertEqual(budget.watch(['entrypoint', 'images']), 1)
+                    jobs['jobs'][1]['conclusion'] = 'success'
+                    jobs['jobs'][1]['completed_at'] = '1970-01-01T00:01:40Z'
+                    self.assertEqual(budget.watch(['entrypoint', 'images']), 1)
+                    with self.assertRaises(ValueError):
+                        budget.watch(['images', 'images'])
+
     def test_gate_response_arriving_after_deadline_fails(self):
         clock = [95.0]
         def api(*args, **kwargs):
