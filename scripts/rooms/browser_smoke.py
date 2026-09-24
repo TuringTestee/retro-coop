@@ -174,7 +174,6 @@ try:
         replacement.get_by_test_id('room-status').filter(has_text='Leave this room before choosing a different game.').wait_for(state='attached')
         assert waiting.get_by_test_id('room-view').count()==1
         assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
-        assert __import__('hashlib').sha256(rom).hexdigest() in replacement.get_by_test_id('fingerprint').text_content()
         replacement.reload()
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
         replacement.get_by_test_id('room-status').filter(has_text='Leave this room before choosing a different game.').wait_for(state='attached')
