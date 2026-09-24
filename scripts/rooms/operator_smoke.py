@@ -95,11 +95,13 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             for tab in [host,guest]: stopped(tab,'Access is temporarily restricted')
             assert host.evaluate('timelineWrites') == writes
             host.screenshot(path=str(output.with_suffix('.blocked.png')), full_page=True)
+            host.locator('.release-notice').get_by_role('button', name='Resume local game', exact=True).click()
             host.get_by_role('button', name='Public rooms', exact=True).click()
             host.get_by_role('button', name='Retry', exact=True).click()
             host.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()
-            host.get_by_role('button', name='Return to game', exact=True).click()
-            host.get_by_text('Access is temporarily restricted', exact=False).first.wait_for()
+            host.get_by_role('button', name='Resume local game', exact=True).click()
+            host.locator('.panel').wait_for(state='visible')
+            assert host.locator('.release-notice').count() == 0
             assert host.evaluate('timelineWrites') == writes
             fresh = page(url)
             fresh.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()

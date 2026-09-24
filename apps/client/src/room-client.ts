@@ -134,7 +134,7 @@ export class RoomClient {
     this.peer.close('Signaling disconnected. Reconnect the room before retrying peers.');
     const status=code===4003?messages.admission_blocked:'Room connection lost. Reconnect to recover an active room or unexpired reservation. Your local game is preserved.';
     clearTimeout(deadline);clearInterval(this.heartbeat);for(const pending of this.pending.values()) {clearTimeout(pending.timer);pending.reject(Error(status));}this.pending.clear();
-    this.publish({connected:false,busy:false,admissionBlocked:code===4003,...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:code===4003?status:'The room service disconnected. Retry for current availability.'}:{}),status});reject(Error(status));
+    this.publish({connected:false,busy:false,admissionBlocked:code===4003,...(code===4003&&(this.state.room||this.state.releaseNotice)?{releaseNotice:status}:{}),...(this.watchingDirectory ? {directoryStatus:'stale' as const,directoryError:code===4003?status:'The room service disconnected. Retry for current availability.'}:{}),status});reject(Error(status));
    };
   }).finally(()=>{this.connecting = undefined;});
   return this.connecting;
