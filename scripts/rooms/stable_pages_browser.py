@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise fixed page navigation from the public room browser in Chromium."""
 import argparse
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -87,6 +88,9 @@ def main():
             host.get_by_role('button', name='Game help', exact=True).click()
             assert host.get_by_role('heading', name='Game help').is_visible()
             host.screenshot(path=str(args.output / 'help.png'))
+            host.get_by_text('Technical details', exact=True).click()
+            expected = hashlib.sha256((ROOT / 'apps/client/dist/generated/diagnostic.nes').read_bytes()).hexdigest()
+            assert expected in host.get_by_test_id('fingerprint').inner_text()
             host.get_by_role('button', name='Back', exact=True).click()
             host.set_viewport_size({'width': 390, 'height': 700})
             narrow = geometry(host, '390x700')
