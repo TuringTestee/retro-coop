@@ -28,7 +28,7 @@ FROM nginx:1.29.3-alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646ad
 COPY deploy/staging/nginx.conf /etc/nginx/nginx.conf
 COPY --from=client-build /app/apps/client/dist /usr/share/nginx/html
 USER nginx
-EXPOSE 8080 8443
+EXPOSE 8080 8081 8443
 ENTRYPOINT ["nginx"]
 CMD ["-g", "daemon off;"]
 
