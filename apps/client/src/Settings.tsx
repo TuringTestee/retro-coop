@@ -3,12 +3,12 @@ import { actions, labels, defaults, conflict, inputMask, padInputs, bindingLabel
 
 type Props = {
  connection?:ReactNode;voice?:ReactNode;localData?:()=>void;
- open:boolean; close():void; controls:Controls; change(value:Controls):void;
+ open:boolean; controls:Controls; change(value:Controls):void;
  filter:'nearest'|'scanlines'; setFilter(value:'nearest'|'scanlines'):void;
  volume:number; setVolume(value:number):void; muted:boolean; audioIssue?:string; audioState?:AudioContextState; retryAudio():void;
 };
 export function Settings(props:Props) {
- const dialog = useRef<HTMLDialogElement>(null), captureBox = useRef<HTMLDivElement>(null);
+ const captureBox = useRef<HTMLDivElement>(null);
  const [source,setSource] = useState<'keyboard'|'gamepad'>('keyboard');
  const [pads,setPads] = useState<{index:number;id:string}[]>([]);
  const [capture,setCapture] = useState<Action|null>(null), [binding,setBinding] = useState<string|null>(null);
@@ -18,7 +18,6 @@ export function Settings(props:Props) {
  const held = useRef(new Set<string>()), previousPad = useRef(new Set<string>());
  const endCapture = () => {setCapture(null);setBinding(null);};
  useEffect(()=>{
-  if(props.open) dialog.current?.showModal(); else dialog.current?.close();
   if(!props.open) {endCapture();setConfirm(false);held.current.clear();setTested(0);}
  },[props.open]);
  useEffect(()=>{if(capture) captureBox.current?.focus();},[capture]);
@@ -46,9 +45,9 @@ export function Settings(props:Props) {
   return ()=>{cancelAnimationFrame(animation);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',release);};
  },[props.open,props.controls,source,capture]);
  const duplicate=capture && binding ? conflict(props.controls[source],capture,binding) : undefined;
- return <dialog ref={dialog} className="settings" aria-labelledby="settings-title" onClose={props.close} onCancel={event=>{if(capture || confirm){event.preventDefault();endCapture();setConfirm(false);}}}>
-  <button className="settings-close" aria-label="Close settings" onClick={()=>dialog.current?.close()}>Close</button>
-  <h2 id="settings-title">Local settings</h2>{props.localData && <button onClick={props.localData}>Local data</button>}<p>Controls, picture and sound affect only this browser. Your game keeps its progress.</p>
+ if(!props.open)return null;
+ return <section className="settings tool-page" aria-labelledby="settings-title">
+  <h2 id="settings-title" tabIndex={-1}>Local settings</h2>{props.localData && <button data-local-data onClick={props.localData}>Local data</button>}<p>Controls, picture and sound affect only this browser. Your game keeps its progress.</p>
   <label>Input device <select aria-label="Input device" value={props.controls.device ? String(props.controls.device.index) : 'keyboard'} onChange={event=>{
    const device=pads.find(pad=>String(pad.index)===event.target.value) ?? null;
    props.change({...props.controls,device});setSource(device ? 'gamepad' : 'keyboard');endCapture();
@@ -77,6 +76,5 @@ export function Settings(props:Props) {
    <p>Audio: {props.audioState ?? 'not started'}. {props.muted ? 'Game output is muted. Unmute from the player when ready.' : 'Game output is enabled.'}</p>
    {props.audioIssue && <p>{props.audioIssue} <button onClick={props.retryAudio}>Retry game audio</button></p>}
   </fieldset>
-  <button onClick={()=>dialog.current?.close()}>Done</button>
- </dialog>;
+ </section>;
 }

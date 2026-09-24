@@ -4,8 +4,8 @@ import type {LocalFileInfo} from '../../../packages/contracts/src/index.ts';
 import {listSaves,putSave,deleteSave,downloadSave,type SaveSlot} from './saves.ts';
 
 type Confirmation={label:string;action:()=>Promise<void>};
-export function Saves({open,close,player,game}:{open:boolean;close:()=>void;player:LocalPlayer|null;game:string}) {
- const dialog=useRef<HTMLDialogElement>(null),picker=useRef<HTMLInputElement>(null),epoch=useRef(0),previousGame=useRef(game),confirmFocus=useRef<HTMLElement|null>(null);
+export function Saves({open,player,game,shared}:{open:boolean;player:LocalPlayer|null;game:string;shared:boolean}) {
+ const picker=useRef<HTMLInputElement>(null),epoch=useRef(0),previousGame=useRef(game),confirmFocus=useRef<HTMLElement|null>(null);
  const [info,setInfo]=useState<LocalFileInfo|null>(null),[rows,setRows]=useState<SaveSlot[]>([]),[slot,setSlot]=useState(1);
  const [listed,setListed]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmation,setConfirmationState]=useState<Confirmation|null>(null);
  const setConfirmation=(value:Confirmation|null)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);};
@@ -14,9 +14,8 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
  useEffect(()=>{
   const token=++epoch.current;setConfirmation(null);setBusy(false);
   if(previousGame.current!==game){previousGame.current=game;setBackup(null);setExportFailed(false);}
-  if(!open){dialog.current?.close();return;}
-  const returnFocus=document.activeElement as HTMLElement|null;
-  dialog.current?.showModal();setInfo(null);setRows([]);setListed(false);setMessage('Checking saves for this game…');
+  if(!open)return;
+  setInfo(null);setRows([]);setListed(false);setMessage('Checking saves for this game…');
   void (async()=>{
    try {
     if(!player)throw Error('Load a game first.');
@@ -25,7 +24,7 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
     catch(error){if(token===epoch.current)setMessage(storageError(error));}
    } catch(error){if(token===epoch.current)setMessage(errorText(error));}
   })();
-  return ()=>{++epoch.current;dialog.current?.close();returnFocus?.focus();};
+  return ()=>{++epoch.current;};
  },[open,game,player]);
  const run=async(action:(current:()=>boolean)=>Promise<void>)=>{
   const token=epoch.current;setBusy(true);setConfirmation(null);setMessage('');
@@ -53,8 +52,9 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
   });
  };
  const exportBytes=(bytes:ArrayBuffer,slot?:number)=>{setBackup(bytes);try{downloadSave(bytes,slot);setExportFailed(false);setMessage('Save export requested. Keep the backup somewhere safe.');}catch(error){setExportFailed(true);setMessage(`Couldn't export. Your backup remains in memory. Retry export. ${errorText(error)}`);}};
- return <dialog ref={dialog} className="settings saves" aria-labelledby="saves-title" onCancel={event=>{event.preventDefault();if(confirmation)setConfirmation(null);else close();}}>
-  <h2 id="saves-title">Saves on this device</h2><p>Compatible saves for your current game. Your game file is never stored or included in exports.</p>
+ if(!open)return null;
+ return <section className="settings saves tool-page" aria-labelledby="saves-title">
+  <h2 id="saves-title" tabIndex={-1}>Saves on this device</h2><p>Compatible saves for your current game. Your game file is never stored or included in exports.</p>
   <p>Saves can be removed by your browser. Export a backup.</p>
   {message && <p role="status" data-testid="save-status">{message}</p>}
   {confirmation && <section role="alertdialog" aria-label="Confirm save action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void confirmation.action()}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}<div hidden={!!confirmation}>
@@ -63,16 +63,14 @@ export function Saves({open,close,player,game}:{open:boolean;close:()=>void;play
    <button disabled={busy || !info || !listed} onClick={()=>{picker.current!.value='';picker.current!.click();}}>Import save</button>
    {open && <input ref={picker} type="file" hidden aria-label="Save file" accept=".rcstate" onChange={event=>importFile(event.target.files?.[0])}/>}
    <ul>{rows.map(row=><li key={row.slot}>Slot {row.slot} · <time dateTime={new Date(row.savedAt).toISOString()}>{new Date(row.savedAt).toLocaleString()}</time>
-    <button disabled={busy} onClick={()=>setConfirmation({label:`Load Slot ${row.slot}? Current unsaved progress will be replaced.`,action:()=>run(async current=>{if(!current())return;await player!.loadSave(row.bytes);if(current())setMessage('Save loaded. Close this panel and Resume whenever you’re ready.');})})}>Load Slot {row.slot}</button>
+    {!shared&&<button disabled={busy} onClick={()=>setConfirmation({label:`Load Slot ${row.slot}? Current unsaved progress will be replaced.`,action:()=>run(async current=>{if(!current())return;await player!.loadSave(row.bytes);if(current())setMessage('Save loaded. Back to game and Resume whenever you’re ready.');})})}>Load Slot {row.slot}</button>}
     <button disabled={busy} onClick={()=>exportBytes(row.bytes,row.slot)}>Export Slot {row.slot}</button>
     <button disabled={busy} onClick={()=>setConfirmation({label:`Delete Slot ${row.slot}? This cannot be undone. Export a backup first if you need it.`,action:()=>run(async current=>{await deleteSave(row);if(current()){await refresh(current);setMessage(`Deleted Slot ${row.slot}.`);}})})}>Delete Slot {row.slot}</button>
    </li>)}</ul>
   </div>
   <button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
   {backup && <button disabled={busy} onClick={()=>exportBytes(backup)}>{exportFailed ? 'Retry export' : 'Export memory backup'}</button>}
-  <p className="hint">Manage local saves using the export and delete actions above.</p>
-  <button onClick={close}>Close saves</button>
- </dialog>;
+ </section>;
 }
 function errorText(error:unknown){return error instanceof Error ? error.message : 'The save operation failed. Try again.';}
 function storageError(error:unknown){return `Couldn't save on this device. Export current save to keep a backup, or manage local saves below. ${errorText(error)}`;}
