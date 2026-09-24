@@ -10,7 +10,11 @@ address=retro-coop-staging-ip
 root=$(git rev-parse --show-toplevel)
 test "$PWD" = "$root" || { echo 'Run from the repository root.' >&2; exit 2; }
 test "$(git branch --show-current)" = main || { echo 'Run from reviewed main.' >&2; exit 2; }
-test -z "$(git status --porcelain)" || { echo 'The checkout has uncommitted changes.' >&2; exit 2; }
+if ! dirty=$(git status --porcelain); then
+  echo 'Could not check the working tree.' >&2
+  exit 2
+fi
+test -z "$dirty" || { echo 'The checkout has uncommitted changes.' >&2; exit 2; }
 revision=$(git rev-parse HEAD)
 test "$revision" = "$(git rev-parse origin/main)" || { echo 'Main differs from origin/main.' >&2; exit 2; }
 
@@ -18,7 +22,7 @@ query() {
   label=$1
   shift
   if ! query_result=$("$@"); then
-    echo "Could not check $label; no resource was created." >&2
+    echo "Could not check $label; staging preparation stopped." >&2
     exit 1
   fi
 }
