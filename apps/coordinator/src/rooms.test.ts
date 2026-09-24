@@ -5,7 +5,8 @@ import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {Rooms,limits,RoomError} from './rooms.ts';
 import {createCoordinator,shutdown} from './server.ts';
-import {parseRoomCommand,type Fingerprint,type RoomCommand,type RoomEvent} from '../../../packages/contracts/src/rooms.ts';
+import {parseRoomCommand,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+const human=(preview:RoomPreview|undefined):HumanRoomPreview=>{assert.ok(preview&&preview.occupancy!==0);return preview as HumanRoomPreview;};
 import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
 import {LOCAL_SCHEMA,LOCAL_SETTINGS} from '../../../packages/contracts/src/fingerprint.ts';
 const fingerprint:Fingerprint = {romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:4,submapper:0,region:'NTSC',bytes:40976}};
@@ -39,6 +40,59 @@ test('unlisted preview excludes hashes and codes, host alone controls room mutat
  const publicRoom = t.act(host.token,{type:'visibility',roomId:room.id,visibility:'public'}).room!;assert.ok(publicRoom.code);
  assert.equal(t.act(host.token,{type:'visibility',roomId:room.id,visibility:'unlisted'}).room!.code,undefined);
  t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
+});
+test('host closes and reopens an empty Guest place across directory and invitation',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token,'unlisted');
+ assert.equal(room.guestPlace,'open');assert.equal(room.guestPlaceVersion,0);
+ assert.equal(human(t.act(viewer.token,{type:'preview',invite:room.invite}).preview).guestPlace,'open');
+ assert.throws(()=>t.act(guest.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/not_in_room/);
+ const closed=t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}).room!;
+ assert.equal(closed.guestPlace,'closed');assert.equal(closed.guestPlaceVersion,1);
+ assert.equal(human(viewer.events.filter(event=>event.type==='preview').at(-1)?.preview).guestPlace,'closed');
+ assert.equal(human(t.act(viewer.token,{type:'preview',invite:room.invite}).preview).guestPlace,'closed');
+ assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/guest_place_closed/);
+ assert.equal(t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}).room!.guestPlaceVersion,1,'exact retry is idempotent');
+ assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'open',expectedVersion:0}),/room_changed/);
+ const open=t.act(host.token,{type:'guestPlace',roomId:room.id,place:'open',expectedVersion:1}).room!;
+ assert.equal(open.guestPlaceVersion,2);assert.equal(human(viewer.events.filter(event=>event.type==='preview').at(-1)?.preview).guestPlace,'open');
+ assert.equal(t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!.slot,2);
+});
+test('public Closed room remains listed and rejects stale code and invite joins',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token);
+ t.act(viewer.token,{type:'directory',includeEmptyOffers:true});
+ t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0});
+ const row=t.act(viewer.token,{type:'directory'}).directory!.find(item=>item.id===room.id)!;
+ assert.equal(human(row).guestPlace,'closed');assert.equal(row.status,'waiting');assert.equal(row.occupancy,1);
+ assert.equal(human(viewer.events.filter(event=>event.type==='directory').at(-1)?.rooms.find(item=>item.id===room.id)).guestPlace,'closed');
+ assert.throws(()=>t.act(guest.token,{type:'joinCode',code:room.code!,intent:randomUUID()}),/guest_place_closed/);
+ assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/guest_place_closed/);
+ t.act(host.token,{type:'guestPlace',roomId:room.id,place:'open',expectedVersion:1});
+ assert.equal(t.act(guest.token,{type:'joinCode',code:room.code!,intent:randomUUID()}).room!.slot,2);
+});
+test('Close loses to an occupied reservation, then succeeds only after removal revokes reconnect',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),other=t.guest(),room=t.host(host.token);
+ const joined=t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;
+ assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/guest_place_occupied/);
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestPlace,'open');
+ const sent=()=>{};t.rooms.attach(guest.token,sent,()=>{});t.rooms.detach(guest.token,sent);
+ assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/guest_place_occupied/);
+ t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});
+ const closed=t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}).room!;
+ assert.equal(closed.guestPlace,'closed');
+ assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
+ assert.throws(()=>t.act(other.token,{type:'join',invite:room.invite,intent:randomUUID()}),/guest_place_closed/);
+ assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/room_unavailable/);
+});
+test('Join and Close resolve atomically in both orders; Start removes Guest place eligibility',()=>{
+ for(const order of ['close-first','join-first'] as const){
+  const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token),join=()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),close=()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0});
+  if(order==='close-first'){close();assert.throws(join,/guest_place_closed/);}else{join();assert.throws(close,/guest_place_occupied/);}
+ }
+ const t=setup(),host=t.guest(),room=t.host(host.token);
+ t.act(host.token,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint});
+ t.act(host.token,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});
+ assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/room_started/);
+ assert.throws(()=>t.act(t.guest().token,{type:'join',invite:room.invite,intent:randomUUID()}),/room_started/);
 });
 test('uploaded catalog-identical bytes stay host-shared while a claimed offer stays included',()=>{
  const rooms=new Rooms(()=>1000,undefined,undefined,['super-tilt-bro-pal']);
@@ -118,6 +172,8 @@ test('strict metadata schema rejects uploads, arbitrary fields and malformed val
  assert.ok(parseRoomCommand({...claim,visibility:'unlisted'}));
  assert.equal(parseRoomCommand({...claim,visibility:'private'}),undefined);
  const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));assert.ok(parseRoomCommand({...start,type:'prepareHost'}));
+ const place={type:'guestPlace',requestId,roomId:randomUUID(),place:'closed',expectedVersion:0};assert.ok(parseRoomCommand(place));
+ assert.equal(parseRoomCommand({...place,place:'reserved'}),undefined);assert.equal(parseRoomCommand({...place,expectedVersion:-1}),undefined);
  for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{...start,filename:'private.nes'},{...start,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
 
@@ -167,7 +223,7 @@ test('directory publishes admitted public metadata through reservation, visibili
  t.act(host.token,{type:'confirmCreate',intent});
  const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms;
  assert.equal(latest().length,1);assert.equal(latest()[0].id,provisional.id);
- assert.deepEqual(Object.keys(latest()[0]).sort(),['code','host','id','label','occupancy','romBytes','status','visibility']);
+ assert.deepEqual(Object.keys(latest()[0]).sort(),['code','guestPlace','guestPlaceVersion','host','id','label','occupancy','romBytes','status','visibility']);
  const preview=latest()[0];assert.equal('romBytes' in preview && preview.romBytes,fingerprint.cartridge.bytes);
  const code=provisional.code!;
  assert.equal(t.act(joiner.token,{type:'lookupCode',code}).preview!.id,provisional.id);

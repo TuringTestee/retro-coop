@@ -9,6 +9,7 @@ const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/100
 
 function roomState(room:RoomPreview) {
  if(room.occupancy===0)return room.status==='unavailable'?'0/2 · Room capacity full':'0/2 · Waiting for host';
+ if(room.guestPlace==='closed' && room.status==='waiting')return '1/2 · Guest place closed';
  if(room.status==='reserved')return '2/2 · Guest preparing';
  if(room.status==='reconnecting')return `${room.occupancy}/2 · Reconnecting; Join unavailable`;
  if(room.status==='playing')return `${room.occupancy}/2 · Playing; Join unavailable`;
@@ -35,7 +36,7 @@ export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection
   {publicCode(query)&&live&&!rooms.length&&<p>Unlisted rooms open through invitations.</p>}
   {state.room&&<p>Leave your current room before joining another.</p>}
   <ul className="room-list" aria-label="Public rooms" onBlur={event=>{if(event.relatedTarget&&!event.currentTarget.contains(event.relatedTarget as Node))focusedRoom.current=undefined;}}>
-   {view.rows.map(room=>{const known=room.catalogId?catalogEntry(room.catalogId):undefined,available=live&&!state.room&&room.status==='waiting'&&!state.busy;
+   {view.rows.map(room=>{const known=room.catalogId?catalogEntry(room.catalogId):undefined,available=live&&!state.room&&room.status==='waiting'&&('guestPlace' in room?room.guestPlace==='open':true)&&!state.busy;
     const claim=available&&room.occupancy===0,join=available&&room.occupancy===1;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
      <strong>{room.label}</strong>

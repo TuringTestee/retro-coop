@@ -13,7 +13,7 @@ import type {CatalogId} from './catalog.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
 type PreviewBase = { id:string; label:string; visibility:Visibility; code?:string };
-export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; romBytes?:number; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2};
+export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; romBytes?:number; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:1|2; guestPlace:'open'|'closed'; guestPlaceVersion:number};
 export type EmptyRoomPreview = PreviewBase & {host:'No host'; visibility:'public'; code:string; catalogId:CatalogId; status:'waiting'|'unavailable'; occupancy:0; unavailableReason?:'room_capacity'};
 export type RoomPreview = HumanRoomPreview | EmptyRoomPreview;
 export type RoomView = HumanRoomPreview & { game?:GameView; hostReady?:boolean; guestConnected?:boolean; guestAcquisition?:'checking'|'downloading'|'loading'|'loaded'|'failed'; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chatMembership:string; invite:string; role:RoomRole; slot:1|2; connectionPolicy:ConnectionPolicy; peer:PeerView; guest?:string; guestMembership?:string; reservationUntil?:number; reservationIntent?:string; fingerprint:Fingerprint; matches?:boolean; hostReconnectUntil?:number };
@@ -32,6 +32,7 @@ export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCom
  | { type:'leave'; requestId:string; intent:string }
  | { type:'close'; requestId:string; roomId:string }
  | { type:'kick'; requestId:string; roomId:string; guestMembership:string }
+ | { type:'guestPlace'; requestId:string; roomId:string; place:'open'|'closed'; expectedVersion:number }
  | { type:'rename'; requestId:string; roomId:string; label:string }
  | { type:'nickname'; requestId:string; nickname:string }
  | { type:'visibility'; requestId:string; roomId:string; visibility:Visibility }
@@ -42,6 +43,7 @@ export type RoomEvent = GameEvent | ChatEvent | PeerEvent
  | { type:'result'; requestId:string; ok:true; data:RoomData }
  | { type:'result'; requestId:string; ok:false; error:string; retryAfterMs?:number }
  | { type:'directory'; rooms:RoomPreview[] }
+ | { type:'preview'; preview:RoomPreview }
  | { type:'room'; room:RoomView }
  | { type:'ended'; reason:string };
 
@@ -58,6 +60,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'heartbeat': valid = keys(value,base); break;
   case 'close': valid=keys(value,[...base,'roomId']) && token(value.roomId);break;
   case 'kick': valid=keys(value,[...base,'roomId','guestMembership']) && token(value.roomId) && token(value.guestMembership);break;
+  case 'guestPlace': valid=keys(value,[...base,'roomId','place','expectedVersion']) && token(value.roomId) && (value.place==='open'||value.place==='closed') && Number.isSafeInteger(value.expectedVersion) && (value.expectedVersion as number)>=0;break;
   case 'lookupCode': valid = keys(value,[...base,'code']) && typeof value.code === 'string' && !!publicCode(value.code); break;
   case 'joinCode': valid = keys(value,[...base,'code','intent'],['policy']) && (value.policy===undefined || validPolicy(value.policy)) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent); break;
   case 'claimCode': valid = keys(value,[...base,'code','intent','fingerprint'],['policy','visibility']) && (value.policy===undefined || validPolicy(value.policy)) && (value.visibility===undefined || value.visibility==='public' || value.visibility==='unlisted') && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent) && validFingerprint(value.fingerprint); break;
