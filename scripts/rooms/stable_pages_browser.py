@@ -151,6 +151,7 @@ def main():
             assert host.get_by_test_id('included-status').count() == 0
             assert host.get_by_role('button', name='Resume local game', exact=True).count() == 1
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
+            host.set_viewport_size({'width': 1280, 'height': 720})
             host.route('**/catalog/from-below*.nes', lambda route: route.abort())
             offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/2 · Waiting for host').first
             offer.get_by_role('button', name='Join as host').click()
