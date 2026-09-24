@@ -105,6 +105,11 @@ try:
         replacement.get_by_test_id('room-view').wait_for(state='detached')
         for tab in [host, replacement]:
             tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+        release = replacement.get_by_role('alert').filter(has_text='The host removed you from this room.')
+        release.wait_for(state='visible')
+        replacement.screenshot(path=str(output.with_suffix('.removed.png')), full_page=True)
+        release.get_by_role('button', name='Resume local game', exact=True).click()
+        release.wait_for(state='detached')
         replacement.get_by_role('button', name='Join room', exact=True).click()
         replacement.get_by_test_id('room-status').filter(has_text='closed, unavailable').wait_for()
         assert replacement.get_by_test_id('room-view').count() == 0
@@ -117,6 +122,7 @@ try:
         assert not errors, errors
         result = {'browser':browser.version, 'stale_confirmation_preserves_replacement':True,
                   'current_removal_closes_both_peers_and_microphones':True,
+                  'removed_guest_sees_release_and_resumes_local_game':True,
                   'removed_session_cannot_rejoin':True, 'former_guest_can_rejoin':True,
                   'voice_requires_new_opt_in':True, 'host_worker_timeline_unchanged':writes,
                   'game_muted_in_app':True, 'remote_voice_volume_zero_in_app':True,
