@@ -1,6 +1,6 @@
 """Actual candidate battery restore, IndexedDB upgrade/recovery and preferences."""
 import json
-from lobby_start import start_solo
+from lobby_start import enter_create, start_solo
 
 
 def verify_persistence(browser,url,rom,worker_path,output):
@@ -33,10 +33,10 @@ def verify_persistence(browser,url,rom,worker_path,output):
     def local_data():
         page.get_by_role('button',name='Settings',exact=True).click()
         page.get_by_role('button',name='Local data',exact=True).click()
-        page.get_by_role('button',name='Delete local data',exact=True).wait_for()
-        page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Delete local data').disabled")
+        page.get_by_role('button',name='Delete all local data',exact=True).wait_for()
+        page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Delete all local data').disabled")
         return page.get_by_role('dialog',name='Local data',exact=True)
-    load();assert data()['version']==2 and len(data()['saves'])==2
+    enter_create(page);load();assert data()['version']==3 and len(data()['saves'])==2
     # The actual ten-second application timer writes nonzero SRAM, without test acceleration.
     page.wait_for_function("fileEvents.includes('battery-export')",timeout=15000)
     page.wait_for_function('''()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries'),q=tx.objectStore('batteries').count();q.onsuccess=()=>resolve(q.result===1);tx.oncomplete=()=>db.close()}})''')
@@ -46,7 +46,7 @@ def verify_persistence(browser,url,rom,worker_path,output):
     settings.get_by_label('Display filter').select_option('scanlines');settings.get_by_label('Game volume').fill('37')
     settings.get_by_role('button',name='Change Right',exact=True).click();page.get_by_label('Capture input',exact=True).press('l');settings.get_by_role('button',name='Apply mapping',exact=True).click()
     page.wait_for_function('''()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('preferences'),q=tx.objectStore('preferences').getAll();q.onsuccess=()=>resolve(q.result[0]?.value.controls.keyboard.right.includes('KeyL'));tx.oncomplete=()=>db.close()}})''')
-    page.reload();load()
+    page.reload();enter_create(page);load()
     events=page.evaluate('fileEvents');assert events.index('battery-import')<events.index('frame')
     page.wait_for_selector('.screen.scanlines')
     page.get_by_role('button',name='Settings',exact=True).click()
@@ -70,10 +70,10 @@ def verify_persistence(browser,url,rom,worker_path,output):
     before=data()
     for name,fields in [('saves',{'identity','slot','savedAt','bytes'}),('batteries',{'identity','savedAt','bytes'}),('preferences',{'identity','savedAt','value'})]:
         assert before[name] and all(set(row)==fields for row in before[name])
-    panel.get_by_role('button',name='Delete local data',exact=True).click();panel.get_by_role('button',name='Cancel',exact=True).click();assert data()==before
+    panel.get_by_role('button',name='Delete all local data',exact=True).click();panel.get_by_role('button',name='Cancel',exact=True).click();assert data()==before
     # Damaged metadata alone must disable automatic replacement, even with valid payload bytes.
     page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries','readwrite'),store=tx.objectStore('batteries'),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];row.savedAt=NaN;store.put(row)};tx.oncomplete=()=>{db.close();resolve()}}})""")
-    page.reload();load()
+    page.reload();enter_create(page);load()
     assert 'could not be restored' in page.get_by_test_id('persistence-status').inner_text()
     exports=page.evaluate("fileEvents.filter(type=>type==='battery-export').length")
     frames=int(page.get_by_test_id('frames').inner_text().split()[0])
@@ -83,7 +83,7 @@ def verify_persistence(browser,url,rom,worker_path,output):
     assert page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries'),q=tx.objectStore('batteries').getAll();q.onsuccess=()=>resolve(Number.isNaN(q.result[0].savedAt));tx.oncomplete=()=>db.close()}})""")
     # Corrupt battery/preferences remain exportable and never block ROM admission.
     page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(['batteries','preferences'],'readwrite');for(const name of ['batteries','preferences']){const store=tx.objectStore(name),q=store.getAll();q.onsuccess=()=>{const row=q.result[0];if(name==='batteries'){new Uint8Array(row.bytes)[44]^=1;row.savedAt=Date.now();}else row.value={controls:null};store.put(row)}}tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})''')
-    corrupted=data();page.reload();load()
+    corrupted=data();page.reload();enter_create(page);load()
     page.get_by_test_id('persistence-status').wait_for()
     assert 'could not be restored' in page.get_by_test_id('persistence-status').inner_text()
     assert page.locator('.screen.scanlines').count()==0
@@ -104,8 +104,8 @@ def verify_persistence(browser,url,rom,worker_path,output):
     page.get_by_role('button',name='Retry battery saving',exact=True).click()
     page.wait_for_function('''()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries'),q=tx.objectStore('batteries').getAll();q.onsuccess=()=>resolve(q.result[0] && new Uint8Array(q.result[0].bytes)[76]===0x5a);tx.oncomplete=()=>db.close()}})''')
     # An older active tab must not recreate records after clear-all advances the epoch.
-    second=page.context.new_page();second.on('pageerror',lambda error:errors.append(str(error)));second.goto(url);load(second)
-    panel=local_data();panel.get_by_role('button',name='Delete local data',exact=True).click();panel.get_by_role('button',name='Confirm',exact=True).click()
+    second=page.context.new_page();second.on('pageerror',lambda error:errors.append(str(error)));second.goto(url);enter_create(second);load(second)
+    panel=local_data();panel.get_by_role('button',name='Delete all local data',exact=True).click();panel.get_by_role('button',name='Confirm',exact=True).click()
     page.get_by_text('No local data yet.',exact=True).wait_for()
     cleared=data();assert not cleared['saves'] and not cleared['batteries'] and not cleared['preferences'] and cleared['generation']==1
     second.wait_for_function("document.querySelector('[data-testid=persistence-status]')?.textContent.includes('cleared')",timeout=15000)
@@ -117,7 +117,7 @@ def verify_persistence(browser,url,rom,worker_path,output):
     # Storage denial is a visible recovery state, not a cartridge loading failure.
     denied=browser.new_page(accept_downloads=True);denied.on('pageerror',lambda error:errors.append(str(error)))
     denied.add_init_script("indexedDB.open=()=>{throw new DOMException('denied','SecurityError')}")
-    denied.goto(url);load(denied)
+    denied.goto(url);enter_create(denied);load(denied)
     assert 'could not be restored' in denied.get_by_test_id('persistence-status').inner_text()
     with denied.expect_download() as download:denied.get_by_role('button',name='Export current battery',exact=True).click()
     assert open(download.value.path(),'rb').read()[:8]==b'RCBAT001'
@@ -134,6 +134,7 @@ def verify_replacement(browser,url,rom):
     page=browser.new_page(accept_downloads=True)
     page.add_init_script("window.exports=0;const Base=Worker;window.Worker=class extends Base{postMessage(data,...args){if(data.type==='battery-export')exports++;return super.postMessage(data,...args)}}")
     page.goto(url)
+    enter_create(page)
     def select():
         page.get_by_label('NES cartridge file').set_input_files({'name':'replacement.nes','mimeType':'application/octet-stream','buffer':bytes(rom)})
         start_solo(page,rom)
@@ -148,11 +149,11 @@ def verify_replacement(browser,url,rom):
 
 
 def verify_damaged_timestamp(browser,url,rom):
-    page=browser.new_page(accept_downloads=True);page.goto(url);page.set_input_files('input[type=file]',{'name':'local-data-setup.nes','mimeType':'application/octet-stream','buffer':rom});page.get_by_role('button',name='Settings',exact=True).wait_for()
+    page=browser.new_page(accept_downloads=True);page.goto(url);enter_create(page);page.set_input_files('input[type=file]',{'name':'local-data-setup.nes','mimeType':'application/octet-stream','buffer':rom});page.get_by_role('button',name='Settings',exact=True).wait_for()
     def panel():
         page.get_by_role('button',name='Settings',exact=True).click()
         page.get_by_role('button',name='Local data',exact=True).click()
-        page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Delete local data').disabled")
+        page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Delete all local data').disabled")
         return page.get_by_role('dialog',name='Local data',exact=True)
     dialog=panel();dialog.get_by_role('button',name='Close local data').click();page.get_by_role('button',name='Done',exact=True).click()
     page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction(['batteries','saves'],'readwrite');tx.objectStore('batteries').put({identity:'damaged-record',savedAt:NaN,bytes:new Uint8Array([1,2,3]).buffer});tx.objectStore('saves').put({identity:'unrelated',slot:1,savedAt:1,bytes:new Uint8Array([4,5,6]).buffer});tx.oncomplete=()=>{db.close();resolve()}}})""")

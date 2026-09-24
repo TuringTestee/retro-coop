@@ -1,27 +1,29 @@
-"""Enter local play through the public room flow used by the shipped client."""
+"""Enter local play through the public Create Game flow used by the shipped client."""
 import hashlib
 
 
+def enter_create(page):
+    """Use the same entry button a player uses before adding a new cartridge."""
+    page.get_by_role('button', name='Create game', exact=True).click()
+    page.get_by_test_id('create-game').wait_for()
+
+
 def start_solo(page, rom, *, require_start=False):
-    """Start a new waiting room, or resume the same solo room after a reload."""
+    """Leave Create Game for local play, then start the loaded cartridge."""
     expected = hashlib.sha256(rom).hexdigest()
     page.wait_for_function('hash=>document.querySelector("[data-testid=fingerprint]")?.textContent.includes(hash)', arg=expected)
-    page.get_by_test_id('room-view').wait_for(state='attached')
+    local = page.get_by_role('button', name='Play locally', exact=True)
+    if local.is_visible():
+        local.click()
     if require_start:
-        start = page.get_by_role('button', name='Start game', exact=True)
+        start = page.get_by_role('button', name='Resume', exact=True)
         start.wait_for()
         frames = page.get_by_test_id('frames')
-        assert frames.inner_text() == '0 frames', 'Replacement ran before the new host Start'
+        assert frames.inner_text() == '0 frames', 'Replacement ran before local Resume'
         page.wait_for_timeout(200)
-        assert frames.inner_text() == '0 frames', 'Waiting room advanced before Start'
+        assert frames.inner_text() == '0 frames', 'Loaded game advanced before Resume'
         start.click()
         page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
         return
-    page.wait_for_function('''() => Array.from(document.querySelectorAll('button')).some(button =>
-        !button.disabled && (button.textContent.trim()==='Start game' || button.textContent.trim()==='Resume'))''')
-    start = page.get_by_role('button', name='Start game', exact=True)
-    if start.is_visible():
-        start.click()
-    else:
-        page.get_by_role('button', name='Resume', exact=True).click()
+    page.get_by_role('button', name='Resume', exact=True).click()
     page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")

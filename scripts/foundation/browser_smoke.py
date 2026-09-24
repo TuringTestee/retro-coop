@@ -60,18 +60,23 @@ with room_test_server(root) as url:
         page.goto(url)
         page.on('dialog', lambda dialog: dialog.accept())
         page.screenshot(path=str(output.with_suffix('.before.png')), full_page=True)
+        page.get_by_role('button', name='Create game', exact=True).click()
         def select(data=rom, name='unknown-private-title.nes'):
             page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
         def running():
-            page.get_by_role('button', name='Start game', exact=True).click()
+            if page.get_by_role('button', name='Play locally', exact=True).is_visible():
+                page.get_by_role('button', name='Play locally', exact=True).click()
+            page.get_by_role('button', name='Resume', exact=True).click()
             page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
             page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         def run_fresh_variant(data, name):
             variant_page = browser.new_page()
             try:
                 variant_page.goto(url)
+                variant_page.get_by_role('button', name='Create game', exact=True).click()
                 variant_page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
-                variant_page.get_by_role('button', name='Start game', exact=True).click()
+                variant_page.get_by_role('button', name='Play locally', exact=True).click()
+                variant_page.get_by_role('button', name='Resume', exact=True).click()
                 variant_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
                 variant_page.get_by_text('Game details', exact=True).click()
                 assert hashlib.sha256(data).hexdigest() in variant_page.locator('[data-testid=fingerprint]').inner_text()
@@ -79,7 +84,7 @@ with room_test_server(root) as url:
                 variant_page.close()
         def fingerprint():
             return page.locator('[data-testid=fingerprint]').inner_text()
-        # The keyboard picker enters a waiting room; Host Start then begins local frames.
+        # The keyboard picker loads a game on Create Game, then Play locally starts frames.
         picker_result = {'browser':browser.version,'channel':'chrome' if args.chrome else 'default-headless-shell','protocolEvents':[]}
         # Python's listener subscription is sent without awaiting its protocol reply.
         # Confirm native-dialog interception before the one user action; keep testing
@@ -88,7 +93,7 @@ with room_test_server(root) as url:
         picker_protocol.on('Page.fileChooserOpened', lambda event: picker_result['protocolEvents'].append(event))
         picker_protocol.send('Page.enable', {'enableFileChooserOpenedEvent':True})
         try:
-            page.get_by_role('button',name='Choose NES file',exact=True).focus()
+            page.get_by_role('button',name='Add NES file',exact=True).focus()
             with page.expect_file_chooser() as chooser:
                 picker_protocol.send('Page.setInterceptFileChooserDialog', {'enabled':True})
                 picker_result['interceptionAcknowledged'] = True
@@ -185,7 +190,7 @@ with room_test_server(root) as url:
         # NES 2.0 and a >8 MiB file are not silently excluded by the application.
         large = bytearray(rom); large[7] = 8; large.extend(bytes(9*1024*1024-len(large)))
         run_fresh_variant(large,'large-nes2.nes')
-        # Drag/drop enters the same host room and explicit Start path.
+        # Drag/drop replaces the local cartridge and still needs explicit Resume.
         transfer = page.evaluate_handle('''bytes=>{const dt=new DataTransfer();dt.items.add(new File([new Uint8Array(bytes)],'drag-private.nes'));return dt}''',list(rom))
         page.locator('.panel').dispatch_event('drop',{'dataTransfer':transfer}); running()
         assert old_hash in fingerprint()
@@ -204,8 +209,10 @@ with room_test_server(root) as url:
         audio_page.add_init_script('''const resume=AudioContext.prototype.resume; window.denySound=true;
           AudioContext.prototype.resume=function(){return denySound ? Promise.reject(new Error('denied')) : resume.call(this)};''')
         audio_page.goto(url)
+        audio_page.get_by_role('button', name='Create game', exact=True).click()
         audio_page.set_input_files('input[type=file]', {'name':'audio-check.nes','mimeType':'application/octet-stream','buffer':rom})
-        audio_page.get_by_role('button', name='Start game', exact=True).click()
+        audio_page.get_by_role('button', name='Play locally', exact=True).click()
+        audio_page.get_by_role('button', name='Resume', exact=True).click()
         audio_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
         assert audio_page.get_by_role('button',name='Retry sound').is_visible()
         audio_page.evaluate('denySound=false')
@@ -225,7 +232,7 @@ with room_test_server(root) as url:
         rewind_worker=verify_rewind_worker(browser,url,rom,worker_path)
         rewind_ui=verify_rewind_ui(browser,url,rom,output)
         persistence=verify_persistence(browser,url,rom,worker_path,output)
-        result = {'rewind_worker':rewind_worker,'rewind_ui':rewind_ui,'persistence':persistence,'saves':saves,'state':state,'battery':battery,'result':'pass','settings':settings_proof,'disconnected_startup':disconnected_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_host_then_start':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
+        result = {'rewind_worker':rewind_worker,'rewind_ui':rewind_ui,'persistence':persistence,'saves':saves,'state':state,'battery':battery,'result':'pass','settings':settings_proof,'disconnected_startup':disconnected_proof,'browser':browser.version,'duration_seconds':round(time.monotonic()-started,2),'audio':proof,'audio_denial_does_not_block_and_retry_recovers':True,'input_changed_canvas':True,'paused_canvas_stable':True,'cancel_and_blur_preserve_previous':True,'latest_selection_wins':True,'invalid_header_and_mapper_preserve_previous':True,'chooser_dismissal_preserved':True,'exact_rom_and_core_sha256':True,'unknown_mappers_loaded':[0,1,2,3,4,7],'nes2_over_8mib_loaded':True,'picker_and_drop_enter_local_play':True,'mobile_no_overflow':True,'page_errors':errors,'requests':requests,'coordinator_url':page.locator('main').get_attribute('data-coordinator')}
         output.write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result,indent=2))
         browser.close()

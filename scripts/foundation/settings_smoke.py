@@ -1,6 +1,7 @@
-"""Real-browser controls and presentation checks on the built room client."""
+"""Real-browser controls and presentation checks on the built client."""
 import hashlib
 from pathlib import Path
+from lobby_start import enter_create, start_solo
 
 
 def verify_settings(browser, url, rom, output):
@@ -13,8 +14,9 @@ def verify_settings(browser, url, rom, output):
       AudioContext.prototype.createGain=function(){const node=gain.call(this);gameGains.push(node);return node};
     ''')
     page.goto(url)
+    enter_create(page)
     page.set_input_files('input[type=file]', {'name':'controls-fixture.nes','mimeType':'application/octet-stream','buffer':rom})
-    page.get_by_role('button',name='Start game',exact=True).click()
+    start_solo(page,rom)
     count = "Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])"
     page.wait_for_function(count+'>10')
     page.get_by_role('button',name='Settings',exact=True).click()
@@ -138,8 +140,9 @@ def verify_disconnected_load(browser, url, rom):
       navigator.getGamepads=()=>connected ? [{id:'Startup controller',index:0,connected:true,buttons:[],axes:[0,0]}] : [];
     """)
     page.goto(url)
+    enter_create(page)
     page.set_input_files('input[type=file]',{'name':'setup.nes','mimeType':'application/octet-stream','buffer':rom})
-    page.get_by_role('button',name='Start game',exact=True).click()
+    start_solo(page,rom)
     page.get_by_role('button',name='Pause',exact=True).wait_for()
     page.get_by_role('button',name='Pause',exact=True).click()
     page.get_by_role('button',name='Settings',exact=True).click()
@@ -156,7 +159,6 @@ def verify_disconnected_load(browser, url, rom):
         page.wait_for_function("document.querySelector('[data-testid=fingerprint]')!==null")
         expected=hashlib.sha256(candidate).hexdigest()
         page.wait_for_function('hash=>document.querySelector("[data-testid=fingerprint]").textContent.includes(hash)',arg=expected)
-        page.get_by_role('button',name='Start game',exact=True).click()
         assert page.get_by_role('button',name='Resume',exact=True).is_enabled(), 'Disconnected load must remain paused'
         assert page.evaluate(count)==0, 'Disconnected load must not schedule any frame'
         page.get_by_role('button',name='Resume',exact=True).click()

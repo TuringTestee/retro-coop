@@ -80,6 +80,8 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
             rom = (site / 'generated/diagnostic.nes').read_bytes()
 
             def load(page, expected, *, existing=False):
+                if not existing:
+                    page.get_by_role('button', name='Create game', exact=True).click()
                 page.set_input_files('input[type=file]', {
                     'name': 'private-original.nes', 'mimeType': 'application/octet-stream',
                     'buffer': rom})
@@ -87,13 +89,14 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
                     page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded. Preparing shared play')")
                     page.get_by_role('button', name='Resume', exact=True).click()
                 else:
-                    start = page.get_by_role('button', name='Start game', exact=True)
+                    start = page.get_by_role('button', name='Play locally', exact=True)
                     start.wait_for()
                     frames = page.get_by_test_id('frames')
-                    assert frames.inner_text() == '0 frames', 'Waiting room advanced before Host Start'
+                    assert frames.inner_text() == '0 frames', 'Create Game advanced before local play'
                     page.wait_for_timeout(200)
-                    assert frames.inner_text() == '0 frames', 'Waiting room advanced before Host Start'
+                    assert frames.inner_text() == '0 frames', 'Create Game advanced before local play'
                     start.click()
+                    page.get_by_role('button', name='Resume', exact=True).click()
                 page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
                 page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
                 observed = page.get_by_test_id('fingerprint').text_content()

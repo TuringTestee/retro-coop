@@ -1,6 +1,6 @@
 """Real IndexedDB transactions and visible manual-slot workflows, using actual WASM."""
 import json
-from lobby_start import start_solo
+from lobby_start import enter_create, start_solo
 
 
 def verify_saves(browser,url,rom,output):
@@ -19,8 +19,11 @@ def verify_saves(browser,url,rom,output):
       const put=IDBObjectStore.prototype.put;
       IDBObjectStore.prototype.put=function(...args){if(window.throwNextSave){window.throwNextSave=false;throw new DOMException('quota','QuotaExceededError')}const request=put.apply(this,args);if(abortNextSave){abortNextSave=false;const tx=this.transaction;request.addEventListener('success',()=>tx.abort())}return request};
     ''')
-    def load():
-        page.get_by_label('NES cartridge file').set_input_files({'name':'private-slots.nes','mimeType':'application/octet-stream','buffer':rom})
+    def load(saved=False):
+        if saved:
+            page.get_by_role('button',name='private-slots',exact=False).click()
+        else:
+            page.get_by_label('NES cartridge file').set_input_files({'name':'private-slots.nes','mimeType':'application/octet-stream','buffer':rom})
         start_solo(page,rom)
     def open_saves(wait_for_slots=True):
         page.get_by_role('button',name='Saves',exact=True).click()
@@ -30,7 +33,7 @@ def verify_saves(browser,url,rom,output):
         page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Saved in Slot')")
     def rows():
         return page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves'),q=tx.objectStore('saves').getAll();q.onsuccess=()=>resolve(q.result.map(x=>({...x,bytes:Array.from(new Uint8Array(x.bytes))})));tx.oncomplete=()=>db.close()};r.onerror=()=>reject(r.error)})''')
-    page.goto(url);load();open_saves()
+    page.goto(url);enter_create(page);load();open_saves()
     dialog=page.get_by_role('dialog',name='Saves on this device')
     page.screenshot(path=str(output.with_suffix('.saves-before.png')),full_page=False)
     frames_before=page.locator('[data-testid=frames]').inner_text()
@@ -71,9 +74,10 @@ def verify_saves(browser,url,rom,output):
     with page.expect_download() as download:
         dialog.get_by_role('button',name='Retry export',exact=True).click()
     assert open(download.value.path(),'rb').read()==bytes(first[0]['bytes'])
-    # Persisted data survives reload, but ROM must be selected again.
-    page.reload();assert page.get_by_role('button',name='Choose NES file',exact=True).is_visible()
-    load();page.evaluate('holdDbOpen=true');open_saves(False)
+    # A saved game and its save slot are both available after a reload.
+    page.reload();enter_create(page);assert page.get_by_role('button',name='Add NES file',exact=True).is_visible()
+    assert page.get_by_label('NES cartridge file').evaluate('input=>input.files.length')==0
+    load(saved=True);page.evaluate('holdDbOpen=true');open_saves(False)
     page.wait_for_function('!!window.heldDbOpen')
     assert dialog.get_by_role('button',name='Save current point',exact=True).is_disabled()
     assert dialog.get_by_role('button',name='Import save',exact=True).is_disabled()
@@ -142,18 +146,7 @@ def verify_saves(browser,url,rom,output):
     assert dialog.get_by_role('button',name='Load Slot 1',exact=True).count()==0
     dialog.get_by_role('button',name='Close saves',exact=True).click()
     # An unvalidated profile has an explicit save limitation, not a loading gate.
-    # Delay closing the old solo room so a stale Resume stays visible while the
-    # replacement loads. The test must wait for the new room's explicit Start.
-    page.evaluate('''() => {
-      const send = WebSocket.prototype.send;
-      WebSocket.prototype.send = function(data) {
-        if (typeof data === 'string' && JSON.parse(data).type === 'close') {
-          setTimeout(() => send.call(this, data), 2000);
-          return;
-        }
-        return send.call(this, data);
-      };
-    }''')
+    # A replacement still waits for explicit Resume and keeps save failure visible.
     variant=bytearray(rom);variant[4]=2;variant[16+16384:16+16384]=rom[16:16+16384];variant[6]=0xd2;variant[7]=0x90
     page.get_by_label('NES cartridge file').set_input_files({'name':'unvalidated.nes','mimeType':'application/octet-stream','buffer':bytes(variant)})
     start_solo(page,variant,require_start=True)
@@ -163,5 +156,5 @@ def verify_saves(browser,url,rom,output):
     assert len(rows())==1
     assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result={'stale_delete_preserves_new_record_and_requires_fresh_confirmation':True,'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'reload_requires_rom_and_retains_save':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'no_rom_record_or_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
+    result={'stale_delete_preserves_new_record_and_requires_fresh_confirmation':True,'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'saved_rom_and_save_reused_after_reload':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'local_play_uses_no_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
     page.close();return result
