@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check TURN rendering and an authenticated local coturn allocation."""
+"""Check TURN rendering and optionally prove an authenticated local allocation."""
 
 import argparse
 import socket
@@ -73,7 +73,8 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
                         )
 
                     valid = allocation("a" * 64)
-                    if valid.returncode != 0 or "Received relay addr: 34.100.1.2:" not in valid.stdout or "clnet_allocate: rtv=0" not in valid.stdout:
+                    if (valid.returncode != 0 or "Received relay addr: 34.100.1.2:" not in valid.stdout
+                            or "clnet_allocate: rtv=0" not in valid.stdout):
                         raise AssertionError("Authenticated TURN allocation did not return the configured public relay address")
                     invalid = allocation("b" * 64)
                     if invalid.returncode == 0 or "Received relay addr:" in invalid.stdout:
@@ -81,4 +82,9 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
             finally:
                 process.terminate()
                 process.wait(timeout=5)
-print("TURN render passed (secret handling, quotas, relay ports and local startup" + (", authenticated allocation and wrong-secret rejection" if args.turn_client else "") + ").")
+checks = ["secret handling", "quotas", "relay ports"]
+if args.turnserver:
+    checks.append("local startup")
+if args.turn_client:
+    checks.extend(["authenticated allocation", "wrong-secret rejection"])
+print("TURN render passed (" + ", ".join(checks) + ").")
