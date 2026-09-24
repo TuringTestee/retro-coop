@@ -1,7 +1,9 @@
 import type {RoomRole} from './rooms.ts';
 import {object,keys,token,integer,sha256} from './protocol-validation.ts';
 /** One protocol owner for frame discipline, independent of local file admission. */
-export const gameplayLimits={delayMin:3,delayMax:8,delayDefault:6,inputWindow:120,hashInterval:120,packetBytes:512,consentMs:15_000,barrierMs:10_000,stallMs:1000} as const;
+// A short background scheduling gap is not a broken peer; allow it to catch up
+// while keeping a bounded wait for genuinely missing input or worker progress.
+export const gameplayLimits={delayMin:3,delayMax:8,delayDefault:6,inputWindow:120,hashInterval:120,packetBytes:512,consentMs:15_000,barrierMs:10_000,stallMs:3000} as const;
 export type GameRole=RoomRole;
 const reasons=['focus','device','network','mismatch','cancelled','user'] as const;
 export type GameReason=typeof reasons[number];

@@ -195,6 +195,7 @@ try:
     h.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
     before=h.evaluate('proof.frameCount')
     h.wait_for_function('frames=>proof.frameCount>=frames+60',arg=before,timeout=15000,polling=50)
+    h.evaluate("const until=performance.now()+1200; while(performance.now()<until){}")
     assert all(tab.evaluate("proof.room.game.status==='playing'") for tab in [h,g])
     h.get_by_role('button',name='Pause',exact=True).click()
    else:h.get_by_role('button',name='Pause',exact=True).click()
