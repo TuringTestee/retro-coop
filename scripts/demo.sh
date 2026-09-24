@@ -22,7 +22,7 @@ def available(preferred, reserved):
         raise SystemExit(f'Invalid demo port: {preferred}')
     if not 1 <= start <= 65535:
         raise SystemExit(f'Invalid demo port: {preferred}')
-    for port in range(start, min(start + 100, 65535) + 1):
+    for port in range(start, 65536):
         if port in reserved:
             continue
         with socket.socket() as probe:
@@ -32,7 +32,7 @@ def available(preferred, reserved):
             except OSError:
                 continue
         return port
-    raise SystemExit(f'No free local port near {start}')
+    raise SystemExit(f'No free local port from {start} through 65535')
 
 client = available(sys.argv[1], set())
 coordinator = available(sys.argv[2], {client})
@@ -48,6 +48,7 @@ fi
 
 coordinator_pid=
 client_pid=
+demo_rom_dir=
 cleanup() {
   trap - EXIT HUP INT TERM
   for pid in "$client_pid" "$coordinator_pid"; do
@@ -69,6 +70,7 @@ cleanup() {
   for pid in "$client_pid" "$coordinator_pid"; do
     if [ -n "$pid" ]; then wait "$pid" 2>/dev/null || true; fi
   done
+  if [ -n "$demo_rom_dir" ]; then rm -rf -- "$demo_rom_dir"; fi
 }
 on_signal() { status=$1; cleanup; exit "$status"; }
 trap cleanup EXIT
@@ -76,8 +78,14 @@ trap 'on_signal 129' HUP
 trap 'on_signal 130' INT
 trap 'on_signal 143' TERM
 
+if [ -n "${COORDINATOR_ROM_DIR:-}" ]; then
+  coordinator_rom_dir=$COORDINATOR_ROM_DIR
+else
+  demo_rom_dir=$(mktemp -d "${TMPDIR:-/tmp}/retro-coop-demo-roms.XXXXXX")
+  coordinator_rom_dir=$demo_rom_dir
+fi
 coordinator_log="/tmp/retro-coop-coordinator-$coordinator_port.log"
-COORDINATOR_PORT="$coordinator_port" COORDINATOR_ORIGINS="http://127.0.0.1:$client_port" COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0 COORDINATOR_REQUIRE_CUSTOM_UPLOAD=1 node apps/coordinator/src/main.ts > "$coordinator_log" 2>&1 &
+COORDINATOR_PORT="$coordinator_port" COORDINATOR_ORIGINS="http://127.0.0.1:$client_port" COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0 COORDINATOR_REQUIRE_CUSTOM_UPLOAD=1 COORDINATOR_ROM_DIR="$coordinator_rom_dir" node apps/coordinator/src/main.ts > "$coordinator_log" 2>&1 &
 coordinator_pid=$!
 python3 - "$coordinator_port" "$coordinator_log" <<'PY'
 import sys
