@@ -41,7 +41,7 @@ try:
    h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(h).get_by_label('Connection privacy',exact=True).input_value()==policy
    return h,h.get_by_label('Room invitation',exact=True).input_value()
   def join(invite,policy='standard',early_loss=False):
-   g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.get_by_text('Host-shared NES',exact=False).wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g
+   g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.locator('.room-panel.invitation').get_by_text('Host-shared NES',exact=False).wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g
   def connected(h,g,route):
    try:
     for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peer.status==='connected' && document.querySelector('[data-testid=connection-status]')?.textContent?.includes('Route: '+r)",arg=route,timeout=25000)
@@ -114,10 +114,12 @@ try:
   denied.get_by_role('button',name='Settings',exact=True).click();assert denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).input_value()=='standard'
   denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).select_option('relay')
   connected(denied,waiting,'relay')
-  assert open_connection(denied).get_by_label('Connection privacy',exact=True).input_value()=='relay'
+  assert denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).input_value()=='relay'
   assert 'Paused' in denied.get_by_test_id('player-status').inner_text()
   denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).scroll_into_view_if_needed()
   denied.screenshot(path=str(out.with_suffix('.settings.png')),full_page=True)
+  denied.get_by_role('button',name='Back',exact=True).click()
+  assert open_connection(denied).get_by_label('Connection privacy',exact=True).input_value()=='relay'
   # Controlled application-probe loss verifies recovery; it is NOT a reproduction of #53's unknown CI cause.
   # Preserve the existing successful policy-change workload above, then add a separate failure transition.
   open_connection(waiting).get_by_label('Connection privacy',exact=True).select_option('standard')
