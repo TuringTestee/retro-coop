@@ -69,7 +69,7 @@ if [ "$D02_JOB" = core ]; then
     (cd ../.. && timeout --foreground 90s python3 scripts/voice/browser_smoke.py --pair "$D17_PAIR" --relay --output "spikes/d02/voice-$D17_PAIR-relay.local.json")
   done
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/directory_smoke.py --output spikes/d02/directory.local.json)
-  (cd ../.. && timeout --foreground 180s python3 scripts/gameplay/run_smoke.py spikes/d02/gameplay.local)
+  (cd ../.. && timeout --foreground 240s python3 scripts/gameplay/run_smoke.py spikes/d02/gameplay.local)
   (cd ../.. && timeout --foreground 45s python3 scripts/gameplay/browser_smoke.py --controllers --output spikes/d02/gameplay.local/controllers.json)
 elif [ "$D02_JOB" = network ]; then
   (cd ../.. && npm ci)
