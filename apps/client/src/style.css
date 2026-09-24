@@ -28,7 +28,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 
 .controller-disclosure,.chat-disclosure,.voice-disclosure{margin:6px 0}.controller-mode{margin:4px 0;padding:6px;border:1px solid #52536e;border-radius:10px}.controller-mode h3{margin:0}.controller-mode label{display:grid;gap:3px;margin:4px 0}.controller-mode select{width:100%;max-width:100%;font:inherit;background:#303146;color:inherit;border:1px solid #77758d;border-radius:6px;padding:5px}.controller-mode fieldset{min-width:0;margin:4px 0;padding:6px;border:1px solid #64617c;border-radius:8px}.controller-mode p{margin:4px 0;font-size:12px;overflow-wrap:anywhere}
 
-.release-notice{position:fixed;z-index:12;top:56px;left:50%;transform:translateX(-50%);width:min(500px,calc(100vw - 24px));background:#242638;border:2px solid #b5a3ff;border-radius:10px;padding:12px 16px;box-shadow:0 12px 40px #000b}.release-notice p{margin:0 0 8px}.release-notice button{margin:0}
+.release-notice{background:#242638;border:2px solid #b5a3ff;border-radius:10px;padding:16px;max-width:650px;width:100%;justify-self:center;align-self:start}.release-notice p{margin:0 0 8px}.release-notice button{margin:0}
 
 /* Directory, waiting room, and play each own one clear viewport. */
 .discovery{grid-template-rows:auto auto auto minmax(0,1fr)}
@@ -57,3 +57,6 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 @media(max-width:600px){.tooling>.tool-page{padding:12px}}
 
 @media(max-width:760px){.playing.with-room{height:auto;min-height:100dvh;overflow:visible;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.playing.with-room>.panel{grid-column:1;grid-row:2;min-height:350px}.playing.with-room>.room-panel{grid-column:1;grid-row:3;max-height:none;overflow:visible}.playing.with-room .screen{height:min(55dvh,420px)}}
+.released{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+.released>.panel,.released>.room-panel,.released>.directory-panel,.released>.create-game,.released>.catalog-status,.released>.tool-page{display:none!important}
+.released>.release-notice{grid-column:1;grid-row:2}

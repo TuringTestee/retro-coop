@@ -2,13 +2,14 @@ import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceState} from './voice.ts';
 import {ConnectionPolicyControl,readConnectionPolicy,rememberConnectionPolicy} from './ConnectionPolicy.tsx';
 import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { LocalPlayer, type PlayerState } from './player.ts';
 import { neutralDefaults } from './cartridge.ts';
 import { clientConfig } from './config.ts';
 import './style.css';
 import {RoomPanel, type RoomPanelHandle} from './RoomPanel.tsx';
+import type {RoomState} from './room-client.ts';
 import {LocalData} from './LocalData.tsx';
 import {usePreferences} from './preferences.ts';
 import {fileIdentity} from '../../../packages/contracts/src/fingerprint.ts';
@@ -24,7 +25,7 @@ import {gameLibrary,savedCandidate,candidateStillStored,type GameLibraryEntry,ty
 import {CreateGame,type CreateSelection} from './CreateGame.tsx';
 import {downloadCatalogEntry} from './catalog-download.ts';
 import {catalogAvailability} from 'virtual:catalog';
-import type {Fingerprint,Visibility,RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 
 function App() {
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
@@ -32,13 +33,14 @@ function App() {
  const panel = useRef<HTMLElement>(null);
  const [tool,setTool]=useState<'settings'|'localData'|'saves'|'rewind'|'help'|null>(null),[returnSettings,setReturnSettings]=useState(false),[persistenceMessage,setPersistenceMessage]=useState('');
  const toolReturnFocus=useRef<HTMLElement|null>(null);
+ const toolFocus=useRef<'heading'|'settings-data'|'return'|null>(null);
  const [controls,setControls] = useState<Controls>(defaults);
  const [filter,setFilter] = useState<'nearest'|'scanlines'>('nearest'), [volume,setVolume] = useState(1);
  const [fullscreen,setFullscreen] = useState(false), [fullscreenIssue,setFullscreenIssue] = useState('');
  useEffect(()=>{const changed=()=>setFullscreen(!!document.fullscreenElement);document.addEventListener('fullscreenchange',changed);return ()=>document.removeEventListener('fullscreenchange',changed);},[]);
- useEffect(()=>{if(tool)requestAnimationFrame(()=>document.querySelector<HTMLElement>('.tool-page h2')?.focus());},[tool]);
- const openTool=(next:NonNullable<typeof tool>,fromSettings=false)=>{if(!fromSettings)toolReturnFocus.current=document.activeElement as HTMLElement;setReturnSettings(fromSettings);setTool(next);};
- const backTool=()=>{if(tool==='localData'&&returnSettings){setTool('settings');requestAnimationFrame(()=>document.querySelector<HTMLElement>('.settings button[data-local-data]')?.focus());return;}setTool(null);requestAnimationFrame(()=>{const target=toolReturnFocus.current;toolReturnFocus.current=null;if(target?.isConnected)target.focus();else document.querySelector<HTMLElement>('header button')?.focus();});};
+ useLayoutEffect(()=>{const next=toolFocus.current;toolFocus.current=null;if(next==='heading')document.querySelector<HTMLElement>('.tool-page h2')?.focus();else if(next==='settings-data')document.querySelector<HTMLElement>('.settings button[data-local-data]')?.focus();else if(next==='return'){const target=toolReturnFocus.current;toolReturnFocus.current=null;if(target?.isConnected)target.focus();else document.querySelector<HTMLElement>('header button')?.focus();}},[tool]);
+ const openTool=(next:NonNullable<typeof tool>,fromSettings=false)=>{if(!fromSettings)toolReturnFocus.current=document.activeElement as HTMLElement;toolFocus.current='heading';setReturnSettings(fromSettings);setTool(next);};
+ const backTool=()=>{if(tool==='localData'&&returnSettings){toolFocus.current='settings-data';setTool('settings');return;}toolFocus.current='return';setTool(null);};
  const changeControls=(value:Controls)=>{setControls(value);runtime.current?.configureControls(value);preferences.remember({controls:value,filter,volume});};
  const toggleFullscreen=async()=>{try{setFullscreenIssue('');if(document.fullscreenElement) await document.exitFullscreen();else await panel.current?.requestFullscreen();}catch{setFullscreenIssue('Fullscreen was declined. You can keep playing in this window.');}};
  const [identity] = useState(neutralDefaults);
@@ -47,7 +49,7 @@ function App() {
  const importFile=useRef<File|null>(null),previewed=useRef('');
  const [creating,setCreating]=useState(location.pathname==='/create'),[createStatus,setCreateStatus]=useState('Choose a game to continue.'),[claimFailed,setClaimFailed]=useState(false),[createSelection,setCreateSelection]=useState<CreateSelection>(),[selecting,setSelecting]=useState(false),[visibility,setVisibility]=useState<Visibility>('public');
  const creatingRoute=useRef(location.pathname==='/create');
- const [roomState,setRoomState]=useState<{directory?:RoomPreview[];status:string;busy:boolean;hostFailure?:boolean}>({status:'',busy:false});
+ const [roomState,setRoomState]=useState<RoomState>({status:'',busy:false,connected:false});
  const createGeneration=useRef(0),selectionGeneration=useRef(0),createPending=useRef<{file:File;entry:GameLibraryEntry;saved?:SavedCandidate;fresh?:boolean;current:()=>boolean;sawLoading:boolean}|undefined>(undefined);
  const downloadAbort=useRef<AbortController|undefined>(undefined);
  const [voice,setVoice]=useState<VoiceState>();
@@ -78,10 +80,11 @@ function App() {
  useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
  const choose = () => { picker.current!.value = ''; picker.current!.click(); };
  const invitationRequested=new URLSearchParams(invitationHash.slice(1)).has('invite');
+ useEffect(()=>{if(roomState.releaseNotice)setTool(null);},[roomState.releaseNotice]);
  const showDiscovery=!creating&&(browsing||(!roomView&&(invitationRequested||!state.loaded))),showRoom=!!roomView&&!roomView.started&&!browsing&&!creating,known=state.fingerprint?catalogId(state.fingerprint):undefined;
  const inviting=showDiscovery&&!roomView&&invitationRequested;
- return <main className={`${creating?'creating':showDiscovery?'discovery':showRoom?'waiting-room':'playing'}${browsing?' browsing':''}${inviting?' inviting':''}${state.shared?' shared-session':''}${roomView?.started?' with-room':''}${tool?' tooling':''}`} data-coordinator={clientConfig.coordinatorUrl}>
-  <header><a href="/" className="brand">RETRO COOP</a><span data-testid="guest">{guest}</span>{tool?<button onClick={backTool}>Back</button>:<>{!creating&&!inviting&&(roomView||state.loaded)&&<button onClick={()=>setBrowsing(value=>!value)}>{browsing?roomView?'Return to room':'Return to game':'Public rooms'}</button>}<button onClick={()=>openTool('settings')}>Settings</button></>}</header>
+ return <main className={`${creating?'creating':showDiscovery?'discovery':showRoom?'waiting-room':'playing'}${browsing?' browsing':''}${inviting?' inviting':''}${state.shared?' shared-session':''}${roomView?.started?' with-room':''}${tool?' tooling':''}${roomState.releaseNotice?' released':''}`} data-coordinator={clientConfig.coordinatorUrl}>
+  <header><span className="brand">RETRO COOP</span><span data-testid="guest">{guest}</span>{tool?<button onClick={backTool}>Back</button>:<>{!creating&&!inviting&&(roomView||state.loaded)&&<button onClick={()=>setBrowsing(value=>!value)}>{browsing?roomView?'Return to room':'Return to game':'Public rooms'}</button>}<button onClick={()=>openTool('settings')}>Settings</button></>}</header>
   <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => {const file=event.target.files?.[0];if(file){if(creating)addCreate(file);else load(file);}}}/>
   <RoomPanel showDiscovery={showDiscovery} onChoose={choose} onCreate={enterCreate} onBrowse={()=>setBrowsing(true)} onInvitationDismiss={()=>setInvitationHash('')} onAcquired={load} selectionLoading={state.loading} ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onRoomChange={syncRoom} onState={setRoomState}/>
   {creating&&<CreateGame selected={createSelection} loading={state.loading||selecting} busy={roomState.busy} status={roomState.busy||roomState.hostFailure?roomState.status:createStatus} claimFailed={claimFailed} persistenceMessage={persistenceMessage} visibility={visibility} setVisibility={setVisibility} policy={policy} setPolicy={changePolicy} offers={roomState.directory??[]} onSelect={entry=>void selectCreate(entry)} onAdd={()=>{if(rooms.current?.beforeSelection()){setCreateStatus('Choose a NES file, or retry Create room.');choose();}}} onDrop={file=>file?addCreate(file):(rooms.current?.beforeSelection(),setCreateStatus('Add one NES file at a time.'))} onCreate={()=>void createRoom()} onBack={leaveCreate} onCancel={()=>{if(roomState.busy){rooms.current?.cancelCreation();setCreateStatus('Room creation cancelled. Retry when ready.');}else{++createGeneration.current;downloadAbort.current?.abort();createPending.current=undefined;setSelecting(false);runtime.current?.cancel();setCreateStatus('Cancelled. Select a game to retry.');}}} onLocal={()=>{creatingRoute.current=false;setCreating(false);setBrowsing(false);if(location.pathname==='/create')history.pushState(null,'','/');}}/>}
