@@ -13,15 +13,15 @@ shutil.rmtree(sys.argv[1])
 PY' EXIT HUP INT TERM
 export KUBECONFIG="$temporary/kubeconfig"
 
+if [ -n "$(gcloud compute instances list --project="$project" --filter='name=retro-coop-staging-turn' --format='value(name)')" ]; then
+  gcloud compute instances delete retro-coop-staging-turn --project="$project" --zone="$zone" --quiet
+fi
 gcloud container clusters get-credentials cache-guard-test --project="$project" --region="$region" --quiet >/dev/null
 kubectl delete namespace retro-coop-staging --ignore-not-found=true --wait=true --timeout=10m
 test -z "$(kubectl get namespace retro-coop-staging -o name --ignore-not-found)" || {
   echo 'Staging namespace still exists; stop before releasing its load-balancer IP.' >&2; exit 1;
 }
 
-if [ -n "$(gcloud compute instances list --project="$project" --filter='name=retro-coop-staging-turn' --format='value(name)')" ]; then
-  gcloud compute instances delete retro-coop-staging-turn --project="$project" --zone="$zone" --quiet
-fi
 for name in retro-coop-staging-turn retro-coop-staging-ssh; do
   if [ -n "$(gcloud compute firewall-rules list --project="$project" --filter="name=$name" --format='value(name)')" ]; then
     gcloud compute firewall-rules delete "$name" --project="$project" --quiet
