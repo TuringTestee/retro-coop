@@ -5,7 +5,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--output', default='/tmp/guest-place.json')
@@ -15,9 +15,13 @@ output = Path(args.output)
 output.parent.mkdir(parents=True, exist_ok=True)
 rom = (root / 'apps/client/dist/generated/diagnostic.nes').read_bytes()
 started = time.monotonic()
+def stage(name):
+    print(f'guest-place: {name} at {time.monotonic() - started:.2f}s', flush=True)
+
 service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=root, stdout=subprocess.PIPE, text=True)
 try:
     url = json.loads(service.stdout.readline())['url']
+    stage('server ready')
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
         errors = []
@@ -25,6 +29,7 @@ try:
         guest = browser.new_page(viewport={'width': 1280, 'height': 800})
         for tab in [host, guest]:
             tab.on('pageerror', lambda error: errors.append(str(error)))
+            tab.set_default_timeout(8000)
         host.add_init_script('''
           window.placeProbe={dropRoom:false,dropAck:false,requestId:null,blocked:[],sockets:[]};
           const Native=WebSocket;
@@ -54,6 +59,7 @@ try:
         host.set_input_files('input[type=file]', {'name': 'guest-place.nes', 'mimeType': 'application/octet-stream', 'buffer': rom})
         host.get_by_role('button', name='Create room', exact=True).click()
         host.get_by_role('button', name='Close place', exact=True).wait_for(timeout=20000)
+        stage('host room ready')
         invite = host.get_by_label('Room invitation', exact=True).input_value()
         code = host.locator('#room-heading').inner_text().split('·')[-1].strip()
 
@@ -64,6 +70,7 @@ try:
         host.get_by_role('button', name='Retry Close', exact=True).wait_for(timeout=12000)
         assert host.get_by_text('Guest place: Open', exact=True).count() == 1
         host.screenshot(path=str(output.with_suffix('.lost-response.png')))
+        stage('lost room and acknowledgement observed')
         host.evaluate('placeProbe.dropRoom=false;placeProbe.dropAck=false')
         host.get_by_role('button', name='Retry Close', exact=True).click()
         host.get_by_text('Guest place: Closed', exact=True).wait_for()
@@ -78,8 +85,10 @@ try:
         guest.locator('.room-panel.invitation').get_by_text('Guest place closed').first.wait_for()
         assert guest.get_by_role('button', name='Join room', exact=True).count() == 0
 
+        expect(host.get_by_role('button', name='Open place', exact=True)).to_be_enabled(timeout=8000)
         host.get_by_role('button', name='Open place', exact=True).click()
         guest.get_by_role('button', name='Join room', exact=True).wait_for()
+        expect(host.get_by_role('button', name='Close place', exact=True)).to_be_enabled(timeout=8000)
         # A successful Close broadcast arrives but its acknowledgement is lost.
         host.evaluate('placeProbe.dropAck=true')
         host.get_by_role('button', name='Close place', exact=True).click()
@@ -90,30 +99,39 @@ try:
         assert host.get_by_role('button', name='Retry Close', exact=True).count() == 0
         assert host.get_by_text('Guest place: Closed', exact=True).count() == 1
         host.screenshot(path=str(output.with_suffix('.applied-close.png')))
+        stage('lost acknowledgement observed')
         host.evaluate('placeProbe.dropAck=false')
 
         guest.evaluate('invitationSockets.at(-1).close()')
         guest.get_by_role('button', name='Reconnect rooms', exact=True).wait_for()
+        expect(host.get_by_role('button', name='Open place', exact=True)).to_be_enabled(timeout=12000)
         host.get_by_role('button', name='Open place', exact=True).click()
         assert guest.get_by_role('button', name='Join room', exact=True).count() == 0
         guest.get_by_role('button', name='Reconnect rooms', exact=True).click()
         guest.get_by_role('button', name='Join room', exact=True).wait_for(timeout=12000)
         guest.screenshot(path=str(output.with_suffix('.reconnected-invite.png')))
+        stage('invitation reconnected')
 
         dismissed = browser.new_page(viewport={'width': 1280, 'height': 800})
         dismissed.on('pageerror', lambda error: errors.append(str(error)))
+        dismissed.set_default_timeout(8000)
         dismissed.add_init_script('''window.dismissedSockets=[];const Native=WebSocket;
           window.WebSocket=class extends Native{constructor(...args){super(...args);dismissedSockets.push(this)}}''')
         dismissed.goto(invite)
         dismissed.get_by_role('button', name='Join room', exact=True).wait_for()
         dismissed.get_by_role('button', name='View public rooms', exact=True).click()
         dismissed.get_by_role('heading', name='Public rooms', exact=True).wait_for()
+        stage('invitation dismissed')
         dismissed.evaluate('dismissedSockets.at(-1).close()')
         dismissed.get_by_role('button', name='Retry', exact=True).wait_for()
+        stage('dismissed tab disconnected')
+        expect(host.get_by_role('button', name='Close place', exact=True)).to_be_enabled(timeout=8000)
         host.get_by_role('button', name='Close place', exact=True).click()
+        expect(host.get_by_role('button', name='Open place', exact=True)).to_be_enabled(timeout=8000)
         host.get_by_role('button', name='Open place', exact=True).click()
         dismissed.get_by_role('button', name='Retry', exact=True).click()
         dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
+        stage('dismissed tab reconnected')
         assert dismissed.locator('.room-panel.invitation').count() == 0
         assert dismissed.get_by_role('button', name='Join room', exact=True).count() == 0
         assert dismissed.get_by_test_id('room-notice').count() == 0
