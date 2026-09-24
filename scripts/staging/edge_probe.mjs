@@ -21,13 +21,13 @@ async function connect(localAddress, forgedAddress, requestOrigin=origin) {
   });
 }
 
-async function denied(localAddress, forgedAddress, requestOrigin=origin) {
+async function denied(localAddress, forgedAddress, requestOrigin=origin, status=403) {
   try {
     const socket = await connect(localAddress, forgedAddress, requestOrigin);
     socket.close();
     throw Error('Unexpected WebSocket admission');
   } catch (error) {
-    if (!String(error).includes('Unexpected server response: 403')) throw error;
+    if (!String(error).includes(`Unexpected server response: ${status}`)) throw error;
   }
 }
 
@@ -44,8 +44,8 @@ await denied('127.0.0.1', '192.0.2.1', 'https://untrusted.example');
 
 const sameAddress = [];
 try {
-  for (let index=0; index<20; index++) sameAddress.push(await connect('127.0.0.1', `192.0.2.${index+1}`));
-  await denied('127.0.0.1', '192.0.2.21');
+  for (let index=0; index<6; index++) sameAddress.push(await connect('127.0.0.1', `192.0.2.${index+1}`));
+  await denied('127.0.0.1', '192.0.2.7', origin, 429);
 } finally {
   for (const socket of sameAddress) socket.close();
 }
