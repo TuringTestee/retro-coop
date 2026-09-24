@@ -1,3 +1,7 @@
+Audience: Human
+
+These references show why current controls and voice status should sit beside the game while detailed settings remain separate.
+
 # Voice and play sidebar: comparable interactions
 
 Players need to see how to control a game and opt into voice while the game remains visible. This note records the outside patterns used for the proposed sidebar.

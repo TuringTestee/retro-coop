@@ -1,3 +1,7 @@
+Audience: Human
+
+This first ASCII pass places controls and voice beside the game for critique.
+
 # Voice and play sidebar: wireframe v1
 
 This first screen set tests where play controls and voice belong. It is a proposal, not a rendered implementation.

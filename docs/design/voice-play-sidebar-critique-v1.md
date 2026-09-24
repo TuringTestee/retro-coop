@@ -1,3 +1,7 @@
+Audience: Human
+
+The first pass needs clearer controller ownership, voice recovery and narrow-screen actions.
+
 # Voice and play sidebar: page critique of v1
 
 The first pass places the right tasks near play, but its voice states need clearer recovery and its controls need a faithful device label.

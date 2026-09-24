@@ -1,3 +1,7 @@
+Audience: Human
+
+The revised ASCII screens show a compact control and voice rail beside the game, including recovery and controller ownership.
+
 # Voice and play sidebar: current wireframe v2
 
 Players see current controls and voice status beside the game. The canvas stays dominant and no card covers it. This is a proposed design; rendered fit and operation still need implementation proof.
@@ -30,7 +34,7 @@ RETRO COOP                    Public rooms  Settings
 Pause  Mute game  Saves  Game help  Fullscreen
 ```
 
-Enable voice → P2. Edit controls → Settings/Controls; return updates this readout. Solo play omits Voice and room details. If no peer connection, voice says `Connecting` with disabled Enable; session recovery appears when available. The player number and source reflect current room and device.
+Enable voice → P2. Edit controls → Settings/Controls; return updates this readout. Solo play omits Voice and room details. If no peer connection, voice says `Connecting` with disabled Enable; session recovery appears when available. The NES player port and source reflect the accepted assignment and selected device. Separate mode may put the guest on P1 or host on P2; the header must follow the assignment, not room role.
 
 ## P2 — Request, open mic, muted, push mode
 
@@ -48,7 +52,20 @@ Enable voice → P2. Edit controls → Settings/Controls; return updates this re
 +--------------------------+     +--------------------------+
 ```
 
-Mic permission succeeds → applicable mode. Mute/Unmute changes state immediately. The Talk button transmits only while held; the mapped key shown is from current controls. Blur/reconnect stops transmission and requires deliberate unmute or opt-in. Voice settings holds device, mode, remote volume/mute and Disable microphone; it is the only route to those details.
+Mic permission succeeds → applicable mode. Mute/Unmute changes state immediately. The Talk button transmits only while held; the mapped key shown is from current controls. Blur mutes transmission while retaining the captured track; returning needs deliberate unmute. Reconnect closes the old track and requires new opt-in. Voice settings holds device, mode, remote volume/mute and Disable microphone; it is the only route to those details.
+
+## P2a — Shared P1 controlled by the partner
+
+```text
++-----------------------------------+
+| YOUR CONTROLS · Shared P1          |
+| Your input is idle.               |
+| Alex controls P1 now.             |
+| Session controllers ▸             |
++-----------------------------------+
+```
+
+This is a readout of the accepted assignment, not a second handoff action. `Session controllers` opens the existing room control. Once both players accept a handoff and play resumes, the new owner sees P1 bindings; the other sees the idle state. A declined proposal leaves the prior card intact. In Separate P1/P2, the card shows the assigned local port regardless of Host/Guest role.
 
 ## P3 — Voice failure and hearing partner
 
@@ -98,6 +115,6 @@ Cards follow the game in reading and keyboard order. Binding text wraps inside t
 
 ## Final design check
 
-All four pages have a next action and a recovery state for V1–V3, C1–C3 and E1. Each shown action maps to a scenario, with Voice settings restricted to detail controls and Settings/Controls to remapping. Mic permission is requested only at P1; failure information appears at P3. The same role, state and action names are used across widths. The mapped readout adapts Steam Input's action guidance; the voice card adapts Discord's status/recovery pattern. Actual visual fit, screen reader output, microphone behavior and update timing remain unproven until browser testing.
+All four pages have a next action and a recovery state for V1–V3, C1–C4 and E1. Each shown action maps to a scenario, with Voice settings restricted to detail controls and Settings/Controls to remapping. Mic permission is requested only at P1; failure information appears at P3. The same role, state and action names are used across widths. The mapped readout adapts Steam Input's action guidance; the voice card adapts Discord's status/recovery pattern. Actual visual fit, screen reader output, microphone behavior and update timing remain unproven until browser testing.
 
 Recommendation: implement the side cards with small responsive rows and live mapping data first, then inspect desktop/narrow screenshots and a two-tab voice session. Remove redundant fixed-key copy from Game help while doing so.

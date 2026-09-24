@@ -1,3 +1,7 @@
+Audience: Human
+
+These states specify what the side rail shows as devices, permissions, rooms and controller ownership change.
+
 # Voice and play sidebar: scenario inventory
 
 The cards serve only active play. The table makes their state changes and recovery concrete.
@@ -12,6 +16,7 @@ The cards serve only active play. The table makes their state changes and recove
 | S6 | C1 | Game loaded; card renders current keyboard binding labels including `Unbound`. | `Edit controls` opens Settings; return shows current saved values. |
 | S7 | C2 | Selected gamepad exists; card shows pad bindings and device identity. | Input fault offers existing `Use keyboard`; card follows changed device. |
 | S8 | C1,C2 | Binding changes while in Settings, including push-to-talk; side readout updates on return. | Conflict/unusable mapping remains an existing Settings error, not a silent wrong hint. |
+| S12 | C4 | Accepted Separate P1/P2 swap or Shared P1 handoff; card derives local port from assignment, or states `Your input is idle` when partner owns Shared P1. | Declined/cancelled proposal preserves old card; existing Session controllers is the one path to change assignment. |
 | S9 | C3 | Narrow width/zoom; side cards follow canvas and retain readable labels, focus order and action reachability. | Wrap within viewport; no new overlay or document horizontal scroll. |
 | S10 | E1 | Leave, kick, expiry, connection failure; card reflects disconnected/off and releases capture. | Existing room retry/leave or local resume actions remain available. |
 | S11 | V1,C1 | Solo play; no voice card; controls card still visible. | A later shared session adds voice after peer state exists. |
