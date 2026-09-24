@@ -99,6 +99,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             host.get_by_role('button', name='Public rooms', exact=True).click()
             host.get_by_role('button', name='Retry', exact=True).click()
             host.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()
+            assert host.get_by_test_id('room-notice').count() == 0
             host.get_by_role('button', name='Resume local game', exact=True).click()
             host.locator('.panel').wait_for(state='visible')
             assert host.locator('.release-notice').count() == 0
