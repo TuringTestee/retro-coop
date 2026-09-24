@@ -151,11 +151,23 @@ def main():
             assert host.get_by_test_id('included-status').count() == 0
             assert host.get_by_role('button', name='Resume local game', exact=True).count() == 1
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
+            host.route('**/catalog/from-below*.nes', lambda route: route.abort())
+            offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/2 · Waiting for host').first
+            offer.get_by_role('button', name='Join as host').click()
+            host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+            host.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=15000)
+            service.terminate()
+            host.get_by_role('button', name='Leave room', exact=True).click()
+            host.get_by_role('button', name='Confirm leave', exact=True).click()
+            host.get_by_text('Could not leave the room. Retry or stay here.', exact=True).wait_for(timeout=15000)
+            host.get_by_role('button', name='Retry download', exact=True).wait_for()
+            assert host.locator('.release-notice').count() == 0
             assert not errors, errors
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                       'browser': browser.version, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
                       'focus_return': True, 'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
-                      'start_is_primary': True, 'voluntary_exit_clean': True, 'layout': [wide, narrow, zoom], 'page_errors': errors}
+                      'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
+                      'layout': [wide, narrow, zoom], 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()
