@@ -10,8 +10,8 @@ import type { EmptyRoomPreview,Fingerprint,HumanRoomPreview, RoomCommand, RoomDa
 import { matchesFile } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
-type Session = { directory?:boolean; includeEmptyOffers?:boolean; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
-type Room = { game:GameSession; catalogId?:CatalogId; hostReady?:boolean; guestAcquisition?:'checking'|'downloading'|'loading'|'loaded'|'failed'; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; host:Session; guest?:Session; reservationUntil?:number; reservationStarted?:number; guestIntent?:string; guestMembership?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; uploadAttempted?:boolean; upload?:{id:string;lastProgress:number}; download?:{id:string;lastProgress:number}; content?:string; reconnectUntil?:number; kicked:Set<string> };
+type Session = { directory?:boolean; includeEmptyOffers?:boolean; previewInvite?:string; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
+type Room = { game:GameSession; catalogId?:CatalogId; hostReady?:boolean; guestAcquisition?:'checking'|'downloading'|'loading'|'loaded'|'failed'; started?:'solo'|'shared'; established?:boolean; guestReconnectUntil?:number; chat:RoomChat; id:string; invite:string; code?:string; label:string; visibility:Visibility; guestPlace:'open'|'closed'; guestPlaceVersion:number; host:Session; guest?:Session; reservationUntil?:number; reservationStarted?:number; guestIntent?:string; guestMembership?:string; guestFile?:Fingerprint; fingerprint:Fingerprint; intent:string; confirmed:boolean; created:number; uploadAttempted?:boolean; upload?:{id:string;lastProgress:number}; download?:{id:string;lastProgress:number}; content?:string; reconnectUntil?:number; kicked:Set<string> };
 type EmptyOffer = {id:string;code:string;catalogId:CatalogId};
 export type Sender = (event:RoomEvent)=>void;
 export class RoomError extends Error { code:string;retryAfterMs?:number;constructor(code:string,retryAfterMs?:number) { super(code);this.code = code;this.retryAfterMs = retryAfterMs; } }
@@ -58,7 +58,7 @@ export class Rooms {
   // Reserve the replacement code before changing the claimed offer, so allocation failure is transactional.
   const replacementId=secret(),replacementCode=this.code(replacementId);
   session.policy=policy??session.policy;
-  const room:Room={game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(offer.id);(role==='host'?current?.host:current?.guest)?.send?.(event);},offer.catalogId==='from-below-1.0'),catalogId:offer.catalogId,chat:new RoomChat(),id:offer.id,invite:secret(),...(visibility==='public'?{code:offer.code}:{}),label:catalogEntry(offer.catalogId).title,visibility,host:session,fingerprint,intent,confirmed:true,created:this.now(),kicked:new Set()};
+  const room:Room={game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(offer.id);(role==='host'?current?.host:current?.guest)?.send?.(event);},offer.catalogId==='from-below-1.0'),catalogId:offer.catalogId,chat:new RoomChat(),id:offer.id,invite:secret(),...(visibility==='public'?{code:offer.code}:{}),label:catalogEntry(offer.catalogId).title,visibility,guestPlace:'open',guestPlaceVersion:0,host:session,fingerprint,intent,confirmed:true,created:this.now(),kicked:new Set()};
   this.offers.delete(offer.id);this.offers.set(replacementId,{id:replacementId,code:replacementCode,catalogId:offer.catalogId});
   if(visibility==='unlisted')this.codes.delete(offer.code);
   this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room=room.id;session.heartbeat=this.now();this.publish(room);return {room:this.view(room,session)};
@@ -67,15 +67,16 @@ export class Rooms {
   this.rate(session,'join',5,60_000);
   if(!room || !room.confirmed || room.kicked.has(session.token)) throw new RoomError('room_unavailable');
   if(room.started)throw new RoomError('room_started');
+  if(room.guestPlace==='closed')throw new RoomError('guest_place_closed');
   if(room.reconnectUntil) throw new RoomError('host_reconnecting');
   if(session.room) throw new RoomError('already_in_room');
   if(room.guest) throw new RoomError('place_taken');
   session.policy=policy??session.policy;room.guest=session;room.guestIntent=intent;room.guestMembership=secret();room.reservationStarted=this.now();room.reservationUntil=this.now()+limits.reservation;session.room=room.id;
   this.publish(room);return {room:this.view(room,session)};
  }
- private preview(room:Room): HumanRoomPreview { return {...(room.catalogId ? {catalogId:room.catalogId}:{romBytes:room.fingerprint.cartridge.bytes}),id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil||room.guestReconnectUntil ? 'reconnecting' : room.started==='solo' ? 'playing' : room.started==='shared'&&!room.guest ? 'paused' : room.established ? room.game.view().status==='playing'?'playing':'paused' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1}; }
+ private preview(room:Room): HumanRoomPreview { return {...(room.catalogId ? {catalogId:room.catalogId}:{romBytes:room.fingerprint.cartridge.bytes}),id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code ? {code:room.code}:{}),status:room.reconnectUntil||room.guestReconnectUntil ? 'reconnecting' : room.started==='solo' ? 'playing' : room.started==='shared'&&!room.guest ? 'paused' : room.established ? room.game.view().status==='playing'?'playing':'paused' : room.guest ? 'reserved':'waiting',occupancy:room.guest ? 2:1,guestPlace:room.guestPlace,guestPlaceVersion:room.guestPlaceVersion}; }
  private view(room:Room,session:Session): RoomView { return {...this.preview(room),game:room.game.view(),hostReady:!!room.hostReady,started:room.started,established:!!room.established,...(room.guestReconnectUntil?{guestReconnectUntil:room.guestReconnectUntil}:{}),chatMembership:room.host===session ? room.intent:room.guestMembership!,invite:room.invite,role:room.host === session ? 'host':'guest',slot:room.host === session ? 1:2,fingerprint:room.fingerprint,connectionPolicy:session.policy,peer:this.peers.view(room.id,session.policy),...(room.guest ? {guest:room.guest.nickname,guestMembership:room.guestMembership,guestConnected:!!room.guest.send,reservationUntil:room.reservationUntil,reservationIntent:room.guestIntent,matches:!!room.guestFile && matchesFile(room.fingerprint,room.guestFile),guestAcquisition:room.guestAcquisition}:{}),...(room.reconnectUntil ? {hostReconnectUntil:room.reconnectUntil}:{})}; }
- private publish(room:Room,directory=true) {this.peers.sync(room.confirmed && room.guest && !room.reconnectUntil ? {id:room.id,host:room.host,guest:room.guest,reservation:room.guestIntent!}:undefined,room.id); const peer=this.peers.view(room.id,room.host.policy);room.game.bind(peer.status==='connected'?peer.epoch:undefined);for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)});if(directory) this.publishDirectory(); }
+ private publish(room:Room,directory=true) {this.peers.sync(room.confirmed && room.guest && !room.reconnectUntil ? {id:room.id,host:room.host,guest:room.guest,reservation:room.guestIntent!}:undefined,room.id); const peer=this.peers.view(room.id,room.host.policy);room.game.bind(peer.status==='connected'?peer.epoch:undefined);for(const session of [room.host,room.guest]) if(session) session.send?.({type:'room',room:this.view(room,session)});for(const session of this.sessions.values())if(session.previewInvite===room.invite)session.send?.({type:'preview',preview:this.preview(room)});if(directory) this.publishDirectory(); }
  private releaseGuest(room:Room,reason:string) { const guest = room.guest; if(!guest) return; room.game.stop('Guest left. Your local game is preserved.');room.game.resetControllers();room.established=false;room.guestReconnectUntil=undefined;room.chat.leave(room.guestMembership!);guest.room = undefined; room.guest = undefined; room.guestFile = undefined; room.guestAcquisition=undefined; room.reservationUntil = undefined; room.reservationStarted=undefined; room.download=undefined; room.guestIntent = undefined; room.guestMembership = undefined; guest.send?.({type:'ended',reason}); this.publish(room); }
  private close(room:Room,reason:string) {
   this.transfer?.discard(room.id);
@@ -174,14 +175,14 @@ export class Rooms {
    case 'lookupCode': {this.rate(session,'preview',20,60_000);const room=this.publicRoom(command.code),offer=this.publicOffer(session,command.code);if(!room&&!offer) throw new RoomError('room_unavailable');return {preview:room?this.preview(room):this.offerPreview(offer!)};}
    case 'joinCode': return this.reserve(session,this.publicRoom(command.code),command.intent,command.policy);
    case 'claimCode': return this.claim(session,this.publicOffer(session,command.code),command.intent,command.fingerprint,command.policy,command.visibility);
-   case 'preview': { this.rate(session,'preview',20,60_000); const id = this.invites.get(command.invite), room = id && this.rooms.get(id); if(!room || !room.confirmed) throw new RoomError('room_unavailable'); return {preview:this.preview(room)}; }
+   case 'preview': { this.rate(session,'preview',20,60_000); const id = this.invites.get(command.invite), room = id && this.rooms.get(id); if(!room || !room.confirmed) throw new RoomError('room_unavailable'); session.previewInvite=command.invite;return {preview:this.preview(room)}; }
    case 'create': {
     this.rate(session,'create',5,60_000);session.policy=command.policy??session.policy;
     if(session.cancelled.has(command.intent)) throw new RoomError('cancelled');
     if(session.room) {const room = this.room(session); if(room.host === session && room.intent === command.intent) return {room:this.view(room,session)}; throw new RoomError('already_in_room');}
     if(this.rooms.size >= limits.rooms) throw new RoomError('capacity');
     const id=secret(), code = command.visibility === 'public' ? this.code(id):undefined;
-    const room:Room = {game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(id);(role==='host'?current?.host:current?.guest)?.send?.(event);},catalogId(command.fingerprint)==='from-below-1.0'),chat:new RoomChat(),id,invite:secret(),code,label:`${pick(colors)} ${pick(places)}`,visibility:command.visibility,host:session,fingerprint:command.fingerprint,intent:command.intent,confirmed:false,created:this.now(),kicked:new Set()};
+    const room:Room = {game:new GameSession(this.now,(role,event)=>{const current=this.rooms.get(id);(role==='host'?current?.host:current?.guest)?.send?.(event);},catalogId(command.fingerprint)==='from-below-1.0'),chat:new RoomChat(),id,invite:secret(),code,label:`${pick(colors)} ${pick(places)}`,visibility:command.visibility,guestPlace:'open',guestPlaceVersion:0,host:session,fingerprint:command.fingerprint,intent:command.intent,confirmed:false,created:this.now(),kicked:new Set()};
     this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room = room.id;session.heartbeat = this.now();this.publishDirectory();
     return {room:this.view(room,session)};
    }
@@ -217,6 +218,17 @@ export class Rooms {
    }
    case 'close': this.close(this.hosted(session,command.roomId),'host_closed');return {};
    case 'kick': { const room = this.hosted(session,command.roomId);if(!room.guest || room.guestMembership!==command.guestMembership) throw new RoomError('membership_changed');room.kicked.add(room.guest.token); this.releaseGuest(room,'removed');return {room:this.view(room,session)}; }
+   case 'guestPlace': {
+    const room=this.hosted(session,command.roomId);
+    if(!room.confirmed)throw new RoomError('room_unavailable');
+    if(room.started)throw new RoomError('room_started');
+    // A retried successful command may be acknowledged once; an older toggle cannot be replayed.
+    if(command.expectedVersion===room.guestPlaceVersion-1 && command.place===room.guestPlace)return {room:this.view(room,session)};
+    if(command.expectedVersion!==room.guestPlaceVersion)throw new RoomError('room_changed');
+    if(command.place===room.guestPlace)return {room:this.view(room,session)};
+    if(command.place==='closed'&&(room.guest || room.guestReconnectUntil))throw new RoomError('guest_place_occupied');
+    room.guestPlace=command.place;room.guestPlaceVersion++;this.publish(room);return {room:this.view(room,session)};
+   }
    case 'visibility': { const room = this.hosted(session,command.roomId);if(room.visibility !== command.visibility) {if(command.visibility === 'public') room.code = this.code(room.id);else if(room.code) {this.codes.delete(room.code);room.code = undefined;}room.visibility = command.visibility;this.publish(room);}return {room:this.view(room,session)}; }
    case 'rename': {const room = this.hosted(session,command.roomId);room.label = command.label.trim();this.publish(room);return {room:this.view(room,session)};}
    case 'nickname': {session.nickname = command.nickname.trim();const room = session.room && this.rooms.get(session.room);if(room) this.publish(room);return {session:{token:session.token,nickname:session.nickname,expiresInMs:limits.sessionIdle}};}
