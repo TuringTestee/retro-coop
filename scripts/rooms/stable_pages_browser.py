@@ -19,6 +19,10 @@ def geometry(page, label):
     assert not overlap, (label, canvas, room)
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), label
     assert page.locator('.room-panel').evaluate("node => getComputedStyle(node).position !== 'fixed'"), label
+    if room['y'] + room['height'] > page.viewport_size['height']:
+        page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)')
+        assert page.evaluate('window.scrollY > 0'), (label, 'room is below the viewport but the page cannot scroll')
+        page.evaluate('window.scrollTo(0, 0)')
     return {'viewport': label, 'canvas': canvas, 'room': room}
 
 
