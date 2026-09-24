@@ -49,8 +49,6 @@ try:
             tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Route: direct')")
         def open_room(tab):
             panel = tab.locator('.room-panel')
-            if not panel.is_visible():
-                tab.get_by_role('button', name='Room', exact=True).click()
             panel.wait_for(state='visible')
             return panel
         def open_connection(tab):
@@ -79,7 +77,6 @@ try:
         joined(first)
         connected(host)
         open_room(host)
-        host.on('dialog', lambda dialog: dialog.accept())
         host.evaluate('window.holdKick=true')
         host.locator('.room-panel').get_by_role('button', name='Remove guest', exact=True).click()
         host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()

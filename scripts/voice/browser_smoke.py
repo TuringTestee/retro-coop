@@ -81,8 +81,6 @@ try:
 
     def open_room(tab):
         panel = tab.locator(".room-panel")
-        if not panel.is_visible():
-            tab.get_by_role("button", name="Room", exact=True).click()
         panel.wait_for(state="visible")
         return panel
 
@@ -155,7 +153,7 @@ try:
     )
     host.get_by_role("button", name="Settings", exact=True).click()
     host.get_by_label("Input device", exact=True).select_option("0")
-    host.get_by_role("button", name="Close settings", exact=True).click()
+    host.get_by_role("button", name="Back", exact=True).click()
     host.get_by_role("button", name="Leave room", exact=True).focus()
     host.evaluate(
         "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
@@ -167,7 +165,7 @@ try:
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.get_by_role("button", name="Settings", exact=True).click()
     host.get_by_label("Input device", exact=True).select_option("keyboard")
-    host.get_by_role("button", name="Close settings", exact=True).click()
+    host.get_by_role("button", name="Back", exact=True).click()
     panel.get_by_role("button", name="Unmute microphone", exact=True).click()
     panel.get_by_label("Voice mode", exact=True).select_option("open")
     panel.get_by_role("button", name="Mute remote voice", exact=True).click()
@@ -289,6 +287,7 @@ try:
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
+    guest.get_by_role("button", name="Confirm leave", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
     for tab in [host, guest]:
         tab.wait_for_function(
@@ -320,6 +319,7 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
+    guest.get_by_role("button", name="Confirm leave", exact=True).click()
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )

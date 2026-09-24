@@ -201,7 +201,7 @@ with sync_playwright() as playwright:
             page.set_input_files("input[type=file]", {
                 "name": "shared-game.nes", "mimeType": "application/octet-stream", "buffer": rom,
             })
-            page.get_by_text("Game saved in this browser.", exact=True).wait_for()
+            page.locator('.create-library li').filter(has_text='shared-game.nes').wait_for()
             store_verified_before_reload = page.wait_for_function('''async ({hash,size})=>{
               const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
               const record=await new Promise((resolve,reject)=>{const q=db.transaction('roms').objectStore('roms').get(hash);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
@@ -288,19 +288,15 @@ with sync_playwright() as playwright:
             save("guest-200.json", {"frames": page.evaluate("proof.frameCount")})
         page.wait_for_function("proof.room?.game?.status==='paused'", timeout=15000, polling=50)
         page.wait_for_function("proof.hashes.length>0", timeout=15000, polling=50)
-        page.get_by_role("button", name="Room", exact=True).click()
         page.locator(".room-panel").wait_for(state="visible")
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
         room = page.evaluate("proof.room")
         assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 1
         assert page.get_by_role("button", name="Choose another file", exact=True).count() == 0
-        back = page.get_by_role("button", name="Back to game", exact=True)
-        assert back.is_visible()
         page.get_by_role("button", name="Ready to resume", exact=True).focus()
         page.keyboard.press("Enter")
         page.wait_for_function("role => proof.room?.game?.ready?.includes(role)", arg=args.role, timeout=15000)
-        back.focus()
-        page.keyboard.press("Enter")
+        page.locator("canvas").focus()
         assert page.locator("canvas").evaluate("node => node === document.activeElement")
         remote_inputs = page.evaluate("Object.values(proof.admission.lead).reduce((count, packets) => count + packets, 0)")
         assert remote_inputs > 0, "No remote controller input reached this browser"

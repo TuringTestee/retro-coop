@@ -141,8 +141,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert "Unlisted" in custom.locator("#room-heading").inner_text()
         assert custom.get_by_role("button", name="Leave room", exact=True).count() == 1
         result["local_file_unlisted"] = True
-        custom.on("dialog", lambda dialog: dialog.accept())
         custom.get_by_role("button", name="Leave room", exact=True).click()
+        custom.get_by_role("button", name="Confirm leave", exact=True).click()
         custom.locator(".room-panel").wait_for(state="detached")
         assert custom.get_by_test_id("directory").is_visible()
         shared_host = browser.new_page()
@@ -265,7 +265,12 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             if mode == "add":
                 assert changing.get_by_test_id("room-view").count() == 1
                 assert changing.get_by_label("Room invitation", exact=True).input_value() == newer_invite
+                changing.get_by_role("button", name="Start game", exact=True).click()
+                changing.get_by_role("button", name="Game help", exact=True).wait_for(timeout=15000)
+                changing.get_by_role("button", name="Game help", exact=True).click()
+                changing.get_by_text("Technical details", exact=True).click()
                 assert __import__('hashlib').sha256(fixture.read_bytes()).hexdigest() in changing.get_by_test_id("fingerprint").text_content()
+                changing.get_by_role("button", name="Back", exact=True).click()
             else:
                 assert changing.get_by_test_id("room-view").count() == 0
                 assert changing.get_by_test_id("create-game").is_visible()

@@ -53,7 +53,7 @@ try:
         wide.wait_for_timeout(200)
         assert int(wide.get_by_test_id('frames').inner_text().split()[0]) > before
         wide.get_by_role('button', name='Return to room', exact=True).click()
-        assert wide.locator('.room-panel').is_visible() is False
+        assert wide.locator('.room-panel').is_visible()
         narrow = page(760, 680)
         fit(narrow)
         assert 'One controller; share turns' in narrow.locator('.room-list li').filter(has_text='From Below').first.inner_text()
@@ -66,10 +66,9 @@ try:
         narrow.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>120", timeout=30000)
         narrow.wait_for_function("()=>{const c=document.querySelector('canvas'),d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.some((v,i)=>i%4!==3&&v!==0)}", timeout=30000)
         narrow.screenshot(path=str(args.output / 'from-below-playing.png'))
-        narrow.get_by_role('button', name='Room', exact=True).click()
         assert narrow.locator('.room-panel').is_visible()
         fit(narrow)
-        narrow.screenshot(path=str(args.output / 'room-overlay.png'))
+        narrow.screenshot(path=str(args.output / 'room-region.png'))
         assert not errors, errors
         proof = {'result': 'pass', 'included_rooms': 2, 'claim_and_replenish': True, 'both_games_rendered': True, 'narrow_and_wide_fit': True, 'browser': browser.version, 'seconds': round(time.monotonic() - started, 2), 'page_errors': errors}
         (args.output / 'browser.json').write_text(json.dumps(proof, indent=2) + '\n')

@@ -3,16 +3,16 @@ import {listLocalData,validSavedAt,clearLocalData,deleteSave,deleteBattery,delet
 import type {LocalPlayer} from './player.ts';
 import {safeLabel} from './rom-library.ts';
 
-export function LocalData({open,close,player,preferencesIdentity,beforeClear,afterClear}:{open:boolean;close:()=>void;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void}) {
- const dialog=useRef<HTMLDialogElement>(null),closeButton=useRef<HTMLButtonElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
+export function LocalData({open,player,preferencesIdentity,beforeClear,afterClear}:{open:boolean;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void}) {
+ const page=useRef<HTMLElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
  const [data,setData]=useState<Data|null>(null),[current,setCurrent]=useState<string[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null),[focusRevision,setFocusRevision]=useState(0);
- const restoreFocus=()=>{const target=confirmFocus.current;confirmFocus.current=null;const modal=dialog.current;if(!target||!modal?.open)return;const connected=target.isConnected&&modal.contains(target)&&!target.closest('[hidden]');(connected?target:closeButton.current)?.focus();};
+ const restoreFocus=()=>{const target=confirmFocus.current;confirmFocus.current=null;if(!target||!open)return;const connected=target.isConnected&&page.current?.contains(target)&&!target.closest('[hidden]');(connected?target:page.current?.querySelector<HTMLElement>('#local-data-title'))?.focus();};
  const setConfirmation=(value:typeof confirmation)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);if(!value)requestAnimationFrame(restoreFocus);};
  useLayoutEffect(()=>{if(focusRevision)restoreFocus();},[focusRevision]);
  useEffect(()=>{
-  const token=++epoch.current;if(!open){dialog.current?.close();return;}
-  const focus=document.activeElement as HTMLElement;dialog.current?.showModal();setData(null);setCurrent([]);setConfirmation(null);setMessage('Reading local data…');setBusy(true);
+  const token=++epoch.current;if(!open)return;
+  setData(null);setCurrent([]);setConfirmation(null);setMessage('Reading local data…');setBusy(true);
   void (async()=>{
    try{const records=await listLocalData();if(token!==epoch.current)return;setData(records);setMessage('');}
    catch(error){if(token===epoch.current)setMessage(text(error));}
@@ -20,7 +20,7 @@ export function LocalData({open,close,player,preferencesIdentity,beforeClear,aft
    const identities=await Promise.allSettled([player?.saveInfo(),player?.batteryInfo()]);
    if(token===epoch.current)setCurrent(identities.flatMap(result=>result.status==='fulfilled' && result.value ? [result.value.identity] : []));
   })();
-  return ()=>{++epoch.current;dialog.current?.close();requestAnimationFrame(()=>focus?.focus());};
+  return ()=>{++epoch.current;};
  },[open,player,preferencesIdentity]);
  const run=async(action:()=>Promise<void>)=>{
   const token=epoch.current;setBusy(true);setConfirmationState(null);setMessage('');
@@ -30,8 +30,9 @@ export function LocalData({open,close,player,preferencesIdentity,beforeClear,aft
  };
  const exportRecord=(bytes:ArrayBuffer,kind:'state'|'battery'|'preferences')=>{setBackup({bytes,kind});try{downloadSave(bytes,undefined,kind);setMessage('Backup export requested.');}catch(error){setMessage(`Could not export. The backup remains in memory; retry export. ${text(error)}`);}};
  const group=(identity:string)=>current.includes(identity) || identity===preferencesIdentity ? 'Current game and build' : 'Other game or build';
- return <dialog ref={dialog} className="settings local-data" aria-labelledby="local-data-title" onCancel={event=>{event.preventDefault();if(confirmation)setConfirmation(null);else close();}}>
-  <h2 id="local-data-title">Local data</h2><p>Saved games, saves, and preferences live in this browser. Export save backups before deleting data; browser eviction or site-data removal can erase it.</p>
+ if(!open)return null;
+ return <section ref={page} className="settings local-data tool-page" aria-labelledby="local-data-title">
+  <h2 id="local-data-title" tabIndex={-1}>Local data</h2><p>Saved games, saves, and preferences live in this browser. Export save backups before deleting data; browser eviction or site-data removal can erase it.</p>
   {message && <p role="status" data-testid="local-data-status">{message}</p>}
   {confirmation && <section role="alertdialog" aria-label="Confirm local data action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}
   <div hidden={!!confirmation}>
@@ -44,8 +45,7 @@ export function LocalData({open,close,player,preferencesIdentity,beforeClear,aft
   <button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all saved games, saves, battery progress and preferences? This cannot be undone. Export save backups first. Current play stays in memory. No server account is deleted.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
   </div>
   {backup && <button disabled={busy} onClick={()=>exportRecord(backup.bytes,backup.kind)}>Retry export</button>}
-  <button ref={closeButton} onClick={close}>Close local data</button>
- </dialog>;
+ </section>;
 }
 function text(error:unknown){return error instanceof Error ? error.message : 'Local data is unavailable. Retry later.';}
 function when(value:number){return validSavedAt(value) ? new Date(value).toLocaleString() : 'Unknown time';}

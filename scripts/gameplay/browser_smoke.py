@@ -44,7 +44,6 @@ try:
    return tab
   def open_room(tab):
    panel=tab.locator('.room-panel')
-   if not panel.is_visible():tab.get_by_role('button',name='Room',exact=True).click()
    panel.wait_for(state='visible');return panel
   def open_connection(tab):
    panel=open_room(tab);connection=panel.locator('details.session-settings')
@@ -139,7 +138,7 @@ try:
    for tab in [h,g]:tab.wait_for_function('n=>proof.frameCount>=n',arg=args.initial_manual_frames,timeout=20000,polling=50)
    for tab in [h,g]:
     tab.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})");tab.wait_for_function('proof.controllerRam',polling=50);assert tab.evaluate('proof.controllerRam')==[128,64]
-    assert tab.get_by_role('button',name='Rewind',exact=True).is_disabled()
+    assert tab.get_by_role('button',name='Rewind',exact=True).count()==0
     tab.evaluate("currentWorker.postMessage({type:'state-history',requestId:900002})");tab.wait_for_function('proof.localHistory',polling=50);history=tab.evaluate('proof.localHistory');assert history['inputs']==0 and history['checkpoints']==0 and history['retainedBytes']==0
    if args.controllers:
     from controller_smoke import run
@@ -191,7 +190,7 @@ try:
    first_active=time.monotonic()-play_started
    h.keyboard.up('x');g.keyboard.up('z')
    if args.fault=='device':
-    h.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());h.get_by_role('button',name='Settings',exact=True).click();h.get_by_label('Input device',exact=True).select_option('0');h.get_by_role('button',name='Close settings',exact=True).click();h.evaluate('padConnected=false')
+    h.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());h.get_by_role('button',name='Settings',exact=True).click();h.get_by_label('Input device',exact=True).select_option('0');h.get_by_role('button',name='Back',exact=True).click();h.evaluate('padConnected=false')
    elif args.fault=='focus':
     h.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
     before=h.evaluate('proof.frameCount')
