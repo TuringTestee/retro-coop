@@ -116,6 +116,7 @@ try:
         dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
         assert dismissed.locator('.room-panel.invitation').count() == 0
         assert dismissed.get_by_role('button', name='Join room', exact=True).count() == 0
+        assert dismissed.get_by_test_id('room-notice').count() == 0
         dismissed.screenshot(path=str(output.with_suffix('.dismissed-invite.png')))
 
         guest.get_by_role('button', name='Join room', exact=True).click()
