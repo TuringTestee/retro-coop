@@ -52,7 +52,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
    client and canvas continue running while their controls are absent from tab order. */
 .tooling{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
 .tooling>.directory-panel,.tooling>.room-panel,.tooling>.panel,.tooling>.create-game,.tooling>.catalog-status{display:none!important}
-.tooling>.tool-page{display:block;grid-column:1;grid-row:2;min-width:0;min-height:0;width:100%;max-width:none;max-height:none;overflow:auto;margin:0;padding:18px 22px;box-shadow:none}
+.tooling>.tool-page{display:block;grid-column:1;grid-row:2;min-width:0;min-height:0;width:100%;max-width:860px;max-height:none;overflow:auto;margin:0 auto;padding:18px 22px;box-shadow:none}
 .tool-page h2{margin-top:0}.tool-page [role=alertdialog]{max-width:650px}
 @media(max-width:600px){.tooling>.tool-page{padding:12px}}
 
