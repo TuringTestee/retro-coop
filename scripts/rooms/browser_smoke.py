@@ -78,8 +78,8 @@ try:
         stale_host.get_by_test_id('room-view').wait_for(state='attached')
         stale_guest=page();stale_guest.goto(stale_host.get_by_label('Room invitation',exact=True).input_value())
         stale_guest.get_by_role('button',name='Join room',exact=True).wait_for()
-        stale_host.on('dialog',lambda dialog:dialog.accept())
         stale_host.get_by_role('button',name='Leave room',exact=True).click()
+        stale_host.get_by_role('button',name='Confirm leave',exact=True).click()
         stale_host.get_by_test_id('room-view').wait_for(state='detached')
         stale_guest.get_by_role('button',name='Join room',exact=True).click()
         stale_guest.get_by_test_id('room-status').filter(has_text='closed, unavailable').wait_for()
@@ -122,7 +122,6 @@ try:
         assert host.get_by_label('Room invitation',exact=True).input_value()==invitation
         assert original_reservation in host.get_by_test_id('room-view').text_content()
         assert first.get_by_test_id('room-view').count()==1
-        first.on('dialog',lambda dialog:dialog.accept())
         leave=first.get_by_role('button',name='Leave room',exact=True)
         leave.wait_for();leave.click()
         first.get_by_test_id('room-view').wait_for(state='detached')
@@ -138,7 +137,7 @@ try:
         # Rename renders hostile text literally, and visibility changes revoke the public code.
         host.get_by_role('button',name='Start game',exact=True).click()
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
-        host.get_by_role('button',name='Room',exact=True).click()
+        host.locator('.room-panel').wait_for()
         host.get_by_text('Connection and session settings',exact=True).click()
         host.get_by_text('Session settings',exact=True).click()
         host.get_by_label('Room name',exact=True).fill('<img src=x onerror=alert(1)>')
@@ -149,8 +148,8 @@ try:
         host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Unlisted · invite only')")
         assert 'Public ·' not in host.get_by_test_id('room-view').text_content()
         # Explicit close removes the invite immediately and retains local emulation.
-        host.on('dialog',lambda dialog:dialog.accept())
         host.get_by_role('button',name='Leave room',exact=True).click()
+        host.get_by_role('button',name='Confirm leave',exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='detached')
         assert host.get_by_test_id('directory').is_visible()
         second.goto(invitation)
@@ -191,8 +190,8 @@ try:
         replacement.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('NES')")
         assert waiting.get_by_test_id('room-view').count()==1
         replacement.screenshot(path=str(output.with_suffix('.replacement-declined.png')),full_page=True)
-        replacement.on('dialog',lambda dialog:dialog.accept())
         replacement.get_by_role('button',name='Leave room',exact=True).click()
+        replacement.get_by_role('button',name='Confirm leave',exact=True).click()
         waiting.get_by_test_id('room-view').wait_for(state='detached')
         replacement.get_by_role('button',name='Create game',exact=True).click()
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})

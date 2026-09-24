@@ -287,6 +287,7 @@ try:
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
+    guest.get_by_role("button", name="Confirm leave", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
     for tab in [host, guest]:
         tab.wait_for_function(
@@ -318,6 +319,7 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
+    guest.get_by_role("button", name="Confirm leave", exact=True).click()
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )

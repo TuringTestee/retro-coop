@@ -141,8 +141,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert "Unlisted" in custom.locator("#room-heading").inner_text()
         assert custom.get_by_role("button", name="Leave room", exact=True).count() == 1
         result["local_file_unlisted"] = True
-        custom.on("dialog", lambda dialog: dialog.accept())
         custom.get_by_role("button", name="Leave room", exact=True).click()
+        custom.get_by_role("button", name="Confirm leave", exact=True).click()
         custom.locator(".room-panel").wait_for(state="detached")
         assert custom.get_by_test_id("directory").is_visible()
         shared_host = browser.new_page()

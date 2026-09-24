@@ -197,8 +197,8 @@ with sync_playwright() as playwright:
     quota_guest.get_by_test_id('directory').wait_for()
     if args.rom_dir:
         assert list(args.rom_dir.glob('blob-*')), 'Host upload did not create a private server blob'
-    host.on('dialog', lambda dialog: dialog.accept())
     host.get_by_role('button', name='Leave room', exact=True).click()
+    host.get_by_role('button', name='Confirm leave', exact=True).click()
     host.get_by_test_id('directory').wait_for()
     if args.rom_dir:
         assert not list(args.rom_dir.glob('blob-*')), 'Closing the room left a server ROM blob'

@@ -65,6 +65,19 @@ def main():
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             invite = host.get_by_label('Room invitation', exact=True).input_value()
             host.screenshot(path=str(args.output / 'waiting.png'))
+            host.get_by_text('Connection and session settings', exact=True).click()
+            host.get_by_text('Session settings', exact=True).click()
+            visibility = host.get_by_label('Unlisted · invitation only', exact=True)
+            visibility.click()
+            host.wait_for_function("document.querySelector('#room-heading')?.textContent.includes('Unlisted')")
+            visibility.click()
+            host.get_by_role('button', name='Make public', exact=True).wait_for()
+            assert host.locator('dialog').count() == 0
+            host.keyboard.press('Escape')
+            assert visibility.evaluate('node => node === document.activeElement')
+            visibility.click()
+            host.get_by_role('button', name='Make public', exact=True).click()
+            host.wait_for_function("document.querySelector('#room-heading')?.textContent.includes('Public')")
             guest = browser.new_page(viewport={'width': 390, 'height': 700})
             guest.on('pageerror', lambda error: errors.append(str(error)))
             guest.goto(invite)
@@ -102,10 +115,19 @@ def main():
             host.set_viewport_size({'width': 640, 'height': 360})
             zoom = geometry(host, '640x360 (200% zoom equivalent)')
             host.screenshot(path=str(args.output / 'playing-zoom.png'), full_page=True)
+            host.get_by_role('button', name='Leave room', exact=True).click()
+            host.get_by_role('button', name='Confirm leave', exact=True).wait_for()
+            assert host.locator('dialog').count() == 0
+            host.keyboard.press('Escape')
+            assert host.get_by_role('button', name='Leave room', exact=True).evaluate('node => node === document.activeElement')
+            host.get_by_role('button', name='Leave room', exact=True).click()
+            host.get_by_role('button', name='Confirm leave', exact=True).click()
+            host.get_by_test_id('directory').wait_for(state='visible')
+            assert host.locator('.release-notice').count() == 0
             assert not errors, errors
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                       'browser': browser.version, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
-                      'focus_return': True, 'dialogs': 0, 'layout': [wide, narrow, zoom], 'page_errors': errors}
+                      'focus_return': True, 'inline_confirmations': True, 'dialogs': 0, 'layout': [wide, narrow, zoom], 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()
