@@ -36,7 +36,7 @@ for expected in [
     "COORDINATOR_ORIGINS: https://34.100.1.2",
     "automountServiceAccountToken: false",
     "kind: Job",
-    "activeDeadlineSeconds: 86400",
+    "activeDeadlineSeconds: 21600",
     "backoffLimit: 0",
     "restartPolicy: Never",
     "ttlSecondsAfterFinished: 3600",

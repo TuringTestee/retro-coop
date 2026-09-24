@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: retro-coop-staging
 spec:
-  activeDeadlineSeconds: 86400
+  activeDeadlineSeconds: 21600
   backoffLimit: 0
   ttlSecondsAfterFinished: 3600
   template:
