@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check TURN rendering and a local coturn startup without publishing secrets."""
+"""Check TURN rendering and optionally prove an authenticated local allocation."""
 
 import argparse
 import socket
@@ -11,7 +11,10 @@ from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--turnserver")
+parser.add_argument("--turn-client")
 args = parser.parse_args()
+if args.turn_client and not args.turnserver:
+    parser.error("--turn-client requires --turnserver")
 render = Path(__file__).with_name("render_turn.py")
 with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
     root = Path(temporary)
@@ -46,7 +49,8 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
             unused.bind(("127.0.0.1", 0))
             port = unused.getsockname()[1]
         subprocess.run([*command, "--runtime-dir", str(root), "--listen-port", str(port)], check=True)
-        with (root / "turn.log").open("wb") as log:
+        log_path = root / "turn.log"
+        with log_path.open("wb") as log:
             process = subprocess.Popen([args.turnserver, "-c", str(output)], stdout=log, stderr=subprocess.STDOUT)
             try:
                 deadline = time.monotonic() + 10
@@ -60,7 +64,38 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
                         time.sleep(.05)
                 else:
                     raise AssertionError("coturn startup deadline")
+                if args.turn_client:
+                    # A public peer is allowed by the production deny list; zero payload packets leave this host.
+                    def allocation(secret_value):
+                        return subprocess.run(
+                            [args.turn_client, "-v", "-c", "-n", "0", "-e", "8.8.8.8",
+                             "-p", str(port), "-W", secret_value, "127.0.0.1"],
+                            capture_output=True, text=True, timeout=15,
+                        )
+
+                    valid = allocation("a" * 64)
+                    if (valid.returncode != 0 or "Received relay addr: 34.100.1.2:" not in valid.stdout
+                            or "clnet_allocate: rtv=0" not in valid.stdout):
+                        raise AssertionError("Authenticated TURN allocation did not return the configured public relay address")
+                    before_invalid = log_path.stat().st_size
+                    invalid = allocation("b" * 64)
+                    with log_path.open("rb") as evidence:
+                        evidence.seek(before_invalid)
+                        rejection_log = evidence.read().decode("utf-8", errors="replace")
+                    terminal_failure = "ERROR: Cannot complete Allocation" in invalid.stdout
+                    auth_rejection = "check_stun_auth: Cannot find credentials of user <" in rejection_log
+                    if (invalid.returncode == 0 or "Received relay addr:" in invalid.stdout
+                            or not terminal_failure or not auth_rejection):
+                        raise AssertionError(
+                            "Wrong-secret probe lacked terminal authentication rejection "
+                            f"(exit={invalid.returncode}, terminal={terminal_failure}, server_auth={auth_rejection})"
+                        )
             finally:
                 process.terminate()
                 process.wait(timeout=5)
-print("TURN render passed (secret handling, quotas, relay ports and local startup).")
+checks = ["secret handling", "quotas", "relay ports"]
+if args.turnserver:
+    checks.append("local startup")
+if args.turn_client:
+    checks.extend(["authenticated allocation", "wrong-secret rejection"])
+print("TURN render passed (" + ", ".join(checks) + ").")
