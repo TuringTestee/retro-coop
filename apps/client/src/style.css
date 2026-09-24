@@ -63,4 +63,8 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .released{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
 .released>.panel,.released>.room-panel,.released>.directory-panel,.released>.create-game,.released>.catalog-status,.released>.discovery-notices,.released>.tool-page{display:none!important}
 .released>.release-notice{grid-column:1;grid-row:2}
+.released>.panel:fullscreen{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);align-content:stretch}
+.released>.panel:fullscreen>:not(.fullscreen-release){display:none!important}
+.fullscreen-release{align-self:center}
+.release-notice button{background:#b5a3ff;color:#171323;font-weight:750;border-color:#b5a3ff}
 .playing .player-info button:first-child{background:#303146;color:#fff;font-weight:400;border-color:#52536e}
