@@ -48,10 +48,11 @@ path.write_text(source.replace('server: https://127.0.0.1:6443', 'server: https:
 PY
 kube() { KUBECONFIG="$temporary/kubeconfig" kubectl "$@"; }
 attempt=0
-until kube get nodes >/dev/null 2>&1; do
+while [ -z "$(kube get nodes -o name 2>/dev/null || true)" ]; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 40 ]; then
-    kube get nodes >&2
+    kube get nodes -o wide >&2
+    echo 'Local Kubernetes registered no node.' >&2
     exit 1
   fi
   sleep .5
