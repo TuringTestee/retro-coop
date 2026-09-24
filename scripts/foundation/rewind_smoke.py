@@ -1,7 +1,7 @@
 """Actual core-cycle history, mapper CPU writes, exact replay and local confirmation."""
 import json
 from worker_probe import prepare_worker_probe, finish_worker_probe
-from lobby_start import start_solo
+from local_play import enter_create, start_solo
 
 
 def verify_rewind_worker(browser,url,rom,worker_path):
@@ -70,29 +70,30 @@ def verify_rewind_ui(browser,url,rom,output):
     page.add_init_script('''window.rewindAudio={buffers:0,finite:true,peak:0};const copy=AudioBuffer.prototype.copyToChannel;
       AudioBuffer.prototype.copyToChannel=function(samples,...args){rewindAudio.buffers++;for(const value of samples){rewindAudio.finite &&= Number.isFinite(value);rewindAudio.peak=Math.max(rewindAudio.peak,Math.abs(value))}return copy.call(this,samples,...args)};''')
     page.goto(url)
+    enter_create(page)
     page.get_by_label('NES cartridge file').set_input_files({'name':'rewind-local.nes','mimeType':'application/octet-stream','buffer':rom})
     start_solo(page,rom)
-    page.get_by_role('button',name='Rewind',exact=True).click();dialog=page.get_by_role('dialog',name='Rewind local game')
-    dialog.get_by_text('Not enough history yet.',exact=False).wait_for();assert dialog.get_by_role('button',name='Rewind 1 second',exact=True).is_disabled()
-    dialog.get_by_role('button',name='Close rewind').click();page.get_by_role('button',name='Resume',exact=True).click()
+    page.get_by_role('button',name='Rewind',exact=True).click();tool_page=page.locator('.rewind.tool-page')
+    tool_page.get_by_text('Not enough history yet.',exact=False).wait_for();assert tool_page.get_by_role('button',name='Rewind 1 second',exact=True).is_disabled()
+    page.get_by_role('button',name='Back',exact=True).click();page.get_by_role('button',name='Resume',exact=True).click()
     # Actual user-visible play: do not accelerate the RAF clock or worker frame loop.
     page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>=650",timeout=25000)
-    page.get_by_role('button',name='Rewind',exact=True).click();dialog.get_by_test_id('rewind-history').filter(has_text='10.00 seconds').wait_for()
-    dialog.get_by_label('Seconds to rewind').select_option('10');dialog.get_by_role('button',name='Rewind 10 seconds',exact=True).click()
+    page.get_by_role('button',name='Rewind',exact=True).click();tool_page.get_by_test_id('rewind-history').filter(has_text='10.00 seconds').wait_for()
+    tool_page.get_by_label('Seconds to rewind').select_option('10');tool_page.get_by_role('button',name='Rewind 10 seconds',exact=True).click()
     page.screenshot(path=str(output.with_suffix('.rewind-before.png')),full_page=False)
-    before=page.get_by_test_id('frames').inner_text();dialog.get_by_role('button',name='Cancel',exact=True).click();assert page.get_by_test_id('frames').inner_text()==before
-    dialog.get_by_role('button',name='Rewind 10 seconds',exact=True).click();dialog.get_by_role('button',name='Confirm rewind',exact=True).click()
-    dialog.get_by_test_id('rewind-status').filter(has_text='Future history was discarded').wait_for()
+    before=page.get_by_test_id('frames').inner_text();tool_page.get_by_role('button',name='Cancel',exact=True).click();assert page.get_by_test_id('frames').inner_text()==before
+    tool_page.get_by_role('button',name='Rewind 10 seconds',exact=True).click();tool_page.get_by_role('button',name='Confirm rewind',exact=True).click()
+    tool_page.get_by_test_id('rewind-status').filter(has_text='Future history was discarded').wait_for()
     after=page.get_by_test_id('frames').inner_text();assert int(before.split()[0])-int(after.split()[0])>=601
     page.screenshot(path=str(output.with_suffix('.rewind-after.png')),full_page=False)
     page.set_viewport_size({'width':390,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     page.screenshot(path=str(output.with_suffix('.rewind-mobile.png')),full_page=False)
     audio_before=page.evaluate('rewindAudio.buffers')
-    dialog.get_by_role('button',name='Close rewind').click();page.get_by_role('button',name='Resume',exact=True).click()
+    page.get_by_role('button',name='Back',exact=True).click();page.get_by_role('button',name='Resume',exact=True).click()
     page.wait_for_function("before=>Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>before+3",arg=int(after.split()[0]))
     page.wait_for_function('before=>rewindAudio.buffers>before',arg=audio_before)
     audio=page.evaluate('rewindAudio');assert audio['finite'] and audio['peak']>0
     page.get_by_label('NES cartridge file').set_input_files({'name':'replacement.nes','mimeType':'application/octet-stream','buffer':rom})
-    page.get_by_role('button',name='Rewind',exact=True).click();dialog.get_by_text('Not enough history yet.',exact=False).wait_for()
+    page.get_by_role('button',name='Rewind',exact=True).click();tool_page.get_by_text('Not enough history yet.',exact=False).wait_for()
     assert not errors,errors
     page.close();return {'shortHistoryDisabled':True,'cancelPreservesFrame':True,'before':before,'after':after,'confirmedRewindPaused':True,'explicitResumeWorks':True,'replacementClearsHistory':True,'mobileNoOverflow':True,'resumedPcmObserved':audio,'pageErrors':errors}
