@@ -37,7 +37,7 @@ if [ -n "$(gcloud compute addresses list --project="$project" --filter='name=ret
   gcloud compute addresses delete retro-coop-staging-ip --project="$project" --region="$region" --quiet
 fi
 repositories=$(gcloud artifacts repositories list --project="$project" --location="$region" --format='value(name)')
-if printf '%s\n' "$repositories" | rg -qx 'retro-coop-staging'; then
+if printf '%s\n' "$repositories" | grep -Fxq 'retro-coop-staging'; then
   gcloud artifacts repositories delete retro-coop-staging --project="$project" --location="$region" --quiet
 fi
 
@@ -49,7 +49,7 @@ for name in retro-coop-staging-turn retro-coop-staging-ssh; do
   test -z "$(gcloud compute firewall-rules list --project="$project" --filter="name=$name" --format='value(name)')"
 done
 repositories=$(gcloud artifacts repositories list --project="$project" --location="$region" --format='value(name)')
-if printf '%s\n' "$repositories" | rg -qx 'retro-coop-staging'; then
+if printf '%s\n' "$repositories" | grep -Fxq 'retro-coop-staging'; then
   echo 'The staging image repository still exists.' >&2
   exit 1
 fi
