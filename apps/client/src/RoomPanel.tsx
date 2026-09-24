@@ -88,7 +88,8 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
    if(included.current===operation){included.current=undefined;setIncludedBusy(undefined);setIncludedStatus(error instanceof Error ? error.message : 'Download failed. Retry the included game.');}
   }finally{clearTimeout(timeout);}
  };
- useEffect(()=>{const operation=included.current;if(operation && operation.membership!==membership)cancelIncluded('The room changed. Included loading canceled; your previous game is preserved.');},[membership]);
+ useEffect(()=>{const operation=included.current;if(operation && operation.membership!==membership)cancelIncluded(state.releaseNotice?'':'The room changed. Included loading canceled; your previous game is preserved.');},[membership]);
+ useEffect(()=>{if(state.releaseNotice){cancelIncluded('');setIncludedStatus('');}},[state.releaseNotice]);
  useEffect(()=>{const room=guestRoom.current;if(room?.role==='guest'&&!room.catalogId)void startGuest(room);else{cancelGuest();setGuestAcquisition(undefined);}return()=>{cancelGuest();};},[membership]);
  useEffect(()=>{if(!state.connected&&guestOperation.current){cancelGuest();setGuestAcquisition({phase:'failed',message:'Room connection lost. Reconnect rooms, then retry download.'});}},[state.connected]);
  useEffect(()=>{const operation=guestOperation.current;if(!operation||!guestCurrent(operation)||guestAcquisition?.phase!=='loading')return;if(selectionLoading){operation.sawLoading=true;return;}if(operation.sawLoading){if(fingerprint&&matchesFile(guestRoom.current!.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){setGuestAcquisition({...guestAcquisition,phase:'loaded',message:'Game ready in this browser.'});void client.current?.guestAcquisition(operation.roomId,operation.membership,'loaded');}else{setGuestAcquisition({...guestAcquisition,phase:'failed',message:'The game could not load. Retry download.'});void client.current?.guestAcquisition(operation.roomId,operation.membership,'failed');}}},[selectionLoading,fingerprint,guestAcquisition?.phase]);
@@ -153,10 +154,11 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  const confirmRemove=async()=>{const current=state.room;if(!current?.guestMembership||current.guestMembership!==removeGuest)return;setSlotPending(true);setSlotError(false);setPlaceRetry(undefined);const ok=await client.current?.act({type:'kick',roomId:current.id,guestMembership:removeGuest});setSlotPending(false);setSlotError(!ok&&guestRoom.current?.guestMembership===removeGuest);if(ok){setRemoveGuest(undefined);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.room-slots button')?.focus());}};
  const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
  return <>{state.releaseNotice&&<div className="release-notice" role="alert"><p>{state.releaseNotice}</p><button onClick={()=>{if(player()?.isLoaded()){player()?.allowLocalPlay();player()?.resume();}else onBrowse();client.current?.dismissRelease();}}>{player()?.isLoaded()?'Resume local game':'View rooms'}</button></div>}
- {showDiscovery&&<>
+ {showDiscovery&&<><div className="discovery-notices">
  {claiming&&<p className="catalog-status" role="status">Checking this room… <button onClick={()=>{++claimGeneration.current;setClaiming('');setIncludedStatus('');client.current?.cancelPending();}}>Cancel</button></p>}
  {includedStatus&&!room&&<p className="catalog-status" role="status" data-testid="included-status">{includedStatus}</p>}
  {!room&&state.status!=='No room selected.'&&state.status!==state.directoryError&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
+ </div>
  <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onCreate={onCreate} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
  {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading">
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}{room&&!room.started&&<small> · {room.visibility==='public'?`Public · ${room.code}`:'Unlisted'}</small>}</h2>

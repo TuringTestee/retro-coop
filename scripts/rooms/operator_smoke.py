@@ -97,9 +97,15 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
             host.screenshot(path=str(output.with_suffix('.blocked.png')), full_page=True)
             host.locator('.release-notice').get_by_role('button', name='Resume local game', exact=True).click()
             host.get_by_role('button', name='Public rooms', exact=True).click()
+            host.set_viewport_size({'width':390,'height':844})
+            directory_bounds = host.locator('.directory-panel').bounding_box()
+            assert directory_bounds and directory_bounds['width'] > 300 and directory_bounds['x'] < 24, directory_bounds
+            assert host.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            assert host.get_by_test_id('included-status').count() == 0
             host.get_by_role('button', name='Retry', exact=True).click()
             host.locator('.directory-panel [role=status]').filter(has_text='Access is temporarily restricted').wait_for()
             assert host.get_by_test_id('room-notice').count() == 0
+            host.screenshot(path=str(output.with_suffix('.blocked-narrow.png')), full_page=True)
             host.get_by_role('button', name='Resume local game', exact=True).click()
             host.locator('.panel').wait_for(state='visible')
             assert host.locator('.release-notice').count() == 0
