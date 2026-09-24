@@ -48,12 +48,12 @@ gcloud builds submit . --project="$project" --region="$region" --config=deploy/s
 for image in edge coordinator; do
   query "digest for $image" gcloud artifacts docker images list "$image_repo/$image" --project="$project" --include-tags --format=json
   printf '%s\n' "$query_result" | python3 -c 'import json, re, sys
-revision, image = sys.argv[1:]
+revision, image, short_name = sys.argv[1:]
 rows = json.load(sys.stdin)
 matches = [row["version"] for row in rows if revision in row.get("tags", []) and re.fullmatch("sha256:[a-f0-9]{64}", row.get("version", ""))]
 if len(matches) != 1:
     raise SystemExit("Expected exactly one immutable digest for " + image + " at " + revision)
-print(image.upper() + "_IMAGE=" + image + "@" + matches[0])' "$revision" "$image_repo/$image"
+print(short_name.upper() + "_IMAGE=" + image + "@" + matches[0])' "$revision" "$image_repo/$image" "$image"
 done
 
 gcloud compute addresses create "$address" --project="$project" --region="$region" --network-tier=PREMIUM --ip-version=IPV4 --quiet

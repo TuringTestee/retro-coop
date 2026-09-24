@@ -81,9 +81,10 @@ with tempfile.TemporaryDirectory(prefix="retro-cloud-setup-") as temp:
     success = run(root, environment)
     calls = [json.loads(line) for line in log.read_text().splitlines()]
     assert success.returncode == 0, success.stderr
-    assert f"EDGE_IMAGE=us-central1-docker.pkg.dev/{PROJECT}/retro-coop-staging/edge@sha256:{'a' * 64}" in success.stdout
-    assert f"COORDINATOR_IMAGE=us-central1-docker.pkg.dev/{PROJECT}/retro-coop-staging/coordinator@sha256:{'b' * 64}" in success.stdout
-    assert "STAGING_IP=8.8.8.8" in success.stdout
+    lines = success.stdout.splitlines()
+    assert f"EDGE_IMAGE=us-central1-docker.pkg.dev/{PROJECT}/retro-coop-staging/edge@sha256:{'a' * 64}" in lines, lines
+    assert f"COORDINATOR_IMAGE=us-central1-docker.pkg.dev/{PROJECT}/retro-coop-staging/coordinator@sha256:{'b' * 64}" in lines, lines
+    assert "STAGING_IP=8.8.8.8" in lines
     assert any(call[:3] == ["compute", "addresses", "create"] for call in calls)
     assert any(call[:2] == ["builds", "submit"] and f"_SOURCE_REVISION={revision}" in " ".join(call) for call in calls)
 
