@@ -123,7 +123,11 @@ try:
         dismissed.get_by_role('heading', name='Public rooms', exact=True).wait_for()
         dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
         stage('invitation dismissed')
-        dismissed.evaluate('dismissedSockets.at(-1).close()')
+        # Older invitation sockets can outlive the route switch briefly. Close every
+        # open socket owned by this tab so the directory's active transport is faulted.
+        open_sockets = dismissed.evaluate('dismissedSockets.filter(socket => socket.readyState === 1).length')
+        assert open_sockets >= 1, 'The dismissed tab has no live directory connection to fault'
+        dismissed.evaluate('dismissedSockets.filter(socket => socket.readyState === 1).forEach(socket => socket.close())')
         dismissed.get_by_role('button', name='Retry', exact=True).wait_for()
         stage('dismissed tab disconnected')
         expect(host.get_by_role('button', name='Close place', exact=True)).to_be_enabled(timeout=8000)
