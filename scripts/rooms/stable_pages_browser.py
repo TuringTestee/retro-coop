@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -31,7 +32,9 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT, stdout=subprocess.PIPE, text=True)
+    service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
+                               env={**os.environ, 'COORDINATOR_EMPTY_OFFERS': 'super-tilt-bro-pal,from-below-1.0'},
+                               stdout=subprocess.PIPE, text=True)
     try:
         assert service.stdout
         url = json.loads(service.stdout.readline())['url']
@@ -60,9 +63,20 @@ def main():
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Settings'")
             host.get_by_role('button', name='Create game', exact=True).click()
+            host.set_viewport_size({'width': 390, 'height': 844})
+            host.wait_for_function("document.querySelector('.create-game')?.scrollHeight > innerHeight")
+            assert host.locator('.create-game').evaluate("node => getComputedStyle(node).overflowY === 'visible'"), host.locator('.create-game').evaluate("node => ({overflow:getComputedStyle(node).overflowY,parent:node.parentElement.className})")
+            assert host.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            host.get_by_role('button', name='Create room', exact=True).scroll_into_view_if_needed()
+            assert host.evaluate('window.scrollY > 0'), 'Create room should be reached by page scroll'
+            host.screenshot(path=str(args.output / 'create-narrow.png'), full_page=True)
+            host.set_viewport_size({'width': 1280, 'height': 720})
             host.locator('input[type=file]').set_input_files(ROOT / 'apps/client/dist/generated/diagnostic.nes')
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+            start_style = host.get_by_role('button', name='Start game', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
+            invite_style = host.get_by_role('button', name='Copy invite', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
+            assert start_style == 'rgb(181, 163, 255)' and start_style != invite_style, (start_style, invite_style)
             invite = host.get_by_label('Room invitation', exact=True).input_value()
             host.screenshot(path=str(args.output / 'waiting.png'))
             host.get_by_text('Connection and session settings', exact=True).click()
@@ -126,10 +140,22 @@ def main():
             host.get_by_role('button', name='Confirm leave', exact=True).click()
             host.get_by_test_id('directory').wait_for(state='visible')
             assert host.locator('.release-notice').count() == 0
+            offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/2 · Waiting for host').first
+            offer.get_by_role('button', name='Join as host').click()
+            host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+            host.get_by_role('button', name='Leave room', exact=True).click()
+            host.get_by_role('button', name='Confirm leave', exact=True).click()
+            host.get_by_test_id('directory').wait_for(state='visible')
+            host.wait_for_timeout(1000)
+            assert host.locator('.release-notice').count() == 0
+            assert host.get_by_test_id('included-status').count() == 0
+            assert host.get_by_role('button', name='Resume local game', exact=True).count() == 1
+            host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             assert not errors, errors
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                       'browser': browser.version, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
-                      'focus_return': True, 'inline_confirmations': True, 'dialogs': 0, 'layout': [wide, narrow, zoom], 'page_errors': errors}
+                      'focus_return': True, 'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
+                      'start_is_primary': True, 'voluntary_exit_clean': True, 'layout': [wide, narrow, zoom], 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()
