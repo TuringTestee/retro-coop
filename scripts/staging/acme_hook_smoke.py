@@ -13,6 +13,8 @@ with tempfile.TemporaryDirectory(prefix="retro-acme-hook-") as temporary:
     kubectl.write_text(
         "#!/usr/bin/env python3\n"
         "import os, pathlib, sys\n"
+        "if 'get' in sys.argv:\n"
+        " print(os.environ.get('STAGING_HOOK_PODS', 'retro-coop-staging-abc')); sys.exit(0)\n"
         "pathlib.Path(os.environ['STAGING_HOOK_LOG']).write_text(' '.join(sys.argv[1:]))\n"
         "if '-i' in sys.argv:\n"
         " pathlib.Path(os.environ['STAGING_HOOK_BODY']).write_bytes(sys.stdin.buffer.read())\n"
@@ -34,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix="retro-acme-hook-") as temporary:
     subprocess.run(["sh", str(hook), "auth"], env=environment, check=True)
     if (root / "body").read_text() != environment["CERTBOT_VALIDATION"]:
         raise AssertionError("The challenge body changed")
-    if "deployment/retro-coop-staging -c edge" not in (root / "invocation").read_text():
+    if "pod/retro-coop-staging-abc -c edge" not in (root / "invocation").read_text():
         raise AssertionError("The hook wrote outside the staging edge")
     subprocess.run(["sh", str(hook), "cleanup"], env=environment, check=True)
     if "rm -f /var/www/acme/.well-known/acme-challenge/sample_token-1" not in (root / "invocation").read_text():
@@ -46,4 +48,8 @@ with tempfile.TemporaryDirectory(prefix="retro-acme-hook-") as temporary:
     ]:
         if subprocess.run(["sh", str(hook), "auth"], env=broken, capture_output=True).returncode == 0:
             raise AssertionError("An invalid challenge was accepted")
+    for pods in ["", "retro-coop-staging-a retro-coop-staging-b"]:
+        broken = {**environment, "STAGING_HOOK_PODS": pods}
+        if subprocess.run(["sh", str(hook), "auth"], env=broken, capture_output=True).returncode == 0:
+            raise AssertionError("An absent or ambiguous staging Pod was accepted")
 print("ACME hook passed (write, reachability, cleanup and invalid input).")

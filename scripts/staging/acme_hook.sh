@@ -13,14 +13,17 @@ case "${CERTBOT_IDENTIFIER:-}" in
 esac
 
 namespace=retro-coop-staging
-deployment=retro-coop-staging
 target="/var/www/acme/.well-known/acme-challenge/$CERTBOT_TOKEN"
+pods=$(kubectl -n "$namespace" get pods -l app=retro-coop-staging -o jsonpath='{.items[*].metadata.name}')
+set -- $pods
+test "$#" -eq 1 || { echo 'Expected one running staging Pod.' >&2; exit 1; }
+pod=$1
 
 case "$action" in
   auth)
     test -n "${CERTBOT_VALIDATION:-}" || { echo 'Missing ACME validation.' >&2; exit 2; }
     printf '%s' "$CERTBOT_VALIDATION" |
-      kubectl -n "$namespace" exec -i "deployment/$deployment" -c edge -- sh -c \
+      kubectl -n "$namespace" exec -i "pod/$pod" -c edge -- sh -c \
         'umask 022; mkdir -p /var/www/acme/.well-known/acme-challenge; cat > "$1"' sh "$target"
     attempt=0
     while [ "$attempt" -lt 30 ]; do
@@ -33,7 +36,7 @@ case "$action" in
     exit 1
     ;;
   cleanup)
-    kubectl -n "$namespace" exec "deployment/$deployment" -c edge -- rm -f "$target"
+    kubectl -n "$namespace" exec "pod/$pod" -c edge -- rm -f "$target"
     ;;
   *)
     echo 'Use auth or cleanup.' >&2

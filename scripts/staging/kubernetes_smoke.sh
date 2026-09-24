@@ -107,13 +107,26 @@ for old, new in replacements.items():
 path.write_text(source)
 PY
 kube apply -f "$temporary/staging.yaml"
-kube -n retro-coop-staging rollout status \
-  deployment/retro-coop-staging --timeout=60s
+attempt=0
+pod=
+while [ -z "$pod" ]; do
+  pod=$(kube -n retro-coop-staging get pods -l app=retro-coop-staging -o jsonpath='{.items[*].metadata.name}')
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 40 ]; then
+    echo 'The staging Job created no Pod.' >&2
+    exit 1
+  fi
+  test -n "$pod" || sleep .5
+done
+set -- $pod
+test "$#" -eq 1 || { echo 'Expected one staging Job Pod.' >&2; exit 1; }
+pod=$1
+kube -n retro-coop-staging wait --for=condition=Ready "pod/$pod" --timeout=60s
 kube -n retro-coop-staging get configmap \
   retro-coop-staging-config -o jsonpath='{.data.COORDINATOR_ORIGINS}' |
   grep -qx 'https://34.100.1.2'
 kube -n retro-coop-staging exec \
-  deployment/retro-coop-staging -c coordinator -- node -e \
+  "pod/$pod" -c coordinator -- node -e \
   "if(process.env.COORDINATOR_ORIGINS!=='https://34.100.1.2')process.exit(1)"
 kube -n retro-coop-staging get pods \
   -l app=retro-coop-staging -o json > "$temporary/pods.json"

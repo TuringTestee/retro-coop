@@ -35,7 +35,11 @@ for expected in [
     "- 8.8.8.8/32",
     "COORDINATOR_ORIGINS: https://34.100.1.2",
     "automountServiceAccountToken: false",
-    "replicas: 1",
+    "kind: Job",
+    "activeDeadlineSeconds: 86400",
+    "backoffLimit: 0",
+    "restartPolicy: Never",
+    "ttlSecondsAfterFinished: 3600",
     "edge@sha256:" + "a" * 64,
     "coordinator@sha256:" + "b" * 64,
     "secretName: retro-coop-staging-tls",
@@ -54,6 +58,8 @@ for arguments in [
     ["--allow", "0.0.0.0/0"],
     ["--allow", "8.8.8.8/32", "--acme-bootstrap"],
     ["--allow", "192.0.2.1/32"],
+    ["--allow", "8.8.8.0/24"],
+    ["--allow", "8.8.8.8/32", "--allow", "1.1.1.1/32", "--allow", "9.9.9.9/32"],
 ]:
     result = subprocess.run([*base, *arguments], capture_output=True, text=True)
     if result.returncode == 0:
@@ -63,4 +69,6 @@ open_manifest = subprocess.check_output(
 )
 if "- 0.0.0.0/0" not in open_manifest:
     raise AssertionError("Explicit ACME bootstrap did not render")
+if "port: 443" in open_manifest or "port: 443" not in manifest:
+    raise AssertionError("ACME bootstrap exposed HTTPS or normal staging omitted it")
 print("Staging render passed (pinned images, origin, source range, quota and secrets).")
