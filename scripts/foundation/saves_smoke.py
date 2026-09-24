@@ -8,7 +8,6 @@ def verify_saves(browser,url,rom,output):
     errors=[];requests=[]
     page.on('pageerror',lambda error:errors.append(str(error)))
     page.on('request',lambda request:requests.append((request.method,request.url)))
-    page.on('dialog',lambda dialog:dialog.accept())
     page.add_init_script('''window.fileCalls=[];window.fileReplies=[];window.abortNextSave=false;
       const NativeWorker=Worker;window.Worker=class extends NativeWorker{
         constructor(...args){super(...args);this.addEventListener('message',event=>{const data=event.data;if(data.type==='state-info' && window.holdInfo){event.stopImmediatePropagation();window.heldInfo={worker:this,data};return}if('requestId' in data)fileReplies.push(data)})}

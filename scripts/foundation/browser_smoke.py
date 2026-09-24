@@ -59,7 +59,6 @@ with room_test_server(root) as url:
         window.finishPickerProof=()=>{for(const type of types)document.removeEventListener(type,record,true);return {...pickerProof,active:describe(document.activeElement),focused:document.hasFocus(),activation:navigator.userActivation.isActive};};
         ''')
         page.goto(url)
-        page.on('dialog', lambda dialog: dialog.accept())
         page.screenshot(path=str(output.with_suffix('.before.png')), full_page=True)
         page.get_by_role('button', name='Create game', exact=True).click()
         def select(data=rom, name='unknown-private-title.nes'):

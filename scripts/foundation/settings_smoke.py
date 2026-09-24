@@ -150,7 +150,6 @@ def verify_disconnected_load(browser, url, rom):
     page.get_by_role('button',name='Back',exact=True).click()
     page.evaluate('connected=false')
     page.get_by_role('button',name='Use keyboard',exact=True).wait_for()
-    page.on('dialog',lambda dialog:dialog.accept())
     count="Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])"
     for attempt in range(2):
         candidate=rom+(b'first replacement' if attempt==0 else b'second replacement')

@@ -77,7 +77,6 @@ try:
         joined(first)
         connected(host)
         open_room(host)
-        host.on('dialog', lambda dialog: dialog.accept())
         host.evaluate('window.holdKick=true')
         host.locator('.room-panel').get_by_role('button', name='Remove guest', exact=True).click()
         host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()

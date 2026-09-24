@@ -60,7 +60,6 @@ try:
         dismissed.get_by_role('button',name='Play locally',exact=True).click()
         assert dismissed.locator('main').get_attribute('class').startswith('playing')
         dismissed.get_by_test_id('player-status').filter(has_text='Game loaded').wait_for(state='attached')
-        dismissed.on('dialog',lambda dialog:dialog.accept())
         dismissed.goto(invitation)
         dismissed.get_by_role('button',name='Join room',exact=True).click()
         dismissed.get_by_role('button',name='Leave room',exact=True).wait_for()
