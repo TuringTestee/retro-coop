@@ -40,9 +40,15 @@ def main():
             host.wait_for_function("document.activeElement?.id === 'settings-title'")
             assert host.locator('dialog').count() == 0
             assert not host.locator('.directory-panel').is_visible()
+            host.get_by_role('button', name='Restore keyboard defaults').click()
+            host.keyboard.press('Escape')
+            assert host.get_by_role('button', name='Keep mappings').count() == 0
             host.screenshot(path=str(args.output / 'settings.png'))
             host.get_by_role('button', name='Local data', exact=True).click()
             host.wait_for_function("document.activeElement?.id === 'local-data-title'")
+            host.get_by_role('button', name='Delete all local data').click()
+            host.keyboard.press('Escape')
+            assert host.get_by_role('button', name='Confirm', exact=True).count() == 0
             host.screenshot(path=str(args.output / 'local-data.png'))
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Local data'")
