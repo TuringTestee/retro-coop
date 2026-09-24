@@ -1,0 +1,31 @@
+name: Staging images
+on:
+  pull_request:
+    paths:
+      - .dockerignore
+      - .github/workflows/staging-images.yml
+      - deploy/staging/**
+      - scripts/staging/edge_probe.mjs
+      - scripts/staging/container_smoke.sh
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - name: Build both images from the pinned source
+        run: |
+          docker build --file deploy/staging/Dockerfile --target edge --tag retro-coop-staging-edge:candidate .
+          docker build --file deploy/staging/Dockerfile --target coordinator --tag retro-coop-staging-coordinator:candidate .
+      - name: Probe HTTPS, immutable assets and proxy admission
+        run: |
+          npm ci
+          sh scripts/staging/container_smoke.sh

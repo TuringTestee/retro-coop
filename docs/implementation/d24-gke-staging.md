@@ -23,6 +23,8 @@ Retro Coop can use the selected GKE platform for a short-lived internet test, bu
 
 Use a current-price worksheet for requested Autopilot vCPU, memory and storage hours; one or more load-balancer forwarding rules and bytes; static asset, upload and log bytes; TURN fixed charge and worst-case relayed GiB; external egress; and DNS/certificate charges. Model the actual short staging window and the accidental 30-day left-running case. Include the existing project's charges only when they are incremental to Retro Coop, and verify whether credits apply rather than subtracting assumed credits.
 
+For scale, the checked `us-central1` list prices make a continuously requested 0.5 vCPU/1 GiB Autopilot Pod about `$19.84` for 730 hours, and the first load-balancer forwarding rule about `$18.25` for 730 hours. This illustrative `$38.09` already consumes over a third of the $100 ceiling before relay, network bytes, logs, storage, DNS, any second rule, and any cluster-management charge. Actual GKE resource mutation, billing account credits and relay traffic have not been measured; this is not deployment approval or a final quote.
+
 Google's alerts-only budgets do not stop spending, and its current preview spend cap does not cover GKE. The deployment needs bounded room/connection/relay admission, workload and storage quotas, a time-limited shutdown/teardown path, and a measured test before claiming the $100 ceiling. A budget alert remains useful but is not the enforcement proof. Do not provision if the worst-case left-running calculation or unbounded network use can exceed the ceiling without an accepted cutoff.
 
 ## Acceptance sequence
@@ -31,6 +33,12 @@ Google's alerts-only budgets do not stop spending, and its current preview spend
 2. Review the exact Kubernetes/relay manifests, hostname, certificate, secret names, resource limits, current-price worksheet, credit status and teardown command. Confirm the selected cluster and that no unrelated namespace or workload changes.
 3. Deploy staging for a bounded window. From two independent internet networks, create and join a custom game, verify automatic guest download, Prepare, Start, matching shared frames, text and opt-in voice. Repeat with forced relay, then test pause/reconnect/leave. Capture sanitized endpoint, route, timing, status and recovery evidence.
 4. Exercise old/new client and coordinator rollback. Existing rooms may close on coordinator restart; show the player-facing recovery. Remove staging resources and verify load balancer, IP, VM/relay and secret cleanup. Post actual measured costs and results on #28. Keep the epic open for broader release validation.
+
+## Local package evidence at `90b00a4` base
+
+The candidate Dockerfile builds an edge image and one coordinator image from the same source. The edge Nginx configuration serves the Vite bundle, terminates TLS, overwrites forwarding identity with its transport peer, and sends only WebSocket and membership-scoped ROM routes to loopback. It disables request-path and address access logs. `scripts/staging/edge_probe.mjs` exercises the admission boundary through the real proxy; the separate staging-images workflow will build and run the exact containers on PRs that change this package.
+
+Before the container workflow runs, the same configuration passed `nginx -t` with a local Nginx 1.24 binary and a temporary certificate. A real `npm run build:staging` served through that proxy returned the Create Game page and immutable hashed JavaScript. The local probe reported `https`, `staticRoute`, `versionedAsset`, `originDenied`, `forgedAddressCannotSplitQuota` and 21 distinct transport addresses all true. The coordinator also started with production-only npm dependencies and returned HTTP 200 on `/health`. `timeout 60s sh scripts/preflight.sh` passed 29 Rust and 138 Node tests, TypeScript typecheck and hygiene. This local test does not prove the exact container images, GKE source-address preservation, TURN, valid public TLS, independent networks, or the budget. Those remain explicit gates above.
 
 ## Sources checked 2026-09-24
 

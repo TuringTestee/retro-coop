@@ -1,0 +1,17 @@
+.git
+.agents
+tooling
+node_modules
+**/node_modules
+**/dist
+**/target
+apps/client/src/generated
+apps/client/public/generated
+docs
+.github
+*.log
+*.local
+.env*
+**/.env*
+*.pem
+*.key
