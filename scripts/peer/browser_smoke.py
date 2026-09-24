@@ -31,7 +31,6 @@ try:
     };''');page.goto(url);return page
   def open_room(tab):
    panel=tab.locator('.room-panel')
-   if not panel.is_visible():tab.get_by_role('button',name='Room',exact=True).click()
    panel.wait_for(state='visible');return panel
   def open_connection(tab):
    panel=open_room(tab);connection=panel.locator('details.session-settings')
@@ -112,12 +111,12 @@ try:
   open_connection(denied).get_by_label('Connection privacy',exact=True).select_option('standard')
   connected(denied,waiting,'relay')
   # Settings reflects and changes the same privacy owner; shared gameplay is never promoted.
-  denied.get_by_role('button',name='Settings',exact=True).click();assert denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).input_value()=='standard'
-  denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).select_option('relay')
+  denied.get_by_role('button',name='Settings',exact=True).click();assert denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).input_value()=='standard'
+  denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).select_option('relay')
   connected(denied,waiting,'relay')
   assert open_connection(denied).get_by_label('Connection privacy',exact=True).input_value()=='relay'
   assert 'Paused' in denied.get_by_test_id('player-status').inner_text()
-  denied.get_by_role('dialog').get_by_label('Connection privacy',exact=True).scroll_into_view_if_needed()
+  denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).scroll_into_view_if_needed()
   denied.screenshot(path=str(out.with_suffix('.settings.png')),full_page=True)
   # Controlled application-probe loss verifies recovery; it is NOT a reproduction of #53's unknown CI cause.
   # Preserve the existing successful policy-change workload above, then add a separate failure transition.

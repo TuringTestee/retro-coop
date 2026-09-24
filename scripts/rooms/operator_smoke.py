@@ -43,8 +43,6 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 return tab
             def open_room(tab):
                 panel = tab.locator('.room-panel')
-                if not panel.is_visible():
-                    tab.get_by_role('button', name='Room', exact=True).click()
                 panel.wait_for(state='visible')
                 return panel
             def open_connection(tab):

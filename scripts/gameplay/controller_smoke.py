@@ -11,7 +11,7 @@ def run(host,guest,out,root,errors,source,build_files):
   return hashes[0]
  def settings():
   for page in pages:
-   if not page.locator('.room-panel').is_visible():page.get_by_role('button',name='Room',exact=True).click()
+   page.locator('.room-panel').wait_for(state='visible')
    page.locator('details.session-settings').evaluate('(node)=>node.open=false')
    page.locator('details.controller-disclosure').evaluate('(node)=>node.open=true')
    layout=page.evaluate("""()=>{const panel=document.querySelector('.room-panel');return {documentHeight:document.documentElement.scrollHeight,viewportHeight:innerHeight,panelHeight:panel.clientHeight,panelScrollHeight:panel.scrollHeight}}""")
@@ -50,7 +50,7 @@ def run(host,guest,out,root,errors,source,build_files):
  for page,key in [(host,'x'),(guest,'z')]:page.locator('canvas').focus();page.keyboard.up(key);page.keyboard.down(key)
  sample([64,128],'separate swapped: guest P1, host P2');pause()
  # A continuously polled selected pad remains held across the assignment change.
- guest.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());guest.get_by_role('button',name='Settings',exact=True).click();guest.get_by_label('Input device',exact=True).select_option('0');guest.get_by_role('button',name='Close settings',exact=True).click();guest.evaluate('padButtons=[0]')
+ guest.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());guest.get_by_role('button',name='Settings',exact=True).click();guest.get_by_label('Input device',exact=True).select_option('0');guest.get_by_role('button',name='Back',exact=True).click();guest.evaluate('padButtons=[0]')
  propose('shared','guest');consent('shared','guest');resume();host.evaluate("window.gameFault='old-epoch'")
  host.locator('canvas').focus();host.evaluate("window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyX',repeat:true}))")
  sample([0,0],'held keyboard repeat and gamepad suppressed after acceptance');assert host.evaluate('window.gameFault===undefined')

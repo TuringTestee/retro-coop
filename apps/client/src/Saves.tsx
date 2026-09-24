@@ -54,7 +54,7 @@ export function Saves({open,player,game,shared}:{open:boolean;player:LocalPlayer
  const exportBytes=(bytes:ArrayBuffer,slot?:number)=>{setBackup(bytes);try{downloadSave(bytes,slot);setExportFailed(false);setMessage('Save export requested. Keep the backup somewhere safe.');}catch(error){setExportFailed(true);setMessage(`Couldn't export. Your backup remains in memory. Retry export. ${errorText(error)}`);}};
  if(!open)return null;
  return <section className="settings saves tool-page" aria-labelledby="saves-title">
-  <h2 id="saves-title" tabIndex={-1}>Saves on this device</h2><p>Compatible saves for your current game. Your game file is never stored or included in exports.</p>
+  <h2 id="saves-title" tabIndex={-1}>Saves on this device</h2><p>Compatible saves for your current game. Save exports contain progress, not the game file.</p>
   <p>Saves can be removed by your browser. Export a backup.</p>
   {message && <p role="status" data-testid="save-status">{message}</p>}
   {confirmation && <section role="alertdialog" aria-label="Confirm save action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void confirmation.action()}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}<div hidden={!!confirmation}>

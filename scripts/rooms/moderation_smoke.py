@@ -49,8 +49,6 @@ try:
             tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Route: direct')")
         def open_room(tab):
             panel = tab.locator('.room-panel')
-            if not panel.is_visible():
-                tab.get_by_role('button', name='Room', exact=True).click()
             panel.wait_for(state='visible')
             return panel
         def open_connection(tab):
