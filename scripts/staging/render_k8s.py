@@ -44,6 +44,8 @@ def source_range(value):
 def render(args):
     if not args.allow:
         raise ValueError("At least one tester source range is required")
+    if not args.acme_bootstrap and (len(args.allow) > 2 or any(not value.endswith("/32") for value in args.allow)):
+        raise ValueError("The bounded trial allows at most two individual tester IPv4 addresses")
     if "0.0.0.0/0" in args.allow and (len(args.allow) != 1 or not args.acme_bootstrap):
         raise ValueError("Open access is allowed only with --acme-bootstrap for certificate issuance")
     if args.acme_bootstrap and args.allow != ["0.0.0.0/0"]:
@@ -73,6 +75,10 @@ def render(args):
             f"        value: {json.dumps(args.public_ip)}\n"
             "      - op: replace\n        path: /spec/loadBalancerSourceRanges\n"
             f"        value: {json.dumps(args.allow)}\n"
+            + (
+                "      - op: remove\n        path: /spec/ports/1\n"
+                if args.acme_bootstrap else ""
+            )
         )
         return subprocess.check_output(["kubectl", "kustomize", str(overlay)], text=True)
 
