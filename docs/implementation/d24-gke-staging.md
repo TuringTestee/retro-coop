@@ -1,8 +1,10 @@
+Audience: Agent
+
 Retro Coop has a tested HTTPS package for a short internet trial. This document tracks the work needed to run it on GKE with a relay, a valid certificate, cost limits and cleanup. No cloud resources have been created.
 
 # GKE staging deployment: current decisions and remaining gates
 
-Audience: Agent. The approved $100 monthly ceiling needs more than a billing alert.
+The approved $100 monthly ceiling needs more than a billing alert.
 
 ## Source and observed state
 
