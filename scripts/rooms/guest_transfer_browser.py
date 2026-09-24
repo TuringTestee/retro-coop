@@ -3,7 +3,7 @@
 import argparse
 import json
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--url', required=True)
@@ -172,7 +172,7 @@ with sync_playwright() as playwright:
     expired.get_by_role('button', name='Return to rooms', exact=True).focus()
     expired.keyboard.press('Enter')
     expired.get_by_test_id('directory').wait_for()
-    assert expired.get_by_role('searchbox').evaluate('(node)=>node===document.activeElement')
+    expect(expired.get_by_role('searchbox')).to_be_focused(timeout=5000)
     # A denied IndexedDB write must leave verified bytes playable for this tab.
     quota_context = browser.new_context(viewport={'width': 1280, 'height': 800})
     quota_context.add_init_script("""(() => {
