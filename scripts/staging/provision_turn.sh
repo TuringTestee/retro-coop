@@ -9,7 +9,8 @@ zone=$2
 tester_one=$3
 tester_two=$4
 operator=$5
-python3 - "$tester_one" "$tester_two" "$operator" <<'PY'
+test "$project" = bship-164753-06152350 || { echo 'The reviewed staging project does not match.' >&2; exit 2; }
+python3 -B - "$tester_one" "$tester_two" "$operator" <<'PY'
 import sys
 import argparse
 sys.path.insert(0, 'scripts/staging')
@@ -51,6 +52,16 @@ gcloud compute instances create retro-coop-staging-turn --project="$project" --z
   --boot-disk-size=10GB --boot-disk-type=pd-balanced --network=retro-coop-staging --subnet=retro-coop-staging \
   --tags=retro-coop-staging-turn --no-service-account --no-scopes --no-restart-on-failure \
   --max-run-duration=6h --instance-termination-action=DELETE --quiet
+termination=$(gcloud compute instances describe retro-coop-staging-turn --project="$project" --zone="$zone" \
+  --format='value(scheduling.terminationTimestamp)')
+test -n "$termination" || { echo 'The VM has no termination timestamp; tear down the trial immediately.' >&2; exit 1; }
+private_ip=$(gcloud compute instances describe retro-coop-staging-turn --project="$project" --zone="$zone" \
+  --format='value(networkInterfaces[0].networkIP)')
+public_ip=$(gcloud compute instances describe retro-coop-staging-turn --project="$project" --zone="$zone" \
+  --format='value(networkInterfaces[0].accessConfigs[0].natIP)')
+test -n "$private_ip" && test -n "$public_ip" || {
+  echo 'The VM has no public and private IPv4 pair; tear down the trial immediately.' >&2; exit 1;
+}
 gcloud compute instances describe retro-coop-staging-turn --project="$project" --zone="$zone" \
   --format='table(name,networkInterfaces[0].networkIP,networkInterfaces[0].accessConfigs[0].natIP,scheduling.terminationTimestamp)'
 echo 'The VM must be configured and checked before adding its TURN URL to the coordinator Secret.'

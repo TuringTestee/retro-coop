@@ -18,7 +18,7 @@ case "$interface" in
   ''|*[!a-zA-Z0-9_.-]*) echo 'Could not identify the outbound network interface.' >&2; exit 1 ;;
 esac
 
-install -d -m 0700 /etc/retro-coop-staging
+install -d -m 0750 -o root -g turnserver /etc/retro-coop-staging
 chmod 0600 "$secret_file"
 python3 "$script_dir/render_turn.py" --public-ip "$public_ip" --private-ip "$private_ip" \
   --secret-file "$secret_file" --output /etc/retro-coop-staging/turn.conf

@@ -15,8 +15,8 @@ def ipv4(value, public):
         raise argparse.ArgumentTypeError("Expected one IPv4 address") from error
     if public and not address.is_global:
         raise argparse.ArgumentTypeError("TURN external address must be public")
-    if not public and (address.is_multicast or address.is_unspecified):
-        raise argparse.ArgumentTypeError("TURN internal address must be usable")
+    if not public and (not address.is_private or address.is_multicast or address.is_unspecified):
+        raise argparse.ArgumentTypeError("TURN internal address must be private")
     return str(address)
 
 
@@ -44,13 +44,18 @@ max-port=49175
 realm=retro-coop-staging
 use-auth-secret
 static-auth-secret={secret}
-user-quota=2
-total-quota=8
+user-quota=4
+total-quota=16
 relay-threads=1
 max-bps=100000
-bps-capacity=400000
-no-loopback-peers
+bps-capacity=1600000
 no-multicast-peers
+denied-peer-ip=0.0.0.0-0.255.255.255
+denied-peer-ip=10.0.0.0-10.255.255.255
+denied-peer-ip=127.0.0.0-127.255.255.255
+denied-peer-ip=169.254.0.0-169.254.255.255
+denied-peer-ip=172.16.0.0-172.31.255.255
+denied-peer-ip=192.168.0.0-192.168.255.255
 no-cli
 no-tls
 no-dtls

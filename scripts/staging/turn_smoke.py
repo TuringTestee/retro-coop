@@ -24,12 +24,14 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
     config = output.read_text()
     assert output.stat().st_mode & 0o077 == 0
     for expected in ["external-ip=34.100.1.2/127.0.0.1", "static-auth-secret=" + "a" * 64,
-                     "total-quota=8", "bps-capacity=400000", "min-port=49160", "max-port=49175"]:
+                     "total-quota=16", "bps-capacity=1600000", "min-port=49160", "max-port=49175",
+                     "denied-peer-ip=169.254.0.0-169.254.255.255"]:
         assert expected in config
     for broken in [
         command,
         [*command[:2], "--public-ip", "127.0.0.1", *command[4:]],
         [*command[:4], "--private-ip", "0.0.0.0", *command[6:]],
+        [*command[:4], "--private-ip", "8.8.8.8", *command[6:]],
     ]:
         assert subprocess.run(broken, capture_output=True).returncode != 0
     output.unlink()
