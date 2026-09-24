@@ -162,6 +162,7 @@ def main():
             host.get_by_text('Could not leave the room. Retry or stay here.', exact=True).wait_for(timeout=15000)
             host.get_by_role('button', name='Retry download', exact=True).wait_for()
             assert host.locator('.release-notice').count() == 0
+            host.screenshot(path=str(args.output / 'failed-close.png'), full_page=True)
             assert not errors, errors
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                       'browser': browser.version, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
