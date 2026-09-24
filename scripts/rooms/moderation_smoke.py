@@ -60,13 +60,6 @@ try:
                 connection.get_by_text('Connection and session settings', exact=True).click()
             panel.get_by_test_id('room-view').wait_for(state='visible')
             return panel
-        def open_host_session(tab):
-            panel = open_connection(tab)
-            connection = panel.locator('details.session-settings')
-            session = connection.locator('details').filter(has_text='Session settings')
-            if not session.evaluate('(node)=>node.open'):
-                session.get_by_text('Session settings', exact=True).click()
-            return panel
         def voice(tab):
             panel = open_room(tab)
             panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
@@ -85,10 +78,11 @@ try:
         first = page(invitation)
         joined(first)
         connected(host)
-        open_host_session(host)
+        open_room(host)
         host.on('dialog', lambda dialog: dialog.accept())
         host.evaluate('window.holdKick=true')
         host.locator('.room-panel').get_by_role('button', name='Remove guest', exact=True).click()
+        host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()
         host.wait_for_function("typeof releaseKick==='function'")
         open_room(first).get_by_role('button', name='Leave room', exact=True).click()
         first.get_by_test_id('room-view').wait_for(state='detached')
@@ -109,7 +103,8 @@ try:
         host.screenshot(path=str(output.with_suffix('.stale.png')), full_page=True,
                         mask=[host.get_by_label('Room invitation', exact=True)])
         writes = host.evaluate('timelineWrites')
-        open_host_session(host).get_by_role('button', name='Remove guest', exact=True).click()
+        open_room(host).get_by_role('button', name='Remove guest', exact=True).click()
+        host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()
         replacement.get_by_test_id('room-view').wait_for(state='detached')
         for tab in [host, replacement]:
             tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")

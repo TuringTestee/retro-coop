@@ -149,8 +149,11 @@ try:
    if args.kick_playing or args.operator_playing:
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     if args.kick_playing:
-     h.on('dialog',lambda dialog:dialog.accept())
-     open_host_session(h).get_by_role('button',name='Remove guest',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
+     # The waiting-room Remove guest control intentionally disappears after Start.
+     # Keep the established-play teardown regression through the host protocol.
+     assert open_room(h).get_by_role('button',name='Remove guest',exact=True).count()==0
+     h.evaluate("""()=>{const room=proof.room;proof.roomSocket.send(JSON.stringify({type:'kick',requestId:crypto.randomUUID(),roomId:room.id,guestMembership:room.guestMembership}))}""")
+     g.get_by_test_id('room-view').wait_for(state='detached')
     else:
      cli=['node','apps/coordinator/src/operator-cli.ts',operator_dir]
      listing=json.loads(subprocess.run([*cli,'list'],cwd=root,capture_output=True,text=True,check=True,timeout=5).stdout)

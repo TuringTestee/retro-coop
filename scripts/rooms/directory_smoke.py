@@ -103,7 +103,7 @@ try:
         public = [event['rooms'] for event in received if event.get('type') == 'directory']
         public += [event['data']['directory'] for event in received if event.get('type') == 'result' and event.get('ok') and 'directory' in event['data']]
         assert public
-        allowed = {'id', 'label', 'host', 'visibility', 'code', 'status', 'occupancy', 'catalogId', 'romBytes'}
+        allowed = {'id', 'label', 'host', 'visibility', 'code', 'status', 'occupancy', 'catalogId', 'romBytes', 'guestPlace', 'guestPlaceVersion'}
         assert all(set(room) <= allowed and room['visibility'] == 'public' for snapshot in public for room in snapshot)
         assert not any('PRIVATE-DIRECTORY' in json.dumps(frame) for frame in sent)
         result = {'result': 'pass', 'duplicate_codes': codes, 'search_and_live_focus': True, 'reserved_room_has_no_join': True, 'exact_guest_file': True, 'unlisted_removed': True, 'stale_rows_have_no_actions_and_retry': True, 'metadata_only': True, 'private_filenames_not_sent': True, 'page_errors': errors, 'elapsedSeconds': round(time.monotonic() - started, 2)}
