@@ -92,10 +92,12 @@ try:
         return panel
 
     host = page(url)
+    host.get_by_role("button", name="Create game", exact=True).click()
     host.set_input_files(
         "input[type=file]",
         {"name": "fixture.nes", "mimeType": "application/octet-stream", "buffer": rom},
     )
+    host.get_by_role("button", name="Create room", exact=True).click()
     host.get_by_test_id("room-view").wait_for(state="attached")
     open_connection(host).get_by_label("Connection privacy", exact=True).select_option(
         "relay" if args.relay else "standard"
@@ -287,7 +289,6 @@ try:
     host.keyboard.down("KeyV")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
-    guest.get_by_role("button", name="Confirm leave", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
     for tab in [host, guest]:
         tab.wait_for_function(
@@ -319,7 +320,6 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
-    guest.get_by_role("button", name="Confirm leave", exact=True).click()
     host.wait_for_function(
         "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
     )

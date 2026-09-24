@@ -95,7 +95,7 @@ with sync_playwright() as playwright:
     guest.get_by_role('button', name='Back', exact=True).click()
     guest.get_by_role('button', name='Leave room', exact=True).click()
     guest.get_by_test_id('directory').wait_for()
-    assert guest.get_by_role('searchbox').evaluate('(node)=>node===document.activeElement')
+    guest.wait_for_function("document.activeElement?.matches('input[type=search]')")
     # Clear in another tab while the download response is held. The current
     # browser may play verified memory bytes but must not recreate the cache.
     clearer = guest_context.new_page()
