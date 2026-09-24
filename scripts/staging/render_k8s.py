@@ -57,6 +57,7 @@ def render(args):
         (overlay / "kustomization.yaml").write_text(
             "apiVersion: kustomize.config.k8s.io/v1beta1\n"
             "kind: Kustomization\n"
+            "namespace: retro-coop-staging\n"
             "resources:\n  - ../base\n"
             "images:\n"
             f"  - name: retro-coop-staging-edge\n    newName: {args.edge_image['name']}\n    digest: sha256:{args.edge_image['digest']}\n"

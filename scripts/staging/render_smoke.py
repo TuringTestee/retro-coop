@@ -4,6 +4,7 @@
 import subprocess
 import sys
 from pathlib import Path
+import re
 
 render = Path(__file__).with_name("render_k8s.py")
 base = [
@@ -13,6 +14,17 @@ base = [
     "--coordinator-image", "us-central1-docker.pkg.dev/sample/retro-coop-staging/coordinator@sha256:" + "b" * 64,
 ]
 manifest = subprocess.check_output([*base, "--allow", "8.8.8.8/32"], text=True)
+documents = manifest.split("\n---\n")
+for document in documents:
+    kind = re.search(r"^kind: (\S+)$", document, re.MULTILINE)
+    if kind is None:
+        raise AssertionError("Rendered object has no kind")
+    if kind.group(1) != "Namespace" and not re.search(
+        r"^  namespace: retro-coop-staging$", document, re.MULTILINE
+    ):
+        raise AssertionError(f"Rendered {kind.group(1)} escaped the staging namespace")
+if len(documents) != 5:
+    raise AssertionError("Unexpected staging resource count")
 for expected in [
     "kind: Namespace",
     "name: retro-coop-staging",
@@ -28,6 +40,10 @@ for expected in [
     "coordinator@sha256:" + "b" * 64,
     "secretName: retro-coop-staging-tls",
     "name: retro-coop-staging-turn",
+    "runAsUser: 101",
+    "runAsGroup: 101",
+    "runAsUser: 1000",
+    "runAsGroup: 1000",
 ]:
     if expected not in manifest:
         raise AssertionError(f"Staging render omitted {expected}")

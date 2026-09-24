@@ -55,6 +55,8 @@ spec:
             capabilities:
               drop: [ALL]
             runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
           volumeMounts:
             - name: tls
               mountPath: /run/tls
@@ -110,6 +112,8 @@ spec:
             capabilities:
               drop: [ALL]
             runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
       volumes:
         - name: tls
           secret:
