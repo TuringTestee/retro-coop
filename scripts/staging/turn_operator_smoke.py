@@ -28,6 +28,7 @@ state=json.loads(path.read_text())
 args=sys.argv[1:]
 with Path(os.environ['STAGING_MOCK_LOG']).open('a') as log: log.write(json.dumps(['gcloud',*args])+'\\n')
 kind=' '.join(args[:3])
+if os.environ.get('STAGING_MOCK_FAIL_QUERY')==kind: sys.exit(42)
 if kind.startswith('compute networks subnets'): resource='subnet'
 elif kind.startswith('compute networks'): resource='network'
 elif kind.startswith('compute instances'): resource='vm'
@@ -37,7 +38,8 @@ elif kind.startswith('artifacts repositories'): resource='repository'
 else: resource=None
 if resource:
   action='list' if 'list' in args[:4] else 'create' if 'create' in args[:4] else 'delete' if 'delete' in args[:4] else 'describe'
-  if action=='list' and state.get(resource): print('retro-coop-staging' if resource in ('network','subnet','address','repository') else 'retro-coop-staging-turn' if resource=='vm' else resource.removeprefix('firewall_'))
+  if action=='list' and state.get(resource):
+    print('projects/bship-164753-06152350/locations/us-central1/repositories/retro-coop-staging' if resource=='repository' and os.environ.get('STAGING_MOCK_QUALIFIED_REPO') else 'retro-coop-staging' if resource in ('network','subnet','address','repository') else 'retro-coop-staging-turn' if resource=='vm' else resource.removeprefix('firewall_'))
   elif action=='create': state[resource]=True
   elif action=='delete': state[resource]=False
   elif action=='describe' and resource=='vm':
@@ -82,4 +84,22 @@ path.write_text(json.dumps(state))
     namespace_delete = next(i for i, call in enumerate(calls) if call[:3] == ['kubectl','delete','namespace'])
     address_delete = next(i for i, call in enumerate(calls) if call[:4] == ['gcloud','compute','addresses','delete'])
     assert namespace_delete < address_delete, 'The load balancer must be removed before its IP'
+    scenario = os.environ.get('STAGING_SMOKE_CASE', 'all')
+    if scenario != 'query':
+        state.write_text(json.dumps({'repository': True}))
+        qualified = {**environment, 'STAGING_MOCK_QUALIFIED_REPO': '1'}
+        subprocess.run(["sh", str(root / "scripts/staging/teardown.sh"), "bship-164753-06152350"], cwd=root, env=qualified, check=True, capture_output=True)
+        assert not json.loads(state.read_text()).get('repository'), 'Qualified repository name survived teardown'
+    if scenario != 'qualified':
+        state.write_text(json.dumps({}))
+        failed = {**environment, 'STAGING_MOCK_FAIL_QUERY': 'compute networks list'}
+        teardown_result = subprocess.run(["sh", str(root / "scripts/staging/teardown.sh"), "bship-164753-06152350"], cwd=root, env=failed, capture_output=True, text=True)
+        assert teardown_result.returncode != 0 and 'removed' not in teardown_result.stdout, 'Failed inventory query was reported as successful teardown'
+        repository_query_failed = {**environment, 'STAGING_MOCK_FAIL_QUERY': 'artifacts repositories list'}
+        repository_result = subprocess.run(["sh", str(root / "scripts/staging/teardown.sh"), "bship-164753-06152350"], cwd=root, env=repository_query_failed, capture_output=True, text=True)
+        assert repository_result.returncode != 0 and 'removed' not in repository_result.stdout, 'Failed repository query was reported as successful teardown'
+        start = len(log.read_text().splitlines())
+        provision_result = subprocess.run(provision, cwd=root, env=failed, capture_output=True, text=True)
+        later = [json.loads(line) for line in log.read_text().splitlines()[start:]]
+        assert provision_result.returncode != 0 and not any('create' in call[:4] for call in later), 'Failed inventory query reached resource creation'
 print("TURN operator commands passed (narrow firewall, six-hour VM deletion and isolated teardown).")

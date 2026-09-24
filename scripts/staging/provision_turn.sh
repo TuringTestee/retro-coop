@@ -24,19 +24,20 @@ for value in sys.argv[1:]:
         raise SystemExit(str(error)) from error
 PY
 test "$zone" = us-central1-a || { echo 'The reviewed VM zone is us-central1-a.' >&2; exit 2; }
-test -z "$(gcloud compute networks list --project="$project" --filter='name=retro-coop-staging' --format='value(name)')" || {
-  echo 'The dedicated staging network already exists; inspect it before retrying.' >&2; exit 1;
+require_absent() {
+  label=$1
+  shift
+  if ! found=$("$@"); then
+    echo "Could not check $label; no staging resource was created." >&2
+    exit 1
+  fi
+  test -z "$found" || { echo "$label already exists; inspect it before retrying." >&2; exit 1; }
 }
-test -z "$(gcloud compute networks subnets list --project="$project" --filter='name=retro-coop-staging' --format='value(name)')" || {
-  echo 'The staging subnet already exists; inspect it before retrying.' >&2; exit 1;
-}
-test -z "$(gcloud compute instances list --project="$project" --filter='name=retro-coop-staging-turn' --format='value(name)')" || {
-  echo 'The staging TURN VM already exists; inspect it before retrying.' >&2; exit 1;
-}
+require_absent 'the dedicated staging network' gcloud compute networks list --project="$project" --filter='name=retro-coop-staging' --format='value(name)'
+require_absent 'the staging subnet' gcloud compute networks subnets list --project="$project" --filter='name=retro-coop-staging' --format='value(name)'
+require_absent 'the staging TURN VM' gcloud compute instances list --project="$project" --filter='name=retro-coop-staging-turn' --format='value(name)'
 for name in retro-coop-staging-ssh retro-coop-staging-turn; do
-  test -z "$(gcloud compute firewall-rules list --project="$project" --filter="name=$name" --format='value(name)')" || {
-    echo "Firewall rule $name already exists; inspect it before retrying." >&2; exit 1;
-  }
+  require_absent "firewall rule $name" gcloud compute firewall-rules list --project="$project" --filter="name=$name" --format='value(name)'
 done
 
 gcloud compute networks create retro-coop-staging --project="$project" --subnet-mode=custom --quiet
