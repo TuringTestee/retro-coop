@@ -121,6 +121,7 @@ try:
         dismissed.get_by_role('button', name='Join room', exact=True).wait_for()
         dismissed.get_by_role('button', name='View public rooms', exact=True).click()
         dismissed.get_by_role('heading', name='Public rooms', exact=True).wait_for()
+        dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
         stage('invitation dismissed')
         dismissed.evaluate('dismissedSockets.at(-1).close()')
         dismissed.get_by_role('button', name='Retry', exact=True).wait_for()

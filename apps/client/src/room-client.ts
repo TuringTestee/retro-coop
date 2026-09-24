@@ -104,7 +104,7 @@ export class RoomClient {
     else if(event.type.startsWith('game'))this.game.handle(event as GameEvent);
     else if(event.type.startsWith('peer')) this.peer.handle(event as PeerEvent);
     else if(event.type === 'directory') this.publish({directory:event.rooms,directoryStatus:'live',directoryError:undefined});
-    else if(event.type === 'preview'&&!this.state.room&&this.previewingId===event.preview.id)this.publish({preview:event.preview,status:'guestPlace' in event.preview&&event.preview.guestPlace==='closed'?'Guest place closed. Wait for the host to open it.':'Guest place open. Join when ready.'});
+    else if(event.type === 'preview'&&!this.state.room&&this.previewingId===event.preview.id)this.publish({preview:event.preview,status:'guestPlace' in event.preview&&event.preview.guestPlace==='closed'?messages.guest_place_closed:event.preview.status==='waiting'&&event.preview.occupancy===1?'Guest place open. Join when ready.':event.preview.occupancy>=2?messages.place_taken:messages.room_unavailable});
     // Admission results and reconnect hello install a room; broadcasts only update one already installed.
     else if(event.type === 'room') {if(this.state.room?.id===event.room.id)this.setRoom(event.room);}
     else if(event.type === 'ended') {

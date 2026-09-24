@@ -126,7 +126,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{showDiscovery:boolean;onCho
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useEffect(()=>{setRemoveGuest(undefined);setSlotError(false);setPlaceRetry(undefined);},[state.room?.id,state.room?.guestMembership]);
  useEffect(()=>{if(placeRetry&&state.room?.id===placeRetry.roomId&&state.room.guestPlace===placeRetry.place&&state.room.guestPlaceVersion>placeRetry.expectedVersion){setPlaceRetry(undefined);setSlotError(false);}},[state.room?.guestPlaceVersion,placeRetry]);
- useEffect(()=>{if(invite&&!state.room)requestAnimationFrame(()=>document.querySelector<HTMLSelectElement>('.room-panel.invitation .connection-policy select')?.focus());},[invite]);
+ useEffect(()=>{if(invite&&!state.room&&state.preview?.status==='waiting'&&state.preview.occupancy===1&&state.preview.guestPlace==='open'&&document.activeElement===document.body)requestAnimationFrame(()=>document.querySelector<HTMLSelectElement>('.room-panel.invitation .connection-policy select')?.focus());},[invite,state.room?.id,state.preview]);
  useEffect(()=>{onRoomChange(state.room);},[state.room,onRoomChange]);
  useEffect(()=>{onState(state);},[state,onState]);
  useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},isGuest(){return client.current?.isGuest()??false;},

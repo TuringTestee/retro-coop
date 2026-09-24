@@ -201,7 +201,7 @@ with sync_playwright() as playwright:
             page.set_input_files("input[type=file]", {
                 "name": "shared-game.nes", "mimeType": "application/octet-stream", "buffer": rom,
             })
-            page.get_by_text("Game saved in this browser.", exact=True).wait_for()
+            page.locator('.create-library li').filter(has_text='shared-game.nes').wait_for()
             store_verified_before_reload = page.wait_for_function('''async ({hash,size})=>{
               const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
               const record=await new Promise((resolve,reject)=>{const q=db.transaction('roms').objectStore('roms').get(hash);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});

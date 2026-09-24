@@ -89,13 +89,20 @@ try:
         stale_host.close();stale_guest.close()
         first=page();second=page()
         for guest in [first,second]:
+            guest.add_init_script('''(() => {const send=WebSocket.prototype.send;
+              WebSocket.prototype.send=function(data){const command=JSON.parse(data);
+                if(command.type==='join'&&!window.releaseRaceJoin){window.releaseRaceJoin=()=>send.call(this,data);return;}
+                return send.call(this,data);};})();''')
             guest.goto(invitation)
             guest.get_by_role('button',name='Join room',exact=True).wait_for()
             assert guest.get_by_test_id('room-view').count()==0
             assert guest.get_by_test_id('frames').inner_text()=='0 frames'
         # Independent clients race without loading a game first.
-        first.get_by_role('button',name='Join room',exact=True).evaluate('(button)=>button.click()')
-        second.get_by_role('button',name='Join room',exact=True).evaluate('(button)=>button.click()')
+        for guest in [first,second]:
+            guest.get_by_role('button',name='Join room',exact=True).click()
+            guest.wait_for_function("typeof releaseRaceJoin === 'function'")
+        first.evaluate('releaseRaceJoin()')
+        second.evaluate('releaseRaceJoin()')
         deadline=time.monotonic()+30
         while time.monotonic()<deadline:
             candidates=[first,second]
@@ -128,7 +135,7 @@ try:
         assert first.get_by_test_id('directory').is_visible()
         assert first.locator('.room-panel.invitation').count()==0
         assert '#invite=' not in first.url
-        second.get_by_role('button',name='Retry invitation',exact=True).click()
+        # The live invitation reopens as soon as the first guest leaves.
         second.get_by_role('button',name='Join room',exact=True).wait_for()
         second.get_by_role('button',name='Join room',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='attached')
@@ -229,10 +236,10 @@ try:
         raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Guest reserved')")
         raced.evaluate('releaseJoinA()')
         competing=page();competing.goto(race_invite)
-        competing.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
+        competing.locator('.room-panel.invitation').get_by_text('2/2 places · reserved', exact=False).wait_for()
         assert '2/2 places · reserved' in competing.locator('.room-panel.invitation').inner_text()
         assert competing.get_by_role('button',name='Join room',exact=True).count()==0
-        assert competing.get_by_role('button',name='Retry invitation',exact=True).is_visible()
+        assert competing.get_by_role('button',name='View public rooms',exact=True).is_visible()
         assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
         assert raced.get_by_test_id('room-view').count()==1
         raced.get_by_role('button',name='Leave room',exact=True).click()
