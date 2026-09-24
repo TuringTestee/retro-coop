@@ -42,7 +42,10 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
     assert subprocess.run(command, capture_output=True).returncode != 0
     secret.write_text("a" * 64)
     if args.turnserver:
-        subprocess.run([*command, "--runtime-dir", str(root)], check=True)
+        with socket.socket() as unused:
+            unused.bind(("127.0.0.1", 0))
+            port = unused.getsockname()[1]
+        subprocess.run([*command, "--runtime-dir", str(root), "--listen-port", str(port)], check=True)
         with (root / "turn.log").open("wb") as log:
             process = subprocess.Popen([args.turnserver, "-c", str(output)], stdout=log, stderr=subprocess.STDOUT)
             try:
@@ -51,7 +54,7 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
                     if process.poll() is not None:
                         raise AssertionError("coturn stopped during startup")
                     try:
-                        with socket.create_connection(("127.0.0.1", 3478), timeout=.2):
+                        with socket.create_connection(("127.0.0.1", port), timeout=.2):
                             break
                     except OSError:
                         time.sleep(.05)

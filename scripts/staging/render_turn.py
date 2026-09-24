@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--secret-file", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--runtime-dir", type=Path, default=Path("/run/retro-coop-staging"))
+    parser.add_argument("--listen-port", type=int, default=3478)
     args = parser.parse_args()
     if args.secret_file.stat().st_mode & 0o077:
         parser.error("Secret file must be readable only by its owner")
@@ -35,10 +36,12 @@ def main():
         parser.error("Secret must contain 64 lowercase hexadecimal characters")
     if not args.runtime_dir.is_absolute() or "\n" in str(args.runtime_dir):
         parser.error("Runtime directory must be an absolute path")
+    if not 1024 <= args.listen_port <= 65535:
+        parser.error("TURN listener port must be unprivileged")
     configuration = f"""listening-ip={args.private_ip}
 relay-ip={args.private_ip}
 external-ip={args.public_ip}/{args.private_ip}
-listening-port=3478
+listening-port={args.listen_port}
 min-port=49160
 max-port=49175
 realm=retro-coop-staging
