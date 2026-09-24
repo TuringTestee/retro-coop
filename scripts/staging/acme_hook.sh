@@ -24,7 +24,7 @@ case "$action" in
         'umask 022; mkdir -p /var/www/acme/.well-known/acme-challenge; cat > "$1"' sh "$target"
     attempt=0
     while [ "$attempt" -lt 30 ]; do
-      value=$(curl --silent --show-error --max-time 2 "http://$RETRO_STAGING_PUBLIC_IP/.well-known/acme-challenge/$CERTBOT_TOKEN" 2>/dev/null || true)
+      value=$(curl --noproxy '*' --silent --show-error --fail --max-time 2 "http://$RETRO_STAGING_PUBLIC_IP/.well-known/acme-challenge/$CERTBOT_TOKEN" 2>/dev/null || true)
       if [ "$value" = "$CERTBOT_VALIDATION" ]; then exit 0; fi
       attempt=$((attempt + 1))
       sleep 1
