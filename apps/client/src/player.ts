@@ -20,6 +20,8 @@ export class LocalPlayer {
  private active?: Worker;
  private game?:GameDriver;
  private gameTimer?:ReturnType<typeof setTimeout>;
+ private gameProgressAt=0;
+ private gameLastPumpAt=0;
  private gameStarted=0;private gameFrames=0;
  private shared=false;
  private expectedFrame?:{epoch:string;frame:number};
@@ -43,7 +45,7 @@ export class LocalPlayer {
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
  frameRate(){return this.fps;}
  async holdForGame() {if(!this.inputDevice().available)throw Error('Reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
- startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available)throw Error('Reconnect your controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});if(!document.hidden)this.canvas.focus();this.pumpGame();}
+ startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available)throw Error('Reconnect your controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameProgressAt=this.gameStarted;this.gameLastPumpAt=this.gameStarted;this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});if(!document.hidden)this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
  stopGame(status:string,leave=false) {clearTimeout(this.gameTimer);this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
  private async prepareBattery(worker:Worker,isCurrent:()=>boolean):Promise<{session?:BatterySession;issue?:string}> {
@@ -203,8 +205,14 @@ export class LocalPlayer {
   if(this.game.draining()){this.drainGame();return;}
   const {pad,available}=this.inputDevice();
   if(!available){this.pause('device');return;}
-  const elapsed=performance.now()-this.gameStarted;
-  if(elapsed-this.gameFrames*1000/this.fps>gameplayLimits.stallMs){this.pause('network');return;}
+  const now=performance.now(),gap=now-this.gameLastPumpAt;
+  this.gameLastPumpAt=now;
+  // A suspended tab resumes with wall-time debt, not evidence of lost input.
+  // Missing peer input is timed by GameClient; only a worker that remains busy
+  // through active pump ticks needs this local stall check.
+  if(gap>250)this.gameProgressAt=now;
+  if(this.busy&&now-this.gameProgressAt>gameplayLimits.stallMs){this.pause('network');return;}
+  const elapsed=now-this.gameStarted;
   if(this.busy||this.gameFrames>=Math.floor(elapsed*this.fps/1000))return;
   const next=this.game.next(this.controllerMask(pad));if(!next)return;
   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
@@ -319,7 +327,7 @@ export class LocalPlayer {
      this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
      if(this.state.running) this.audio.play(data.audio);
      this.publish({frames:this.state.frames+1,rewind:data.rewind});
-     if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.game.committed(committed.frame);}
+     if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.gameProgressAt=performance.now();this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();
      else if(this.game)this.pumpGame();
      else if(document.hidden)this.stepLocal(performance.now());

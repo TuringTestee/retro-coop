@@ -189,13 +189,25 @@ try:
    if args.screenshots:h.screenshot(path=str(out.with_name('playing.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
    first_active=time.monotonic()-play_started
    h.keyboard.up('x');g.keyboard.up('z')
+   focus_recovery=None
    if args.fault=='device':
     h.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());h.get_by_role('button',name='Settings',exact=True).click();h.get_by_label('Input device',exact=True).select_option('0');h.get_by_role('button',name='Back',exact=True).click();h.evaluate('padConnected=false')
    elif args.fault=='focus':
     h.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
     before=h.evaluate('proof.frameCount')
     h.wait_for_function('frames=>proof.frameCount>=frames+60',arg=before,timeout=15000,polling=50)
-    assert all(tab.evaluate("proof.room.game.status==='playing'") for tab in [h,g])
+    epoch=h.evaluate('proof.activeEpoch')
+    hash_floor=max(tab.evaluate('proof.hashes.at(-1)?.frame ?? 0') for tab in [h,g])
+    h.evaluate("const until=performance.now()+1200; while(performance.now()<until){}")
+    stalled_frames=[tab.evaluate('proof.frameCount') for tab in [h,g]]
+    for tab,frame in zip([h,g],stalled_frames):
+     tab.wait_for_function("state=>proof.activeEpoch===state.epoch && proof.room.game.status==='playing' && proof.frameCount>=state.frame+24",arg={'epoch':epoch,'frame':frame},timeout=15000,polling=50)
+    hash_frame=hash_floor+120
+    for tab in [h,g]:
+     tab.wait_for_function('frame=>proof.hashes.some(hash=>hash.frame===frame)',arg=hash_frame,timeout=15000,polling=50)
+    hashes=[tab.evaluate('frame=>proof.hashes.find(hash=>hash.frame===frame)',hash_frame) for tab in [h,g]]
+    assert hashes[0]==hashes[1],hashes
+    focus_recovery={'epoch':epoch,'stalled_frames':stalled_frames,'resumed_frames':[tab.evaluate('proof.frameCount') for tab in [h,g]],'matching_hash':hashes[0],'statuses':[tab.evaluate('proof.room.game.status') for tab in [h,g]]}
     h.get_by_role('button',name='Pause',exact=True).click()
    else:h.get_by_role('button',name='Pause',exact=True).click()
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
@@ -244,7 +256,7 @@ try:
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'
-   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'initial_manual_frames':args.initial_manual_frames,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'shared_layouts':shared_layouts,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
+   result={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'recovery_order':args.retry_barrier,'source':source,'route':route,'turn_error_codes':turn.error_codes() if turn else {},'build_files':build_files,'identity':identity,'delayed_start':args.delay_start,'run_id':run_id,'result':'pass','browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'injection':args.fault,'initial_manual_frames':args.initial_manual_frames,'target_seconds':args.seconds,'target_frames':target_frames,'active_seconds':active_seconds,'shared_layouts':shared_layouts,'focus_recovery':focus_recovery,'final':final,'seconds':round(time.monotonic()-started,2),'pause':before,'peers':[tab.evaluate('(({room,...proof})=>proof)(proof)') for tab in [h,g]],'page_errors':errors};assert not errors,errors
    out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'result':'pass','seconds':result['seconds']}))
   except Exception:
    failure={**firefox_evidence,'controlled_worker_delivery_floor_ms':args.worker_floor_ms,'build_files':build_files,'browser_instances':[{'kind':kind,'version':b.version} for kind,b in zip(args.pair.split('-'),browsers)],'browsers':{kind:b.version for kind,b in zip(args.pair.split('-'),browsers)},'pair':args.pair,'source':source,'run_id':run_id,'result':'fail','page_errors':errors,'peers':[tab.evaluate("""({proof:(({room,...p})=>p)(proof),status:document.querySelector('[data-testid=game-status]')?.textContent,localStatus:document.querySelector('[data-testid=player-status]')?.textContent,game:proof.room?.game,established:proof.room?.established})""") for tab in pages if not tab.is_closed()]}
