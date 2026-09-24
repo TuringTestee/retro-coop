@@ -127,6 +127,9 @@ jobs:
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target coordinator --tag retro-coop-staging-coordinator:candidate .
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/container_smoke.sh
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/render_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/acme_hook_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/kubernetes_smoke.sh
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
   core:
     if: github.event_name == 'push'

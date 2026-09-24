@@ -27,8 +27,8 @@ RUN npm run build:staging
 FROM nginx:1.29.3-alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646adcf92441b72f82b14 AS edge
 COPY deploy/staging/nginx.conf /etc/nginx/nginx.conf
 COPY --from=client-build /app/apps/client/dist /usr/share/nginx/html
-USER nginx
-EXPOSE 8080 8443
+USER 101:101
+EXPOSE 8080 8081 8443
 ENTRYPOINT ["nginx"]
 CMD ["-g", "daemon off;"]
 
@@ -42,7 +42,7 @@ RUN npm ci --omit=dev
 COPY apps/coordinator/src apps/coordinator/src
 COPY packages/contracts/src packages/contracts/src
 RUN install -d -m 0700 -o node -g node /run/retro-coop-roms
-USER node
+USER 1000:1000
 ENV COORDINATOR_STAGE=staging
 ENV COORDINATOR_HOST=127.0.0.1
 ENV COORDINATOR_PORT=8787

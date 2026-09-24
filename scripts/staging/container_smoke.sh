@@ -6,12 +6,13 @@ cd "$(dirname "$0")/../.."
 edge_image=${1:-retro-coop-staging-edge:candidate}
 coordinator_image=${2:-retro-coop-staging-coordinator:candidate}
 certificate_dir=$(mktemp -d)
+challenge_dir=$(mktemp -d)
 suffix=$(basename "$certificate_dir")
 edge_name="retro-coop-edge-$suffix"
 coordinator_name="retro-coop-coordinator-$suffix"
 cleanup() {
   docker rm -f "$edge_name" "$coordinator_name" >/dev/null 2>&1 || true
-  rm -rf -- "$certificate_dir"
+  rm -rf -- "$certificate_dir" "$challenge_dir"
 }
 trap cleanup EXIT HUP INT TERM
 
@@ -20,11 +21,17 @@ openssl req -x509 -newkey rsa:2048 -nodes \
   -subj '/CN=localhost' -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' -days 1 >/dev/null 2>&1
 chmod 755 "$certificate_dir"
 chmod 644 "$certificate_dir/tls.key"
+mkdir -p "$challenge_dir/.well-known/acme-challenge"
+printf '%s' 'staging-challenge-proof' > "$challenge_dir/.well-known/acme-challenge/probe-token"
+chmod 755 "$challenge_dir"
+chmod 755 "$challenge_dir/.well-known" "$challenge_dir/.well-known/acme-challenge"
+chmod 644 "$challenge_dir/.well-known/acme-challenge/probe-token"
 
 docker run -d --network host --name "$coordinator_name" \
   --env COORDINATOR_ORIGINS=https://127.0.0.1:8443 "$coordinator_image" >/dev/null
 docker run -d --network host --name "$edge_name" \
-  --mount "type=bind,source=$certificate_dir,target=/run/tls,readonly" "$edge_image" >/dev/null
+  --mount "type=bind,source=$certificate_dir,target=/run/tls,readonly" \
+  --mount "type=bind,source=$challenge_dir,target=/var/www/acme,readonly" "$edge_image" >/dev/null
 
 ready=0
 attempt=0
@@ -45,3 +52,5 @@ if [ "$ready" -ne 1 ]; then
 fi
 
 NODE_EXTRA_CA_CERTS="$certificate_dir/tls.crt" node scripts/staging/edge_probe.mjs https://127.0.0.1:8443
+test "$(curl --silent --fail http://127.0.0.1:8081/.well-known/acme-challenge/probe-token)" = staging-challenge-proof
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8081/create)" = 404

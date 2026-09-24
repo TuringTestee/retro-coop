@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retro-coop-staging
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: retro-coop-staging
+  template:
+    metadata:
+      labels:
+        app: retro-coop-staging
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        fsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: edge
+          image: retro-coop-staging-edge
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: health
+              containerPort: 8080
+            - name: acme
+              containerPort: 8081
+            - name: https
+              containerPort: 8443
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+              ephemeral-storage: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+              ephemeral-storage: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            runAsNonRoot: true
+            runAsUser: 101
+            runAsGroup: 101
+          volumeMounts:
+            - name: tls
+              mountPath: /run/tls
+              readOnly: true
+            - name: acme
+              mountPath: /var/www/acme
+        - name: coordinator
+          image: retro-coop-staging-coordinator
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: COORDINATOR_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: retro-coop-staging-config
+                  key: COORDINATOR_ORIGINS
+            - name: TURN_URLS
+              valueFrom:
+                secretKeyRef:
+                  name: retro-coop-staging-turn
+                  key: TURN_URLS
+            - name: TURN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: retro-coop-staging-turn
+                  key: TURN_SECRET
+            - name: TURN_ROOM_LIMIT
+              value: "2"
+          readinessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 250m
+              memory: 768Mi
+              ephemeral-storage: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1536Mi
+              ephemeral-storage: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+      volumes:
+        - name: tls
+          secret:
+            secretName: retro-coop-staging-tls
+            defaultMode: 292
+        - name: acme
+          emptyDir:
+            sizeLimit: 1Mi

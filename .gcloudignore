@@ -1,0 +1,16 @@
+.git/
+.agents/
+.claude/
+tooling/
+node_modules/
+**/node_modules/
+**/dist/
+**/target/
+docs/
+*.log
+*.local
+.env*
+**/.env*
+*.pem
+*.key
+**/__pycache__/
