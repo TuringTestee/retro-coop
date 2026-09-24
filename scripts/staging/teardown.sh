@@ -3,6 +3,7 @@
 set -eu
 test "$#" -eq 1 || { echo 'Use: teardown.sh PROJECT' >&2; exit 2; }
 project=$1
+test "$project" = bship-164753-06152350 || { echo 'The reviewed staging project does not match.' >&2; exit 2; }
 region=us-central1
 zone=us-central1-a
 temporary=$(mktemp -d)
