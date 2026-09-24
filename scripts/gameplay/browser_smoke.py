@@ -63,7 +63,7 @@ try:
     g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
     preview=g.locator('.room-panel.invitation');preview.get_by_text('playing',exact=False).wait_for()
     assert preview.get_by_role('button',name='Join room',exact=True).count()==0
-    assert preview.get_by_role('button',name='Retry invitation',exact=True).is_visible()
+    assert preview.get_by_role('button',name='View public rooms',exact=True).is_visible()
     denial=g.evaluate('''invite=>new Promise((resolve,reject)=>{
       const socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);
       const helloId=crypto.randomUUID(),joinId=crypto.randomUUID();
@@ -87,14 +87,15 @@ try:
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
-   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached')
+   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
+   if args.delay_join:
+    g.wait_for_function('typeof releaseJoin === "function"');g.evaluate('releaseJoin()')
+   g.get_by_test_id('room-view').wait_for(state='attached')
    assert h.get_by_test_id('frames').inner_text()=='0 frames'
+   g.get_by_role('button',name='Prepare to play',exact=True).wait_for(timeout=30000)
    lease=g.evaluate('proof.room.reservationUntil')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
-   g.set_input_files('input[type=file]',{'name':'matching.nes','mimeType':'application/octet-stream','buffer':rom})
-   if args.delay_join:
-    g.wait_for_function('typeof releaseJoin === \"function\"');g.evaluate('releaseJoin()')
    g.get_by_role('button',name='Prepare to play',exact=True).click()
    h.wait_for_function("proof.room?.game?.ready?.includes('guest')",timeout=15000,polling=50)
    h.get_by_role('button',name='Start game',exact=True).click()
@@ -171,7 +172,7 @@ try:
     assert local==[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
     assert min(local)>=240
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.after.png')),full_page=True)
-    h.get_by_role('button',name='Resume',exact=True).click()
+    h.get_by_role('button',name='Resume' if args.kick_playing else 'Resume local game',exact=True).click()
     h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
     result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
@@ -184,7 +185,6 @@ try:
     h.wait_for_function('n=>proof.frameCount>=n+12',arg=count,polling=20)
     h.evaluate("currentWorker.postMessage({type:'state-export',requestId:900001})");h.wait_for_function('proof.chatRam',polling=20);assert h.evaluate('proof.chatRam')==[0,64]
     assert h.evaluate('proof.room.game.status')=='playing'
-    h.get_by_role('button',name='Close room',exact=True).click()
     shared_layouts=[shared_layout(tab) for tab in [h,g]]
    if args.screenshots:h.screenshot(path=str(out.with_name('playing.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
    first_active=time.monotonic()-play_started
