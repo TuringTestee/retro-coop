@@ -78,6 +78,8 @@ def main():
             visibility.click()
             host.get_by_role('button', name='Make public', exact=True).click()
             host.wait_for_function("document.querySelector('#room-heading')?.textContent.includes('Public')")
+            host.get_by_text('Session settings', exact=True).click()
+            host.get_by_text('Connection and session settings', exact=True).click()
             guest = browser.new_page(viewport={'width': 390, 'height': 700})
             guest.on('pageerror', lambda error: errors.append(str(error)))
             guest.goto(invite)
