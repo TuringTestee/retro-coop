@@ -21,9 +21,9 @@ openssl req -x509 -newkey rsa:2048 -nodes \
 chmod 755 "$certificate_dir"
 chmod 644 "$certificate_dir/tls.key"
 
-docker run --rm -d --network host --name "$coordinator_name" \
+docker run -d --network host --name "$coordinator_name" \
   --env COORDINATOR_ORIGINS=https://localhost:8443 "$coordinator_image" >/dev/null
-docker run --rm -d --network host --name "$edge_name" \
+docker run -d --network host --name "$edge_name" \
   --mount "type=bind,source=$certificate_dir,target=/run/tls,readonly" "$edge_image" >/dev/null
 
 ready=0
