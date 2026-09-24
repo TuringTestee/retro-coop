@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import {createHash, randomUUID} from 'node:crypto';
+import https from 'node:https';
 
 const base = process.argv[2];
 if (!base || !base.startsWith('https://')) throw Error('Pass the local HTTPS edge URL.');
@@ -88,6 +89,7 @@ const fingerprint = {
 };
 const host = await connect('127.0.2.1', '203.0.113.1');
 const guest = await connect('127.0.2.2', '203.0.113.2');
+let progressingUploadSeconds = 0;
 try {
   const hostToken = (await command(host, {type:'hello'})).session.token;
   const guestToken = (await command(guest, {type:'hello'})).session.token;
@@ -101,8 +103,28 @@ try {
   });
   const rejectedUpload = await upload('x'.repeat(43), intent);
   if (rejectedUpload.status !== 403) throw Error(`Unauthorized host upload returned ${rejectedUpload.status}; expected 403`);
-  const acceptedUpload = await upload(hostToken, intent);
-  if (acceptedUpload.status !== 201) throw Error(`Host ROM upload through HTTPS edge returned ${acceptedUpload.status}; expected 201`);
+  const started = performance.now();
+  const acceptedUpload = await new Promise((resolve, reject) => {
+    const request = https.request(romUrl, {
+      method:'PUT',
+      headers:{Origin:origin,Authorization:`Bearer ${hostToken}`,'X-Room-Intent':intent,'Content-Type':'application/octet-stream','Content-Length':String(rom.length)},
+    }, response => {
+      response.resume();
+      response.once('end', () => resolve(response.statusCode));
+    });
+    request.once('error', reject);
+    void (async () => {
+      request.write(rom.subarray(0,4096));
+      for (const end of [8192,12288,rom.length]) {
+        await new Promise(resolve => setTimeout(resolve, 2100));
+        if (end === rom.length) request.end(rom.subarray(12288));
+        else request.write(rom.subarray(end-4096,end));
+      }
+    })().catch(reject);
+  });
+  progressingUploadSeconds = Number(((performance.now()-started)/1000).toFixed(2));
+  if (progressingUploadSeconds <= 5) throw Error('Progressing upload did not cross the five-second pending-room boundary');
+  if (acceptedUpload !== 201) throw Error(`Progressing host ROM upload through HTTPS edge returned ${acceptedUpload}; expected 201`);
   const published = (await command(host, {type:'confirmCreate',intent})).room;
   const joined = (await command(guest, {type:'join',invite:published.invite,intent:randomUUID()})).room;
   const download = (bearer, membership) => fetch(romUrl, {
@@ -117,4 +139,4 @@ try {
   guest.close();
 }
 
-console.log(JSON.stringify({https:true,staticRoute:true,versionedAsset:true,originDenied:true,forgedAddressCannotSplitQuota:true,distinctTransportAddressesAdmitted:21,hostUpload:true,guestDownload:true,transferAuthorization:true}));
+console.log(JSON.stringify({https:true,staticRoute:true,versionedAsset:true,originDenied:true,forgedAddressCannotSplitQuota:true,distinctTransportAddressesAdmitted:21,hostUpload:true,progressingUploadSeconds,guestDownload:true,transferAuthorization:true}));
