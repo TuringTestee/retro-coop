@@ -124,7 +124,9 @@ try:
         dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
         stage('invitation dismissed')
         # Older invitation sockets can outlive the route switch briefly. Close every
-        # open socket owned by this tab so the directory's active transport is faulted.
+        # open socket owned by this tab after the replacement client connects.
+        # A previous client's Live label may remain for one render during the switch.
+        dismissed.wait_for_function('dismissedSockets.some(socket => socket.readyState === WebSocket.OPEN)', timeout=12000)
         open_sockets = dismissed.evaluate('dismissedSockets.filter(socket => socket.readyState === 1).length')
         assert open_sockets >= 1, 'The dismissed tab has no live directory connection to fault'
         dismissed.evaluate('dismissedSockets.filter(socket => socket.readyState === 1).forEach(socket => socket.close())')

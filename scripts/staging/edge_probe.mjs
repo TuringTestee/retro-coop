@@ -44,8 +44,8 @@ await denied('127.0.0.1', '192.0.2.1', 'https://untrusted.example');
 
 const sameAddress = [];
 try {
-  for (let index=0; index<6; index++) sameAddress.push(await connect('127.0.0.1', `192.0.2.${index+1}`));
-  await denied('127.0.0.1', '192.0.2.7', origin, 429);
+  for (let index=0; index<6; index++) sameAddress.push(await connect('127.0.3.1', `192.0.2.${index+1}`));
+  await denied('127.0.3.1', '192.0.2.7', origin, 429);
 } finally {
   for (const socket of sameAddress) socket.close();
 }
