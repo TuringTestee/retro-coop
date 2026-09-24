@@ -41,7 +41,7 @@ COPY packages/contracts/package.json packages/contracts/package.json
 RUN npm ci --omit=dev
 COPY apps/coordinator/src apps/coordinator/src
 COPY packages/contracts/src packages/contracts/src
-RUN mkdir -p /run/retro-coop-roms && chown node:node /run/retro-coop-roms
+RUN install -d -m 0700 -o node -g node /run/retro-coop-roms
 USER node
 ENV COORDINATOR_STAGE=staging
 ENV COORDINATOR_HOST=127.0.0.1
