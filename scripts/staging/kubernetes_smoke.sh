@@ -66,7 +66,7 @@ docker save -o "$temporary/images.tar" \
 docker exec "$cluster_name" mkdir -p /var/lib/rancher/k3s/agent/images
 docker cp "$temporary/images.tar" "$cluster_name:/var/lib/rancher/k3s/agent/images/retro-images.tar"
 attempt=0
-until docker logs "$cluster_name" 2>&1 | grep -q 'Imported images from /var/lib/rancher/k3s/agent/images/retro-images.tar'; do
+until docker logs "$cluster_name" 2>&1 | grep -q 'Imported 2 images from /var/lib/rancher/k3s/agent/images/retro-images.tar'; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 80 ]; then
     docker logs --tail 80 "$cluster_name" >&2
