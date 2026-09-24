@@ -9,7 +9,7 @@ The approved $100 monthly ceiling needs more than a billing alert.
 ## Source and observed state
 
 - D24 [issue #28](https://github.com/TuringTestee/retro-coop/issues/28) and the approved [platform plan](browser-nes-platform.md) govern staging. This is staging for independent-network tests, not a public launch.
-- Main `7452aa4` has versioned client and coordinator images, a real proxy transfer probe, and one shared five-minute PR gate. The coordinator stores rooms and uploaded ROMs only while the service runs. One coordinator Pod is required unless room ownership is redesigned.
+- Main `703a7ce` has versioned client and coordinator images, a real proxy transfer probe, a bounded relay preparation path, and one shared five-minute PR gate. The coordinator stores rooms and uploaded ROMs only while the service runs. One coordinator Pod is required unless room ownership is redesigned.
 - `admission-address.ts` trusts a forwarding header only from an explicitly listed literal proxy IP and only if the header contains one client IP. A standard Google HTTPS load balancer appends a client and load-balancer address, plus any untrusted incoming values. Direct GKE HTTPS Ingress does not satisfy this contract.
 - Project `bship-164753-06152350` has billing enabled and two running Autopilot clusters in `us-central1`. A read-only namespace check of `cache-guard-test` found no Retro Coop workload. There is no public Cloud DNS zone in this project. Credits and their applicability have not been verified.
 
@@ -51,6 +51,7 @@ The four-TiB inbound line is a scenario, not an enforced limit. Public ACME port
 - `scripts/staging/render_k8s.py` requires two image digests, a public reserved IP and up to two tester `/32` addresses. It renders locally through `kubectl kustomize`; it never applies resources. `--acme-bootstrap --allow 0.0.0.0/0` temporarily exposes only port 80 for certificate issuance, with no public HTTPS port. Re-render with the tester addresses immediately after issuance.
 - `scripts/staging/acme_hook.sh` writes one HTTP challenge into the edge Pod, checks public reachability, and removes it afterward. The hook accepts only the configured IP and a single safe token. `scripts/staging/container_smoke.sh`, `render_smoke.py`, `acme_hook_smoke.py` and `kubernetes_smoke.sh` check the edge, render boundaries and both containers' Kubernetes startup without cloud access. The Kubernetes smoke imports the exact candidate images into a disposable K3s node, creates only temporary Secrets, applies the rendered workload from a default namespace context, and waits for both containers to become Ready.
 - `deploy/staging/cloudbuild.yaml` describes both image targets at one source revision. Before submitting it, use a clean, reviewed commit, confirm the isolated Artifact Registry repository and builder permissions, and record the resulting digests. The rendered Kubernetes manifest must use those digests, not mutable tags.
+- `scripts/staging/prepare_cloud.sh` performs those checks from clean, published `main`, creates only the named immutable-tag repository and regional IPv4 address, builds both images at that revision, and prints their exact digest references. Its CLI mock smoke proves failed inventory queries stop before creation, a missing build tag stops before address reservation, and the successful command uses one revision. It has not been run against Google Cloud. If it stops after creating a resource, run `teardown.sh` and inspect the named resources before retrying.
 - `scripts/staging/provision_turn.sh` creates a dedicated VPC, a tester-only TURN rule, an operator-only SSH rule, and an e2-micro relay VM using a dated Debian image and a six-hour delete action. `render_turn.py` writes a mode-0600 coturn configuration from the same exact 64-byte secret used by the coordinator. `configure_turn.sh` installs coturn and persistent systemd traffic shaping on that VM. `teardown.sh` deletes only the named staging namespace, VM, firewall, VPC, reserved IP and isolated image repository, then checks for leftovers. `turn_smoke.py` starts real coturn locally; `turn_operator_smoke.py` verifies create/delete command wiring against disposable CLI mocks. None of these tests proves that Google Cloud accepted the commands.
 
 ### Relay setup after the spending decision
@@ -93,18 +94,84 @@ The coordinator's `TURN_ROOM_LIMIT=2` and coturn's allocation quota must both be
 
 These are operator steps for the reviewed deployment, not commands already run. Set `STAGING_PROJECT`, `STAGING_IP`, `EDGE_IMAGE` and `COORDINATOR_IMAGE` from the reserved address and built image digests. Confirm the selected `kubectl` context points at `cache-guard-test` in `us-central1`; a different cluster requires a fresh environment check. Keep the Secret input files off Git and out of command output. Create the TURN Secret only after its endpoint and credential are selected; it must contain `TURN_URLS` and `TURN_SECRET`.
 
-1. Reserve `retro-coop-staging-ip` in `us-central1`, create only the isolated image repository and build both images from the same clean revision. Resolve their registry digests and render the Kubernetes manifest with `--public-ip "$STAGING_IP"`, both digest references and `--acme-bootstrap --allow 0.0.0.0/0`. Check the rendered Service IP, exact Origin, image digests and sole namespace before applying. The public source range is temporary for HTTP validation.
-2. Create the namespace first. Make a short-lived self-signed certificate with an IP Subject Alternative Name in a mode-0700 temporary directory, then create `retro-coop-staging-tls` with `kubectl create secret tls ... --dry-run=client -o yaml | kubectl apply -f -`. This is only to let Nginx start; do not invite players until a publicly trusted certificate replaces it. Create the TURN Secret, apply the reviewed render, and wait for one ready Pod and the Service IP. A failed wait is a teardown condition, not permission to leave resources running.
-3. With Certbot 5.4 or later, request a trusted IP certificate using `certbot certonly --manual --preferred-challenges http --preferred-profile shortlived --ip-address "$STAGING_IP" --manual-auth-hook "$PWD/scripts/staging/acme_hook.sh auth" --manual-cleanup-hook "$PWD/scripts/staging/acme_hook.sh cleanup"`. Export `RETRO_STAGING_PUBLIC_IP="$STAGING_IP"` for both hooks. First use `--staging` to prove challenge delivery, then repeat without it. Certbot supplies `CERTBOT_IDENTIFIER`, `CERTBOT_TOKEN` and `CERTBOT_VALIDATION`; the hook checks that the identifier is the reserved IP. Replace the TLS Secret from Certbot's `fullchain.pem` and `privkey.pem`. Wait for its projected volume to contain the new certificate, then run `kubectl -n retro-coop-staging exec pod/$STAGING_POD -c edge -- nginx -s reload`. Verify HTTPS with normal trust after step 4 restores port 443. Do not use a certificate past its 160-hour lifetime.
-4. Immediately re-render with the two actual tester CIDRs and no `--acme-bootstrap`; apply it and verify the Service no longer accepts `0.0.0.0/0`. Schedule the end of the test before certificate expiry and independently verify that the Service, Pod, Secrets, reserved IP, TURN VM and image repository are removed. If the test stops early, run the same cleanup then. Deleting only the namespace does not release the reserved IP, VM or registry images. Retain sanitized test results, measured cost and the exact teardown receipt on issue #28.
+1. On reviewed, clean `main`, run `sh scripts/staging/prepare_cloud.sh "$STAGING_PROJECT"` after the final spending decision. Record its `EDGE_IMAGE`, `COORDINATOR_IMAGE` and `STAGING_IP` values; all image references must end in `@sha256:<64 hex digits>`. The script checks `cache-guard-test` is running and fails before creation if the named repository or address already exists. Confirm that the account used by Cloud Build can push to this isolated repository; a permission failure requires teardown.
+2. Confirm the current `kubectl` context is `cache-guard-test` in `us-central1`. Create the namespace and a one-day bootstrap certificate with an IP Subject Alternative Name; keep the key in the private directory introduced above:
+
+```sh
+kubectl create namespace retro-coop-staging
+openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+  -subj "/CN=$STAGING_IP" -addext "subjectAltName=IP:$STAGING_IP" \
+  -keyout "$PRIVATE_DIR/bootstrap.key" -out "$PRIVATE_DIR/bootstrap.crt"
+kubectl -n retro-coop-staging create secret tls retro-coop-staging-tls \
+  --key="$PRIVATE_DIR/bootstrap.key" --cert="$PRIVATE_DIR/bootstrap.crt"
+```
+
+Create the TURN Secret using the relay setup command above. Render and inspect the bootstrap manifest before applying it; this mode exposes only the certificate challenge on port 80, with no public HTTPS port:
+
+```sh
+python3 scripts/staging/render_k8s.py --public-ip "$STAGING_IP" \
+  --edge-image "$EDGE_IMAGE" --coordinator-image "$COORDINATOR_IMAGE" \
+  --acme-bootstrap --allow 0.0.0.0/0 > "$PRIVATE_DIR/bootstrap.yaml"
+kubectl apply -f "$PRIVATE_DIR/bootstrap.yaml"
+kubectl -n retro-coop-staging wait --for=condition=Ready pod \
+  -l app=retro-coop-staging --timeout=10m
+```
+
+Check that the Service's assigned address equals `STAGING_IP`. A failed wait requires teardown.
+3. With Certbot 5.4 or later, set `ACME_EMAIL` to an address the operator controls and issue one staging test certificate, then one production certificate. The hooks run through `sh` because the checked-in hook is not executable:
+
+```sh
+export RETRO_STAGING_PUBLIC_IP="$STAGING_IP"
+for authority in acme-test acme-live; do
+  test "$authority" = acme-test && stage_flag=--staging || stage_flag=
+  certbot certonly --manual --preferred-challenges http \
+    --preferred-profile shortlived --ip-address "$STAGING_IP" \
+    --cert-name retro-coop-staging --agree-tos --email "$ACME_EMAIL" \
+    --manual-auth-hook "sh $PWD/scripts/staging/acme_hook.sh auth" \
+    --manual-cleanup-hook "sh $PWD/scripts/staging/acme_hook.sh cleanup" \
+    --config-dir "$PRIVATE_DIR/$authority/config" \
+    --work-dir "$PRIVATE_DIR/$authority/work" \
+    --logs-dir "$PRIVATE_DIR/$authority/logs" $stage_flag
+done
+```
+
+Certbot supplies `CERTBOT_IDENTIFIER`, `CERTBOT_TOKEN` and `CERTBOT_VALIDATION`; the hook rejects a different IP. Inspect the trusted certificate's IP SAN, issuer and expiry before replacing the bootstrap Secret:
+
+```sh
+live_cert="$PRIVATE_DIR/acme-live/config/live/retro-coop-staging/fullchain.pem"
+live_key="$PRIVATE_DIR/acme-live/config/live/retro-coop-staging/privkey.pem"
+openssl x509 -in "$live_cert" -noout -checkip "$STAGING_IP" -issuer -dates
+kubectl -n retro-coop-staging create secret tls retro-coop-staging-tls \
+  --cert="$live_cert" --key="$live_key" --dry-run=client -o yaml |
+  kubectl -n retro-coop-staging apply -f -
+set -- $(kubectl -n retro-coop-staging get pods -l app=retro-coop-staging -o jsonpath='{.items[*].metadata.name}')
+test "$#" -eq 1
+STAGING_POD=$1
+```
+
+Wait until `kubectl -n retro-coop-staging exec "pod/$STAGING_POD" -c edge -- cat /run/tls/tls.crt | openssl x509 -noout -fingerprint -sha256` equals the local certificate's SHA-256 fingerprint. Then run `kubectl -n retro-coop-staging exec "pod/$STAGING_POD" -c edge -- nginx -s reload`. Do not use a certificate past its 160-hour lifetime. [Certbot documents IP identifiers and manual hook variables](https://eff-certbot.readthedocs.io/en/stable/using.html).
+4. Immediately render with the two actual tester `/32` CIDRs and without `--acme-bootstrap`, apply it, and inspect the Service source ranges and ports:
+
+```sh
+python3 scripts/staging/render_k8s.py --public-ip "$STAGING_IP" \
+  --edge-image "$EDGE_IMAGE" --coordinator-image "$COORDINATOR_IMAGE" \
+  --allow "$TESTER_ONE" --allow "$TESTER_TWO" > "$PRIVATE_DIR/trial.yaml"
+kubectl apply -f "$PRIVATE_DIR/trial.yaml"
+kubectl -n retro-coop-staging get service retro-coop-staging -o yaml
+curl --fail --show-error --silent "https://$STAGING_IP/healthz"
+```
+
+The Service must show only the two tester ranges and ports 80/443, and HTTPS must validate with the normal trust store. No player should see the bootstrap certificate. Schedule the test end before certificate expiry. At the end, run `sh scripts/staging/teardown.sh "$STAGING_PROJECT"`, verify the output and named resources, and record sanitized route evidence and measured cost on #28. Deleting only the namespace does not release the reserved IP, VM or registry images.
 
 The prepared package has a six-hour Job and VM cutoff, per-address edge limits, relay quotas, a traffic shaper and a teardown command. The Service, reserved IP, registry and logs still need explicit cleanup. The modeled total is under $100 for the stated traffic scenario, but public ACME ingress and tester uploads have no enforceable absolute byte cap. The next review must verify the scripts and cost assumptions; deployment still needs the final spending and residual-risk decision.
 
-## Integrated package evidence through `7452aa4`
+## Integrated package evidence through `703a7ce`
 
 The candidate Dockerfile builds an edge image and one coordinator image from the same source. The edge Nginx configuration serves the Vite bundle, terminates TLS, overwrites forwarding identity with its transport peer, and sends only WebSocket and membership-scoped ROM routes to loopback. It disables request-path and address access logs. `scripts/staging/edge_probe.mjs` exercises admission, host ROM upload and guest ROM download through the real proxy. The image job in the shared CI workflow builds and runs the exact containers within the same pull-request deadline as the browser gate.
 
 The merged [PR #121](https://github.com/TuringTestee/retro-coop/pull/121) built exact containers and proved HTTPS delivery, forged-header rejection, a host upload lasting 6.31 seconds, room confirmation, and a byte-for-byte authorized guest download. [PR #122](https://github.com/TuringTestee/retro-coop/pull/122) proved that the rendered staging workload starts its exact images as one ready Pod in local Kubernetes. [PR #123](https://github.com/TuringTestee/retro-coop/pull/123) added the Job cutoff, HTTP-only certificate bootstrap and exact edge limits; its current-head image and browser checks passed. Local preflight passed 29 Rust and 138 Node tests, TypeScript typecheck and hygiene. This still does not prove GKE source-address preservation, TURN on Google Cloud, valid public TLS, independent networks, or actual cost. Those remain explicit gates above.
+
+[PR #124](https://github.com/TuringTestee/retro-coop/pull/124) added isolated TURN VM preparation and full named-resource teardown. Its independent reviewer verified that qualified Artifact Registry names are deleted and failed inventory queries cannot be mistaken for absent resources. Its current-head CI passed in 3m43s. No Google Cloud command in the package has been run against the target project.
 
 ## Sources checked 2026-09-24
 

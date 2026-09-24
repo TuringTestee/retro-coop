@@ -32,15 +32,18 @@ fi
 query 'staging address' gcloud compute addresses list --project="$project" --regions="$region" --filter="name=$address" --format='value(name)'
 test -z "$query_result" || { echo 'The staging address already exists; inspect it before retrying.' >&2; exit 1; }
 
+created=0
+trap 'status=$?; if [ "$status" -ne 0 ] && [ "$created" -eq 1 ]; then echo "Staging setup stopped after creating resources. Run scripts/staging/teardown.sh $project." >&2; fi' EXIT
 echo "Creating the isolated image repository for revision $revision."
+created=1
 gcloud artifacts repositories create "$repository" --project="$project" --location="$region" --repository-format=docker --immutable-tags --quiet
 image_repo="$region-docker.pkg.dev/$project/$repository"
 gcloud builds submit . --project="$project" --region="$region" --config=deploy/staging/cloudbuild.yaml \
   --substitutions="_IMAGE_REPO=$image_repo,_SOURCE_REVISION=$revision" --quiet
 
 for image in edge coordinator; do
-  gcloud artifacts docker images list "$image_repo/$image" --project="$project" --include-tags --format=json |
-    python3 -c 'import json, re, sys
+  query "digest for $image" gcloud artifacts docker images list "$image_repo/$image" --project="$project" --include-tags --format=json
+  printf '%s\n' "$query_result" | python3 -c 'import json, re, sys
 revision, image = sys.argv[1:]
 rows = json.load(sys.stdin)
 matches = [row["version"] for row in rows if revision in row.get("tags", []) and re.fullmatch("sha256:[a-f0-9]{64}", row.get("version", ""))]
@@ -58,4 +61,4 @@ if not address.is_global:
     raise SystemExit('The reserved address is not a public IPv4 address')
 print('STAGING_IP=' + str(address))
 PY
-echo 'If any step failed after creation, run scripts/staging/teardown.sh for this project.'
+echo 'Run scripts/staging/teardown.sh with this project when the trial ends.'
