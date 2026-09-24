@@ -61,8 +61,20 @@ kube wait --for=condition=Ready node --all --timeout=60s
 
 docker tag "$edge_image" localhost/retro-coop-staging-edge:ci
 docker tag "$coordinator_image" localhost/retro-coop-staging-coordinator:ci
-docker save localhost/retro-coop-staging-edge:ci localhost/retro-coop-staging-coordinator:ci |
-  docker exec -i "$cluster_name" k3s ctr --namespace k8s.io images import - >/dev/null
+docker save -o "$temporary/images.tar" \
+  localhost/retro-coop-staging-edge:ci localhost/retro-coop-staging-coordinator:ci
+docker exec "$cluster_name" mkdir -p /var/lib/rancher/k3s/agent/images
+docker cp "$temporary/images.tar" "$cluster_name:/var/lib/rancher/k3s/agent/images/retro-images.tar"
+attempt=0
+until docker logs "$cluster_name" 2>&1 | grep -q 'Imported images from /var/lib/rancher/k3s/agent/images/retro-images.tar'; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 80 ]; then
+    docker logs --tail 80 "$cluster_name" >&2
+    echo 'Kubernetes did not import the candidate images.' >&2
+    exit 1
+  fi
+  sleep .5
+done
 
 openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout "$temporary/tls.key" -out "$temporary/tls.crt" \
