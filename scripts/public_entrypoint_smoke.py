@@ -265,7 +265,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             if mode == "add":
                 assert changing.get_by_test_id("room-view").count() == 1
                 assert changing.get_by_label("Room invitation", exact=True).input_value() == newer_invite
+                changing.get_by_role("button", name="Game help", exact=True).click()
+                changing.get_by_text("Technical details", exact=True).click()
                 assert __import__('hashlib').sha256(fixture.read_bytes()).hexdigest() in changing.get_by_test_id("fingerprint").text_content()
+                changing.get_by_role("button", name="Back", exact=True).click()
             else:
                 assert changing.get_by_test_id("room-view").count() == 0
                 assert changing.get_by_test_id("create-game").is_visible()
