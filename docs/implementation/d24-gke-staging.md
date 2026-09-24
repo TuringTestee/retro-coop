@@ -87,7 +87,7 @@ kubectl -n retro-coop-staging create secret generic retro-coop-staging-turn \
 ```
 
 The coordinator's `TURN_ROOM_LIMIT=2` and coturn's allocation quota must both be present before any Relay only test. Remove the local secret file after both endpoints are configured and validated.
-4. After the six-hour window or any failed setup, run `sh scripts/staging/teardown.sh "$STAGING_PROJECT"`. It waits for the namespace Service to disappear before releasing the IP, then removes and verifies the named relay and image resources. Record the command output, measured billing and actual browser route evidence on #28.
+4. After the six-hour window or any failed setup, run `sh scripts/staging/teardown.sh "$STAGING_PROJECT"`. It stops the relay VM first, waits for the namespace Service to disappear before releasing the IP, then removes and verifies the named network and image resources. Record the command output, measured billing and actual browser route evidence on #28.
 
 ### Certificate bootstrap and shutdown sequence
 
