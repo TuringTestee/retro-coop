@@ -9,7 +9,7 @@ The approved $100 monthly ceiling needs more than a billing alert.
 ## Source and observed state
 
 - D24 [issue #28](https://github.com/TuringTestee/retro-coop/issues/28) and the approved [platform plan](browser-nes-platform.md) govern staging. This is staging for independent-network tests, not a public launch.
-- Main `6fc9c29` has versioned client and coordinator images, a real proxy transfer probe, and one shared five-minute PR gate. The coordinator stores rooms and uploaded ROMs only while the service runs. One coordinator Pod is required unless room ownership is redesigned.
+- Main `7452aa4` has versioned client and coordinator images, a real proxy transfer probe, and one shared five-minute PR gate. The coordinator stores rooms and uploaded ROMs only while the service runs. One coordinator Pod is required unless room ownership is redesigned.
 - `admission-address.ts` trusts a forwarding header only from an explicitly listed literal proxy IP and only if the header contains one client IP. A standard Google HTTPS load balancer appends a client and load-balancer address, plus any untrusted incoming values. Direct GKE HTTPS Ingress does not satisfy this contract.
 - Project `bship-164753-06152350` has billing enabled and two running Autopilot clusters in `us-central1`. A read-only namespace check of `cache-guard-test` found no Retro Coop workload. There is no public Cloud DNS zone in this project. Credits and their applicability have not been verified.
 
@@ -18,16 +18,25 @@ The approved $100 monthly ceiling needs more than a billing alert.
 1. Build an immutable client image from the pinned Node/Rust toolchains and `scripts/foundation/prepare.sh`. Build the coordinator image from the same commit. Record the client asset manifest, coordinator commit, and emulator hash together; never replace a versioned core asset in place.
 2. Put the client edge and exactly one coordinator in an isolated `retro-coop-staging` namespace with bounded CPU, memory, ephemeral storage, upload directory and log retention. Keep coordinator port internal. Configure `COORDINATOR_STAGE=staging`, exact HTTPS `COORDINATOR_ORIGINS`, the two approved `COORDINATOR_EMPTY_OFFERS`, and required custom upload. Keep secrets in Kubernetes Secrets or a managed secret store, never in `PUBLIC_` variables or images.
 3. Prefer a regional external passthrough Network Load Balancer with `externalTrafficPolicy: Local` for the HTTPS edge. Google documents that this preserves the transport client IP. A controlled same-Pod proxy can terminate TLS, serve immutable client files, and overwrite `X-Forwarded-For` with its transport peer before forwarding `/coordinator/ws` and `/coordinator/rooms/*/rom` to the coordinator on loopback. Only that loopback proxy is trusted by `COORDINATOR_TRUSTED_PROXIES`. Reject direct access to the coordinator and prove forged incoming headers cannot change admission identity. Do not use a default HTTPS Ingress without replacing this boundary and retesting it.
-4. Use a separate, short-lived TURN endpoint for the forced-relay staging test. Autopilot does not allow fixed host ports, while a TURN relay needs a reachable allocation port range; a normal single-port Kubernetes Service is insufficient. Compare a bounded GCE coturn VM with a managed TURN provider against the approved cost ceiling and existing `TURN_SECRET` credential contract before selecting one. Keep relay-only policy from falling back to direct when the relay is unavailable.
+4. Use a separate, short-lived TURN endpoint for the forced-relay staging test. Autopilot does not allow fixed host ports, while a TURN relay needs a reachable allocation port range; a normal single-port Kubernetes Service is insufficient. The selected e2-micro coturn VM has a six-hour self-delete action, narrow tester firewall, 16-allocation quota including reconnect overlap, and 3 Mbit/s outbound traffic shaping. It uses the existing `TURN_SECRET` credential contract. Keep relay-only policy from falling back to direct when the relay is unavailable.
 5. Reserve a public regional IPv4 address before deployment and issue a valid short-lived certificate for that IP. Let's Encrypt currently supports IP certificates valid for 160 hours; Certbot 5.4+ supports issuance through an HTTP challenge. The edge serves only `/.well-known/acme-challenge/` on port 80. End the planned test inside one certificate lifetime; an extension needs renewed certificate evidence. A user-controlled hostname remains an option, but no public DNS zone was found in the inspected project.
 
 ## Cost gate before any provisioning
 
-Use a current-price worksheet for requested Autopilot vCPU, memory and storage hours; one or more load-balancer forwarding rules and bytes; static asset, upload and log bytes; TURN fixed charge and worst-case relayed GiB; external egress; and DNS/certificate charges. Model the actual short staging window and the accidental 30-day left-running case. Include the existing project's charges only when they are incremental to Retro Coop, and verify whether credits apply rather than subtracting assumed credits.
+Use current list prices and count only incremental Retro Coop resources; no assumed credits are deducted. The reviewed trial is six hours, after which the GKE Job stops and the GCE relay VM deletes itself. Manual teardown should happen earlier. Model a 31-day mistake that leaves the forwarding rule and reserved IP behind, since those do not stop with the Job.
 
-At checked `us-central1` list prices, 730 hours of a 0.5 vCPU/1 GiB Autopilot Pod is about `$19.84`, regional forwarding rules `$18.25`, an e2-micro TURN VM `$6.11`, and its attached public IPv4 `$3.65`: about `$47.85` before disk, images, load-balancer bytes, logs and internet egress. North America internet egress is currently `$0.12/GiB` after the first free GiB. A month left running therefore nearly uses the $50 target on fixed resources alone. A 24-hour window uses about `$1.57` of those fixed rates, before traffic. These are illustrative incremental estimates, not a quote or proof of a hard ceiling; credits and relay traffic have not been measured.
+| Six-hour trial item | Calculation at checked `us-central1` list prices | Upper scenario |
+|---|---:|---:|
+| Edge replies | 256 KiB/s × six connections × two admitted IPv4 addresses × six hours = 63.28 GiB | $14.56 at the highest listed $0.23/GiB internet tier |
+| TURN replies | 3 Mbit/s traffic shaper × six hours = 7.54 GiB | $1.74 at $0.23/GiB |
+| Load-balancer response processing | 63.28 GiB × $0.008/GiB | $0.51 |
+| Job Pod, VM, VM IPv4 | 0.5 vCPU/1 GiB Pod, e2-micro and its IPv4 for six hours | under $0.30 before disk |
+| Stranded forwarding rule and idle IPv4 | 744 hours × ($0.025 + $0.01); counting both is conservative because the IP is free while attached to the rule | $26.04 |
+| Inbound load-balancer traffic scenario | Four TiB × $0.008/GiB | $32.77 |
+| Storage, image registry and logs allowance | Reserve beyond the above line items | $10.00 |
+| **Modeled total** | No discounts or credits assumed | **about $85.92** |
 
-Google's alerts-only budgets do not stop spending, and its current preview spend cap does not cover GKE. The deployment needs bounded room/connection/relay admission, workload and storage quotas, a time-limited shutdown/teardown path, and a measured test before claiming the $100 ceiling. A budget alert remains useful but is not the enforcement proof. Do not provision if the worst-case left-running calculation or unbounded network use can exceed the ceiling without an accepted cutoff.
+The four-TiB inbound line is a scenario, not an enforced limit. Public ACME port 80 briefly accepts requests from any IP, and GKE's passthrough load balancer has no configured absolute byte cutoff. The $100 ceiling therefore cannot be guaranteed solely by these controls; a bill alert also does not stop spending, and Google's preview spend cap does not cover GKE. Before provisioning, obtain explicit acceptance of this residual billing risk or replace the public-IP certificate path with an enforceable ingress cap. Watch ingress and cost during the trial, close ACME exposure immediately after validation, and run teardown on any unexpected traffic. Actual charges and credit applicability must be checked after the trial.
 
 ## Acceptance sequence
 
@@ -38,10 +47,47 @@ Google's alerts-only budgets do not stop spending, and its current preview spend
 
 ## Prepared deployment package
 
-- `deploy/staging/k8s/base` defines one Job Pod with an Nginx edge and loopback-only coordinator, a regional external passthrough Service with `externalTrafficPolicy: Local`, and namespace quota. The Job stops the Pod after 24 hours with no retry; the Service and other billable resources still require teardown. The Pod does not mount a Kubernetes API token. TLS and TURN values come from named Secrets; the coordinator's exact HTTPS Origin comes from a generated ConfigMap.
+- `deploy/staging/k8s/base` defines one Job Pod with an Nginx edge and loopback-only coordinator, a regional external passthrough Service with `externalTrafficPolicy: Local`, and namespace quota. The Job stops the Pod after six hours with no retry; the Service and other billable resources still require teardown. The Pod does not mount a Kubernetes API token. TLS and TURN values come from named Secrets; the coordinator's exact HTTPS Origin comes from a generated ConfigMap.
 - `scripts/staging/render_k8s.py` requires two image digests, a public reserved IP and up to two tester `/32` addresses. It renders locally through `kubectl kustomize`; it never applies resources. `--acme-bootstrap --allow 0.0.0.0/0` temporarily exposes only port 80 for certificate issuance, with no public HTTPS port. Re-render with the tester addresses immediately after issuance.
 - `scripts/staging/acme_hook.sh` writes one HTTP challenge into the edge Pod, checks public reachability, and removes it afterward. The hook accepts only the configured IP and a single safe token. `scripts/staging/container_smoke.sh`, `render_smoke.py`, `acme_hook_smoke.py` and `kubernetes_smoke.sh` check the edge, render boundaries and both containers' Kubernetes startup without cloud access. The Kubernetes smoke imports the exact candidate images into a disposable K3s node, creates only temporary Secrets, applies the rendered workload from a default namespace context, and waits for both containers to become Ready.
 - `deploy/staging/cloudbuild.yaml` describes both image targets at one source revision. Before submitting it, use a clean, reviewed commit, confirm the isolated Artifact Registry repository and builder permissions, and record the resulting digests. The rendered Kubernetes manifest must use those digests, not mutable tags.
+- `scripts/staging/provision_turn.sh` creates a dedicated VPC, a tester-only TURN rule, an operator-only SSH rule, and an e2-micro relay VM using a dated Debian image and a six-hour delete action. `render_turn.py` writes a mode-0600 coturn configuration from the same exact 64-byte secret used by the coordinator. `configure_turn.sh` installs coturn and persistent systemd traffic shaping on that VM. `teardown.sh` deletes only the named staging namespace, VM, firewall, VPC, reserved IP and isolated image repository, then checks for leftovers. `turn_smoke.py` starts real coturn locally; `turn_operator_smoke.py` verifies create/delete command wiring against disposable CLI mocks. None of these tests proves that Google Cloud accepted the commands.
+
+### Relay setup after the spending decision
+
+These steps are prepared but have not been executed. Confirm the project, `cache-guard-test` cluster, two public tester `/32` addresses and one operator `/32` address. Confirm `retro-coop-staging` does not already own a namespace, VPC, VM, reserved address or image repository. Set `TESTER_ONE`, `TESTER_TWO` and `OPERATOR_CIDR` to the full `/32` values. Use a private directory outside Git, disable shell tracing and create an exact 64-character secret file named `turn-secret`:
+
+```sh
+PRIVATE_DIR=$(mktemp -d)
+umask 077
+printf '%s' "$(openssl rand -hex 32)" > "$PRIVATE_DIR/turn-secret"
+```
+
+Record only its fingerprint; do not print or commit its contents.
+
+1. Run `sh scripts/staging/provision_turn.sh "$STAGING_PROJECT" us-central1-a "$TESTER_ONE" "$TESTER_TWO" "$OPERATOR_CIDR"`. The script prints the VM's private/public addresses and termination timestamp. If any resource is left after an error, run the teardown script immediately.
+2. Set `TURN_PUBLIC_IP` and `TURN_PRIVATE_IP` to the addresses returned by the VM describe command. Copy the renderer, VM setup script and owner-only secret to the VM, then configure it from the operator address:
+
+```sh
+gcloud compute scp --project="$STAGING_PROJECT" --zone=us-central1-a --scp-flag=-p \
+  scripts/staging/render_turn.py scripts/staging/configure_turn.sh "$PRIVATE_DIR/turn-secret" \
+  retro-coop-staging-turn:~/
+gcloud compute ssh retro-coop-staging-turn --project="$STAGING_PROJECT" --zone=us-central1-a \
+  --command="sudo sh ./configure_turn.sh '$TURN_PUBLIC_IP' '$TURN_PRIVATE_IP' ./turn-secret"
+```
+
+Verify `systemctl is-active retro-coop-turn.service`, `tc qdisc show`, the recorded coturn version and a real authenticated TURN allocation. The setup removes the transferred secret file after creating coturn's owner-only configuration; the local file remains until the coordinator Secret is created.
+3. Create `retro-coop-staging-turn` in the staging namespace from that exact local file. Do not display the generated Secret YAML:
+
+```sh
+kubectl -n retro-coop-staging create secret generic retro-coop-staging-turn \
+  --from-file="TURN_SECRET=$PRIVATE_DIR/turn-secret" \
+  --from-literal="TURN_URLS=turn:$TURN_PUBLIC_IP:3478?transport=udp,turn:$TURN_PUBLIC_IP:3478?transport=tcp" \
+  --dry-run=client -o yaml | kubectl -n retro-coop-staging apply -f -
+```
+
+The coordinator's `TURN_ROOM_LIMIT=2` and coturn's allocation quota must both be present before any Relay only test. Remove the local secret file after both endpoints are configured and validated.
+4. After the six-hour window or any failed setup, run `sh scripts/staging/teardown.sh "$STAGING_PROJECT"`. It stops the relay VM first, waits for the namespace Service to disappear before releasing the IP, then removes and verifies the named network and image resources. Record the command output, measured billing and actual browser route evidence on #28.
 
 ### Certificate bootstrap and shutdown sequence
 
@@ -52,15 +98,13 @@ These are operator steps for the reviewed deployment, not commands already run. 
 3. With Certbot 5.4 or later, request a trusted IP certificate using `certbot certonly --manual --preferred-challenges http --preferred-profile shortlived --ip-address "$STAGING_IP" --manual-auth-hook "$PWD/scripts/staging/acme_hook.sh auth" --manual-cleanup-hook "$PWD/scripts/staging/acme_hook.sh cleanup"`. Export `RETRO_STAGING_PUBLIC_IP="$STAGING_IP"` for both hooks. First use `--staging` to prove challenge delivery, then repeat without it. Certbot supplies `CERTBOT_IDENTIFIER`, `CERTBOT_TOKEN` and `CERTBOT_VALIDATION`; the hook checks that the identifier is the reserved IP. Replace the TLS Secret from Certbot's `fullchain.pem` and `privkey.pem`. Wait for its projected volume to contain the new certificate, then run `kubectl -n retro-coop-staging exec pod/$STAGING_POD -c edge -- nginx -s reload`. Verify HTTPS with normal trust after step 4 restores port 443. Do not use a certificate past its 160-hour lifetime.
 4. Immediately re-render with the two actual tester CIDRs and no `--acme-bootstrap`; apply it and verify the Service no longer accepts `0.0.0.0/0`. Schedule the end of the test before certificate expiry and independently verify that the Service, Pod, Secrets, reserved IP, TURN VM and image repository are removed. If the test stops early, run the same cleanup then. Deleting only the namespace does not release the reserved IP, VM or registry images. Retain sanitized test results, measured cost and the exact teardown receipt on issue #28.
 
-This package adds a 24-hour Job cutoff and per-address request, connection and response limits. It does not stop Service, IP, registry or log charges and does not bound relay traffic. It is not yet a proof of the $100 ceiling. The next reviewed package must provide the relay, full cost worksheet and teardown command before provisioning.
+The prepared package has a six-hour Job and VM cutoff, per-address edge limits, relay quotas, a traffic shaper and a teardown command. The Service, reserved IP, registry and logs still need explicit cleanup. The modeled total is under $100 for the stated traffic scenario, but public ACME ingress and tester uploads have no enforceable absolute byte cap. The next review must verify the scripts and cost assumptions; deployment still needs the final spending and residual-risk decision.
 
-The next review must include the TURN VM configuration, exact image digests, Secret creation, certificate bootstrap and renewal/expiry steps, tester addresses, cost worksheet, automated cutoff, and teardown command. The render alone is not deployment permission or proof that the $100 ceiling holds.
-
-## Integrated package evidence through `6fc9c29`
+## Integrated package evidence through `7452aa4`
 
 The candidate Dockerfile builds an edge image and one coordinator image from the same source. The edge Nginx configuration serves the Vite bundle, terminates TLS, overwrites forwarding identity with its transport peer, and sends only WebSocket and membership-scoped ROM routes to loopback. It disables request-path and address access logs. `scripts/staging/edge_probe.mjs` exercises admission, host ROM upload and guest ROM download through the real proxy. The image job in the shared CI workflow builds and runs the exact containers within the same pull-request deadline as the browser gate.
 
-The merged [PR #121](https://github.com/TuringTestee/retro-coop/pull/121) built exact containers and proved HTTPS delivery, forged-header rejection, a host upload lasting 6.31 seconds, room confirmation, and a byte-for-byte authorized guest download. [PR #122](https://github.com/TuringTestee/retro-coop/pull/122) proved that the rendered staging workload starts its exact images as one ready Pod in local Kubernetes. Both current-head five-minute CI gates passed. Local preflight passed 29 Rust and 138 Node tests, TypeScript typecheck and hygiene. This still does not prove GKE source-address preservation, TURN, valid public TLS, independent networks, or the budget. Those remain explicit gates above.
+The merged [PR #121](https://github.com/TuringTestee/retro-coop/pull/121) built exact containers and proved HTTPS delivery, forged-header rejection, a host upload lasting 6.31 seconds, room confirmation, and a byte-for-byte authorized guest download. [PR #122](https://github.com/TuringTestee/retro-coop/pull/122) proved that the rendered staging workload starts its exact images as one ready Pod in local Kubernetes. [PR #123](https://github.com/TuringTestee/retro-coop/pull/123) added the Job cutoff, HTTP-only certificate bootstrap and exact edge limits; its current-head image and browser checks passed. Local preflight passed 29 Rust and 138 Node tests, TypeScript typecheck and hygiene. This still does not prove GKE source-address preservation, TURN on Google Cloud, valid public TLS, independent networks, or actual cost. Those remain explicit gates above.
 
 ## Sources checked 2026-09-24
 
@@ -72,3 +116,4 @@ The merged [PR #121](https://github.com/TuringTestee/retro-coop/pull/121) built 
 - [GKE static-IP and regional external Service parameters](https://docs.cloud.google.com/kubernetes-engine/docs/concepts/service-load-balancer-parameters)
 - [Let's Encrypt IP certificates](https://letsencrypt.org/2026/01/15/6day-and-ip-general-availability) and [Certbot instructions](https://letsencrypt.org/2026/03/11/shorter-certs-certbot)
 - [GCE e2-micro prices](https://cloud.google.com/products/compute/pricing/general-purpose) and [external IP/egress prices](https://cloud.google.com/vpc/network-pricing)
+- [GCE VM runtime limit and delete action](https://docs.cloud.google.com/compute/docs/instances/limit-vm-runtime) and [coturn configuration](https://github.com/coturn/coturn/blob/master/examples/etc/turnserver.conf)

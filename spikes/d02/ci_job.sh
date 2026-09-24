@@ -53,6 +53,7 @@ if [ "$D02_JOB" = core ]; then
   sudo apt-get update
   sudo apt-get install -y coturn
   turnserver --version > turn-version.local.txt
+  (cd ../.. && python3 scripts/staging/turn_smoke.py --turnserver turnserver)
   python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
   D02_HTTP_PID=$!
   trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
