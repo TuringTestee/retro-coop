@@ -18,13 +18,13 @@ trap cleanup EXIT HUP INT TERM
 
 # Pin the small K3s test runtime; the production cluster remains GKE.
 k3s_image='rancher/k3s:v1.35.8-k3s1@sha256:59fe491fd3b73204e499e40b325240d85c42c7189c3ae50150d37b78243f3b32'
-docker run -d --privileged --name "$cluster_name" "$k3s_image" server \
+docker run -d --privileged --name "$cluster_name" -p 127.0.0.1::6443 "$k3s_image" server \
   --disable traefik --disable servicelb --disable metrics-server >/dev/null
 
 ready=0
 attempt=0
 while [ "$attempt" -lt 80 ]; do
-  if docker exec "$cluster_name" k3s kubectl get nodes >/dev/null 2>&1; then
+  if docker cp "$cluster_name:/etc/rancher/k3s/k3s.yaml" "$temporary/kubeconfig" >/dev/null 2>&1; then
     ready=1
     break
   fi
@@ -32,11 +32,31 @@ while [ "$attempt" -lt 80 ]; do
   sleep .5
 done
 if [ "$ready" -ne 1 ]; then
-  docker logs "$cluster_name" >&2
-  echo 'Local Kubernetes API did not start.' >&2
+  docker logs --tail 80 "$cluster_name" >&2
+  echo 'Local Kubernetes config was not created.' >&2
   exit 1
 fi
-docker exec "$cluster_name" k3s kubectl wait --for=condition=Ready node --all --timeout=60s
+port=$(docker port "$cluster_name" 6443/tcp | sed 's/.*://')
+python3 - "$temporary/kubeconfig" "$port" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+source = path.read_text()
+if source.count('server: https://127.0.0.1:6443') != 1:
+    raise SystemExit('Unexpected local Kubernetes endpoint')
+path.write_text(source.replace('server: https://127.0.0.1:6443', 'server: https://127.0.0.1:' + sys.argv[2]))
+PY
+kube() { KUBECONFIG="$temporary/kubeconfig" kubectl "$@"; }
+attempt=0
+until kube get nodes >/dev/null 2>&1; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 40 ]; then
+    kube get nodes >&2
+    exit 1
+  fi
+  sleep .5
+done
+kube wait --for=condition=Ready node --all --timeout=60s
 
 docker tag "$edge_image" localhost/retro-coop-staging-edge:ci
 docker tag "$coordinator_image" localhost/retro-coop-staging-coordinator:ci
@@ -46,11 +66,10 @@ docker save localhost/retro-coop-staging-edge:ci localhost/retro-coop-staging-co
 openssl req -x509 -newkey rsa:2048 -nodes \
   -keyout "$temporary/tls.key" -out "$temporary/tls.crt" \
   -subj '/CN=127.0.0.1' -addext 'subjectAltName=IP:127.0.0.1' -days 1 >/dev/null 2>&1
-docker cp "$temporary" "$cluster_name:/tmp/staging-cert"
-docker exec "$cluster_name" k3s kubectl create namespace retro-coop-staging >/dev/null
-docker exec "$cluster_name" k3s kubectl -n retro-coop-staging create secret tls retro-coop-staging-tls \
-  --cert=/tmp/staging-cert/tls.crt --key=/tmp/staging-cert/tls.key >/dev/null
-docker exec "$cluster_name" k3s kubectl -n retro-coop-staging create secret generic retro-coop-staging-turn \
+kube create namespace retro-coop-staging >/dev/null
+kube -n retro-coop-staging create secret tls retro-coop-staging-tls \
+  --cert="$temporary/tls.crt" --key="$temporary/tls.key" >/dev/null
+kube -n retro-coop-staging create secret generic retro-coop-staging-turn \
   --from-literal=TURN_URLS=turn:127.0.0.1:3478?transport=udp \
   --from-literal=TURN_SECRET=0123456789abcdef0123456789abcdef >/dev/null
 
@@ -74,16 +93,16 @@ for old, new in replacements.items():
     source = source.replace(old, new)
 path.write_text(source)
 PY
-docker exec -i "$cluster_name" k3s kubectl apply -f - < "$temporary/staging.yaml"
-docker exec "$cluster_name" k3s kubectl -n retro-coop-staging rollout status \
+kube apply -f "$temporary/staging.yaml"
+kube -n retro-coop-staging rollout status \
   deployment/retro-coop-staging --timeout=60s
-docker exec "$cluster_name" k3s kubectl -n retro-coop-staging get configmap \
+kube -n retro-coop-staging get configmap \
   retro-coop-staging-config -o jsonpath='{.data.COORDINATOR_ORIGINS}' |
   grep -qx 'https://34.100.1.2'
-docker exec "$cluster_name" k3s kubectl -n retro-coop-staging exec \
+kube -n retro-coop-staging exec \
   deployment/retro-coop-staging -c coordinator -- node -e \
   "if(process.env.COORDINATOR_ORIGINS!=='https://34.100.1.2')process.exit(1)"
-docker exec "$cluster_name" k3s kubectl -n retro-coop-staging get pods \
+kube -n retro-coop-staging get pods \
   -l app=retro-coop-staging -o json > "$temporary/pods.json"
 python3 - "$temporary/pods.json" <<'PY'
 import json, sys
