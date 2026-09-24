@@ -107,24 +107,44 @@ def main():
             host.locator('main.playing.with-room').wait_for(timeout=15000)
             wide = geometry(host, '1280x720')
             host.screenshot(path=str(args.output / 'playing-wide.png'))
-            host.get_by_role('button', name='Saves', exact=True).click()
-            assert host.get_by_role('heading', name='Saves on this device').is_visible()
-            assert host.locator('dialog').count() == 0
-            assert not host.locator('.room-panel').is_visible()
-            host.screenshot(path=str(args.output / 'saves.png'))
+            for label, heading, filename in [('Saves', 'Saves on this device', 'saves.png'),
+                                             ('Rewind', 'Rewind local game', 'rewind.png'),
+                                             ('Game help', 'Game help', 'help.png')]:
+                host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
+                host.wait_for_function('!!document.fullscreenElement')
+                slug = label.lower().replace(' ', '-')
+                host.screenshot(path=str(args.output / f'fullscreen-before-{slug}.png'))
+                host.locator('.panel').get_by_role('button', name=label, exact=True).click()
+                host.wait_for_function('!document.fullscreenElement')
+                host.get_by_role('heading', name=heading, exact=True).wait_for(state='visible')
+                host.wait_for_function("document.activeElement?.tagName === 'H2'")
+                assert host.get_by_role('button', name='Back', exact=True).is_visible()
+                assert not host.locator('.room-panel').is_visible()
+                assert host.locator('dialog').count() == 0
+                if label == 'Game help':
+                    host.get_by_text('Technical details', exact=True).click()
+                    expected = hashlib.sha256((ROOT / 'apps/client/dist/generated/diagnostic.nes').read_bytes()).hexdigest()
+                    assert expected in host.get_by_test_id('fingerprint').inner_text()
+                host.screenshot(path=str(args.output / filename))
+                host.get_by_role('button', name='Back', exact=True).click()
+                host.wait_for_function("label => document.activeElement?.textContent === label", arg=label)
+                assert host.locator('.panel').is_visible()
+                host.screenshot(path=str(args.output / f'fullscreen-return-{slug}.png'))
+            host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
+            host.wait_for_function('!!document.fullscreenElement')
+            host.evaluate("()=>{window.savedExitFullscreen=document.exitFullscreen.bind(document);document.exitFullscreen=()=>Promise.reject(Error('Exit refused'));}")
+            host.locator('.panel').get_by_role('button', name='Saves', exact=True).click()
+            host.get_by_text('Could not exit fullscreen. Press Esc, then try again.', exact=True).wait_for()
+            assert host.evaluate('!!document.fullscreenElement') and host.locator('.tool-page:visible').count() == 0
+            host.evaluate('()=>{document.exitFullscreen=window.savedExitFullscreen;}')
+            # Headless Chromium does not route browser-level Escape to fullscreen.
+            host.evaluate('()=>document.exitFullscreen()')
+            host.wait_for_function('!document.fullscreenElement')
+            host.locator('.panel').get_by_role('button', name='Saves', exact=True).click()
+            host.get_by_role('heading', name='Saves on this device', exact=True).wait_for(state='visible')
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Saves'")
-            host.get_by_role('button', name='Rewind', exact=True).click()
-            assert host.get_by_role('heading', name='Rewind local game').is_visible()
-            host.screenshot(path=str(args.output / 'rewind.png'))
-            host.get_by_role('button', name='Back', exact=True).click()
-            host.get_by_role('button', name='Game help', exact=True).click()
-            assert host.get_by_role('heading', name='Game help').is_visible()
-            host.screenshot(path=str(args.output / 'help.png'))
-            host.get_by_text('Technical details', exact=True).click()
-            expected = hashlib.sha256((ROOT / 'apps/client/dist/generated/diagnostic.nes').read_bytes()).hexdigest()
-            assert expected in host.get_by_test_id('fingerprint').inner_text()
-            host.get_by_role('button', name='Back', exact=True).click()
+            assert host.get_by_text('Could not exit fullscreen. Press Esc, then try again.', exact=True).count() == 0
             host.set_viewport_size({'width': 390, 'height': 700})
             narrow = geometry(host, '390x700')
             host.screenshot(path=str(args.output / 'playing-narrow.png'), full_page=True)
@@ -167,7 +187,8 @@ def main():
             assert not errors, errors
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                       'browser': browser.version, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
-                      'focus_return': True, 'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
+                      'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
+                      'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
                       'layout': [wide, narrow, zoom], 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
