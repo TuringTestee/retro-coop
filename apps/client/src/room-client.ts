@@ -57,7 +57,8 @@ export class RoomClient {
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
   const prior=this.state.room;
-  if(room){this.previewingInvite=undefined;this.previewingId=undefined;}
+  // A guest admitted from an invitation still needs its preview after removal.
+  if(room&&room.id!==this.previewingId){this.previewingInvite=undefined;this.previewingId=undefined;}
   this.game.enter(room);this.publish({room,chat:this.chat.enter(room),...(room?{releaseNotice:undefined}:{})});
   if(room?.role==='host'&&room.started==='solo'&&prior?.started!=='solo'&&this.selectedFile&&matchesFile(room.fingerprint,this.selectedFile)){
    this.game.cancelIntent();this.player()?.allowLocalPlay();this.player()?.resume();
