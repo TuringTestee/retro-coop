@@ -4,7 +4,7 @@ import http from 'node:http';
 
 const base = process.argv[2];
 if (!base || !base.startsWith('http://')) throw Error('Pass the local HTTP edge URL.');
-const origin = process.argv[3] ?? 'https://retro-coop.1001.page';
+const origin = process.argv[3] ?? 'https://retro-coop.atobot.cloud';
 const websocket = new URL('/coordinator/ws', base);
 websocket.protocol = 'ws:';
 

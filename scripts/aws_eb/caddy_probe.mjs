@@ -9,7 +9,7 @@ websocket.protocol = 'ws:';
 function connect(localAddress, forgedAddress, expected=101) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(websocket, {
-      origin:'https://retro-coop.1001.page', localAddress,
+      origin:'https://retro-coop.atobot.cloud', localAddress,
       headers:{'X-Forwarded-For': forgedAddress}, handshakeTimeout:3000,
     });
     if (expected === 101) {

@@ -4,7 +4,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import http from 'node:http';
 
-const origin = 'https://retro-coop.1001.page';
+const origin = 'https://retro-coop.atobot.cloud';
 const rom = Buffer.alloc(16 + 16384);
 rom.set([0x4e, 0x45, 0x53, 0x1a, 1, 0]);
 const fingerprint = {

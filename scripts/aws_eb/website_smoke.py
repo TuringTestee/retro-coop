@@ -20,9 +20,28 @@ assert settings["aws:autoscaling:launchconfiguration", "InstanceType"] == "t4g.m
 assert settings["aws:autoscaling:launchconfiguration", "DisableIMDSv1"] == "true"
 assert settings["aws:autoscaling:launchconfiguration", "SecurityGroups"] == "sg-app"
 assert settings["aws:elasticbeanstalk:application:environmentsecrets", "TURN_SECRET"] == "arn:turn-secret"
-assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://retro-coop.1001.page"
-assert settings["aws:elasticbeanstalk:application:environment", "TURN_URLS"] == "turn:retro-coop.1001.page:3478?transport=udp"
+assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://retro-coop.atobot.cloud"
+assert settings["aws:elasticbeanstalk:application:environment", "TURN_URLS"] == "turn:retro-coop.atobot.cloud:3478?transport=udp"
 assert "8787" not in str(settings) and "LoadBalancer" not in str(settings)
+assert {(row["Namespace"], row["OptionName"]): row["Value"] for row in website.connection_options()} == {
+    ("aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"): "https://retro-coop.atobot.cloud",
+    ("aws:elasticbeanstalk:application:environment", "TURN_URLS"): "turn:retro-coop.atobot.cloud:3478?transport=udp"}
+
+original_aws, original_run = website.aws, website.subprocess.run
+nameservers = ["ns-1.example", "ns-2.example"]
+website.aws = lambda *args: ({"HostedZone": {"Name": "atobot.cloud.", "Config": {"PrivateZone": False}},
+                              "DelegationSet": {"NameServers": nameservers}}
+                             if args[:2] == ("route53", "get-hosted-zone") else
+                             {"Nameservers": [{"Name": name} for name in nameservers]})
+website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="ns-1.example.\nns-2.example.\n")
+website.verify_delegation("Z1")
+website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="")
+try:
+    website.verify_delegation("Z1")
+    raise AssertionError("Undelegated hosted zone was accepted")
+except ValueError:
+    pass
+website.aws, website.subprocess.run = original_aws, original_run
 
 calls = []
 website.command = lambda *args: calls.append(args)
@@ -115,12 +134,8 @@ except ValueError:
 notifications[0].pop("ThresholdType")
 assert state["invocations"] == 1
 state["confirmed"] = False
-try:
-    website.verify_guard(settings_guard, ip, ip)
-    raise AssertionError("Public DNS gate accepted unconfirmed alert subscription")
-except ValueError:
-    pass
-assert state["invocations"] == 1
+website.verify_guard(settings_guard, ip, ip)
+assert state["invocations"] == 2
 state["confirmed"] = True
 state["scheduleDryRun"] = True
 try:
@@ -128,7 +143,7 @@ try:
     raise AssertionError("Public DNS gate accepted a schedule that only dry runs")
 except ValueError:
     pass
-assert state["invocations"] == 1
+assert state["invocations"] == 2
 state["scheduleDryRun"] = False
 state["brokenAlarm"] = "retro-coop-cost-guard-delivery-errors"
 try:
@@ -136,7 +151,7 @@ try:
     raise AssertionError("Public DNS gate accepted a broken Scheduler delivery alarm")
 except ValueError:
     pass
-assert state["invocations"] == 1
+assert state["invocations"] == 2
 state["brokenAlarm"] = None
 state["result"] = {**state["result"], "wouldStop": True,
                    "actions": ["delete_exact_website_a_record"], "forecastUsd": "100"}
@@ -145,7 +160,7 @@ try:
     raise AssertionError("Public DNS gate accepted a guard above shutdown threshold")
 except ValueError:
     pass
-assert state["invocations"] == 2
+assert state["invocations"] == 3
 
 website.instance_and_eip = lambda _outputs, _resources: ("i-reviewed", ip)
 load_state = {"availableKiB": 200000, "includeProof": True, "commands": []}

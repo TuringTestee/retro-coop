@@ -10,7 +10,7 @@ ACCOUNT = "599796577790"
 BUDGET = "retro-coop-website-monthly"
 APP = "retro-coop"
 ENV = "retro-coop-web"
-HOST = "retro-coop.1001.page"
+HOST = "retro-coop.atobot.cloud"
 LIMIT = Decimal("100")
 
 
