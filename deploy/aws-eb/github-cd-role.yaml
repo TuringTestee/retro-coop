@@ -52,6 +52,7 @@ Resources:
                          elasticbeanstalk:DescribeConfigurationSettings, elasticbeanstalk:DescribeApplicationVersions,
                          elasticbeanstalk:DescribeApplications, elasticbeanstalk:DescribeEnvironmentResources,
                          ec2:DescribeSecurityGroups, ec2:DescribeSubnets, ec2:DescribeRouteTables,
+                         ec2:DescribeImages,
                          ec2:DescribeInstances, ec2:DescribeAddresses, cloudwatch:DescribeAlarms]
                 Resource: '*'
               - Sid: CreateOnlyWebsiteVersion
