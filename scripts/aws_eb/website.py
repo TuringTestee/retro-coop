@@ -255,6 +255,18 @@ def update_existing_environment(version: str, previous_version: str) -> dict:
         command("elasticbeanstalk", "update-environment", "--environment-name", ENV, "--version-label", version)
         return wait_for_existing_state(version, target)
     except Exception as error:
+        if not changed:
+            # A timed-out EB request can still finish. Observe the in-flight update
+            # before reporting failure, so the next release does not race it.
+            try:
+                current = wait_for_environment("Ready", timeout=1800)
+                if current.get("VersionLabel") == version and connection_values() == target:
+                    return current
+                if current.get("VersionLabel") != previous_version or connection_values() != previous:
+                    raise ValueError("EB settled on an unexpected version or connection settings")
+            except Exception as recovery_error:
+                raise RuntimeError("EB update did not settle on the expected website version; inspect the environment") from recovery_error
+            raise error
         if changed:
             try:
                 current = wait_for_environment("Ready", timeout=300)

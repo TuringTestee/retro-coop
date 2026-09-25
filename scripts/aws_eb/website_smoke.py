@@ -96,6 +96,28 @@ except ValueError:
     pass
 assert migration["events"] == ["settings", "observed", "version", "ready", "version", "observed", "settings", "observed"]
 assert migration["values"] == old_values and migration["version"] == "main-old"
+original_existing_wait = website.wait_for_existing_state
+migration.update(values=dict(new_values), version="main-old", events=[], failVersion=False)
+def delayed_wait(*args, **kwargs):
+    migration["events"].append("first-deadline")
+    raise TimeoutError("EB update still running at the first deadline")
+website.wait_for_existing_state = delayed_wait
+assert website.update_existing_environment("main-new", "main-old")["VersionLabel"] == "main-new"
+assert migration["events"] == ["version", "first-deadline", "ready"]
+def settled_on_old(desired, timeout=1800):
+    assert desired == "Ready" and timeout == 1800
+    migration["events"].append("ready-old")
+    migration["version"] = "main-old"
+    return {"Status": "Ready", "Health": "Green", "VersionLabel": "main-old"}
+website.wait_for_environment = settled_on_old
+migration.update(values=dict(new_values), version="main-old", events=[])
+try:
+    website.update_existing_environment("main-new", "main-old")
+    raise AssertionError("A delayed update that settled on the old version was accepted")
+except TimeoutError:
+    pass
+assert migration["events"] == ["version", "first-deadline", "ready-old"]
+website.wait_for_existing_state = original_existing_wait
 website.aws, website.command = original_aws, original_command
 website.wait_for_environment, website.environment = original_wait, original_environment
 

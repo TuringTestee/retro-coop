@@ -56,7 +56,9 @@ Resources:
               - Sid: CreateOnlyWebsiteVersion
                 Effect: Allow
                 Action: elasticbeanstalk:CreateApplicationVersion
-                Resource: !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:application/retro-coop
+                Resource:
+                  - !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:application/retro-coop
+                  - !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:applicationversion/retro-coop/main-*
               - Sid: UpdateOnlyWebsiteEnvironment
                 Effect: Allow
                 Action: elasticbeanstalk:UpdateEnvironment

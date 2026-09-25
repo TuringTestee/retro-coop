@@ -37,7 +37,9 @@ jobs:
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Normal releases target five minutes. This ceiling covers the operator's
+    # bounded EB update and worst-case settings/version restoration waits.
+    timeout-minutes: 150
     env:
       GH_TOKEN: ${{ github.token }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -145,11 +147,11 @@ jobs:
           PREVIOUS_VERSION: ${{ steps.previous.outputs.version }}
         run: |
           current=$(aws elasticbeanstalk describe-environments --application-name retro-coop \
-            --environment-names retro-coop-web --query 'Environments[0].VersionLabel' --output text || true)
+            --environment-names retro-coop-web --query 'Environments[0].[VersionLabel,Status,Health]' --output text || true)
           {
             echo "### Website release failed"
             echo "Source: $SOURCE_SHA"
             echo "Previous version: $PREVIOUS_VERSION"
-            echo "Observed EB version: $current"
+            echo "Observed EB version, status and health: $current"
             echo "A failed deployment has not passed the live release check."
           } >> "$GITHUB_STEP_SUMMARY"
