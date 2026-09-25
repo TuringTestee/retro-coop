@@ -54,6 +54,9 @@ def run(host, guest, output):
     card.get_by_role('button', name='Try microphone again', exact=True).wait_for()
     card.get_by_role('button', name='Enable voice sound', exact=True).wait_for()
     host.screenshot(path=str(output.with_suffix('.sidebar-error.png')), full_page=True)
+    card.get_by_role('button', name='Voice settings', exact=True).click()
+    host.get_by_role('button', name='Back', exact=True).click()
+    assert host.evaluate('document.activeElement.textContent') == 'Voice settings'
     # Microphone recovery and privacy controls stay usable while playback is blocked.
     host.evaluate('window.denyCapture=false')
     card.get_by_role('button', name='Try microphone again', exact=True).click()

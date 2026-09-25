@@ -1,7 +1,7 @@
 import {useId} from 'react';
 import type {VoiceSession,VoiceState} from './voice.ts';
 export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}:{state?:VoiceState;voice?:VoiceSession;compact?:boolean;onSettings?:()=>void;talkBinding?:string}){
- const id=useId();if(!state||!voice)return compact?<section className="voice-card" aria-label="Voice controls"><h2>Voice <span role="status">· Connecting</span></h2><button disabled>Enable voice</button><button className="text-action" onClick={onSettings}>Voice settings</button></section>:<p>Voice is off.</p>;
+ const id=useId();if(!state||!voice)return compact?<section className="voice-card" aria-label="Voice controls"><h2>Voice <span role="status">· Connecting</span></h2><button disabled>Enable voice</button><button className="text-action voice-settings" onClick={onSettings}>Voice settings</button></section>:<p>Voice is off.</p>;
  const mic=state.microphone;
  const talk=<button disabled={mic.phase!=='ready'||mic.muted} onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId);voice.hold(true);}} onPointerUp={()=>voice.hold(false)} onPointerCancel={()=>voice.hold(false)} onLostPointerCapture={()=>voice.hold(false)} onKeyDown={event=>{if(event.code==='Space'||event.code==='Enter'){event.preventDefault();voice.hold(true);}}} onKeyUp={event=>{if(event.code==='Space'||event.code==='Enter'){event.preventDefault();voice.hold(false);}}} onBlur={()=>voice.hold(false)}>Hold to talk</button>;
  if(compact) {
@@ -13,7 +13,7 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
    {state.playbackError&&<p>{state.playbackError} <button className="text-action" onClick={()=>voice.retrySound()}>Enable voice sound</button></p>}
    {mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:mic.mode==='push'&&!mic.muted?talk:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
    {mic.mode==='push'&&<p className="talk-binding">Push to talk · {talkBinding}</p>}
-   <button className="text-action" onClick={onSettings}>Voice settings</button>
+   <button className="text-action voice-settings" onClick={onSettings}>Voice settings</button>
   </section>;
  }
 
