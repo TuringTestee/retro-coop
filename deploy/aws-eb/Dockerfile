@@ -1,11 +1,4 @@
 # syntax=docker/dockerfile:1
-FROM rust:1.95.0-bookworm@sha256:6258907abe69656e41cd992e0b705cdcfabcbbe3db374f92ed2d47121282d4a1 AS core
-WORKDIR /app
-COPY spikes/d02 spikes/d02
-COPY vendor/tetanes-core vendor/tetanes-core
-RUN rustup target add wasm32-unknown-unknown && \
-    cd spikes/d02 && cargo build --locked --release --lib --target wasm32-unknown-unknown
-
 FROM node:24.13.1-bookworm-slim@sha256:a81a03dd965b4052269a57fac857004022b522a4bf06e7a739e25e18bce45af2 AS client-build
 RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
@@ -17,7 +10,7 @@ COPY packages/contracts packages/contracts
 COPY spikes/d02 spikes/d02
 COPY scripts/foundation scripts/foundation
 RUN npm ci
-COPY --from=core /app/spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm \
+COPY deploy/aws-eb/core.wasm \
     /app/spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm
 RUN RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
 ENV PUBLIC_COORDINATOR_URL=/coordinator
@@ -31,6 +24,19 @@ USER 101:101
 EXPOSE 8080
 ENTRYPOINT ["nginx"]
 CMD ["-g", "daemon off;"]
+
+FROM caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d AS caddy
+COPY deploy/aws-eb/Caddyfile /etc/caddy/Caddyfile
+EXPOSE 80 443
+
+FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS turn
+RUN apt-get update && apt-get install -y --no-install-recommends coturn python3 curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && useradd --system --uid 10001 --no-create-home turnruntime
+COPY scripts/aws_eb/render_turn.py /opt/retro-coop/render_turn.py
+COPY scripts/aws_eb/run_turn.sh /opt/retro-coop/run_turn.sh
+USER 10001:10001
+EXPOSE 3478/udp 49160-49175/udp
+ENTRYPOINT ["/bin/sh", "/opt/retro-coop/run_turn.sh"]
 
 FROM node:24.13.1-bookworm-slim@sha256:a81a03dd965b4052269a57fac857004022b522a4bf06e7a739e25e18bce45af2 AS coordinator
 WORKDIR /app

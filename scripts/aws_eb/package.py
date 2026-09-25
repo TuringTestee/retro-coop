@@ -16,19 +16,24 @@ SHA = re.compile(r"^[a-f0-9]{64}$")
 REVISION = re.compile(r"^[a-f0-9]{40}$")
 
 
-def render(edge: str, coordinator: str, local: bool = False) -> str:
-    if not local and (not IMAGE.fullmatch(edge) or not IMAGE.fullmatch(coordinator)):
-        raise ValueError("Both images must be immutable digests in the reviewed account, region and repository")
-    if edge == coordinator:
-        raise ValueError("Edge and coordinator must be different images")
+def render(edge: str, coordinator: str, caddy: str, turn: str, local: bool = False) -> str:
+    images = (edge, coordinator, caddy, turn)
+    if not local and any(not IMAGE.fullmatch(image) for image in images):
+        raise ValueError("All images must be immutable digests in the reviewed account, region and repository")
+    if len(set(images)) != len(images):
+        raise ValueError("Each service must use a distinct image")
     template = (SOURCE / "docker-compose.yml").read_text()
-    return template.replace("__EDGE_IMAGE__", edge).replace("__COORDINATOR_IMAGE__", coordinator)
+    for name, image in zip(("EDGE", "COORDINATOR", "CADDY", "TURN"), images):
+        template = template.replace(f"__{name}_IMAGE__", image)
+    return template
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--edge-image", required=True)
     parser.add_argument("--coordinator-image", required=True)
+    parser.add_argument("--caddy-image", required=True)
+    parser.add_argument("--turn-image", required=True)
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--asset-manifest", required=True, type=Path)
     parser.add_argument("--core-sha256", required=True)
@@ -37,7 +42,7 @@ def main() -> None:
     if not REVISION.fullmatch(args.source_revision) or not SHA.fullmatch(args.core_sha256):
         parser.error("Source revision and core SHA-256 must be full lowercase hashes")
     try:
-        compose = render(args.edge_image, args.coordinator_image)
+        compose = render(args.edge_image, args.coordinator_image, args.caddy_image, args.turn_image)
         assets = json.loads(args.asset_manifest.read_text())
     except (ValueError, OSError, json.JSONDecodeError) as error:
         parser.error(str(error))
@@ -50,6 +55,8 @@ def main() -> None:
         "sourceRevision": args.source_revision,
         "edgeImage": args.edge_image,
         "coordinatorImage": args.coordinator_image,
+        "caddyImage": args.caddy_image,
+        "turnImage": args.turn_image,
         "coreSha256": args.core_sha256,
         "clientAssets": assets,
     }
@@ -58,7 +65,6 @@ def main() -> None:
         bundle.writestr("docker-compose.yml", compose)
         bundle.writestr("release.json", json.dumps(record, sort_keys=True, indent=2) + "\n")
         bundle.write(SOURCE / ".ebextensions/01-environment.config", ".ebextensions/01-environment.config")
-        bundle.write(SOURCE / ".ebextensions/02-http-redirect.config", ".ebextensions/02-http-redirect.config")
     print(json.dumps({"bundle": str(args.output), "sha256": hashlib.sha256(args.output.read_bytes()).hexdigest(), "sourceRevision": args.source_revision}))
 
 

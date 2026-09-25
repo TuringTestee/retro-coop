@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-"""Prove the scheduled guard's monthly threshold and exact-resource shutdown logic."""
+"""Prove monthly threshold and exact one-machine shutdown without AWS calls."""
 
 from cost_guard import ACCOUNT, APP, BUDGET, ENV, HOST, GuardError, evaluate
 
 
 CONFIG = {"account": ACCOUNT, "hostname": HOST, "zoneId": "ZTEST",
-          "relayInstanceId": "i-0123456789abcdef0",
-          "expectedAlbParameter": "/retro-coop/website/expected-alb-dns"}
-ALB = "retro-coop-alb.us-east-1.elb.amazonaws.com"
+          "expectedIpParameter": "/retro-coop/website/expected-ip"}
+IP = "54.1.2.3"
 ARN = f"arn:aws:elasticbeanstalk:us-east-1:{ACCOUNT}:environment/{APP}/{ENV}"
 
 
@@ -26,94 +25,76 @@ class Budget:
 
 class Parameter:
     def get_parameter(self, **kwargs):
-        assert kwargs["Name"] == CONFIG["expectedAlbParameter"]
-        return {"Parameter": {"Value": ALB}}
+        assert kwargs["Name"] == CONFIG["expectedIpParameter"]
+        return {"Parameter": {"Value": IP}}
 
 
 class Route:
-    def __init__(self, dns=ALB):
-        self.dns = dns
+    def __init__(self, ip=IP):
+        self.ip = ip
         self.changes = []
 
     def list_resource_record_sets(self, **kwargs):
         assert kwargs["HostedZoneId"] == "ZTEST"
-        if not self.dns:
+        if not self.ip:
             return {"ResourceRecordSets": []}
-        record = {"Name": HOST + ".", "Type": "A", "AliasTarget": {"DNSName": self.dns + ".", "HostedZoneId": "ZALB", "EvaluateTargetHealth": True}}
-        return {"ResourceRecordSets": [record]}
+        return {"ResourceRecordSets": [{"Name": HOST + ".", "Type": "A", "TTL": 60,
+                                        "ResourceRecords": [{"Value": self.ip}]}]}
 
     def change_resource_record_sets(self, **kwargs):
         self.changes.append(kwargs)
 
 
 class Beanstalk:
-    def __init__(self, status="Ready"):
-        self.status = status
+    def __init__(self, status="Ready", arn=ARN):
+        self.status, self.arn = status, arn
         self.terminated = []
 
     def describe_environments(self, **kwargs):
         assert kwargs["ApplicationName"] == APP and kwargs["EnvironmentNames"] == [ENV]
-        return {"Environments": [{"EnvironmentArn": ARN, "Status": self.status}] if self.status else []}
+        return {"Environments": [{"EnvironmentArn": self.arn, "Status": self.status}] if self.status else []}
 
     def terminate_environment(self, **kwargs):
         self.terminated.append(kwargs)
 
 
-class Relay:
-    def __init__(self, state="running", tags=None):
-        self.state = state
-        self.tags = tags if tags is not None else [{"Key": "Project", "Value": "retro-coop"}]
-        self.terminated = []
-
-    def describe_instances(self, **kwargs):
-        assert kwargs["InstanceIds"] == [CONFIG["relayInstanceId"]]
-        return {"Reservations": [{"Instances": [{"InstanceId": CONFIG["relayInstanceId"],
-                                               "State": {"Name": self.state}, "Tags": self.tags}]}]}
-
-    def terminate_instances(self, **kwargs):
-        self.terminated.append(kwargs)
-
-
-def clients(actual="40", forecast="80", dns=ALB, status="Ready", relay_state="running"):
-    return {"budgets": Budget(actual, forecast), "ssm": Parameter(), "route53": Route(dns),
-            "eb": Beanstalk(status), "ec2": Relay(relay_state)}
+def clients(actual="40", forecast="80", ip=IP, status="Ready"):
+    return {"budgets": Budget(actual, forecast), "ssm": Parameter(), "route53": Route(ip),
+            "eb": Beanstalk(status)}
 
 
 healthy = clients()
-result = evaluate({"dryRun": False}, healthy, CONFIG)
-assert not result["wouldStop"] and result["actions"] == []
-assert not healthy["route53"].changes and not healthy["eb"].terminated and not healthy["ec2"].terminated
+assert evaluate({}, healthy, CONFIG)["actions"] == []
+assert not healthy["route53"].changes and not healthy["eb"].terminated
 
 forecast = clients(forecast="100.01")
 result = evaluate({"dryRun": True}, forecast, CONFIG)
-assert result["wouldStop"] and result["actions"] == ["delete_exact_website_alias", "terminate_named_eb_environment", "terminate_named_relay"]
-assert not forecast["route53"].changes and not forecast["eb"].terminated and not forecast["ec2"].terminated
+assert result["wouldStop"] and result["actions"] == ["delete_exact_website_a_record", "terminate_named_eb_environment_and_instance"]
+assert not forecast["route53"].changes and not forecast["eb"].terminated
 
 live = clients(actual="100", forecast="101")
-result = evaluate({"dryRun": False}, live, CONFIG)
-assert result["wouldStop"] and len(live["route53"].changes) == 1
+assert evaluate({}, live, CONFIG)["wouldStop"]
 assert live["route53"].changes[0]["ChangeBatch"]["Changes"][0]["Action"] == "DELETE"
 assert live["eb"].terminated == [{"ApplicationName": APP, "EnvironmentName": ENV}]
-assert live["ec2"].terminated == [{"InstanceIds": [CONFIG["relayInstanceId"]]}]
 
-stopped = clients(actual="100", forecast="101", dns=None, status=None, relay_state="terminated")
-assert evaluate({"dryRun": False}, stopped, CONFIG)["actions"] == []
-assert not stopped["route53"].changes and not stopped["eb"].terminated and not stopped["ec2"].terminated
+stopped = clients(actual="100", forecast="101", ip=None, status=None)
+assert evaluate({}, stopped, CONFIG)["actions"] == []
+assert not stopped["route53"].changes and not stopped["eb"].terminated
 
-for broken in [clients(actual="1", forecast=None), clients(actual="100", forecast="101", dns="another.elb.amazonaws.com")]:
+for broken in [clients(actual="1", forecast=None), clients(actual="100", forecast="101", ip="54.9.8.7")]:
     try:
-        evaluate({"dryRun": False}, broken, CONFIG)
+        evaluate({}, broken, CONFIG)
         raise AssertionError("Missing forecast or wrong DNS target was accepted")
     except GuardError:
         pass
-    assert not broken["route53"].changes and not broken["eb"].terminated and not broken["ec2"].terminated
+    assert not broken["route53"].changes and not broken["eb"].terminated
 
-wrong_relay = clients(actual="100", forecast="101")
-wrong_relay["ec2"].tags = [{"Key": "Project", "Value": "another-project"}]
+foreign = clients(actual="100", forecast="101")
+foreign["eb"].arn = "arn:aws:elasticbeanstalk:us-east-1:111111111111:environment/another/foreign"
 try:
-    evaluate({"dryRun": False}, wrong_relay, CONFIG)
-    raise AssertionError("Foreign relay was accepted")
+    evaluate({}, foreign, CONFIG)
+    raise AssertionError("Foreign EB environment was accepted")
 except GuardError:
     pass
-assert not wrong_relay["route53"].changes
-print("Cost guard passed (monthly actual/forecast, dry run, exact shutdown, idempotence, missing data and wrong resources).")
+assert not foreign["route53"].changes and not foreign["eb"].terminated
+print("Cost guard passed (monthly actual/forecast, dry run, exact A record, one-machine shutdown, idempotence and wrong resources).")

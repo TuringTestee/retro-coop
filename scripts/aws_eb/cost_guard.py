@@ -1,5 +1,6 @@
-"""Scheduled, resource-scoped website shutdown when the monthly Budget reaches $100."""
+"""Scheduled, resource-scoped single-instance website shutdown at the monthly $100 Budget."""
 
+import ipaddress
 import json
 import os
 from decimal import Decimal, InvalidOperation
@@ -49,7 +50,7 @@ def website_record(route, zone_id: str) -> dict | None:
 
 def evaluate(event: dict, clients: dict, config: dict) -> dict:
     if config["account"] != ACCOUNT or config["hostname"] != HOST or not config["zoneId"].startswith("Z") or \
-            not config["relayInstanceId"].startswith("i-") or config["expectedAlbParameter"] != "/retro-coop/website/expected-alb-dns":
+            config["expectedIpParameter"] != "/retro-coop/website/expected-ip":
         raise GuardError("Cost guard configuration differs from the named website")
     actual, forecast = current_budget(clients["budgets"])
     result = {"actualUsd": str(actual), "forecastUsd": str(forecast), "limitUsd": str(LIMIT),
@@ -58,46 +59,32 @@ def evaluate(event: dict, clients: dict, config: dict) -> dict:
         result["actions"] = []
         return result
 
-    expected = clients["ssm"].get_parameter(Name=config["expectedAlbParameter"])["Parameter"]["Value"].rstrip(".")
+    expected = clients["ssm"].get_parameter(Name=config["expectedIpParameter"])["Parameter"]["Value"]
+    try:
+        expected = str(ipaddress.IPv4Address(expected))
+    except ipaddress.AddressValueError as error:
+        raise GuardError("Recorded website Elastic IP is invalid") from error
     record = website_record(clients["route53"], config["zoneId"])
-    if record:
-        alias = record.get("AliasTarget")
-        if expected == "UNCONFIGURED" or not isinstance(alias, dict) or alias.get("DNSName", "").rstrip(".") != expected:
-            raise GuardError("Website DNS no longer points at the recorded Retro Coop ALB")
+    if record and (record.get("ResourceRecords") != [{"Value": expected}] or record.get("AliasTarget")):
+        raise GuardError("Website DNS no longer points at the recorded Retro Coop Elastic IP")
     environments = clients["eb"].describe_environments(ApplicationName=APP, EnvironmentNames=[ENV],
                                                           IncludeDeleted=False)["Environments"]
     if len(environments) > 1 or environments and environments[0].get("EnvironmentArn") != \
             f"arn:aws:elasticbeanstalk:us-east-1:{ACCOUNT}:environment/{APP}/{ENV}":
         raise GuardError("EB environment does not match the named website")
-    try:
-        relay = clients["ec2"].describe_instances(InstanceIds=[config["relayInstanceId"]])["Reservations"]
-        relay_instances = [instance for reservation in relay for instance in reservation["Instances"]]
-    except Exception as error:
-        if getattr(error, "response", {}).get("Error", {}).get("Code") == "InvalidInstanceID.NotFound":
-            relay_instances = []
-        else:
-            raise
-    if len(relay_instances) > 1 or relay_instances and relay_instances[0]["InstanceId"] != config["relayInstanceId"]:
-        raise GuardError("Relay instance does not match the named website")
-    if relay_instances and {item["Key"]: item["Value"] for item in relay_instances[0].get("Tags", [])}.get("Project") != "retro-coop":
-        raise GuardError("Relay instance lacks the named website tag")
     actions = []
     if record:
-        actions.append("delete_exact_website_alias")
+        actions.append("delete_exact_website_a_record")
     if environments and environments[0]["Status"] not in ("Terminated", "Terminating"):
-        actions.append("terminate_named_eb_environment")
-    if relay_instances and relay_instances[0]["State"]["Name"] not in ("terminated", "shutting-down"):
-        actions.append("terminate_named_relay")
+        actions.append("terminate_named_eb_environment_and_instance")
     result["actions"] = actions
     if result["dryRun"]:
         return result
     if record:
         clients["route53"].change_resource_record_sets(HostedZoneId=config["zoneId"],
             ChangeBatch={"Changes": [{"Action": "DELETE", "ResourceRecordSet": record}]})
-    if "terminate_named_eb_environment" in actions:
+    if "terminate_named_eb_environment_and_instance" in actions:
         clients["eb"].terminate_environment(ApplicationName=APP, EnvironmentName=ENV)
-    if "terminate_named_relay" in actions:
-        clients["ec2"].terminate_instances(InstanceIds=[config["relayInstanceId"]])
     return result
 
 
@@ -106,10 +93,10 @@ def handler(event, _context):
 
     clients = {name: boto3.client(service, region_name="us-east-1") for name, service in {
         "budgets": "budgets", "ssm": "ssm", "route53": "route53",
-        "eb": "elasticbeanstalk", "ec2": "ec2"}.items()}
+        "eb": "elasticbeanstalk"}.items()}
     config = {"account": os.environ["ACCOUNT_ID"], "hostname": os.environ["HOSTNAME"],
-              "zoneId": os.environ["HOSTED_ZONE_ID"], "relayInstanceId": os.environ["RELAY_INSTANCE_ID"],
-              "expectedAlbParameter": os.environ["EXPECTED_ALB_PARAMETER"]}
+              "zoneId": os.environ["HOSTED_ZONE_ID"],
+              "expectedIpParameter": os.environ["EXPECTED_IP_PARAMETER"]}
     result = evaluate(event if isinstance(event, dict) else {}, clients, config)
     print(json.dumps(result, sort_keys=True))
     return result

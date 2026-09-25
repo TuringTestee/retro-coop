@@ -28,3 +28,29 @@ services:
       - /tmp:mode=1777,size=128m
     depends_on:
       - coordinator
+  caddy:
+    image: __CADDY_IMAGE__
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /config:mode=0700,size=16m
+    volumes:
+      - caddy_data:/data
+    depends_on:
+      - edge
+  turn:
+    image: __TURN_IMAGE__
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /run/retro-coop-turn:uid=10001,gid=10001,mode=0700,size=8m
+      - /tmp:mode=1777,size=8m
+    environment:
+      TURN_SECRET: ${TURN_SECRET:?managed TURN secret required}
+      TURN_PUBLIC_IP: ${TURN_PUBLIC_IP:-}
+      TURN_PRIVATE_IP: ${TURN_PRIVATE_IP:-}
+volumes:
+  caddy_data:
+    name: retro_coop_caddy_data

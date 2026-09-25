@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Provision, deploy, roll back or remove only the named Retro Coop AWS website."""
+"""Provision, deploy, roll back or remove only the named one-machine Retro Coop AWS website."""
 
 import argparse
+import ipaddress
 import json
 import re
 import subprocess
@@ -24,6 +25,7 @@ STACK = "retro-coop-website-foundation"
 BUDGET = "retro-coop-website-monthly"
 BOOTSTRAP_PREFIX = "retro-coop/bootstrap"
 RELEASE_PREFIX = "retro-coop/releases"
+INSTANCE_TYPE = "t4g.micro"
 
 
 def aws(*args: str) -> dict:
@@ -49,13 +51,6 @@ def reviewed_main() -> None:
         raise ValueError("Main differs from origin/main")
 
 
-def stack_outputs() -> dict[str, str]:
-    rows = aws("cloudformation", "describe-stacks", "--stack-name", STACK)["Stacks"]
-    if len(rows) != 1 or rows[0]["StackStatus"] not in ("CREATE_COMPLETE", "UPDATE_COMPLETE"):
-        raise ValueError("The Retro Coop foundation stack is not ready")
-    return {row["OutputKey"]: row["OutputValue"] for row in rows[0]["Outputs"]}
-
-
 def stack_status() -> str | None:
     rows = aws("cloudformation", "list-stacks")["StackSummaries"]
     active = [row["StackStatus"] for row in rows if row["StackName"] == STACK and row["StackStatus"] != "DELETE_COMPLETE"]
@@ -64,9 +59,19 @@ def stack_status() -> str | None:
     return active[0] if active else None
 
 
+def stack_details() -> dict:
+    stack = aws("cloudformation", "describe-stacks", "--stack-name", STACK)["Stacks"]
+    if len(stack) != 1 or stack[0]["StackStatus"] not in ("CREATE_COMPLETE", "UPDATE_COMPLETE"):
+        raise ValueError("The Retro Coop foundation stack is not ready")
+    return stack[0]
+
+
+def stack_outputs() -> dict[str, str]:
+    return {row["OutputKey"]: row["OutputValue"] for row in stack_details()["Outputs"]}
+
+
 def stack_parameters() -> dict[str, str]:
-    stack = aws("cloudformation", "describe-stacks", "--stack-name", STACK)["Stacks"][0]
-    return {row["ParameterKey"]: row["ParameterValue"] for row in stack["Parameters"]}
+    return {row["ParameterKey"]: row["ParameterValue"] for row in stack_details()["Parameters"]}
 
 
 def environment() -> dict | None:
@@ -79,6 +84,22 @@ def dns_record(zone: str) -> dict | None:
     rows = aws("route53", "list-resource-record-sets", "--hosted-zone-id", zone,
                "--start-record-name", HOST, "--start-record-type", "A", "--max-items", "1")["ResourceRecordSets"]
     return rows[0] if rows and rows[0]["Name"].rstrip(".") == HOST and rows[0]["Type"] == "A" else None
+
+
+def address(record: dict | None) -> str | None:
+    if record is None:
+        return None
+    rows = record.get("ResourceRecords")
+    if record.get("AliasTarget") or not isinstance(rows, list) or len(rows) != 1:
+        raise ValueError("Website A record has an unexpected shape")
+    try:
+        return str(ipaddress.IPv4Address(rows[0]["Value"]))
+    except (KeyError, ipaddress.AddressValueError) as error:
+        raise ValueError("Website A record has an invalid IPv4 address") from error
+
+
+def a_record(ip: str) -> dict:
+    return {"Name": HOST + ".", "Type": "A", "TTL": 60, "ResourceRecords": [{"Value": str(ipaddress.IPv4Address(ip))}]}
 
 
 def public_subnet(subnet_id: str, vpc_id: str) -> bool:
@@ -95,16 +116,18 @@ def public_subnet(subnet_id: str, vpc_id: str) -> bool:
 
 def change_dns(zone: str, action: str, record: dict) -> None:
     payload = {"Changes": [{"Action": action, "ResourceRecordSet": record}]}
-    command("route53", "change-resource-record-sets", "--hosted-zone-id", zone,
-            "--change-batch", json.dumps(payload, separators=(",", ":")))
+    response = aws("route53", "change-resource-record-sets", "--hosted-zone-id", zone,
+                   "--change-batch", json.dumps(payload, separators=(",", ":")))
+    change_id = response["ChangeInfo"]["Id"]
+    command("route53", "wait", "resource-record-sets-changed", "--id", change_id)
 
 
 def wait_for_environment(desired: str, timeout: int = 1800) -> dict:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         current = environment()
-        if desired == "Terminated" and not current:
-            return {}
+        if desired == "Terminated" and (not current or current.get("Status") == "Terminated"):
+            return current or {}
         if current and current.get("Status") == desired:
             if desired != "Ready" or current.get("Health") == "Green":
                 return current
@@ -133,32 +156,25 @@ def setup(args: argparse.Namespace) -> None:
     if args.reviewed_cost_record is None or not args.reviewed_cost_record.is_file():
         raise ValueError("Supply the reviewed 31-day cost record before provisioning")
     cost = json.loads(args.reviewed_cost_record.read_text())
-    if cost.get("warningUsd") != 50 or cost.get("shutdownProjectedUsd") != 100 or not re.fullmatch(r"[a-f0-9]{40}", str(cost.get("reviewedPlanRevision", ""))):
+    if cost.get("warningUsd") != 50 or cost.get("shutdownProjectedUsd") != 100 or \
+            not re.fullmatch(r"[a-f0-9]{40}", str(cost.get("reviewedPlanRevision", ""))):
         raise ValueError("Cost record must name the reviewed plan and $50/$100 operating thresholds")
     projected = cost.get("projected31DayUsd")
     if isinstance(projected, bool) or not isinstance(projected, (int, float)) or not 0 < projected < 100:
         raise ValueError("The 31-day cost scenario exceeds the reviewed $100 operating ceiling")
-    if dns_record(args.hosted_zone_id):
-        raise ValueError("Website DNS name already exists; inspect it before provisioning")
-    if stack_status():
-        raise ValueError("The named foundation stack already exists; inspect or tear it down before setup")
-    if environment():
-        raise ValueError("The named EB environment already exists")
+    if not re.fullmatch(r"Z[A-Z0-9]+", args.hosted_zone_id):
+        raise ValueError("Use the bare Route 53 hosted zone ID")
+    if dns_record(args.hosted_zone_id) or stack_status() or environment():
+        raise ValueError("Named website DNS, foundation or environment already exists; inspect before setup")
     if aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]:
         raise ValueError("The named EB application already exists; inspect it before provisioning")
     hosted = aws("route53", "get-hosted-zone", "--id", args.hosted_zone_id)["HostedZone"]
     if hosted["Name"].rstrip(".") != "1001.page" or hosted["Config"].get("PrivateZone"):
         raise ValueError("Expected the public 1001.page hosted zone")
-    vpc = aws("ec2", "describe-vpcs", "--vpc-ids", args.vpc_id)["Vpcs"][0]
-    image = aws("ec2", "describe-images", "--image-ids", args.relay_ami_id)["Images"][0]
-    if not public_subnet(args.relay_subnet_id, vpc["VpcId"]):
-        raise ValueError("Relay subnet must be public and in the selected VPC")
-    if image["OwnerId"] != "099720109477" or "ubuntu" not in image["Name"].lower():
-        raise ValueError("Relay AMI must be an official Canonical Ubuntu image")
+    aws("ec2", "describe-vpcs", "--vpc-ids", args.vpc_id)["Vpcs"][0]
     bucket = aws("elasticbeanstalk", "create-storage-location")["S3Bucket"]
-    for name in ("render_turn.py", "configure_turn.sh"):
-        command("s3", "cp", str(ROOT / "scripts/aws_eb" / name), f"s3://{bucket}/{BOOTSTRAP_PREFIX}/{name}")
-    guard_key = f"{BOOTSTRAP_PREFIX}/cost-guard-{subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()}.zip"
+    revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    guard_key = f"{BOOTSTRAP_PREFIX}/cost-guard-{revision}.zip"
     with tempfile.TemporaryDirectory(prefix="retro-eb-guard-") as directory:
         package = Path(directory) / "cost-guard.zip"
         with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -167,13 +183,11 @@ def setup(args: argparse.Namespace) -> None:
     budget(args.alert_email)
     command("cloudformation", "deploy", "--template-file", str(ROOT / "deploy/aws-eb/foundation.yaml"),
             "--stack-name", STACK, "--capabilities", "CAPABILITY_NAMED_IAM", "--parameter-overrides",
-            f"VpcId={args.vpc_id}", f"RelaySubnetId={args.relay_subnet_id}", f"RelayAmiId={args.relay_ami_id}",
-            f"HostedZoneId={args.hosted_zone_id}", f"BootstrapBucket={bucket}", f"BootstrapPrefix={BOOTSTRAP_PREFIX}",
+            f"VpcId={args.vpc_id}", f"HostedZoneId={args.hosted_zone_id}", f"BootstrapBucket={bucket}",
             f"GuardCodeKey={guard_key}", f"AlertEmail={args.alert_email}")
     outputs = stack_outputs()
-    print(json.dumps({"foundation": STACK, "relayPublicIp": outputs["RelayPublicIp"],
-                      "certificateArn": outputs["CertificateArn"], "ecrRepository": outputs["EcrRepository"],
-                      "bucket": bucket}))
+    print(json.dumps({"foundation": STACK, "ecrRepository": outputs["EcrRepository"], "bucket": bucket,
+                      "operatorStep": "Confirm the cost guard failure email subscription before deploy."}))
 
 
 def setting(namespace: str, name: str, value: str) -> dict:
@@ -184,84 +198,77 @@ def options(outputs: dict[str, str], args: argparse.Namespace) -> list[dict]:
     environment_ns = "aws:elasticbeanstalk:environment"
     launch = "aws:autoscaling:launchconfiguration"
     return [
-        setting(environment_ns, "EnvironmentType", "LoadBalanced"),
-        setting(environment_ns, "LoadBalancerType", "application"),
+        setting(environment_ns, "EnvironmentType", "SingleInstance"),
         setting(environment_ns, "ServiceRole", args.service_role),
         setting("aws:autoscaling:asg", "MinSize", "1"),
         setting("aws:autoscaling:asg", "MaxSize", "1"),
         setting(launch, "IamInstanceProfile", outputs["EbProfileName"]),
-        setting(launch, "InstanceType", "t3.small"),
+        setting(launch, "InstanceType", INSTANCE_TYPE),
         setting(launch, "RootVolumeType", "gp3"),
         setting(launch, "RootVolumeSize", "28"),
         setting(launch, "DisableDefaultEC2SecurityGroup", "true"),
         setting(launch, "SecurityGroups", outputs["AppSecurityGroupId"]),
-        setting("aws:elbv2:loadbalancer", "SecurityGroups", outputs["AlbSecurityGroupId"]),
-        setting("aws:elbv2:listener:443", "ListenerEnabled", "true"),
-        setting("aws:elbv2:listener:443", "Protocol", "HTTPS"),
-        setting("aws:elbv2:listener:443", "SSLCertificateArns", outputs["CertificateArn"]),
-        setting("aws:elbv2:listener:443", "DefaultProcess", "default"),
         setting("aws:ec2:vpc", "VPCId", args.vpc_id),
-        setting("aws:ec2:vpc", "Subnets", args.subnets),
-        setting("aws:ec2:vpc", "ELBSubnets", args.subnets),
+        setting("aws:ec2:vpc", "Subnets", args.subnet),
         setting("aws:ec2:vpc", "AssociatePublicIpAddress", "true"),
         setting("aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS", f"https://{HOST}"),
-        setting("aws:elasticbeanstalk:application:environment", "TURN_URLS", f"turn:{outputs['RelayPublicIp']}:3478?transport=udp"),
+        setting("aws:elasticbeanstalk:application:environment", "TURN_URLS", f"turn:{HOST}:3478?transport=udp"),
         setting("aws:elasticbeanstalk:application:environmentsecrets", "TURN_SECRET", outputs["TurnSecretArn"]),
     ]
 
 
-def verify_live_boundary(outputs: dict[str, str], resources: dict, alb: dict) -> None:
+def instance_and_eip(outputs: dict[str, str], resources: dict) -> tuple[str, str]:
     instances = resources["Instances"]
-    if len(instances) != 1:
-        raise ValueError("Expected exactly one EB app instance")
+    if len(instances) != 1 or resources.get("LoadBalancers"):
+        raise ValueError("Expected exactly one EB app instance and no load balancer")
     instance_id = instances[0]["Id"]
     instance = aws("ec2", "describe-instances", "--instance-ids", instance_id)["Reservations"][0]["Instances"][0]
-    attached = {group["GroupId"] for group in instance["SecurityGroups"]}
-    if attached != {outputs["AppSecurityGroupId"]} or set(alb["SecurityGroups"]) != {outputs["AlbSecurityGroupId"]}:
-        raise ValueError("EB attached an unexpected security group")
-    if instance["InstanceType"] != "t3.small":
-        raise ValueError("EB did not launch the reviewed t3.small app instance")
-    groups = aws("ec2", "describe-security-groups", "--group-ids", outputs["AppSecurityGroupId"])["SecurityGroups"]
-    inbound = groups[0]["IpPermissions"]
-    if len(inbound) != 1 or inbound[0].get("FromPort") != 8080 or inbound[0].get("ToPort") != 8080 or \
-            {pair["GroupId"] for pair in inbound[0].get("UserIdGroupPairs", [])} != {outputs["AlbSecurityGroupId"]} or \
-            inbound[0].get("IpRanges") or inbound[0].get("Ipv6Ranges"):
-        raise ValueError("The app instance is reachable outside the ALB or on an unexpected port")
-    listeners = aws("elbv2", "describe-listeners", "--load-balancer-arn", alb["LoadBalancerArn"])["Listeners"]
-    by_port = {row["Port"]: row for row in listeners}
-    if set(by_port) != {80, 443} or by_port[80]["Protocol"] != "HTTP" or \
-            by_port[80]["DefaultActions"][0]["Type"] != "redirect" or \
-            by_port[80]["DefaultActions"][0]["RedirectConfig"]["Port"] != "443" or \
-            by_port[443]["Protocol"] != "HTTPS" or \
-            outputs["CertificateArn"] not in {item["CertificateArn"] for item in by_port[443].get("Certificates", [])}:
-        raise ValueError("ALB listeners lack the reviewed HTTPS certificate or HTTP redirect")
-    attributes = {row["Key"]: row["Value"] for row in aws("elbv2", "describe-load-balancer-attributes",
-                   "--load-balancer-arn", alb["LoadBalancerArn"])["Attributes"]}
-    if attributes.get("routing.http.xff_header_processing.mode") != "append":
-        raise ValueError("ALB must append the transport peer to X-Forwarded-For")
-    targets = aws("elbv2", "describe-target-groups", "--load-balancer-arn", alb["LoadBalancerArn"])["TargetGroups"]
-    if not any(row["Port"] == 8080 and row["Protocol"] == "HTTP" and row["HealthCheckPath"] == "/healthz" for row in targets):
-        raise ValueError("ALB target group does not probe the edge and coordinator on port 8080")
+    groups = {group["GroupId"] for group in instance["SecurityGroups"]}
+    if groups != {outputs["AppSecurityGroupId"]} or instance["InstanceType"] != INSTANCE_TYPE or \
+            instance.get("Architecture") != "arm64":
+        raise ValueError("EB attached unexpected groups or did not launch the reviewed ARM64 micro instance")
+    addresses = aws("ec2", "describe-addresses", "--filters", f"Name=instance-id,Values={instance_id}")["Addresses"]
+    if len(addresses) != 1 or addresses[0].get("InstanceId") != instance_id or \
+            addresses[0].get("Domain") != "vpc" or not addresses[0].get("AssociationId"):
+        raise ValueError("The sole EB instance has no verified Elastic IP")
+    ip = str(ipaddress.IPv4Address(addresses[0]["PublicIp"]))
+    group = aws("ec2", "describe-security-groups", "--group-ids", outputs["AppSecurityGroupId"])["SecurityGroups"][0]
+    actual = {(row["IpProtocol"], row.get("FromPort"), row.get("ToPort"),
+               tuple(item["CidrIp"] for item in row.get("IpRanges", []))) for row in group["IpPermissions"]}
+    expected = {("tcp", 80, 80, ("0.0.0.0/0",)), ("tcp", 443, 443, ("0.0.0.0/0",)),
+                ("udp", 3478, 3478, ("0.0.0.0/0",)), ("udp", 49160, 49175, ("0.0.0.0/0",))}
+    if actual != expected or any(row.get("Ipv6Ranges") or row.get("UserIdGroupPairs") for row in group["IpPermissions"]):
+        raise ValueError("The single instance has unexpected public ingress")
+    return instance_id, ip
+
+
+def verify_live_boundary(outputs: dict[str, str], resources: dict) -> str:
+    instance_id, ip = instance_and_eip(outputs, resources)
+    commands = ["ss -H -ltn", "ss -H -lun", "curl -fsS http://127.0.0.1:8080/healthz",
+                "docker ps --format '{{.Names}}'", "awk '/MemAvailable/{print \"AvailableKiB:\" $2}' /proc/meminfo"]
     command_id = aws("ssm", "send-command", "--instance-ids", instance_id, "--document-name", "AWS-RunShellScript",
-                     "--parameters", json.dumps({"commands": ["ss -H -ltn", "curl -fsS http://127.0.0.1:8787/health", "curl -fsS http://127.0.0.1:8080/healthz"]}))[
-                         "Command"]["CommandId"]
+                     "--parameters", json.dumps({"commands": commands}))["Command"]["CommandId"]
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline:
         result = aws("ssm", "get-command-invocation", "--command-id", command_id, "--instance-id", instance_id)
         if result["Status"] == "Success":
             output = result["StandardOutputContent"]
-            listeners = [line for line in output.splitlines() if ":8787" in line]
-            if len(listeners) != 1 or "127.0.0.1:8787" not in listeners[0] or "0.0.0.0:8080" not in output or \
-                    output.count("retro-coop-coordinator") < 2:
-                raise ValueError("The instance did not keep the coordinator on loopback behind the edge")
-            return
+            if not all(value in output for value in ("127.0.0.1:8787", "127.0.0.1:8080", ":80", ":443", ":3478", "retro-coop-coordinator")):
+                raise ValueError("The single instance lacks its loopback web or public TURN listeners")
+            names = output.splitlines()
+            if not all(any(service in name for name in names) for service in ("coordinator", "edge", "caddy", "turn")):
+                raise ValueError("The single-instance Compose services are incomplete")
+            match = re.search(r"AvailableKiB:(\d+)", output)
+            if not match or int(match.group(1)) < 128000:
+                raise ValueError("The micro instance has less than 128 MiB available at idle; inspect memory before DNS")
+            return ip
         if result["Status"] in ("Failed", "Cancelled", "TimedOut"):
-            raise ValueError("SSM could not confirm the EB loopback boundary")
+            raise ValueError("SSM could not confirm the single-instance boundary")
         time.sleep(5)
     raise TimeoutError("SSM instance boundary check did not finish")
 
 
-def verify_guard(outputs: dict[str, str], alb_dns: str) -> dict:
+def verify_guard(outputs: dict[str, str], ip: str, old_ip: str | None) -> tuple[dict, str]:
     email = stack_parameters()["AlertEmail"]
     monitored = aws("budgets", "describe-budget", "--account-id", ACCOUNT, "--budget-name", BUDGET)["Budget"]
     limit = monitored.get("BudgetLimit", {})
@@ -272,67 +279,92 @@ def verify_guard(outputs: dict[str, str], alb_dns: str) -> dict:
     if monitored.get("BudgetType") != "COST" or monitored.get("TimeUnit") != "MONTHLY" or \
             monitored.get("CostFilters") or not valid_limit:
         raise ValueError("The named account-wide monthly $100 Budget is missing or changed")
-    notifications = aws("budgets", "describe-notifications-for-budget", "--account-id", ACCOUNT,
-                        "--budget-name", BUDGET)["Notifications"]
-    present = {(row["NotificationType"], float(row["Threshold"])) for row in notifications
+    notices = aws("budgets", "describe-notifications-for-budget", "--account-id", ACCOUNT,
+                  "--budget-name", BUDGET)["Notifications"]
+    required = {("ACTUAL", 50.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0)}
+    present = {(row["NotificationType"], float(row["Threshold"])) for row in notices
                if row.get("ComparisonOperator") == "GREATER_THAN" and row.get("ThresholdType") == "PERCENTAGE"}
-    if not {("ACTUAL", 50.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0)}.issubset(present):
+    if not required.issubset(present):
         raise ValueError("The $50/$100 actual and forecast Budget alerts are incomplete")
-    for row in notifications:
-        if (row.get("NotificationType"), float(row.get("Threshold", -1))) not in {("ACTUAL", 50.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0)}:
+    for row in notices:
+        if (row.get("NotificationType"), float(row.get("Threshold", -1))) not in required:
             continue
         notice = {key: row[key] for key in ("NotificationType", "ComparisonOperator", "Threshold", "ThresholdType")}
         subscribers = aws("budgets", "describe-subscribers-for-notification", "--account-id", ACCOUNT,
                           "--budget-name", BUDGET, "--notification", json.dumps(notice))["Subscribers"]
         if {"SubscriptionType": "EMAIL", "Address": email} not in subscribers:
             raise ValueError("The Budget alert recipient differs from the reviewed operator input")
-    schedule = aws("scheduler", "get-schedule", "--name", outputs["GuardScheduleName"])
+    schedule = aws("scheduler", "get-schedule", "--name", outputs["GuardScheduleName"],
+                   "--group-name", outputs["GuardScheduleGroupName"])
     if schedule.get("State") != "ENABLED" or schedule.get("ScheduleExpression") != "rate(6 hours)" or \
             schedule.get("Target", {}).get("Arn") != outputs["GuardFunctionArn"] or \
             json.loads(schedule.get("Target", {}).get("Input", "null")) != {"dryRun": False}:
-        raise ValueError("The six-hour cost guard schedule is not enabled")
+        raise ValueError("The six-hour cost guard schedule is not enabled for real shutdown")
     subscribers = aws("sns", "list-subscriptions-by-topic", "--topic-arn", outputs["GuardAlertTopicArn"])["Subscriptions"]
     if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" and
                row.get("SubscriptionArn", "PendingConfirmation") != "PendingConfirmation" for row in subscribers):
         raise ValueError("Confirm the cost guard failure alert email subscription before public DNS")
-    alarm = aws("cloudwatch", "describe-alarms", "--alarm-names", "retro-coop-cost-guard-errors")["MetricAlarms"]
-    if len(alarm) != 1 or not alarm[0].get("ActionsEnabled") or \
-            outputs["GuardAlertTopicArn"] not in alarm[0]["AlarmActions"] or \
-            alarm[0].get("Namespace") != "AWS/Lambda" or alarm[0].get("MetricName") != "Errors" or \
-            alarm[0].get("Dimensions") != [{"Name": "FunctionName", "Value": "retro-coop-cost-guard"}] or \
-            alarm[0].get("ComparisonOperator") != "GreaterThanThreshold" or alarm[0].get("Threshold") != 0:
-        raise ValueError("Cost guard failures have no active operator alarm")
-    parameter = outputs["ExpectedAlbParameterName"]
+    for name, namespace, metric, dimension in (
+        ("retro-coop-cost-guard-errors", "AWS/Lambda", "Errors", "FunctionName"),
+        ("retro-coop-cost-guard-delivery-errors", "AWS/Scheduler", "TargetErrorCount", "ScheduleGroup"),
+        ("retro-coop-cost-guard-dropped-invocations", "AWS/Scheduler", "InvocationDroppedCount", "ScheduleGroup"),
+    ):
+        alarms = aws("cloudwatch", "describe-alarms", "--alarm-names", name)["MetricAlarms"]
+        dimension_value = "retro-coop-cost-guard" if dimension == "FunctionName" else outputs["GuardScheduleGroupName"]
+        if len(alarms) != 1 or not alarms[0].get("ActionsEnabled") or \
+                outputs["GuardAlertTopicArn"] not in alarms[0].get("AlarmActions", []) or \
+                alarms[0].get("Namespace") != namespace or alarms[0].get("MetricName") != metric or \
+                alarms[0].get("Dimensions") != [{"Name": dimension, "Value": dimension_value}] or \
+                alarms[0].get("ComparisonOperator") != "GreaterThanThreshold" or alarms[0].get("Threshold") != 0:
+            raise ValueError(f"Cost guard alarm {name} is missing or changed")
+    parameter = outputs["ExpectedIpParameterName"]
     previous = aws("ssm", "get-parameter", "--name", parameter)["Parameter"]["Value"]
-    if previous not in ("UNCONFIGURED", alb_dns):
-        raise ValueError("Recorded website ALB differs from this EB environment")
-    if previous != alb_dns:
-        command("ssm", "put-parameter", "--name", parameter, "--type", "String", "--value", alb_dns, "--overwrite")
-    if aws("ssm", "get-parameter", "--name", parameter)["Parameter"]["Value"] != alb_dns:
-        raise ValueError("Cost guard did not record the exact website ALB")
-    with tempfile.TemporaryDirectory(prefix="retro-eb-guard-probe-") as directory:
-        path = Path(directory) / "result.json"
-        metadata = aws("lambda", "invoke", "--function-name", outputs["GuardFunctionArn"],
-                       "--payload", '{"dryRun":true}', "--cli-binary-format", "raw-in-base64-out", str(path))
-        if metadata.get("StatusCode") != 200 or metadata.get("FunctionError"):
-            raise ValueError("Cost guard dry run failed; inspect its content-free CloudWatch error log")
-        result = json.loads(path.read_text())
-    if result.get("dryRun") is not True or result.get("wouldStop") is not False or result.get("actions") != []:
-        raise ValueError("Cost guard dry run did not confirm operation below the shutdown threshold")
-    return result
+    if previous not in ("UNCONFIGURED", ip) and previous != old_ip:
+        raise ValueError("Recorded website Elastic IP differs from this EB environment and DNS")
+    if old_ip and previous != old_ip and previous != ip:
+        raise ValueError("The existing DNS A record is not owned by this website")
+    if previous != ip:
+        command("ssm", "put-parameter", "--name", parameter, "--type", "String", "--value", ip, "--overwrite")
+    if aws("ssm", "get-parameter", "--name", parameter)["Parameter"]["Value"] != ip:
+        raise ValueError("Cost guard did not record the exact website Elastic IP")
+    try:
+        with tempfile.TemporaryDirectory(prefix="retro-eb-guard-probe-") as directory:
+            path = Path(directory) / "result.json"
+            metadata = aws("lambda", "invoke", "--function-name", outputs["GuardFunctionArn"],
+                           "--payload", '{"dryRun":true}', "--cli-binary-format", "raw-in-base64-out", str(path))
+            if metadata.get("StatusCode") != 200 or metadata.get("FunctionError"):
+                raise ValueError("Cost guard dry run failed; inspect its content-free CloudWatch error log")
+            result = json.loads(path.read_text())
+        if result.get("dryRun") is not True or result.get("wouldStop") is not False or result.get("actions") != []:
+            raise ValueError("Cost guard dry run did not confirm operation below the shutdown threshold")
+    except Exception:
+        if previous != ip:
+            command("ssm", "put-parameter", "--name", parameter, "--type", "String", "--value", previous, "--overwrite")
+        raise
+    return result, previous
 
 
 def release_record(bundle: Path) -> dict:
     with zipfile.ZipFile(bundle) as archive:
-        if set(archive.namelist()) != {"docker-compose.yml", "release.json", ".ebextensions/01-environment.config", ".ebextensions/02-http-redirect.config"}:
+        if set(archive.namelist()) != {"docker-compose.yml", "release.json", ".ebextensions/01-environment.config"}:
             raise ValueError("Unexpected source bundle contents")
         record = json.loads(archive.read("release.json"))
         compose = archive.read("docker-compose.yml").decode()
-    if not IMAGE.fullmatch(record.get("edgeImage", "")) or not IMAGE.fullmatch(record.get("coordinatorImage", "")):
-        raise ValueError("Release images are not pinned to the reviewed ECR repository")
-    if record["edgeImage"] not in compose or record["coordinatorImage"] not in compose:
-        raise ValueError("Bundle and release record disagree on image digests")
+    for name in ("edgeImage", "coordinatorImage", "caddyImage", "turnImage"):
+        if not IMAGE.fullmatch(record.get(name, "")) or record[name] not in compose:
+            raise ValueError("Release images are not pinned to the reviewed ECR repository")
     return record
+
+
+def https_probe(ip: str, timeout: int = 300) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        result = subprocess.run(["curl", "--silent", "--show-error", "--fail", "--max-time", "10", "--resolve",
+                                 f"{HOST}:443:{ip}", f"https://{HOST}/healthz"], capture_output=True, text=True)
+        if result.returncode == 0 and "retro-coop" in result.stdout:
+            return
+        time.sleep(10)
+    raise TimeoutError("Public HTTPS certificate and health did not become ready after DNS publication")
 
 
 def deploy(args: argparse.Namespace) -> None:
@@ -340,23 +372,22 @@ def deploy(args: argparse.Namespace) -> None:
     identity()
     outputs = stack_outputs()
     record = release_record(args.bundle)
-    if record["sourceRevision"] != subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip():
+    revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    if record["sourceRevision"] != revision:
         raise ValueError("Release bundle was not built from the checked-out reviewed main")
-    if args.vpc_id != aws("ec2", "describe-security-groups", "--group-ids", outputs["AppSecurityGroupId"])["SecurityGroups"][0]["VpcId"]:
-        raise ValueError("EB VPC differs from the scoped security groups")
-    subnets = args.subnets.split(",")
-    rows = aws("ec2", "describe-subnets", "--subnet-ids", *subnets)["Subnets"]
-    if len(set(subnets)) < 2 or len({row["AvailabilityZone"] for row in rows}) < 2 or any(not public_subnet(row["SubnetId"], args.vpc_id) for row in rows):
-        raise ValueError("An ALB needs two subnets in different zones of the selected VPC")
-    if environment() and not args.update:
+    group = aws("ec2", "describe-security-groups", "--group-ids", outputs["AppSecurityGroupId"])["SecurityGroups"][0]
+    if args.vpc_id != group["VpcId"] or not public_subnet(args.subnet, args.vpc_id):
+        raise ValueError("EB subnet must be public and in the scoped VPC")
+    existing_env = environment()
+    if existing_env and not args.update:
         raise ValueError("The EB environment exists; pass --update for a reviewed release")
+    if not existing_env and args.update:
+        raise ValueError("The EB environment does not exist for an update")
     bucket = aws("elasticbeanstalk", "create-storage-location")["S3Bucket"]
-    revision = record["sourceRevision"]
     version = f"main-{revision[:12]}"
     key = f"{RELEASE_PREFIX}/{version}.zip"
     command("s3", "cp", str(args.bundle), f"s3://{bucket}/{key}")
-    applications = aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]
-    if not applications:
+    if not aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]:
         command("elasticbeanstalk", "create-application", "--application-name", APP)
     versions = aws("elasticbeanstalk", "describe-application-versions", "--application-name", APP,
                    "--version-labels", version)["ApplicationVersions"]
@@ -374,23 +405,25 @@ def deploy(args: argparse.Namespace) -> None:
                 "--solution-stack-name", args.solution_stack, "--option-settings", json.dumps(options(outputs, args)))
     current = wait_for_environment("Ready")
     resources = aws("elasticbeanstalk", "describe-environment-resources", "--environment-name", ENV)["EnvironmentResources"]
-    load_balancers = resources["LoadBalancers"]
-    if len(load_balancers) != 1:
-        raise ValueError("Expected exactly one EB load balancer")
-    alb = aws("elbv2", "describe-load-balancers", "--names", load_balancers[0]["Name"])["LoadBalancers"][0]
-    if alb["Type"] != "application" or alb["Scheme"] != "internet-facing":
-        raise ValueError("EB did not create an internet-facing ALB")
-    verify_live_boundary(outputs, resources, alb)
-    guard = verify_guard(outputs, alb["DNSName"])
-    record_set = {"Name": HOST + ".", "Type": "A", "AliasTarget": {
-        "HostedZoneId": alb["CanonicalHostedZoneId"], "DNSName": alb["DNSName"], "EvaluateTargetHealth": True}}
-    existing = dns_record(args.hosted_zone_id)
-    if existing and existing != record_set:
-        raise ValueError("Website DNS already points elsewhere; inspect before changing it")
-    if not existing:
-        change_dns(args.hosted_zone_id, "CREATE", record_set)
+    ip = verify_live_boundary(outputs, resources)
+    old_record = dns_record(args.hosted_zone_id)
+    old_ip = address(old_record)
+    guard, previous = verify_guard(outputs, ip, old_ip)
+    new_record = a_record(ip)
+    changed = old_record != new_record
+    if changed:
+        change_dns(args.hosted_zone_id, "UPSERT" if old_record else "CREATE", new_record)
+    try:
+        https_probe(ip)
+    except Exception:
+        if changed:
+            change_dns(args.hosted_zone_id, "UPSERT" if old_record else "DELETE", old_record or new_record)
+        if previous != ip:
+            command("ssm", "put-parameter", "--name", outputs["ExpectedIpParameterName"],
+                    "--type", "String", "--value", previous, "--overwrite")
+        raise
     print(json.dumps({"endpoint": f"https://{HOST}", "version": version, "status": current["Status"],
-                      "health": current.get("Health"), "alb": alb["DNSName"], "bundle": f"s3://{bucket}/{key}",
+                      "health": current.get("Health"), "elasticIp": ip, "bundle": f"s3://{bucket}/{key}",
                       "costGuard": {"schedule": outputs["GuardScheduleName"], "actualUsd": guard["actualUsd"],
                                     "forecastUsd": guard["forecastUsd"]}}))
 
@@ -424,23 +457,14 @@ def teardown(args: argparse.Namespace) -> None:
     parameters = stack_parameters() if status in ("CREATE_COMPLETE", "UPDATE_COMPLETE") else {}
     outputs = stack_outputs() if parameters else {}
     if existing:
-        if current:
-            resources = aws("elasticbeanstalk", "describe-environment-resources", "--environment-name", ENV)["EnvironmentResources"]
-            lbs = resources["LoadBalancers"]
-            if len(lbs) != 1:
-                raise ValueError("Cannot verify DNS ownership: unexpected EB load balancers")
-            alb = aws("elbv2", "describe-load-balancers", "--names", lbs[0]["Name"])["LoadBalancers"][0]
-            if existing["AliasTarget"]["DNSName"].rstrip(".") != alb["DNSName"].rstrip("."):
-                raise ValueError("Website DNS does not point at the named environment")
-        else:
-            expected = args.expected_alb_dns
-            if outputs:
-                recorded = aws("ssm", "get-parameter", "--name", outputs["ExpectedAlbParameterName"])["Parameter"]["Value"]
-                if expected and expected != recorded:
-                    raise ValueError("Supplied ALB differs from the named foundation record")
-                expected = recorded
-            if not expected or expected == "UNCONFIGURED" or existing.get("AliasTarget", {}).get("DNSName", "").rstrip(".") != expected.rstrip("."):
-                raise ValueError("No named EB environment exists; supply and verify the exact prior ALB before deleting DNS")
+        expected = args.expected_ip
+        if outputs:
+            recorded = aws("ssm", "get-parameter", "--name", outputs["ExpectedIpParameterName"])["Parameter"]["Value"]
+            if expected and expected != recorded:
+                raise ValueError("Supplied Elastic IP differs from the named foundation record")
+            expected = recorded
+        if not expected or expected == "UNCONFIGURED" or address(existing) != expected:
+            raise ValueError("Website DNS does not match the exact recorded Elastic IP")
         change_dns(args.hosted_zone_id, "DELETE", existing)
     if current and current.get("Status") not in ("Terminating", "Terminated"):
         command("elasticbeanstalk", "terminate-environment", "--environment-name", ENV)
@@ -449,9 +473,8 @@ def teardown(args: argparse.Namespace) -> None:
     apps = aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]
     if apps:
         versions = aws("elasticbeanstalk", "describe-application-versions", "--application-name", APP)["ApplicationVersions"]
-        for version in versions:
-            if not version["VersionLabel"].startswith("main-"):
-                raise ValueError("Unexpected application version; inspect before deleting the application")
+        if any(not row["VersionLabel"].startswith("main-") for row in versions):
+            raise ValueError("Unexpected application version; inspect before deleting the application")
         command("elasticbeanstalk", "delete-application", "--application-name", APP)
     if status:
         command("cloudformation", "delete-stack", "--stack-name", STACK)
@@ -471,12 +494,12 @@ def teardown(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="action", required=True)
-    setup_parser = sub.add_parser("setup", help="Create the reviewed foundation, alerts and relay")
-    for name in ("vpc-id", "relay-subnet-id", "relay-ami-id", "hosted-zone-id", "alert-email"):
+    setup_parser = sub.add_parser("setup", help="Create the reviewed foundation and cost alerts")
+    for name in ("vpc-id", "hosted-zone-id", "alert-email"):
         setup_parser.add_argument("--" + name, required=True)
     setup_parser.add_argument("--reviewed-cost-record", required=True, type=Path)
-    deploy_parser = sub.add_parser("deploy", help="Deploy an immutable source bundle to EB")
-    for name in ("vpc-id", "subnets", "service-role", "solution-stack", "hosted-zone-id"):
+    deploy_parser = sub.add_parser("deploy", help="Deploy an immutable source bundle to one EB instance")
+    for name in ("vpc-id", "subnet", "service-role", "solution-stack", "hosted-zone-id"):
         deploy_parser.add_argument("--" + name, required=True)
     deploy_parser.add_argument("--bundle", required=True, type=Path)
     deploy_parser.add_argument("--update", action="store_true")
@@ -485,7 +508,7 @@ def main() -> None:
     teardown_parser = sub.add_parser("teardown", help="Remove only Retro Coop website resources")
     teardown_parser.add_argument("--hosted-zone-id", required=True)
     teardown_parser.add_argument("--confirm", required=True)
-    teardown_parser.add_argument("--expected-alb-dns")
+    teardown_parser.add_argument("--expected-ip")
     teardown_parser.add_argument("--bucket", help="Exact EB storage bucket for partial setup cleanup")
     args = parser.parse_args()
     try:

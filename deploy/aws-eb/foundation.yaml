@@ -1,17 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Retro Coop website support resources in us-east-1. The EB environment is created from a reviewed immutable release separately.
+Description: Retro Coop single-instance website support in us-east-1; EB creates the sole EC2 instance and Elastic IP separately.
 Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
-  RelaySubnetId:
-    Type: AWS::EC2::Subnet::Id
-  RelayAmiId:
-    Type: AWS::EC2::Image::Id
   HostedZoneId:
     Type: String
   BootstrapBucket:
-    Type: String
-  BootstrapPrefix:
     Type: String
   GuardCodeKey:
     Type: String
@@ -26,14 +20,6 @@ Resources:
       EmptyOnDelete: true
       ImageScanningConfiguration:
         ScanOnPush: true
-  Certificate:
-    Type: AWS::CertificateManager::Certificate
-    Properties:
-      DomainName: retro-coop.1001.page
-      ValidationMethod: DNS
-      DomainValidationOptions:
-        - DomainName: retro-coop.1001.page
-          HostedZoneId: !Ref HostedZoneId
   TurnSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -44,44 +30,16 @@ Resources:
         ExcludePunctuation: true
         IncludeSpace: false
         RequireEachIncludedType: false
-  AlbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Retro Coop public HTTPS load balancer
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Retro Coop edge only from its ALB
+      GroupDescription: Retro Coop single public web and TURN instance; no SSH or coordinator ingress
       VpcId: !Ref VpcId
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 8080
-          ToPort: 8080
-          SourceSecurityGroupId: !Ref AlbSecurityGroup
-  RelaySecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Retro Coop bounded public UDP TURN allocations, no SSH
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: udp
-          FromPort: 3478
-          ToPort: 3478
-          CidrIp: 0.0.0.0/0
-        - IpProtocol: udp
-          FromPort: 49160
-          ToPort: 49175
-          CidrIp: 0.0.0.0/0
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: udp, FromPort: 3478, ToPort: 3478, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: udp, FromPort: 49160, ToPort: 49175, CidrIp: 0.0.0.0/0}
   EbRole:
     Type: AWS::IAM::Role
     Properties:
@@ -89,8 +47,7 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
+            Principal: {Service: ec2.amazonaws.com}
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
@@ -108,77 +65,10 @@ Resources:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Roles: [!Ref EbRole]
-  RelayRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Policies:
-        - PolicyName: ReadRelayBootMaterial
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action: secretsmanager:GetSecretValue
-                Resource: !Ref TurnSecret
-              - Effect: Allow
-                Action: s3:GetObject
-                Resource: !Sub arn:aws:s3:::${BootstrapBucket}/${BootstrapPrefix}/*
-  RelayProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Roles: [!Ref RelayRole]
-  RelayAddress:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-  RelayInstance:
-    Type: AWS::EC2::Instance
-    Properties:
-      InstanceType: t3.micro
-      ImageId: !Ref RelayAmiId
-      SubnetId: !Ref RelaySubnetId
-      IamInstanceProfile: !Ref RelayProfile
-      SecurityGroupIds: [!Ref RelaySecurityGroup]
-      MetadataOptions:
-        HttpEndpoint: enabled
-        HttpTokens: required
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          set -eu
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends awscli coturn iproute2 python3
-          install -d -m 0700 /opt/retro-coop /run/retro-coop
-          aws s3 cp s3://${BootstrapBucket}/${BootstrapPrefix}/render_turn.py /opt/retro-coop/render_turn.py --region ${AWS::Region} --quiet
-          aws s3 cp s3://${BootstrapBucket}/${BootstrapPrefix}/configure_turn.sh /opt/retro-coop/configure_turn.sh --region ${AWS::Region} --quiet
-          aws secretsmanager get-secret-value --secret-id ${TurnSecret} --region ${AWS::Region} --query SecretString --output json | python3 -c 'import json,sys;sys.stdout.write(json.load(sys.stdin))' > /run/retro-coop/secret
-          chmod 0600 /run/retro-coop/secret
-          token=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token)
-          private_ip=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/local-ipv4)
-          sh /opt/retro-coop/configure_turn.sh ${RelayAddress} "$private_ip" /run/retro-coop/secret
-      Tags:
-        - Key: Name
-          Value: retro-coop-turn
-        - Key: Project
-          Value: retro-coop
-  RelayAddressAssociation:
-    Type: AWS::EC2::EIPAssociation
-    Properties:
-      AllocationId: !GetAtt RelayAddress.AllocationId
-      InstanceId: !Ref RelayInstance
-  ExpectedAlbDns:
+  ExpectedWebsiteIp:
     Type: AWS::SSM::Parameter
     Properties:
-      Name: /retro-coop/website/expected-alb-dns
+      Name: /retro-coop/website/expected-ip
       Type: String
       Value: UNCONFIGURED
   GuardLogGroup:
@@ -193,8 +83,7 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
+            Principal: {Service: lambda.amazonaws.com}
             Action: sts:AssumeRole
       Policies:
         - PolicyName: ScopedWebsiteShutdown
@@ -209,7 +98,7 @@ Resources:
                 Resource: '*'
               - Effect: Allow
                 Action: ssm:GetParameter
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/retro-coop/website/expected-alb-dns
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/retro-coop/website/expected-ip
               - Effect: Allow
                 Action: route53:ListResourceRecordSets
                 Resource: !Sub arn:aws:route53:::hostedzone/${HostedZoneId}
@@ -227,12 +116,6 @@ Resources:
               - Effect: Allow
                 Action: elasticbeanstalk:TerminateEnvironment
                 Resource: !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:environment/retro-coop/retro-coop-web
-              - Effect: Allow
-                Action: ec2:DescribeInstances
-                Resource: '*'
-              - Effect: Allow
-                Action: ec2:TerminateInstances
-                Resource: !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${RelayInstance}
               - Effect: Allow
                 Action: [logs:CreateLogStream, logs:PutLogEvents]
                 Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/retro-coop-cost-guard:*
@@ -254,8 +137,11 @@ Resources:
           ACCOUNT_ID: !Ref AWS::AccountId
           HOSTNAME: retro-coop.1001.page
           HOSTED_ZONE_ID: !Ref HostedZoneId
-          RELAY_INSTANCE_ID: !Ref RelayInstance
-          EXPECTED_ALB_PARAMETER: !Ref ExpectedAlbDns
+          EXPECTED_IP_PARAMETER: !Ref ExpectedWebsiteIp
+  GuardScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: retro-coop-cost-guard
   ScheduleRole:
     Type: AWS::IAM::Role
     Properties:
@@ -263,8 +149,7 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Principal:
-              Service: scheduler.amazonaws.com
+            Principal: {Service: scheduler.amazonaws.com}
             Action: sts:AssumeRole
       Policies:
         - PolicyName: InvokeOnlyCostGuard
@@ -278,9 +163,9 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: retro-coop-cost-guard-6h
+      GroupName: !Ref GuardScheduleGroup
       ScheduleExpression: rate(6 hours)
-      FlexibleTimeWindow:
-        Mode: 'OFF'
+      FlexibleTimeWindow: {Mode: 'OFF'}
       State: ENABLED
       Target:
         Arn: !GetAtt GuardFunction.Arn
@@ -306,8 +191,37 @@ Resources:
       Namespace: AWS/Lambda
       MetricName: Errors
       Dimensions:
-        - Name: FunctionName
-          Value: !Ref GuardFunction
+        - {Name: FunctionName, Value: !Ref GuardFunction}
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref GuardAlerts]
+  GuardDeliveryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: retro-coop-cost-guard-delivery-errors
+      Namespace: AWS/Scheduler
+      MetricName: TargetErrorCount
+      Dimensions:
+        - {Name: ScheduleGroup, Value: !Ref GuardScheduleGroup}
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref GuardAlerts]
+  GuardDroppedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: retro-coop-cost-guard-dropped-invocations
+      Namespace: AWS/Scheduler
+      MetricName: InvocationDroppedCount
+      Dimensions:
+        - {Name: ScheduleGroup, Value: !Ref GuardScheduleGroup}
       Statistic: Sum
       Period: 3600
       EvaluationPeriods: 1
@@ -333,30 +247,24 @@ Resources:
             Action: sns:Publish
             Resource: !Ref GuardAlerts
             Condition:
-              ArnEquals:
-                aws:SourceArn: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:retro-coop-cost-guard-errors
+              StringLike:
+                aws:SourceArn: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:retro-coop-cost-guard-*
 Outputs:
   EcrRepository:
     Value: !GetAtt Images.RepositoryUri
-  CertificateArn:
-    Value: !Ref Certificate
   TurnSecretArn:
     Value: !Ref TurnSecret
-  RelayPublicIp:
-    Value: !Ref RelayAddress
-  AlbSecurityGroupId:
-    Value: !Ref AlbSecurityGroup
   AppSecurityGroupId:
     Value: !Ref AppSecurityGroup
   EbProfileName:
     Value: !Ref EbProfile
-  RelayInstanceId:
-    Value: !Ref RelayInstance
   GuardFunctionArn:
     Value: !GetAtt GuardFunction.Arn
   GuardScheduleName:
     Value: !Ref GuardSchedule
+  GuardScheduleGroupName:
+    Value: !Ref GuardScheduleGroup
   GuardAlertTopicArn:
     Value: !Ref GuardAlerts
-  ExpectedAlbParameterName:
-    Value: !Ref ExpectedAlbDns
+  ExpectedIpParameterName:
+    Value: !Ref ExpectedWebsiteIp
