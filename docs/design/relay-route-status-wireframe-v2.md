@@ -55,7 +55,7 @@ Use the existing exact error for `Relay service is unavailable`, `Relay capacity
 | --- | --- |
 | Relay + Standard | D1 in [direction](relay-route-status-direction.md) |
 | Relay + Relay only | D2 in [direction](relay-route-status-direction.md) |
-| Direct | Existing `Peer transport connected.` |
+| Direct | Existing `Peer transport connected. Route: direct.` |
 | Unknown | Existing `Peer transport connected.` without route claim |
 | Connecting, disconnected or left | Existing preparation/error text, or no peer status after exit |
 

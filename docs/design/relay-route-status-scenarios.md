@@ -6,7 +6,7 @@ The current room side panel owns the visible route status. These scenarios refin
 | --- | --- | --- | --- |
 | R01 / J1 | Standard is preparing; no selected route yet | Existing `Connecting…` text; no relay success claim | Existing Retry if preparation fails |
 | R02 / J1 | Standard connects through selected relay candidate pair | [D1](relay-route-status-direction.md) message beside shared play | Continue play; failure replaces text and exposes Retry |
-| R03 / J1 | Standard connects directly | Existing connected status, without a relay explanation | Continue play; a later route change refreshes status |
+| R03 / J1 | Standard connects directly | Existing `Peer transport connected. Route: direct.` status, without a relay explanation | Continue play; a later route change refreshes status |
 | R04 / J2 | Relay only selected, connection still preparing | Existing Relay only preparation text | Retry/Stay in room on relay failure |
 | R05 / J2 | Relay only connects via selected relay pair | [D2](relay-route-status-direction.md) message beside shared play | Continue play; failure replaces text and exposes Retry |
 | R06 / J2 | Relay unavailable or at capacity | Existing specific Relay unavailable/full text; no connected claim | Existing Retry connection or Stay in room; never silently use direct |
