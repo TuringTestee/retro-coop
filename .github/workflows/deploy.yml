@@ -1,0 +1,132 @@
+name: Deploy website
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: retro-coop-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+      CI_RUN_ID: ${{ github.event.workflow_run.id }}
+      AWS_REGION: us-east-1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require the checked commit to be current main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
+          git checkout -B main "$SOURCE_SHA"
+          test -z "$(git status --porcelain)"
+      - name: Obtain main-scoped AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          role-to-assume: arn:aws:iam::599796577790:role/retro-coop-main-cd
+          aws-region: us-east-1
+          role-session-name: retro-coop-main-cd
+      - name: Install pinned image publisher
+        run: |
+          set -euo pipefail
+          if ! command -v dig >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq dnsutils
+          fi
+          curl --fail --location --silent --show-error \
+            https://github.com/google/go-containerregistry/releases/download/v0.20.6/go-containerregistry_Linux_x86_64.tar.gz \
+            --output /tmp/go-containerregistry.tar.gz
+          echo 'c1d593d01551f2c9a3df5ca0a0be4385a839bd9b86d4a76e18d7b17d16559127  /tmp/go-containerregistry.tar.gz' | sha256sum --check
+          mkdir -p /tmp/retro-eb-tools
+          tar -xzf /tmp/go-containerregistry.tar.gz -C /tmp/retro-eb-tools crane
+          /tmp/retro-eb-tools/crane version
+      - name: Record previous website version
+        id: previous
+        run: |
+          set -euo pipefail
+          version=$(aws elasticbeanstalk describe-environments --application-name retro-coop \
+            --environment-names retro-coop-web --query 'Environments[0].VersionLabel' --output text)
+          test "$version" != None
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Previous website version: $version" >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish exact CI images and make EB bundle
+        id: bundle
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          python3 scripts/aws_eb/build_release.py --crane /tmp/retro-eb-tools/crane \
+            --ci-run-id "$CI_RUN_ID" --output /tmp/retro-coop-release.zip
+          echo "elapsed_seconds=$(($(date +%s) - started))" >> "$GITHUB_OUTPUT"
+      - name: Reject a superseded main commit before updating production
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$SOURCE_SHA"
+      - name: Deploy and verify the public website
+        id: website
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          python3 scripts/aws_eb/website.py deploy --update \
+            --vpc-id vpc-042ffeb3cfacd48a0 \
+            --subnet subnet-059816c3030c7b48d \
+            --service-role arn:aws:iam::599796577790:role/service-role/aws-elasticbeanstalk-service-role \
+            --solution-stack '64bit Amazon Linux 2023 v4.13.9 running Docker' \
+            --hosted-zone-id Z03078963HIF5G3OCL4U3 \
+            --bundle /tmp/retro-coop-release.zip
+          echo "elapsed_seconds=$(($(date +%s) - started))" >> "$GITHUB_OUTPUT"
+      - name: Confirm exact live version and report elapsed time
+        env:
+          PREVIOUS_VERSION: ${{ steps.previous.outputs.version }}
+          BUNDLE_SECONDS: ${{ steps.bundle.outputs.elapsed_seconds }}
+          WEBSITE_SECONDS: ${{ steps.website.outputs.elapsed_seconds }}
+        run: |
+          set -euo pipefail
+          expected="main-${SOURCE_SHA:0:12}"
+          actual=$(aws elasticbeanstalk describe-environments --application-name retro-coop \
+            --environment-names retro-coop-web --query 'Environments[0].VersionLabel' --output text)
+          test "$actual" = "$expected"
+          curl --fail --silent --show-error --max-time 15 https://retro-coop.atobot.cloud/healthz | grep -q retro-coop
+          {
+            echo "### Website release"
+            echo "CI run: $CI_RUN_ID"
+            echo "Source: $SOURCE_SHA"
+            echo "Previous version: $PREVIOUS_VERSION"
+            echo "Live version: $actual"
+            echo "Bundle: ${BUNDLE_SECONDS}s"
+            echo "EB update and site verification: ${WEBSITE_SECONDS}s"
+            echo "Public endpoint: https://retro-coop.atobot.cloud/"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Report failed release and live version
+        if: failure() && steps.previous.outputs.version != ''
+        env:
+          PREVIOUS_VERSION: ${{ steps.previous.outputs.version }}
+        run: |
+          current=$(aws elasticbeanstalk describe-environments --application-name retro-coop \
+            --environment-names retro-coop-web --query 'Environments[0].VersionLabel' --output text || true)
+          {
+            echo "### Website release failed"
+            echo "Source: $SOURCE_SHA"
+            echo "Previous version: $PREVIOUS_VERSION"
+            echo "Observed EB version: $current"
+            echo "A failed deployment has not passed the live release check."
+          } >> "$GITHUB_STEP_SUMMARY"
