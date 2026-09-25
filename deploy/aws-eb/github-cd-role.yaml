@@ -73,6 +73,10 @@ Resources:
                 Effect: Allow
                 Action: cloudformation:DescribeStacks
                 Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/retro-coop-website-foundation/*
+              - Sid: ReadExistingEbStackTemplate
+                Effect: Allow
+                Action: cloudformation:GetTemplate
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/awseb-e-grgen3xiim-stack/*
               - Sid: ReadWebsiteDns
                 Effect: Allow
                 Action: [route53:GetHostedZone, route53:ListResourceRecordSets]
