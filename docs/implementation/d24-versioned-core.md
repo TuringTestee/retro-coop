@@ -18,7 +18,7 @@ Publish new hashed assets before changing the current HTML. If an asset URL alre
 
 ## Verification
 
-Prepare and build using `sh scripts/foundation/prepare.sh` and `npm run build`. Run `python scripts/staging/versioned_core_smoke.py --chrome --output /tmp/versioned-core.json` with Python Playwright1.58 and Chrome installed; omit `--chrome` for bundled Chromium. The probe copies application sources into an owned temporary directory, builds two valid WASM variants (an inert custom section changes only binary identity), and publishes them through a local static server. Original cartridges are local test fixtures; no ROM, save or microphone content leaves the machine.
+Prepare and build using `sh scripts/foundation/prepare.sh` and `npm run build`. Run `python scripts/aws_eb/versioned_core_smoke.py --chrome --output /tmp/versioned-core.json` with Python Playwright1.58 and Chrome installed; omit `--chrome` for bundled Chromium. The probe copies application sources into an owned temporary directory, builds two valid WASM variants (an inert custom section changes only binary identity), and publishes them through a local static server. Original cartridges are local test fixtures; no ROM, save or microphone content leaves the machine.
 
 The actual browser loads a cartridge in an old tab after publication, a new tab, a rollback tab, and the still-loaded new tab after rollback. Each must report its correct core SHA-256 and render frames. The game stays muted through its own UI setting. This is client/asset consistency proof, not public-network or multiplayer acceptance. There is no visible product change requiring a screenshot comparison.
 

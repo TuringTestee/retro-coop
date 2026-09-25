@@ -22,11 +22,11 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
     secret.write_text("a" * 64)
     secret.chmod(0o600)
     output = root / "turn.conf"
-    command = [sys.executable, str(render), "--public-ip", "34.100.1.2", "--private-ip", "127.0.0.1", "--secret-file", str(secret), "--output", str(output)]
+    command = [sys.executable, str(render), "--public-ip", "54.1.2.3", "--private-ip", "127.0.0.1", "--secret-file", str(secret), "--output", str(output)]
     subprocess.run(command, check=True)
     config = output.read_text()
     assert output.stat().st_mode & 0o077 == 0
-    for expected in ["external-ip=34.100.1.2/127.0.0.1", "static-auth-secret=" + "a" * 64,
+    for expected in ["external-ip=54.1.2.3/127.0.0.1", "static-auth-secret=" + "a" * 64,
                      "total-quota=16", "bps-capacity=1600000", "min-port=49160", "max-port=49175",
                      "denied-peer-ip=169.254.0.0-169.254.255.255"]:
         assert expected in config
@@ -74,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
                         )
 
                     valid = allocation("a" * 64)
-                    if (valid.returncode != 0 or "Received relay addr: 34.100.1.2:" not in valid.stdout
+                    if (valid.returncode != 0 or "Received relay addr: 54.1.2.3:" not in valid.stdout
                             or "clnet_allocate: rtv=0" not in valid.stdout):
                         raise AssertionError("Authenticated TURN allocation did not return the configured public relay address")
                     before_invalid = log_path.stat().st_size

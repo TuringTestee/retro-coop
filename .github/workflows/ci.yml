@@ -108,8 +108,8 @@ jobs:
         run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
   images:
     needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
     steps:
@@ -121,19 +121,43 @@ jobs:
         timeout-minutes: 1
         with:
           node-version-file: .node-version
-      - name: Build and probe exact staging images within the shared deadline
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: d02-build
+          path: spikes/d02
+      - name: Build and probe the EB source package within the shared deadline
         run: |
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target edge --tag retro-coop-staging-edge:candidate .
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target coordinator --tag retro-coop-staging-coordinator:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/source_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/website_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/cost_guard_smoke.py
+          cp spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm deploy/aws-eb/core.wasm
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target edge --tag retro-coop-eb-edge:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target coordinator --tag retro-coop-eb-coordinator:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target caddy --tag retro-coop-eb-caddy:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target turn --tag retro-coop-eb-turn:candidate .
+          docker run --rm retro-coop-eb-caddy:candidate caddy validate --config /etc/caddy/Caddyfile
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/container_smoke.sh
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/render_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/acme_hook_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/turn_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/turn_operator_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/prepare_cloud_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/kubernetes_smoke.sh
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/aws_eb/container_smoke.sh
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/turn_smoke.py
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+      - name: Save exact native ARM64 images for a reviewed main release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p aws-eb-arm64-images
+          for target in edge coordinator caddy turn; do
+            docker save --output "aws-eb-arm64-images/$target.tar" "retro-coop-eb-$target:candidate"
+          done
+          cd aws-eb-arm64-images
+          sha256sum edge.tar coordinator.tar caddy.tar turn.tar > SHA256SUMS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        timeout-minutes: 3
+        with:
+          name: aws-eb-arm64-images
+          path: aws-eb-arm64-images/*
+          if-no-files-found: error
+          retention-days: 7
   core:
     if: github.event_name == 'push'
     needs: build

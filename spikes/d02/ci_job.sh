@@ -53,7 +53,7 @@ if [ "$D02_JOB" = core ]; then
   sudo apt-get update
   sudo apt-get install -y coturn
   turnserver --version > turn-version.local.txt
-  (cd ../.. && python3 scripts/staging/turn_smoke.py --turnserver turnserver --turn-client turnutils_uclient)
+  (cd ../.. && python3 scripts/aws_eb/turn_smoke.py --turnserver turnserver --turn-client turnutils_uclient)
   python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
   D02_HTTP_PID=$!
   trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
@@ -61,7 +61,7 @@ if [ "$D02_JOB" = core ]; then
   python3 verify_results.py browser-ci.local.json
   (cd ../.. && timeout --foreground 120s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/foundation/banked_ram_smoke.py --output spikes/d02/banked-ram.local.json)
-  (cd ../.. && timeout --foreground 60s python3 scripts/staging/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
+  (cd ../.. && timeout --foreground 60s python3 scripts/aws_eb/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
   (cd ../.. && timeout --foreground 60s python3 scripts/rooms/moderation_smoke.py --output spikes/d02/moderation.local.json)
   (cd ../.. && timeout --foreground 60s python3 scripts/rooms/operator_smoke.py --output spikes/d02/operator.local.json)

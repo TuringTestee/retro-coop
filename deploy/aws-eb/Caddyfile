@@ -1,0 +1,11 @@
+{
+    admin off
+}
+
+retro-coop.1001.page {
+    reverse_proxy 127.0.0.1:8080 {
+        # Caddy sees the public TCP peer. Replace every caller-supplied forwarding value.
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto https
+    }
+}

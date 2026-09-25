@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: retro-coop-staging
-  labels:
-    app.kubernetes.io/part-of: retro-coop
-    environment: staging
