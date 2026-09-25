@@ -44,7 +44,7 @@ Resources:
                 Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/retro-coop/releases/*
               - Sid: InspectReleaseBucket
                 Effect: Allow
-                Action: s3:GetBucketLocation
+                Action: [s3:GetBucketLocation, s3:ListBucket]
                 Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}
               - Sid: ReadReleaseState
                 Effect: Allow
