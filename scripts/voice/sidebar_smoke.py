@@ -37,10 +37,11 @@ def run(host, guest, output):
     host.get_by_role('button', name='Back', exact=True).click()
     assert host.evaluate('document.activeElement.textContent') == 'Voice settings'
     card=host.locator('.voice-card')
-    host.evaluate('window.holdCapture=true')
+    host.evaluate('window.holdCapture=true;window.blockPlayback=true')
     card.get_by_role('button', name='Enable voice', exact=True).click()
     host.wait_for_function('!!window.releaseCapture')
     card.get_by_role('button', name='Cancel microphone request', exact=True).wait_for()
+    card.get_by_role('button', name='Enable voice sound', exact=True).wait_for()
     assert 'Requesting microphone' in card.inner_text()
     host.screenshot(path=str(output.with_suffix('.sidebar-pending.png')), full_page=True)
     card.get_by_role('button', name='Cancel microphone request', exact=True).click()
@@ -53,13 +54,15 @@ def run(host, guest, output):
     card.get_by_role('button', name='Try microphone again', exact=True).wait_for()
     card.get_by_role('button', name='Enable voice sound', exact=True).wait_for()
     host.screenshot(path=str(output.with_suffix('.sidebar-error.png')), full_page=True)
-    # Independent failures retain both recoveries. Fix playback first, leaving mic retry.
+    # Microphone recovery and privacy controls stay usable while playback is blocked.
+    host.evaluate('window.denyCapture=false')
+    card.get_by_role('button', name='Try microphone again', exact=True).click()
+    card.get_by_role('button', name='Mute microphone', exact=True).click()
+    card.get_by_role('button', name='Unmute microphone', exact=True).click()
+    assert card.get_by_role('button', name='Enable voice sound', exact=True).is_visible()
     host.evaluate('window.blockPlayback=false')
     card.get_by_role('button', name='Enable voice sound', exact=True).click()
     card.get_by_role('button', name='Enable voice sound', exact=True).wait_for(state='detached')
-    assert card.get_by_role('button', name='Try microphone again', exact=True).is_visible()
-    host.evaluate('window.denyCapture=false')
-    card.get_by_role('button', name='Try microphone again', exact=True).click()
     card.get_by_role('button', name='Mute microphone', exact=True).wait_for()
     guest.locator('.voice-card').get_by_role('button', name='Enable voice', exact=True).click()
     for tab in [host,guest]:
@@ -91,7 +94,7 @@ def run(host, guest, output):
     guest.get_by_role('button', name='Confirm leave', exact=True).click()
     for tab in [host,guest]:
         tab.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'two_way_audio_during_game':True,'blur_retains_muted_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
+    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'pending_cancel_survives_playback_failure':True,'two_way_audio_during_game':True,'blur_retains_muted_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
 
 
 def solo(browser, url, rom, output, root):
