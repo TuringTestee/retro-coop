@@ -10,6 +10,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: retro-coop-main-cd
+      MaxSessionDuration: 10800
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:

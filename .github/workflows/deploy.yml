@@ -66,6 +66,7 @@ jobs:
           role-to-assume: arn:aws:iam::599796577790:role/retro-coop-main-cd
           aws-region: us-east-1
           role-session-name: retro-coop-main-cd
+          role-duration-seconds: 10800
       - name: Install pinned image publisher
         run: |
           set -euo pipefail
