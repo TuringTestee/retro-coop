@@ -142,3 +142,31 @@ test('both clients map acknowledged P1 ownership and shared P1 discards even for
   const sampled=sent.find(packet=>packet.kind==='input'&&packet.frame===3);assert.equal(sampled?.kind==='input'?sampled.mask:undefined,mode==='shared'&&role!==p1?0:local);
  }
 });
+
+test('a peer already ahead of the host can still reach the requested pause frame',async()=>{
+ const {setImmediate}=await import('node:timers/promises');
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
+ const peerEpoch='p'.repeat(32),epoch='e'.repeat(32),hash='c'.repeat(64);
+ async function playing(role:'host'|'guest',frames:number){
+  let driver!:import('./player.ts').GameDriver;
+  const commands:Array<{type:string;frame?:number}>=[];
+  const player={frameRate:()=>60,holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(){},drainGame(){},stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+  const game=new GameClient(()=>player,async command=>{commands.push(command);},()=>{});
+  const channel={readyState:'open',send(){},onmessage:undefined} as unknown as RTCDataChannel;
+  game.enter({id:'room',role,matches:true,fingerprint,peer:{epoch:peerEpoch},game:{status:'playing'}} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+  game.selected(fingerprint);game.playIntent();game.ready(channel,peerEpoch);await setImmediate();
+  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:8});await setImmediate();
+  game.handle({type:'gameStart',peerEpoch,epoch,delay:8});
+  for(let frame=0;frame<frames;frame++){
+   channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch,frame,mask:0})}));
+   assert.equal(driver.next(0)?.frame,frame);driver.committed(frame);
+  }
+  return {game,driver,commands};
+ }
+ const host=await playing('host',5),guest=await playing('guest',22);
+ host.driver.pause('user');
+ const requested=host.commands.find(command=>command.type==='gamePause');
+ assert.ok(requested?.frame!==undefined);
+ guest.game.handle({type:'gamePauseAt',epoch,frame:requested.frame,reason:'Host requested pause.'});
+ assert.equal(guest.commands.some(command=>command.type==='gameAbort'),false,'pause boundary was already behind the guest');
+});
