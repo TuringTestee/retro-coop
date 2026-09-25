@@ -1,5 +1,7 @@
 # Relay route status: v1 page critique
 
+**Historical first iteration.** Its copy was superseded by D1/D2 in [current direction](relay-route-status-direction.md) and the [v2 screen](relay-route-status-wireframe-v2.md).
+
 The first wireframe puts route feedback in the right place. It still needs shorter narrow-screen copy and a precise failure state before implementation.
 
 | Page | Supports | Missing or ambiguous | Remove | Exact revision |

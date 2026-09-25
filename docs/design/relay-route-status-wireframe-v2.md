@@ -1,6 +1,6 @@
 # Relay route status: current wireframe v2
 
-The connected route occupies one compact status area in the existing fixed room panel. It has no new control, overlay or notification.
+The connected route occupies one compact status area in the existing fixed room panel. It has no new control, overlay or notification. The ASCII labels below **render** the exact D1/D2 copy governed by [direction](relay-route-status-direction.md); they are not an independent copy specification.
 
 ## Page P1 — Shared play, Standard selected relay (R02)
 
@@ -53,8 +53,8 @@ Use the existing exact error for `Relay service is unavailable`, `Relay capacity
 
 | Selected route and policy | Room status |
 | --- | --- |
-| Relay + Standard | `Direct connection unavailable. Relay keeps you playing together.` |
-| Relay + Relay only | `Relay only is on. Connected through the relay.` |
+| Relay + Standard | D1 in [direction](relay-route-status-direction.md) |
+| Relay + Relay only | D2 in [direction](relay-route-status-direction.md) |
 | Direct | Existing `Peer transport connected.` |
 | Unknown | Existing `Peer transport connected.` without route claim |
 | Connecting, disconnected or left | Existing preparation/error text, or no peer status after exit |

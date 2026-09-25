@@ -1,5 +1,7 @@
 # Relay route status: wireframe v1
 
+**Historical first iteration.** Its copy was superseded by D1/D2 in [current direction](relay-route-status-direction.md) and the [v2 screen](relay-route-status-wireframe-v2.md).
+
 This first pass places the active route in the fixed room panel. It is a status, so the play and recovery controls stay where they already are.
 
 ## Page P1 — Shared play, Standard used a relay (R02)

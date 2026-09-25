@@ -5,10 +5,10 @@ The current room side panel owns the visible route status. These scenarios refin
 | ID / journey | Trigger | Visible result | Recovery or exit |
 | --- | --- | --- | --- |
 | R01 / J1 | Standard is preparing; no selected route yet | Existing `Connecting…` text; no relay success claim | Existing Retry if preparation fails |
-| R02 / J1 | Standard connects through selected relay candidate pair | `Direct connection unavailable. Relay is keeping you connected.` beside shared play | Continue play; failure replaces text and exposes Retry |
+| R02 / J1 | Standard connects through selected relay candidate pair | [D1](relay-route-status-direction.md) message beside shared play | Continue play; failure replaces text and exposes Retry |
 | R03 / J1 | Standard connects directly | Existing connected status, without a relay explanation | Continue play; a later route change refreshes status |
 | R04 / J2 | Relay only selected, connection still preparing | Existing Relay only preparation text | Retry/Stay in room on relay failure |
-| R05 / J2 | Relay only connects via selected relay pair | `Relay only is on. You're connected through the relay.` beside shared play | Continue play; failure replaces text and exposes Retry |
+| R05 / J2 | Relay only connects via selected relay pair | [D2](relay-route-status-direction.md) message beside shared play | Continue play; failure replaces text and exposes Retry |
 | R06 / J2 | Relay unavailable or at capacity | Existing specific Relay unavailable/full text; no connected claim | Existing Retry connection or Stay in room; never silently use direct |
 | R07 / J1,J2,J3 | Selected route is unknown even though transport reports connected | `Peer transport connected.` only; do not infer relay | Play continues; subsequent stats or reconnect can establish route |
 | R08 / J3 | Transport disconnects, policy changes or reconnect begins | Remove relay success text; show existing interruption/preparation state | Existing Retry or reconnection path |
