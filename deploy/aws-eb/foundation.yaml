@@ -236,12 +236,14 @@ Resources:
       PolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Effect: Allow
+          - Sid: AllowAccountPublish
+            Effect: Allow
             Principal:
               AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
             Action: sns:Publish
             Resource: !Ref GuardAlerts
-          - Effect: Allow
+          - Sid: AllowCloudWatchPublish
+            Effect: Allow
             Principal:
               Service: cloudwatch.amazonaws.com
             Action: sns:Publish
