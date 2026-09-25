@@ -249,12 +249,14 @@ try:
    # This is the measured workload interval, never a guessed startup wait.
    while measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed)<args.seconds:h.wait_for_timeout(20)
    active_seconds=round(measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed),2)
+   expected_status='Relay only is on. Connected through the relay.' if args.relay else 'Route: direct.'
+   for tab in [h,g]:assert expected_status in tab.get_by_test_id('connection-status').inner_text(), 'Connection route status must remain visible during shared play'
    h.get_by_role('button',name='Pause',exact=True).click()
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
    final=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert final[0]==final[1],final
    hashes=[tab.evaluate('proof.sentHashes') for tab in [h,g]];assert hashes[0]==hashes[1], 'Every epoch/frame hash must be present and identical on both peers';assert len(hashes[0])>=2
    route='relay' if args.relay else 'direct'
-   for tab in [h,g]:assert f'Route: {route}.' in tab.get_by_test_id('connection-status').inner_text()
+   for tab in [h,g]:assert expected_status in tab.get_by_test_id('connection-status').inner_text()
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'

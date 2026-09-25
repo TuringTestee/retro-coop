@@ -111,7 +111,7 @@ try:
         panel = open_room(tab)
         panel.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
         tab.wait_for_function(
-            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route: '+route)",
+            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Relay only is on. Connected through the relay.':'Route: direct.')",
             arg="relay" if args.relay else "direct",
         )
         if args.relay:
@@ -301,7 +301,8 @@ try:
     guest.get_by_role("button", name="Join room", exact=True).click()
     for tab in [host, guest]:
         tab.wait_for_function(
-            "document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route:')"
+            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Relay only is on. Connected through the relay.':'Route: direct.')",
+            arg="relay" if args.relay else "direct",
         )
     assert host.evaluate("captures.length") == capture_count
     panel.get_by_role("button", name="Enable voice", exact=True).click()

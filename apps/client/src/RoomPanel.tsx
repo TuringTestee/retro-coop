@@ -13,7 +13,8 @@ import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
-import {RoomClient, connectionStatus, type RoomState} from './room-client.ts';
+import {RoomClient, type RoomState} from './room-client.ts';
+import {connectionStatus} from './connection-status.ts';
 import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../../packages/contracts/src/rooms.ts';
 type GuestOperation={roomId:string;membership:string;controller:AbortController;sawLoading:boolean};
 type GuestAcquisition={phase:'checking'|'downloading'|'loading'|'loaded'|'failed'|'expired';message:string;notice?:string};
@@ -122,7 +123,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  useEffect(()=>{void client.current?.setPolicy(policy);},[policy]);
  useEffect(()=>{client.current?.voice.configureControls(controls);},[controls]);
  useEffect(()=>{onVoice(state.voice);},[state.voice,onVoice]);
- useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peer.status,onConnection]);
+ useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peer.status,state.room?.peer.policy,onConnection]);
  useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
  useEffect(()=>{setRemoveGuest(undefined);setSlotError(false);setPlaceRetry(undefined);},[state.room?.id,state.room?.guestMembership]);
@@ -173,7 +174,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   {room?.role==='guest'&&!room.started&&<div className="room-start" role="group" aria-label="Guest preparation">
    {!state.connected?<p role="status">Room connection lost. Reconnect to check readiness.</p>:room.peer.status==='connected'&&!selectionLoading&&!!fingerprint&&player()?.isLoaded(fingerprint)&&matchesFile(room.fingerprint,fingerprint)&&room.game?.ready?.includes('guest')?<p role="status">Ready to play. Waiting for the host to start.</p>:room.catalogId||guestAcquisition?.phase==='loaded'?<>{room.peer.status==='connected'&&<button disabled={!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!state.gameplay?.intent} onClick={()=>client.current?.prepareGuest()}>Prepare to play</button>}{room.peer.status!=='connected'&&<p role="status">Game ready in this browser. Waiting for peer connection…</p>}{state.gameplay?.intent&&<p role="status">{state.gameplay.status}</p>}</>:null}
   </div>}
-  {(room?.peer.epoch||!state.connected)&&!(room?.started==='shared'&&room.game?.status==='playing'&&room.established&&room.peer.status==='connected'&&state.connected)&&<p role="status" data-testid="connection-status">{connectionStatus(state)}</p>}
+  {(room?.peer.epoch||!state.connected)&&<p role="status" data-testid="connection-status">{connectionStatus(state)}</p>}
   {invite&&!room&&<p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>}
   {room?.role==='host'&&!room.started&&room.guestPlace==='open'&&<div className="room-invite"><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Select the invitation text and copy it.'));if(!navigator.clipboard)setCopy('Select the invitation text and copy it.');}}>Copy invite</button><label>Invitation <input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/></label>{copy&&<span className="hint" role="status">{copy}</span>}</div>}
   {room?.role==='host'&&!room.started&&!confirmLeave&&<div className="room-start"><p>{!state.connected?'Room connection lost. Reconnect to check whether the guest is ready.':room.game?.startRequested?'Checking both games before shared Start…':room.game?.ready?.includes('guest')?'Guest is prepared. Start together when you are ready.':room.guest&&!room.guestConnected?'Guest disconnected. Start now to play alone and release their place.':room.guestAcquisition==='checking'?'Guest checking a saved game. Start now to play alone and release their place.':room.guestAcquisition==='downloading'?'Guest downloading. Start now to play alone and release their place.':room.guestAcquisition==='loading'?'Guest loading. Start now to play alone and release their place.':room.guestAcquisition==='failed'?'Guest download failed. Start now to play alone and release their place.':room.guestAcquisition==='loaded'&&room.peer.status!=='connected'?'Guest game loaded; waiting for peer connection. Start now to play alone and release their place.':room.guest?'Guest is preparing. Start now to play alone and release their place.':room.guestPlace==='closed'?'Start alone, or open Guest place before inviting someone.':'Start now to play alone, or wait for a guest.'}</p><button disabled={!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!room.game?.startRequested} onClick={()=>{if(fingerprint)void client.current?.startRoom(fingerprint);}}>Start game</button>{fingerprint&&!matchesFile(room.fingerprint,fingerprint)&&<p role="status">This file does not match the room. <button onClick={onChoose}>Choose matching NES file</button></p>}</div>}
