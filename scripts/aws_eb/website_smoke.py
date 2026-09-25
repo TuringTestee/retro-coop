@@ -13,6 +13,7 @@ outputs = {"EbProfileName": "retro-eb-profile", "AppSecurityGroupId": "sg-app",
 settings = {(row["Namespace"], row["OptionName"]): row["Value"] for row in website.options(
     outputs, Namespace(service_role="retro-eb-service", vpc_id="vpc-1", subnet="subnet-a"))}
 assert settings["aws:elasticbeanstalk:environment", "EnvironmentType"] == "SingleInstance"
+assert settings["aws:elasticbeanstalk:healthreporting:system", "SystemType"] == "basic"
 assert settings["aws:autoscaling:asg", "MinSize"] == "1"
 assert settings["aws:autoscaling:asg", "MaxSize"] == "1"
 assert settings["aws:autoscaling:launchconfiguration", "InstanceType"] == "t4g.micro"
