@@ -1,13 +1,14 @@
 name: CI
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, ready_for_review]
   push:
     branches: [main]
 permissions:
   contents: read
   actions: read
 env:
-  D02_BUDGET_SECONDS: ${{ github.event_name == 'pull_request' && '300' || '600' }}
+  D02_BUDGET_SECONDS: ${{ (github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof')) && '600' || '300' }}
 jobs:
   watchdog:
     runs-on: ubuntu-latest
@@ -25,10 +26,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ "${{ github.event_name }}" = pull_request ]; then
-            python3 spikes/d02/ci_budget.py watch --gate entrypoint --gate images
-          else
+          if [ "${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}" = true ]; then
             python3 spikes/d02/ci_budget.py watch --gate preflight
+          else
+            python3 spikes/d02/ci_budget.py watch --gate entrypoint --gate images
           fi
   build:
     runs-on: ubuntu-latest
@@ -159,7 +160,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   network:
-    if: github.event_name == 'push'
+    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 8
@@ -210,7 +211,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   preflight:
-    if: ${{ always() && github.event_name == 'push' }}
+    if: ${{ always() && (github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof')) }}
     needs: [build, entrypoint, images, network]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -227,7 +228,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
       - name: Require every complete workload
-        if: github.event_name == 'push'
+        if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
         run: |
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
@@ -235,13 +236,13 @@ jobs:
           test "$D02_NETWORK" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        if: github.event_name == 'push'
+        if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
         timeout-minutes: 1
         with:
           pattern: d02-pair-*
           path: /tmp/d02-pair-evidence
       - name: Require all six peers to agree within the original deadline
-        if: github.event_name == 'push'
+        if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
         run: |
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 scripts/gameplay/verify_matrix.py /tmp/d02-pair-evidence
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
