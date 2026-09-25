@@ -1,5 +1,7 @@
 name: Post-release qualification
 on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize]
   workflow_dispatch:
   schedule:
     - cron: '17 3 * * *'
@@ -10,6 +12,7 @@ env:
   D02_BUDGET_SECONDS: '1800'
 jobs:
   watchdog:
+    if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'post-release-proof')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 31
     permissions:
@@ -24,6 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python3 spikes/d02/ci_budget.py watch --gate qualification
   fixture:
+    if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'post-release-proof')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -42,7 +46,7 @@ jobs:
         env:
           D02_DEADLINE: ${{ steps.budget.outputs.deadline }}
         run: |
-          test "$GITHUB_REF" = refs/heads/main
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then test "$GITHUB_REF" = refs/heads/main; fi
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- bash -c '
             set -euo pipefail
             rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
@@ -106,6 +110,7 @@ jobs:
             spikes/d02/*.local.json
             spikes/d02/*.local.txt
             spikes/d02/*.local.png
+            spikes/d02/gameplay.local/**
             spikes/d02/.gameplay-runs/**/*.json
             spikes/d02/.gameplay-runs/**/*.log
           include-hidden-files: true
@@ -161,7 +166,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
   qualification:
-    if: always()
+    if: ${{ always() && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'post-release-proof'))) }}
     needs: [fixture, core, network]
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -190,3 +195,29 @@ jobs:
         run: |
           set -o pipefail
           python3 spikes/d02/post_release_summary.py --network-dir /tmp/post-release-network --core-dir /tmp/post-release-core | tee "$GITHUB_STEP_SUMMARY"
+      - name: Prove a missing pair makes qualification fail
+        if: ${{ needs.core.result == 'success' && needs.network.result == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pair_file=$(find /tmp/post-release-network -name pair.local.json -path '*Chrome-Firefox*' -print -quit)
+          test -n "$pair_file"
+          mv "$pair_file" "$pair_file.withheld"
+          trap 'mv "$pair_file.withheld" "$pair_file"' EXIT
+          if python3 spikes/d02/post_release_summary.py --network-dir /tmp/post-release-network --core-dir /tmp/post-release-core > /tmp/post-release-injected-failure.md; then
+            echo 'A missing pair incorrectly passed qualification.' >&2
+            exit 1
+          fi
+          grep -q 'missing required browser pair' /tmp/post-release-injected-failure.md
+          {
+            echo ''
+            echo '## Injected missing-pair check'
+            cat /tmp/post-release-injected-failure.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: post-release-injected-failure-report
+          path: /tmp/post-release-injected-failure.md
+          if-no-files-found: warn
+          retention-days: 14
