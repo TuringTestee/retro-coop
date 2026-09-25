@@ -16,6 +16,8 @@ Resources:
     Properties:
       RoleName: retro-coop-main-cd
       MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess-AWSElasticBeanstalk
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -43,39 +45,6 @@ Resources:
                          ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage,
                          ecr:BatchGetImage, ecr:GetDownloadUrlForLayer]
                 Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/retro-coop
-              - Sid: ReleaseBundleObjects
-                Effect: Allow
-                Action: [s3:PutObject, s3:GetObject, s3:GetObjectAcl]
-                # beanstalk-deploy v21 prefixes its S3 key with / before the application name.
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}//retro-coop/*
-              - Sid: ExistingEnvironmentExtensions
-                Effect: Allow
-                Action: [s3:GetObject, s3:GetObjectAcl]
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/resources/environments/*/_runtime/_embedded_extensions/retro-coop/*
-              - Sid: InspectReleaseBucket
-                Effect: Allow
-                Action: [s3:GetBucketLocation, s3:ListBucket]
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}
-              - Sid: ReadReleaseState
-                Effect: Allow
-                Action: [elasticbeanstalk:CreateStorageLocation, elasticbeanstalk:DescribeEnvironments,
-                         elasticbeanstalk:DescribeApplicationVersions, elasticbeanstalk:DescribeApplications,
-                         elasticbeanstalk:DescribeEvents, ec2:DescribeImages]
-                Resource: '*'
-              - Sid: CreateOnlyWebsiteVersion
-                Effect: Allow
-                Action: elasticbeanstalk:CreateApplicationVersion
-                Resource:
-                  - !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:application/retro-coop
-                  - !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:applicationversion/retro-coop/main-*
-              - Sid: UpdateOnlyWebsiteEnvironment
-                Effect: Allow
-                Action: elasticbeanstalk:UpdateEnvironment
-                Resource: !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:environment/retro-coop/retro-coop-web
-              - Sid: InspectExistingEbStack
-                Effect: Allow
-                Action: [cloudformation:GetTemplate, cloudformation:DescribeStackResource]
-                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/awseb-*-stack/*
 Outputs:
   RoleArn:
     Value: !GetAtt MainCdRole.Arn
