@@ -78,6 +78,7 @@ elif [ "$D02_JOB" = network ]; then
   (cd ../.. && npm ci)
   sudo apt-get update
   sudo apt-get install -y coturn
+  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
   python3 ci_resources.py resources-before.local.json
   (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 105s sh scripts/gameplay/network.sh --seconds 30 --pair "$D02_PAIR")
   (cd ../.. && timeout --foreground 55s python3 scripts/gameplay/browser_smoke.py --seconds 8 --pair "$D02_PAIR" --relay --output "spikes/d02/relay-$D02_PAIR.local.json")
