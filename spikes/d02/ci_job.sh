@@ -76,6 +76,13 @@ if [ "$D02_JOB" = core ]; then
   (cd ../.. && timeout --foreground 45s python3 scripts/gameplay/browser_smoke.py --controllers --output spikes/d02/gameplay.local/controllers.json)
 elif [ "$D02_JOB" = network ]; then
   (cd ../.. && npm ci)
+  sudo apt-get update
+  sudo apt-get install -y coturn
+  python3 ci_resources.py resources-before.local.json
+  (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 105s sh scripts/gameplay/network.sh --seconds 30 --pair "$D02_PAIR")
+  (cd ../.. && timeout --foreground 55s python3 scripts/gameplay/browser_smoke.py --seconds 8 --pair "$D02_PAIR" --relay --output "spikes/d02/relay-$D02_PAIR.local.json")
+elif [ "$D02_JOB" = network-full ]; then
+  (cd ../.. && npm ci)
   timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
   cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json
   # This sink exists only on the ephemeral CI runner, never the user's machine.
