@@ -4,6 +4,7 @@
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tarfile
@@ -50,10 +51,14 @@ def main() -> None:
     if not candidates:
         parser.error("No successful native ARM64 CI run exists for this exact main commit")
     run_id = str(candidates[0]["databaseId"])
-    password = run("aws", "ecr", "get-login-password", "--region", REGION)
-    run(str(args.crane), "auth", "login", REPO.split("/")[0], "-u", "AWS", "--password-stdin", input_text=password)
     with tempfile.TemporaryDirectory(prefix="retro-eb-release-") as directory:
         temporary = Path(directory)
+        # Keep the short-lived ECR token out of the operator's normal Docker config.
+        docker_config = temporary / "docker-config"
+        docker_config.mkdir(mode=0o700)
+        os.environ["DOCKER_CONFIG"] = str(docker_config)
+        password = run("aws", "ecr", "get-login-password", "--region", REGION)
+        run(str(args.crane), "auth", "login", REPO.split("/")[0], "-u", "AWS", "--password-stdin", input_text=password)
         run("gh", "run", "download", run_id, "--repo", "TuringTestee/retro-coop",
             "--name", ARTIFACT, "--dir", str(temporary))
         checksums = (temporary / "SHA256SUMS").read_text().splitlines()
@@ -64,7 +69,11 @@ def main() -> None:
             if filename not in expected or filename in found or len(digest) != 64:
                 parser.error("The native ARM64 artifact has an unexpected checksum manifest")
             found.add(filename)
-            if hashlib.sha256((temporary / filename).read_bytes()).hexdigest() != digest:
+            hasher = hashlib.sha256()
+            with (temporary / filename).open("rb") as image:
+                for chunk in iter(lambda: image.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+            if hasher.hexdigest() != digest:
                 parser.error(f"CI image artifact {filename} differs from its checksum")
         if found != expected:
             parser.error("The native ARM64 artifact lacks one or more images")

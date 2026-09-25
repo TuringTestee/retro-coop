@@ -207,6 +207,7 @@ def options(outputs: dict[str, str], args: argparse.Namespace) -> list[dict]:
         setting(launch, "InstanceType", INSTANCE_TYPE),
         setting(launch, "RootVolumeType", "gp3"),
         setting(launch, "RootVolumeSize", "28"),
+        setting(launch, "DisableIMDSv1", "true"),
         setting(launch, "DisableDefaultEC2SecurityGroup", "true"),
         setting(launch, "SecurityGroups", outputs["AppSecurityGroupId"]),
         setting("aws:ec2:vpc", "VPCId", args.vpc_id),

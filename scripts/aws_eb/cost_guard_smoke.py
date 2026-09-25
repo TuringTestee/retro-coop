@@ -24,9 +24,12 @@ class Budget:
 
 
 class Parameter:
+    def __init__(self, value=IP):
+        self.value = value
+
     def get_parameter(self, **kwargs):
         assert kwargs["Name"] == CONFIG["expectedIpParameter"]
-        return {"Parameter": {"Value": IP}}
+        return {"Parameter": {"Value": self.value}}
 
 
 class Route:
@@ -58,8 +61,8 @@ class Beanstalk:
         self.terminated.append(kwargs)
 
 
-def clients(actual="40", forecast="80", ip=IP, status="Ready"):
-    return {"budgets": Budget(actual, forecast), "ssm": Parameter(), "route53": Route(ip),
+def clients(actual="40", forecast="80", ip=IP, status="Ready", expected=IP):
+    return {"budgets": Budget(actual, forecast), "ssm": Parameter(expected), "route53": Route(ip),
             "eb": Beanstalk(status)}
 
 
@@ -80,6 +83,10 @@ assert live["eb"].terminated == [{"ApplicationName": APP, "EnvironmentName": ENV
 stopped = clients(actual="100", forecast="101", ip=None, status=None)
 assert evaluate({}, stopped, CONFIG)["actions"] == []
 assert not stopped["route53"].changes and not stopped["eb"].terminated
+
+unpublished = clients(actual="100", forecast="101", ip=None, expected="UNCONFIGURED")
+assert evaluate({}, unpublished, CONFIG)["actions"] == ["terminate_named_eb_environment_and_instance"]
+assert not unpublished["route53"].changes and len(unpublished["eb"].terminated) == 1
 
 for broken in [clients(actual="1", forecast=None), clients(actual="100", forecast="101", ip="54.9.8.7")]:
     try:

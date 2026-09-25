@@ -16,6 +16,7 @@ assert settings["aws:elasticbeanstalk:environment", "EnvironmentType"] == "Singl
 assert settings["aws:autoscaling:asg", "MinSize"] == "1"
 assert settings["aws:autoscaling:asg", "MaxSize"] == "1"
 assert settings["aws:autoscaling:launchconfiguration", "InstanceType"] == "t4g.micro"
+assert settings["aws:autoscaling:launchconfiguration", "DisableIMDSv1"] == "true"
 assert settings["aws:autoscaling:launchconfiguration", "SecurityGroups"] == "sg-app"
 assert settings["aws:elasticbeanstalk:application:environmentsecrets", "TURN_SECRET"] == "arn:turn-secret"
 assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://retro-coop.1001.page"
@@ -135,6 +136,37 @@ try:
 except ValueError:
     pass
 assert state["invocations"] == 2
+
+website.instance_and_eip = lambda _outputs, _resources: ("i-reviewed", ip)
+load_state = {"availableKiB": 200000, "includeProof": True, "commands": []}
+
+
+def instance_aws(*args):
+    if args[:2] == ("ssm", "send-command"):
+        load_state["commands"] = json.loads(args[-1])["commands"]
+        return {"Command": {"CommandId": "cmd-1"}}
+    if args[:2] == ("ssm", "get-command-invocation"):
+        listeners = "127.0.0.1:8787\n127.0.0.1:8080\n0.0.0.0:80\n0.0.0.0:443\n10.0.0.5:3478\n"
+        names = "retro-coop-coordinator\nretro-coop-edge\nretro-coop-caddy\nretro-coop-turn\n"
+        proof = "MEMORY_PROOF:" + json.dumps({"rooms": 20, "romBytes": 20 * (16 + 16384),
+                                                "availableKiB": load_state["availableKiB"]}) + "\n"
+        output = listeners + names + (proof if load_state["includeProof"] else "AvailableKiB:200000\n")
+        return {"Status": "Success", "StandardOutputContent": output}
+    raise AssertionError(f"Unexpected live boundary read: {args}")
+
+
+website.aws = instance_aws
+assert website.verify_live_boundary({}, {}, load_test=True) == ip
+assert any("memory_probe.mjs" in command and "docker restart" in command for command in load_state["commands"])
+load_state["availableKiB"] = 120000
+try:
+    website.verify_live_boundary({}, {}, load_test=True)
+    raise AssertionError("Public DNS gate accepted insufficient loaded memory headroom")
+except ValueError:
+    pass
+load_state["includeProof"] = False
+assert website.verify_live_boundary({}, {}, load_test=False) == ip
+assert all("memory_probe.mjs" not in command for command in load_state["commands"])
 
 website.identity = lambda: None
 for args in (Namespace(confirm="another-site.example", hosted_zone_id="Z1", bucket=None),

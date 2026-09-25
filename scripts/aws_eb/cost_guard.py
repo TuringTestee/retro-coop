@@ -60,13 +60,14 @@ def evaluate(event: dict, clients: dict, config: dict) -> dict:
         return result
 
     expected = clients["ssm"].get_parameter(Name=config["expectedIpParameter"])["Parameter"]["Value"]
-    try:
-        expected = str(ipaddress.IPv4Address(expected))
-    except ipaddress.AddressValueError as error:
-        raise GuardError("Recorded website Elastic IP is invalid") from error
     record = website_record(clients["route53"], config["zoneId"])
-    if record and (record.get("ResourceRecords") != [{"Value": expected}] or record.get("AliasTarget")):
-        raise GuardError("Website DNS no longer points at the recorded Retro Coop Elastic IP")
+    if record:
+        try:
+            expected = str(ipaddress.IPv4Address(expected))
+        except ipaddress.AddressValueError as error:
+            raise GuardError("Recorded website Elastic IP is invalid") from error
+        if record.get("ResourceRecords") != [{"Value": expected}] or record.get("AliasTarget"):
+            raise GuardError("Website DNS no longer points at the recorded Retro Coop Elastic IP")
     environments = clients["eb"].describe_environments(ApplicationName=APP, EnvironmentNames=[ENV],
                                                           IncludeDeleted=False)["Environments"]
     if len(environments) > 1 or environments and environments[0].get("EnvironmentArn") != \
