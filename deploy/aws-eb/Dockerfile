@@ -47,6 +47,7 @@ COPY packages/contracts/package.json packages/contracts/package.json
 RUN npm ci --omit=dev
 COPY apps/coordinator/src apps/coordinator/src
 COPY packages/contracts/src packages/contracts/src
+COPY scripts/aws_eb/memory_probe.mjs /app/memory_probe.mjs
 RUN install -d -m 0700 -o node -g node /run/retro-coop-roms
 USER 1000:1000
 ENV COORDINATOR_STAGE=staging

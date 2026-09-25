@@ -245,7 +245,8 @@ def instance_and_eip(outputs: dict[str, str], resources: dict) -> tuple[str, str
 def verify_live_boundary(outputs: dict[str, str], resources: dict) -> str:
     instance_id, ip = instance_and_eip(outputs, resources)
     commands = ["ss -H -ltn", "ss -H -lun", "curl -fsS http://127.0.0.1:8080/healthz",
-                "docker ps --format '{{.Names}}'", "awk '/MemAvailable/{print \"AvailableKiB:\" $2}' /proc/meminfo"]
+                "docker ps --format '{{.Names}}'",
+                "coordinator=$(docker ps --filter label=com.docker.compose.service=coordinator --format '{{.ID}}'); test -n \"$coordinator\" && docker exec \"$coordinator\" node /app/memory_probe.mjs"]
     command_id = aws("ssm", "send-command", "--instance-ids", instance_id, "--document-name", "AWS-RunShellScript",
                      "--parameters", json.dumps({"commands": commands}))["Command"]["CommandId"]
     deadline = time.monotonic() + 90
@@ -258,9 +259,11 @@ def verify_live_boundary(outputs: dict[str, str], resources: dict) -> str:
             names = output.splitlines()
             if not all(any(service in name for name in names) for service in ("coordinator", "edge", "caddy", "turn")):
                 raise ValueError("The single-instance Compose services are incomplete")
-            match = re.search(r"AvailableKiB:(\d+)", output)
-            if not match or int(match.group(1)) < 128000:
-                raise ValueError("The micro instance has less than 128 MiB available at idle; inspect memory before DNS")
+            match = re.search(r"^MEMORY_PROOF:(\{[^\n]+\})$", output, re.MULTILINE)
+            proof = json.loads(match.group(1)) if match else {}
+            if proof.get("rooms") != 20 or proof.get("romBytes") != 20 * (16 + 16384) or \
+                    proof.get("availableKiB", 0) < 128000:
+                raise ValueError("The 20-room ROM workload lacks 128 MiB host memory headroom; inspect before DNS")
             return ip
         if result["Status"] in ("Failed", "Cancelled", "TimedOut"):
             raise ValueError("SSM could not confirm the single-instance boundary")

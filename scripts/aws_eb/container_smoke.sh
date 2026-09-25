@@ -57,6 +57,8 @@ until curl --silent --fail http://127.0.0.1:18080/healthz >/dev/null; do
 done
 node scripts/aws_eb/edge_probe.mjs http://127.0.0.1:8080
 node scripts/aws_eb/caddy_probe.mjs http://127.0.0.1:18080
+coordinator_id=$(docker compose -p "$project" -f "$temporary/docker-compose.yml" -f "$temporary/local.yml" ps -q coordinator)
+docker exec "$coordinator_id" node /app/memory_probe.mjs
 python3 scripts/aws_eb/source_smoke.py --compose "$temporary/docker-compose.yml"
 docker compose -p "$project" -f "$temporary/docker-compose.yml" -f "$temporary/local.yml" exec -T turn \
   turnutils_uclient -v -c -n 0 -e 8.8.8.8 -p 3478 -W "$TURN_SECRET" 127.0.0.1 > "$temporary/turn-valid.log"
