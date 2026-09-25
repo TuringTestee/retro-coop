@@ -343,6 +343,9 @@ def verify_guard(outputs: dict[str, str], ip: str, old_ip: str | None) -> tuple[
     subscribers = aws("sns", "list-subscriptions-by-topic", "--topic-arn", outputs["GuardAlertTopicArn"])["Subscriptions"]
     if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" for row in subscribers):
         raise ValueError("The cost guard failure alert recipient is missing")
+    if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" and
+               row.get("SubscriptionArn", "PendingConfirmation") != "PendingConfirmation" for row in subscribers):
+        print("Guard failure email is pending; inspect its CloudWatch alarms until confirmed.", file=sys.stderr)
     for name, namespace, metric, dimension in (
         ("retro-coop-cost-guard-errors", "AWS/Lambda", "Errors", "FunctionName"),
         ("retro-coop-cost-guard-delivery-errors", "AWS/Scheduler", "TargetErrorCount", "ScheduleGroup"),

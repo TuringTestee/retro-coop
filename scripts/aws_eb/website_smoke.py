@@ -2,6 +2,8 @@
 """Exercise the one-machine EB operator's scoping and public DNS gates without AWS."""
 
 from argparse import Namespace
+from contextlib import redirect_stderr
+from io import StringIO
 import json
 from pathlib import Path
 
@@ -134,7 +136,10 @@ except ValueError:
 notifications[0].pop("ThresholdType")
 assert state["invocations"] == 1
 state["confirmed"] = False
-website.verify_guard(settings_guard, ip, ip)
+warning = StringIO()
+with redirect_stderr(warning):
+    website.verify_guard(settings_guard, ip, ip)
+assert "Guard failure email is pending" in warning.getvalue()
 assert state["invocations"] == 2
 state["confirmed"] = True
 state["scheduleDryRun"] = True
