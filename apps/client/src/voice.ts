@@ -73,7 +73,7 @@ export class VoiceSession {
   if(!this.audio.srcObject)return;
   const pc=this.pc;
   try{await this.audio.play();if(this.pc===pc && this.state.listening)this.publish({playbackError:undefined});}
-  catch{if(this.pc===pc && this.state.listening)this.publish({playbackError:'Remote voice playback was blocked. Enable voice sound to retry.'});}
+  catch{if(this.pc===pc && this.state.listening)this.publish({playbackError:'Remote voice playback was blocked.'});}
  }
  retrySound(){this.publish({listening:true});void this.play();}
  remoteMute(remoteMuted:boolean){this.audio.muted=remoteMuted;this.publish({remoteMuted});if(!remoteMuted)void this.play();}

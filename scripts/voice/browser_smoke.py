@@ -4,6 +4,7 @@ from playwright.sync_api import sync_playwright
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--chrome", action="store_true")
+parser.add_argument("--rom", help="Optional authorized local game for screenshot evidence; default is original diagnostic")
 parser.add_argument(
     "--pair",
     choices=["Chrome-Chrome", "Chrome-Firefox", "Firefox-Firefox"],
@@ -37,7 +38,7 @@ try:
         text=True,
     )
     url = json.loads(server.stdout.readline())["url"]
-    rom = (root / "apps/client/dist/generated/diagnostic.nes").read_bytes()
+    rom = (Path(args.rom) if args.rom else root / "apps/client/dist/generated/diagnostic.nes").read_bytes()
     p = sync_playwright().start()
     stack.callback(p.stop)
     browsers = {}
@@ -326,8 +327,15 @@ try:
     assert (
         host.evaluate("timelineWrites") == timeline_before
     ), "voice changed the local emulator timeline"
+    from sidebar_smoke import run as sidebar_proof, solo as solo_proof
+    sidebar = sidebar_proof(host, guest, args.output)
+    solo = solo_proof(next(iter(browsers.values())), url, rom, args.output, root)
     assert not errors, errors
     result = {
+        "play_sidebar": sidebar,
+        "solo_sidebar": solo,
+        "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
+        "rom_source": "authorized local file" if args.rom else "original diagnostic",
         "pair": args.pair,
         "versions": {name: browser.version for name, browser in browsers.items()},
         "route": "relay" if args.relay else "direct",
@@ -363,7 +371,7 @@ except BaseException:
         try:
             failure.append(
                 tab.evaluate(
-                    """async()=>({diagnostics:peerDiagnostics(),peerErrors,iceErrors,candidateShapes,focus:document.hasFocus(),hidden:document.hidden,microphone:document.querySelector('[data-testid=microphone-status]')?.textContent,connection:document.querySelector('[data-testid=connection-status]')?.textContent,tracks:captures.map(s=>s.getTracks().map(t=>({state:t.readyState,enabled:t.enabled}))),peers:await Promise.all(pcs.map(async pc=>({state:pc.connectionState,stats:[...(await pc.getStats().catch(()=>new Map())).values()].filter(s=>['transport','candidate-pair','local-candidate','remote-candidate','inbound-rtp','outbound-rtp'].includes(s.type)).map(s=>({type:s.type,kind:s.kind,candidateType:s.candidateType,selected:s.selected,nominated:s.nominated,state:s.state,dtls:s.dtlsState,packetsReceived:s.packetsReceived,packetsSent:s.packetsSent,totalAudioEnergy:s.totalAudioEnergy}))})))})"""
+                    """async()=>({visibleText:document.querySelector("main")?.innerText,diagnostics:peerDiagnostics(),peerErrors,iceErrors,candidateShapes,focus:document.hasFocus(),hidden:document.hidden,microphone:document.querySelector('[data-testid=microphone-status]')?.textContent,connection:document.querySelector('[data-testid=connection-status]')?.textContent,tracks:captures.map(s=>s.getTracks().map(t=>({state:t.readyState,enabled:t.enabled}))),peers:await Promise.all(pcs.map(async pc=>({state:pc.connectionState,stats:[...(await pc.getStats().catch(()=>new Map())).values()].filter(s=>['transport','candidate-pair','local-candidate','remote-candidate','inbound-rtp','outbound-rtp'].includes(s.type)).map(s=>({type:s.type,kind:s.kind,candidateType:s.candidateType,selected:s.selected,nominated:s.nominated,state:s.state,dtls:s.dtlsState,packetsReceived:s.packetsReceived,packetsSent:s.packetsSent,totalAudioEnergy:s.totalAudioEnergy}))})))})"""
                 )
             )
         except Exception as error:
