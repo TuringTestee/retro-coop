@@ -36,6 +36,7 @@ def run(host,guest,out,root,errors,source,build_files):
     assert card.locator('.play-bindings').count() == (1 if role==p1 else 0)
    else:
     assert ('Player 1' if role==p1 else 'Player 2') in card.inner_text()
+  for page in pages:page.locator('.room-panel').evaluate('(panel)=>panel.scrollTop=0')
   host.screenshot(path=str(out.with_suffix(f'.sidebar-{mode}-{p1}-host.png')))
   guest.screenshot(path=str(out.with_suffix(f'.sidebar-{mode}-{p1}-guest.png')))
  def resume():
