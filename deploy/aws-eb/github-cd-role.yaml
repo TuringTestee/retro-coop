@@ -21,7 +21,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: repo:TuringTestee/retro-coop:ref:refs/heads/main
+                token.actions.githubusercontent.com:sub: repo:TuringTestee@323081593/retro-coop@1367824645:ref:refs/heads/main
       Policies:
         - PolicyName: ExistingWebsiteRelease
           PolicyDocument:
