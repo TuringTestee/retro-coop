@@ -46,6 +46,10 @@ Resources:
                 Effect: Allow
                 Action: [s3:GetBucketLocation, s3:ListBucket]
                 Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}
+              - Sid: ReadWebsiteEmbeddedExtensions
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/resources/environments/e-grgen3xiim/_runtime/_embedded_extensions/retro-coop/*
               - Sid: ReadReleaseState
                 Effect: Allow
                 Action: [elasticbeanstalk:CreateStorageLocation, elasticbeanstalk:DescribeEnvironments,
