@@ -15,7 +15,8 @@ from package import ROOT, render
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--compose", type=Path)
 args = parser.parse_args()
-image = "599796577790.dkr.ecr.us-east-1.amazonaws.com/retro-coop@sha256:"
+account = "1" * 12
+image = f"{account}.dkr.ecr.us-east-1.amazonaws.com/retro-coop@sha256:"
 edge, coordinator, caddy, turn = [image + token * 64 for token in "abcd"]
 compose = render(edge, coordinator, caddy, turn)
 assert all(value in compose for value in (edge, coordinator, caddy, turn))
@@ -25,6 +26,11 @@ for invalid in ["retro-coop:latest", "us-east-1.example/retro-coop@sha256:" + "a
         raise AssertionError("Mutable or foreign image was accepted")
     except ValueError:
         pass
+try:
+    render(edge.replace(account, "2" * 12), coordinator, caddy, turn)
+    raise AssertionError("Images from different accounts were accepted")
+except ValueError:
+    pass
 with tempfile.TemporaryDirectory(prefix="retro-eb-source-") as directory:
     temporary = Path(directory)
     manifest = temporary / "assets.json"

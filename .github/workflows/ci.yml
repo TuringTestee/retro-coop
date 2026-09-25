@@ -252,3 +252,120 @@ jobs:
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    concurrency:
+      group: retro-coop-production
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require this push to be current main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          git checkout -B main "$GITHUB_SHA"
+          test -z "$(git status --porcelain)"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: aws-eb-arm64-images
+          path: aws-eb-arm64-images
+      - name: Obtain temporary AWS credentials
+        id: credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: retro-coop-main-cd
+          output-credentials: true
+          mask-aws-account-id: true
+      - name: Install pinned image publisher
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            https://github.com/google/go-containerregistry/releases/download/v0.20.6/go-containerregistry_Linux_x86_64.tar.gz \
+            --output /tmp/go-containerregistry.tar.gz
+          echo 'c1d593d01551f2c9a3df5ca0a0be4385a839bd9b86d4a76e18d7b17d16559127  /tmp/go-containerregistry.tar.gz' | sha256sum --check
+          mkdir -p /tmp/retro-eb-tools
+          tar -xzf /tmp/go-containerregistry.tar.gz -C /tmp/retro-eb-tools crane
+      - name: Publish checked images and bundle
+        id: package
+        run: |
+          set -euo pipefail
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+          python3 scripts/aws_eb/build_release.py --crane /tmp/retro-eb-tools/crane \
+            --artifact-dir "$GITHUB_WORKSPACE/aws-eb-arm64-images" \
+            --output "$GITHUB_WORKSPACE/retro-coop-release.zip"
+      - name: Select existing Elastic Beanstalk environment
+        id: release
+        env:
+          EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENVIRONMENT_NAME: ${{ vars.EB_ENVIRONMENT_NAME }}
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" && test -n "$EB_APPLICATION_NAME" && test -n "$EB_ENVIRONMENT_NAME"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          read -r previous state health < <(aws elasticbeanstalk describe-environments \
+            --application-name "$EB_APPLICATION_NAME" --environment-names "$EB_ENVIRONMENT_NAME" \
+            --query 'Environments[0].[VersionLabel,Status,Health]' --output text)
+          test "$previous" != None && test "$state" = Ready && test "$health" = Green
+          bucket=$(aws elasticbeanstalk create-storage-location --query S3Bucket --output text)
+          test -n "$bucket" && test "$bucket" != None
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "bucket=$bucket" >> "$GITHUB_OUTPUT"
+          echo "version=main-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - name: Deploy to EB
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ steps.credentials.outputs.aws-access-key-id }}
+          aws_secret_key: ${{ steps.credentials.outputs.aws-secret-access-key }}
+          aws_session_token: ${{ steps.credentials.outputs.aws-session-token }}
+          application_name: ${{ vars.EB_APPLICATION_NAME }}
+          environment_name: ${{ vars.EB_ENVIRONMENT_NAME }}
+          version_label: ${{ steps.release.outputs.version }}
+          version_description: ${{ github.sha }}
+          region: ${{ vars.AWS_REGION }}
+          deployment_package: retro-coop-release.zip
+          existing_bucket_name: ${{ steps.release.outputs.bucket }}
+          use_existing_version_if_available: true
+          wait_for_environment_recovery: 120
+      - name: Confirm live version and HTTPS
+        env:
+          EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENVIRONMENT_NAME: ${{ vars.EB_ENVIRONMENT_NAME }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          PREVIOUS_VERSION: ${{ steps.release.outputs.previous }}
+          EXPECTED_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_STARTED: ${{ steps.package.outputs.started }}
+        run: |
+          set -euo pipefail
+          test -n "$SITE_URL"
+          read -r actual state health < <(aws elasticbeanstalk describe-environments \
+            --application-name "$EB_APPLICATION_NAME" --environment-names "$EB_ENVIRONMENT_NAME" \
+            --query 'Environments[0].[VersionLabel,Status,Health]' --output text)
+          test "$actual" = "$EXPECTED_VERSION" && test "$state" = Ready && test "$health" = Green
+          curl --fail --silent --show-error --max-time 15 "${SITE_URL%/}/healthz" | grep -q retro-coop
+          {
+            echo '### Website release'
+            echo "Source: $GITHUB_SHA"
+            echo "Previous version: $PREVIOUS_VERSION"
+            echo "Live version: $actual"
+            echo "EB status: $state / $health"
+            echo "Public endpoint: $SITE_URL"
+            echo "Release elapsed: $(( $(date +%s) - RELEASE_STARTED )) seconds"
+          } >> "$GITHUB_STEP_SUMMARY"

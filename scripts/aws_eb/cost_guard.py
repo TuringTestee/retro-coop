@@ -3,10 +3,11 @@
 import ipaddress
 import json
 import os
+import re
 from decimal import Decimal, InvalidOperation
 
 
-ACCOUNT = "599796577790"
+ACCOUNT = os.environ.get("ACCOUNT_ID")
 BUDGET = "retro-coop-website-monthly"
 APP = "retro-coop"
 ENV = "retro-coop-web"
@@ -49,7 +50,8 @@ def website_record(route, zone_id: str) -> dict | None:
 
 
 def evaluate(event: dict, clients: dict, config: dict) -> dict:
-    if config["account"] != ACCOUNT or config["hostname"] != HOST or not config["zoneId"].startswith("Z") or \
+    if not ACCOUNT or not re.fullmatch(r"[0-9]{12}", ACCOUNT) or config["account"] != ACCOUNT or \
+            config["hostname"] != HOST or not config["zoneId"].startswith("Z") or \
             config["expectedIpParameter"] != "/retro-coop/website/expected-ip":
         raise GuardError("Cost guard configuration differs from the named website")
     actual, forecast = current_budget(clients["budgets"])

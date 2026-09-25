@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Prove monthly threshold and exact one-machine shutdown without AWS calls."""
 
+import os
+
+os.environ["ACCOUNT_ID"] = "1" * 12
+
 from cost_guard import ACCOUNT, APP, BUDGET, ENV, HOST, GuardError, evaluate
 
 
