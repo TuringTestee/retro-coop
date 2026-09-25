@@ -188,4 +188,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -o pipefail
           python3 spikes/d02/post_release_summary.py --network-dir /tmp/post-release-network --core-dir /tmp/post-release-core | tee "$GITHUB_STEP_SUMMARY"
