@@ -136,7 +136,7 @@ export class Rooms {
    const room=this.room(session);
    if(command.type==='peerRetry') this.rate(session,'peerRetry',5,60_000);
    try {this.peers.handle(room.id,token,command as Exclude<import('../../../packages/contracts/src/peer.ts').PeerCommand,{type:'peerPolicy'}>);}catch(error) {if(error instanceof PeerError) throw new RoomError(error.message);throw error;}
-   if(command.type==='peerSignal') return {};
+   if(command.type==='peerSignal'||command.type==='peerRoute') return {};
    this.publish(room,false);return {room:this.view(room,session)};
   }
   if(command.type==='gameControllerPropose'||command.type==='gameControllerRespond'||command.type==='gameControllerCancel'||command.type==='gameReady'||command.type==='gameUnready'||command.type==='gameAck'||command.type==='gamePause'||command.type==='gamePaused'||command.type==='gameResume'||command.type==='gameAbort') {

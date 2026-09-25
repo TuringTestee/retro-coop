@@ -1,10 +1,10 @@
 import type {RoomRole} from '../../../packages/contracts/src/rooms.ts';
 import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
-import {connectionRoute} from './peer-route.ts';
+import {connectionMetrics} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type PeerMedia={prepare(pc:RTCPeerConnection,role:RoomRole):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
 export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
-export type ConnectionState={status:string;route?:'direct'|'relay';epoch?:string};
+export type ConnectionState={status:string;route?:'direct'|'relay';pingMs?:number;epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
 export class PeerConnection {
  private pc?:RTCPeerConnection;
@@ -14,11 +14,13 @@ export class PeerConnection {
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
  private routeTimer?:ReturnType<typeof setTimeout>;
+ private statsTimer?:ReturnType<typeof setInterval>;
+ private reportedRoute?:'direct'|'relay';
  private serial=Promise.resolve();
  private connectedState?:ConnectionState;
  private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
  constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
- close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
+ close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;this.reportedRoute=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);clearInterval(this.statsTimer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
  private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {this.close(event.reason);return;}
@@ -35,7 +37,7 @@ export class PeerConnection {
      // ICE disconnected is transient; native failure/channel closure are terminal.
      // Known-input scheduling and its existing stall bound still govern gameplay.
      else if(pc.connectionState==='disconnected')this.update({status:'Connection interrupted. Waiting for transport recovery.',epoch});
-     else if(pc.connectionState==='connected'&&this.connectedState){this.update(this.connectedState);if(!this.connectedState.route)this.refreshRoute(epoch,20);}
+     else if(pc.connectionState==='connected'&&this.connectedState){this.update({...this.connectedState,pingMs:undefined});void this.sampleMetrics(epoch);if(!this.connectedState.route)this.refreshRoute(epoch,20);}
     };
     pc.ondatachannel=({channel})=>{if(this.epoch===epoch) this.wire(channel,epoch);else channel.close();};
     this.timer=setTimeout(()=>this.fail(epoch),peerLimits.prepareMs+peerLimits.connectMs);
@@ -81,19 +83,34 @@ export class PeerConnection {
   clearTimeout(this.timer);
   try {
    const stats=await this.pc!.getStats();if(this.epoch!==epoch) return;
-   const route=connectionRoute(stats);
-   this.update({status:'Peer transport connected.',route,epoch});
-   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',route,epoch};this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);if(!route)this.refreshRoute(epoch,20);}
+   const metrics=connectionMetrics(stats);
+   this.update({status:'Peer transport connected.',...metrics,epoch});
+   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',...metrics,epoch};this.reportRoute(epoch,metrics.route);this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);if(!metrics.route)this.refreshRoute(epoch,20);this.statsTimer=setInterval(()=>void this.sampleMetrics(epoch),2000);}
   }catch {this.fail(epoch);}
+ }
+ private reportRoute(epoch:string,route:'direct'|'relay'|undefined) {
+  if(!route||this.epoch!==epoch||this.reportedRoute===route)return;
+  this.reportedRoute=route;
+  void this.send({type:'peerRoute',epoch,route}).catch(()=>{if(this.epoch===epoch&&this.reportedRoute===route)this.reportedRoute=undefined;});
+ }
+ private async sampleMetrics(epoch:string) {
+  const pc=this.pc;if(this.epoch!==epoch||!pc||!this.connectedState||pc.connectionState!=='connected')return;
+  try {
+   const metrics=connectionMetrics(await pc.getStats());
+   if(this.epoch!==epoch||this.pc!==pc||!this.connectedState||pc.connectionState!=='connected')return;
+   const next={...this.connectedState,...metrics};
+   if(next.route!==this.connectedState.route||next.pingMs!==this.connectedState.pingMs){this.connectedState=next;this.update(next);}
+   this.reportRoute(epoch,metrics.route);
+  }catch {if(this.epoch===epoch&&this.connectedState?.pingMs!==undefined){this.connectedState={...this.connectedState,pingMs:undefined};this.update(this.connectedState);}}
  }
  private refreshRoute(epoch:string,remaining:number) {
   clearTimeout(this.routeTimer);
   this.routeTimer=setTimeout(async()=>{
    const pc=this.pc;if(this.epoch!==epoch||!pc||!this.connectedState||pc.connectionState!=='connected')return;
    try {
-    const route=connectionRoute(await pc.getStats());
+    const metrics=connectionMetrics(await pc.getStats());
     if(this.epoch!==epoch||this.pc!==pc||!this.connectedState||pc.connectionState!=='connected')return;
-    if(route){this.connectedState={...this.connectedState,route};this.update(this.connectedState);return;}
+    if(metrics.route){this.connectedState={...this.connectedState,...metrics};this.update(this.connectedState);this.reportRoute(epoch,metrics.route);return;}
    }catch {return;}
    if(remaining>1)this.refreshRoute(epoch,remaining-1);
   },100);

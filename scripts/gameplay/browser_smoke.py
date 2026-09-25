@@ -259,18 +259,23 @@ try:
    # This is the measured workload interval, never a guessed startup wait.
    while measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed)<args.seconds:h.wait_for_timeout(20)
    active_seconds=round(measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed),2)
-   expected_status='Relay only is on. Connected through the relay.' if args.relay else 'Direct connection unavailable. Relay keeps you playing together.' if args.standard_fallback else 'Route: direct.'
+   expected_status='Relay only is on. Connected through the relay.' if args.relay else 'Direct connection unavailable. Relay keeps you playing together.' if args.standard_fallback else None
    for tab in [h,g]:
+    tab.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent.match(/FPS [1-9][0-9]*/)",timeout=5000)
+    tab.wait_for_function("document.querySelector('[data-testid=game-ping]')?.textContent.match(/^Ping [0-9]+ ms$/)",timeout=5000)
     status_node=tab.get_by_test_id('connection-status')
-    assert status_node.is_visible() and expected_status in status_node.inner_text(), 'Connection route status must remain visible during shared play'
-   status_node=h.get_by_test_id('connection-status')
-   status_node.evaluate("node=>node.style.display='none'")
-   assert not status_node.is_visible(), 'The visibility check must reject hidden status text'
-   status_node.evaluate("node=>node.style.display=''")
-   assert status_node.is_visible(), 'The status must be restored after the negative check'
+    if expected_status:assert status_node.is_visible() and expected_status in status_node.inner_text(), 'A selected relay path must be explained during shared play'
+    else:assert status_node.count()==0 and tab.locator('.relay-notice').count()==0, 'Direct play must have no relay warning'
+   if expected_status:
+    status_node=h.get_by_test_id('connection-status')
+    status_node.evaluate("node=>node.style.display='none'")
+    assert not status_node.is_visible(), 'The visibility check must reject hidden status text'
+    status_node.evaluate("node=>node.style.display=''")
+    assert status_node.is_visible(), 'The status must be restored after the negative check'
    if args.screenshots:
     h.set_viewport_size({'width':390,'height':844})
-    assert h.get_by_test_id('connection-status').is_visible()
+    if expected_status:assert h.get_by_test_id('connection-status').is_visible()
+    else:assert h.get_by_test_id('game-fps').is_visible()
     assert h.evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Mobile room overflows horizontally'
     h.screenshot(path=str(out.with_suffix('.mobile.shared-playing.png')),full_page=True)
     h.set_viewport_size({'width':1366 if args.short_viewport else 1280,'height':682 if args.short_viewport else 1050})
@@ -279,7 +284,10 @@ try:
    final=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert final[0]==final[1],final
    hashes=[tab.evaluate('proof.sentHashes') for tab in [h,g]];assert hashes[0]==hashes[1], 'Every epoch/frame hash must be present and identical on both peers';assert len(hashes[0])>=2
    route='relay' if args.relay or args.standard_fallback else 'direct'
-   for tab in [h,g]:assert expected_status in tab.get_by_test_id('connection-status').inner_text()
+   for tab in [h,g]:
+    if expected_status:assert expected_status in tab.get_by_test_id('connection-status').inner_text()
+    else:assert tab.get_by_test_id('connection-status').count()==0
+    tab.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent==='FPS —'",timeout=3000)
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'
