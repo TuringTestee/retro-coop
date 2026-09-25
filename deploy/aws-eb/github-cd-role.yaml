@@ -46,7 +46,8 @@ Resources:
               - Sid: ReleaseBundleObjects
                 Effect: Allow
                 Action: [s3:PutObject, s3:GetObject, s3:GetObjectAcl]
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/retro-coop/*
+                # beanstalk-deploy v21 prefixes its S3 key with / before the application name.
+                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}//retro-coop/*
               - Sid: ExistingEnvironmentExtensions
                 Effect: Allow
                 Action: [s3:GetObject, s3:GetObjectAcl]
