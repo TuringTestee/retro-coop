@@ -12,12 +12,6 @@ import {uploadRoomFile} from './room-upload.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, Visibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
 export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; uploading?:boolean; confirmingRoom?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; needsNewGuest?:boolean; admissionBlocked?:boolean };
-export function connectionStatus(state:RoomState) {
- const status=state.room?.peer.status;
- if(status==='relay_unavailable') return 'Relay service is unavailable. Stay in the room or retry; Relay only will not switch to direct.';
- if(status==='relay_capacity') return 'Relay capacity is full. Stay in the room or retry; Relay only will not switch to direct.';
- return (state.connection?.status ?? 'No peer connection.')+(state.connection?.route ? ` Route: ${state.connection.route}.`:'');
-}
 const messages:Record<string,string> = {
  capacity:'Room capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',place_taken:'The guest place was just taken. Review the room or try another.',
  room_unavailable:'This room is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
