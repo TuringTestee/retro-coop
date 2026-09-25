@@ -201,6 +201,7 @@ def options(outputs: dict[str, str], args: argparse.Namespace) -> list[dict]:
     return [
         setting(environment_ns, "EnvironmentType", "SingleInstance"),
         setting(environment_ns, "ServiceRole", args.service_role),
+        setting("aws:elasticbeanstalk:healthreporting:system", "SystemType", "basic"),
         setting("aws:autoscaling:asg", "MinSize", "1"),
         setting("aws:autoscaling:asg", "MaxSize", "1"),
         setting(launch, "IamInstanceProfile", outputs["EbProfileName"]),
