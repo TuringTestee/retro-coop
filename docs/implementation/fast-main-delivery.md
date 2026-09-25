@@ -32,6 +32,15 @@ The integrated release gate is the live host-and-guest card: it may close only a
 5. After EB reports Ready/Green, exercise the public HTTPS URL in two fresh browser contexts: claim an empty included room, join from the second context, prepare, start, run synchronized frames for 30 seconds, see numeric FPS/ping and no direct-path relay notice, then leave. Verify the served source/version and health. If deploy or live check fails, restore the previous EB version, verify its health and HTTPS endpoint, and fail CD with both versions and the failure reason. Publish deployment status and a readable run summary. A rollback creates a visible main/live mismatch to repair, rather than a false green sync claim.
 6. Run the existing 600-second multi-browser and broader core qualification after release on a schedule and on demand. Preserve evidence and report failures. A confirmed live regression triggers rollback and a repair PR; a flaky infrastructure failure does not silently roll back healthy players.
 
+## Main-only credential bootstrap
+
+The AWS role accepts only `repo:TuringTestee/retro-coop:ref:refs/heads/main`. A pull-request run cannot assume it, and granting PR branches production access just to make a premerge test possible would break that boundary. The automatic CD workflow therefore has two acceptance stages:
+
+1. Before merging the enabling workflow, independently review its exact-source selection, role policy, recovery path and workflow wiring. Require green PR checks, a deployed-role trust and permission readback, a timed package of an existing successful main CI artifact, and focused failure-path tests. Record the current healthy EB version. This establishes readiness to run on main; it does not claim a live CD result.
+2. Merge the reviewed workflow. Its first successful main CI run must assume the role and deploy that same main commit. Keep the automatic-deployment card **In Review** until the workflow records the triggering CI run, exact source SHA, previous and new EB versions, Ready/Green health, public HTTPS response and actual time from CI completion to verification. Compare the live version with the main commit before closing the card. If the run fails or times out, inspect the EB version and health, restore the recorded previous version when needed, publish the failure and repair the workflow in a reviewed PR. Do not report main and live as synchronized while they differ.
+
+This sequence supplies the live integration evidence at the first point where main-only OIDC access exists. It does not weaken the trust rule, introduce a static AWS key or mark the delivery complete based on a PR simulation. The following integrated live-check card adds the automatic two-browser acceptance and rollback; the first bootstrap run retains the existing EB and HTTPS checks and an operator recovery path.
+
 ## Acceptance
 
 - A reviewed main commit with passing fast CI automatically reaches the website without a local operator command. The public site's version matches that commit after CD succeeds.
