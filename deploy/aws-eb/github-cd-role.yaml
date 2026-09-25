@@ -46,8 +46,10 @@ Resources:
               - Sid: ReleaseBundleObjects
                 Effect: Allow
                 Action: [s3:PutObject, s3:GetObject, s3:GetObjectAcl]
-                # beanstalk-deploy v21 prefixes its S3 key with / before the application name.
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}//retro-coop/*
+                # v21 constructs a leading-slash key, while the observed S3 request uses the normal path.
+                Resource:
+                  - !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/retro-coop/*
+                  - !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}//retro-coop/*
               - Sid: ExistingEnvironmentExtensions
                 Effect: Allow
                 Action: [s3:GetObject, s3:GetObjectAcl]
