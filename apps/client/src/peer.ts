@@ -35,7 +35,7 @@ export class PeerConnection {
      // ICE disconnected is transient; native failure/channel closure are terminal.
      // Known-input scheduling and its existing stall bound still govern gameplay.
      else if(pc.connectionState==='disconnected')this.update({status:'Connection interrupted. Waiting for transport recovery.',epoch});
-     else if(pc.connectionState==='connected'&&this.connectedState)this.update(this.connectedState);
+     else if(pc.connectionState==='connected'&&this.connectedState){this.update(this.connectedState);if(!this.connectedState.route)this.refreshRoute(epoch,20);}
     };
     pc.ondatachannel=({channel})=>{if(this.epoch===epoch) this.wire(channel,epoch);else channel.close();};
     this.timer=setTimeout(()=>this.fail(epoch),peerLimits.prepareMs+peerLimits.connectMs);
@@ -89,10 +89,10 @@ export class PeerConnection {
  private refreshRoute(epoch:string,remaining:number) {
   clearTimeout(this.routeTimer);
   this.routeTimer=setTimeout(async()=>{
-   const pc=this.pc;if(this.epoch!==epoch||!pc||!this.connectedState)return;
+   const pc=this.pc;if(this.epoch!==epoch||!pc||!this.connectedState||pc.connectionState!=='connected')return;
    try {
     const route=connectionRoute(await pc.getStats());
-    if(this.epoch!==epoch||this.pc!==pc||!this.connectedState)return;
+    if(this.epoch!==epoch||this.pc!==pc||!this.connectedState||pc.connectionState!=='connected')return;
     if(route){this.connectedState={...this.connectedState,route};this.update(this.connectedState);return;}
    }catch {return;}
    if(remaining>1)this.refreshRoute(epoch,remaining-1);
