@@ -63,4 +63,7 @@ assert "AWS::EC2::Instance" not in foundation and "AWS::ElasticLoadBalancing" no
 assert "FromPort: 443" in foundation and "FromPort: 3478" in foundation
 assert "ScheduleExpression: rate(6 hours)" in foundation and "State: ENABLED" in foundation
 assert "Handler: cost_guard.handler" in foundation and "GuardDeliveryAlarm:" in foundation
+topic_policy = foundation.split("  GuardTopicPolicy:", 1)[1].split("Outputs:", 1)[0]
+assert topic_policy.count("Sid: AllowAccountPublish") == 1
+assert topic_policy.count("Sid: AllowCloudWatchPublish") == 1
 print("EB source boundary passed (four immutable images, one ARM64 host, loopback web, Caddy peer, bounded TURN, scheduled guard, no SSH).")
