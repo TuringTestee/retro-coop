@@ -101,3 +101,22 @@ test('ICE completion markers remain authenticated and safe under relay-only poli
  assert.equal(parseRoomCommand({...command,signal:{...command.signal,candidate:{...command.signal.candidate,candidate:' '}}}),undefined);
  assert.throws(()=>t.act(host.token,{...command,epoch:randomUUID()}),/stale_peer/);
 });
+
+test('selected routes log once per member and epoch without connection secrets',t=>{
+ const lines:string[]=[];t.mock.method(console,'info',(line:string)=>lines.push(line));
+ const setupRoom=setup(1),{host,peer,room}=setupRoom.pair(),epoch=room.peer.epoch!;
+ const route=(token:string,selected:'direct'|'relay')=>setupRoom.act(token,{type:'peerRoute',epoch,route:selected});
+ assert.equal(parseRoomCommand({type:'peerRoute',requestId:randomUUID(),epoch,route:'host'}),undefined);
+ assert.throws(()=>route(host.token,'direct'),/peer_not_connected/);
+ setupRoom.act(host.token,{type:'peerAck',epoch});setupRoom.act(peer.token,{type:'peerAck',epoch});
+ setupRoom.act(host.token,{type:'peerConnected',epoch});route(host.token,'direct');route(host.token,'direct');
+ setupRoom.act(peer.token,{type:'peerConnected',epoch});route(peer.token,'relay');
+ assert.equal(lines.length,2);
+ const logged=lines.map(line=>JSON.parse(line));
+ assert.deepEqual(logged.map(line=>[line.event,line.role,line.route]),[['peer_route','host','direct'],['peer_route','guest','relay']]);
+ for(const line of lines)assert.doesNotMatch(line,/candidate|credential|sdp|token|127\.0\.0\.1/);
+ assert.throws(()=>setupRoom.act(host.token,{type:'peerRoute',epoch:randomUUID(),route:'relay'}),/stale_peer/);
+ setupRoom.act(host.token,{type:'peerFailed',epoch});
+ assert.throws(()=>route(peer.token,'direct'),/peer_not_connected/);
+ assert.equal(lines.length,2);
+});

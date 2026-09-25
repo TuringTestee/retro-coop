@@ -9,7 +9,7 @@ export function relayConfig(env:NodeJS.ProcessEnv):RelayConfig|undefined {
 }
 type Member={token:string;policy:ConnectionPolicy;send?:(event:PeerEvent)=>void};
 type Pair={id:string;host:Member;guest:Member;reservation:string};
-type Round={pair:Pair;epoch:string;policy:ConnectionPolicy;status:PeerView['status'];acks:Set<string>;connected:Set<string>;candidates:Map<string,number>;descriptions:Set<string>;deadline:number;relay:boolean};
+type Round={pair:Pair;epoch:string;policy:ConnectionPolicy;status:PeerView['status'];acks:Set<string>;connected:Set<string>;routes:Map<string,'direct'|'relay'>;candidates:Map<string,number>;descriptions:Set<string>;deadline:number;relay:boolean};
 export class PeerError extends Error {}
 /** No signaling history: only the current bounded, authenticated negotiation is retained. */
 export class PeerBroker {
@@ -27,7 +27,7 @@ export class PeerBroker {
   const occupied=[...this.rounds.values()].filter(round=>round.relay).length;
   const relay=!!this.relay && occupied<this.relay.rooms;
   const status:Round['status']=policy==='relay' && !relay ? this.relay ? 'relay_capacity':'relay_unavailable':'preparing';
-  const round:Round={pair:{...pair,host:{...pair.host},guest:{...pair.guest}},epoch:randomBytes(24).toString('base64url'),policy,status,acks:new Set(),connected:new Set(),candidates:new Map(),descriptions:new Set(),deadline:this.now()+peerLimits.prepareMs,relay};
+  const round:Round={pair:{...pair,host:{...pair.host},guest:{...pair.guest}},epoch:randomBytes(24).toString('base64url'),policy,status,acks:new Set(),connected:new Set(),routes:new Map(),candidates:new Map(),descriptions:new Set(),deadline:this.now()+peerLimits.prepareMs,relay};
   this.rounds.set(id,round);
   if(status!=='preparing') return;
   for(const member of [pair.host,pair.guest]) {
@@ -52,6 +52,11 @@ export class PeerBroker {
    return;
   }
   if(command.type==='peerConnected') {if(!['connecting','connected'].includes(round.status)) throw new PeerError('stale_peer');round.connected.add(token);if(round.connected.size===2) round.status='connected';return;}
+  if(command.type==='peerRoute') {
+   if(!['connecting','connected'].includes(round.status)||!round.connected.has(token))throw new PeerError('peer_not_connected');
+   if(round.routes.get(token)!==command.route){round.routes.set(token,command.route);console.info(JSON.stringify({event:'peer_route',room:id,role:token===round.pair.host.token?'host':'guest',policy:round.policy,route:command.route}));}
+   return;
+  }
   if(!['connecting','connected'].includes(round.status) || round.acks.size!==2) throw new PeerError('peer_not_prepared');
   if(command.type!=='peerSignal') throw new PeerError('invalid_peer');
   const host=token===round.pair.host.token,signal=command.signal;

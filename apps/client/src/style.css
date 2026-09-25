@@ -75,6 +75,9 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .solo-controls{display:none}
 .playing>.solo-controls{display:block;grid-column:2;grid-row:2;min-height:0;overflow:auto}
 .play-controls,.voice-card{border:1px solid #46465e;border-radius:10px;background:#202130;padding:12px;margin:0 0 12px;min-width:0;overflow-wrap:anywhere}
+.game-metrics{display:flex;gap:12px;align-items:center;font-size:12px;font-variant-numeric:tabular-nums;color:#d9d9eb;margin:6px 0 10px!important}
+.game-metrics span+span{border-left:1px solid #56576d;padding-left:12px}
+.room-panel .relay-notice{border-left:3px solid #e7b864;background:#332b27;color:#ffe3ad;padding:7px 9px;border-radius:3px;font-size:12px;margin:0 0 9px}
 .play-controls h2,.voice-card h2{font-size:14px;line-height:1.4;margin:0 0 8px}
 .play-controls h2 span,.voice-card h2 span{font-weight:400;color:#b8acd9}
 .play-controls p,.voice-card p{font-size:12px;margin:5px 0}
