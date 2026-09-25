@@ -4,6 +4,7 @@
 import argparse
 import ipaddress
 import json
+import os
 import re
 import subprocess
 import sys
@@ -16,7 +17,7 @@ from pathlib import Path
 from package import ROOT, IMAGE
 
 
-ACCOUNT = "599796577790"
+ACCOUNT = os.environ.get("RETRO_AWS_ACCOUNT_ID")
 REGION = "us-east-1"
 HOST = "retro-coop.atobot.cloud"
 PARENT_DOMAIN = "atobot.cloud"
@@ -40,8 +41,9 @@ def command(*args: str) -> None:
 
 
 def identity() -> None:
-    if aws("sts", "get-caller-identity").get("Account") != ACCOUNT:
-        raise ValueError("AWS account does not match the reviewed website account")
+    if not ACCOUNT or not re.fullmatch(r"[0-9]{12}", ACCOUNT) or \
+            aws("sts", "get-caller-identity").get("Account") != ACCOUNT:
+        raise ValueError("Set RETRO_AWS_ACCOUNT_ID to the reviewed website account")
 
 
 def reviewed_main() -> None:
@@ -465,7 +467,8 @@ def release_record(bundle: Path) -> dict:
         record = json.loads(archive.read("release.json"))
         compose = archive.read("docker-compose.yml").decode()
     for name in ("edgeImage", "coordinatorImage", "caddyImage", "turnImage"):
-        if not IMAGE.fullmatch(record.get(name, "")) or record[name] not in compose:
+        if not IMAGE.fullmatch(record.get(name, "")) or not record[name].startswith(f"{ACCOUNT}.") or \
+                record[name] not in compose:
             raise ValueError("Release images are not pinned to the reviewed ECR repository")
     return record
 

@@ -11,15 +11,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "deploy/aws-eb"
-IMAGE = re.compile(r"^599796577790\.dkr\.ecr\.us-east-1\.amazonaws\.com/retro-coop@sha256:[a-f0-9]{64}$")
+IMAGE = re.compile(r"^(?P<account>[0-9]{12})\.dkr\.ecr\.us-east-1\.amazonaws\.com/retro-coop@sha256:[a-f0-9]{64}$")
 SHA = re.compile(r"^[a-f0-9]{64}$")
 REVISION = re.compile(r"^[a-f0-9]{40}$")
 
 
 def render(edge: str, coordinator: str, caddy: str, turn: str, local: bool = False) -> str:
     images = (edge, coordinator, caddy, turn)
-    if not local and any(not IMAGE.fullmatch(image) for image in images):
-        raise ValueError("All images must be immutable digests in the reviewed account, region and repository")
+    if not local:
+        matches = [IMAGE.fullmatch(image) for image in images]
+        if any(match is None for match in matches) or len({match.group("account") for match in matches}) != 1:
+            raise ValueError("All images must be immutable digests in one account, region and repository")
     if len(set(images)) != len(images):
         raise ValueError("Each service must use a distinct image")
     template = (SOURCE / "docker-compose.yml").read_text()

@@ -1,5 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: GitHub main-only OIDC access for the existing Retro Coop website release.
+Description: Main-branch OIDC access for the existing Retro Coop Elastic Beanstalk release.
+Parameters:
+  GitHubMainSubject:
+    Type: String
+    NoEcho: true
+    Description: Exact GitHub OIDC subject for this repository's main branch.
 Resources:
   GitHubOidc:
     Type: AWS::IAM::OIDCProvider
@@ -10,7 +15,7 @@ Resources:
     Type: AWS::IAM::Role
     Properties:
       RoleName: retro-coop-main-cd
-      MaxSessionDuration: 10800
+      MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -21,7 +26,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: repo:TuringTestee@323081593/retro-coop@1367824645:ref:refs/heads/main
+                token.actions.githubusercontent.com:sub: !Ref GitHubMainSubject
       Policies:
         - PolicyName: ExistingWebsiteRelease
           PolicyDocument:
@@ -38,21 +43,24 @@ Resources:
                          ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage,
                          ecr:BatchGetImage, ecr:GetDownloadUrlForLayer]
                 Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/retro-coop
-              - Sid: ReleaseBundleBucket
+              - Sid: ReleaseBundleObjects
                 Effect: Allow
-                Action: [s3:PutObject, s3:GetObject]
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/retro-coop/releases/*
+                Action: [s3:PutObject, s3:GetObject, s3:GetObjectAcl]
+                # beanstalk-deploy v21 prefixes its S3 key with / before the application name.
+                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}//retro-coop/*
+              - Sid: ExistingEnvironmentExtensions
+                Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectAcl]
+                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/resources/environments/*/_runtime/_embedded_extensions/retro-coop/*
               - Sid: InspectReleaseBucket
                 Effect: Allow
-                Action: s3:GetBucketLocation
+                Action: [s3:GetBucketLocation, s3:ListBucket]
                 Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}
               - Sid: ReadReleaseState
                 Effect: Allow
                 Action: [elasticbeanstalk:CreateStorageLocation, elasticbeanstalk:DescribeEnvironments,
-                         elasticbeanstalk:DescribeConfigurationSettings, elasticbeanstalk:DescribeApplicationVersions,
-                         elasticbeanstalk:DescribeApplications, elasticbeanstalk:DescribeEnvironmentResources,
-                         ec2:DescribeSecurityGroups, ec2:DescribeSubnets, ec2:DescribeRouteTables,
-                         ec2:DescribeInstances, ec2:DescribeAddresses, cloudwatch:DescribeAlarms]
+                         elasticbeanstalk:DescribeApplicationVersions, elasticbeanstalk:DescribeApplications,
+                         elasticbeanstalk:DescribeEvents, ec2:DescribeImages]
                 Resource: '*'
               - Sid: CreateOnlyWebsiteVersion
                 Effect: Allow
@@ -64,64 +72,10 @@ Resources:
                 Effect: Allow
                 Action: elasticbeanstalk:UpdateEnvironment
                 Resource: !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:environment/retro-coop/retro-coop-web
-              - Sid: ReadWebsiteFoundation
+              - Sid: InspectExistingEbStack
                 Effect: Allow
-                Action: cloudformation:DescribeStacks
-                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/retro-coop-website-foundation/*
-              - Sid: ReadWebsiteDns
-                Effect: Allow
-                Action: [route53:GetHostedZone, route53:ListResourceRecordSets]
-                Resource: arn:aws:route53:::hostedzone/Z03078963HIF5G3OCL4U3
-              - Sid: WaitForWebsiteDnsChange
-                Effect: Allow
-                Action: route53:GetChange
-                Resource: arn:aws:route53:::change/*
-              - Sid: UpdateOnlyWebsiteAddress
-                Effect: Allow
-                Action: route53:ChangeResourceRecordSets
-                Resource: arn:aws:route53:::hostedzone/Z03078963HIF5G3OCL4U3
-                Condition:
-                  ForAllValues:StringEquals:
-                    route53:ChangeResourceRecordSetsActions: [CREATE, UPSERT, DELETE]
-                    route53:ChangeResourceRecordSetsNormalizedRecordNames: [retro-coop.atobot.cloud]
-                    route53:ChangeResourceRecordSetsRecordTypes: [A]
-              - Sid: ReadDomainDelegation
-                Effect: Allow
-                Action: route53domains:GetDomainDetail
-                Resource: '*'
-              - Sid: UseOnlyShellProbeDocument
-                Effect: Allow
-                Action: ssm:SendCommand
-                Resource: !Sub arn:aws:ssm:${AWS::Region}::document/AWS-RunShellScript
-              - Sid: InspectOnlyWebsiteInstance
-                Effect: Allow
-                Action: ssm:SendCommand
-                Resource: !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
-                Condition:
-                  StringEquals:
-                    ssm:resourceTag/elasticbeanstalk:environment-name: retro-coop-web
-              - Sid: ReadWebsiteCommand
-                Effect: Allow
-                Action: ssm:GetCommandInvocation
-                Resource: '*'
-              - Sid: ReadAndUpdateWebsiteAddress
-                Effect: Allow
-                Action: [ssm:GetParameter, ssm:PutParameter]
-                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/retro-coop/website/expected-ip
-              - Sid: ReadCostGuard
-                Effect: Allow
-                Action: budgets:ViewBudget
-                Resource: !Sub arn:aws:budgets::${AWS::AccountId}:budget/retro-coop-website-monthly
-              - Sid: ReadGuardServices
-                Effect: Allow
-                Action: [scheduler:GetSchedule, sns:ListSubscriptionsByTopic]
-                Resource:
-                  - !Sub arn:aws:scheduler:${AWS::Region}:${AWS::AccountId}:schedule/retro-coop-cost-guard/retro-coop-cost-guard-6h
-                  - !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:retro-coop-cost-guard-failures
-              - Sid: ProbeGuard
-                Effect: Allow
-                Action: lambda:InvokeFunction
-                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:retro-coop-cost-guard
+                Action: [cloudformation:GetTemplate, cloudformation:DescribeStackResource]
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/awseb-*-stack/*
 Outputs:
   RoleArn:
     Value: !GetAtt MainCdRole.Arn
