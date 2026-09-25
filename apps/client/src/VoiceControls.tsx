@@ -10,8 +10,8 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
    <h2>Voice <span role="status" data-testid="microphone-status">· {status}</span></h2>
    {mic.error&&<p>{mic.error} {mic.error.includes('denied')&&'Review microphone permission in your browser’s site settings, then try again.'}</p>}
    {state.connectionError&&<p>{state.connectionError}</p>}
-   {state.playbackError&&<p>{state.playbackError}</p>}
-   {state.connectionError?<button onClick={()=>voice.retryBinding()}>Retry voice connection</button>:state.playbackError?<button onClick={()=>voice.retrySound()}>Enable voice sound</button>:mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:mic.mode==='push'&&!mic.muted?talk:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
+   {state.playbackError&&<p>{state.playbackError} <button className="text-action" onClick={()=>voice.retrySound()}>Enable voice sound</button></p>}
+   {state.connectionError?<button onClick={()=>voice.retryBinding()}>Retry voice connection</button>:mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:mic.mode==='push'&&!mic.muted?talk:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
    {mic.mode==='push'&&<p className="talk-binding">Push to talk · {talkBinding}</p>}
    <button className="text-action" onClick={onSettings}>Voice settings</button>
   </section>;

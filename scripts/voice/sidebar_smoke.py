@@ -47,10 +47,17 @@ def run(host, guest, output):
     count=host.evaluate('captures.length')
     host.evaluate('releaseCapture();window.holdCapture=false')
     host.wait_for_function('n=>captures.length>n&&captures.at(-1).getTracks().every(t=>t.readyState==="ended")', arg=count)
-    host.evaluate('window.denyCapture=true')
+    host.evaluate('window.denyCapture=true;window.blockPlayback=true')
     card.get_by_role('button', name='Enable voice', exact=True).click()
     card.get_by_text('Microphone access was denied.', exact=False).wait_for()
+    card.get_by_role('button', name='Try microphone again', exact=True).wait_for()
+    card.get_by_role('button', name='Enable voice sound', exact=True).wait_for()
     host.screenshot(path=str(output.with_suffix('.sidebar-error.png')), full_page=True)
+    # Independent failures retain both recoveries. Fix playback first, leaving mic retry.
+    host.evaluate('window.blockPlayback=false')
+    card.get_by_role('button', name='Enable voice sound', exact=True).click()
+    card.get_by_role('button', name='Enable voice sound', exact=True).wait_for(state='detached')
+    assert card.get_by_role('button', name='Try microphone again', exact=True).is_visible()
     host.evaluate('window.denyCapture=false')
     card.get_by_role('button', name='Try microphone again', exact=True).click()
     card.get_by_role('button', name='Mute microphone', exact=True).wait_for()
@@ -84,7 +91,7 @@ def run(host, guest, output):
     guest.get_by_role('button', name='Confirm leave', exact=True).click()
     for tab in [host,guest]:
         tab.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'two_way_audio_during_game':True,'blur_retains_muted_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
+    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'two_way_audio_during_game':True,'blur_retains_muted_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
 
 
 def solo(browser, url, rom, output, root):
