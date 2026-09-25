@@ -173,7 +173,7 @@ started = time.monotonic()
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(ignore_default_args=["--mute-audio"])
     try:
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
+        page = browser.new_page(viewport={"width": 1366, "height": 682})
         page.set_default_timeout(15000)
         page.on("pageerror", lambda error: errors.append(str(error)))
         # Room creation and Join first arrive as command results. The gameplay
@@ -267,8 +267,6 @@ with sync_playwright() as playwright:
             polling=50,
         )
         assert page.evaluate("proof.room.fingerprint.romSha256") == rom_hash
-        connection = page.get_by_test_id("connection-status").inner_text()
-        assert "Route: direct." in connection
         page.evaluate("releaseFrames()")
         page.locator("canvas").focus()
         page.keyboard.down("x" if args.role == "host" else "z")
@@ -287,6 +285,8 @@ with sync_playwright() as playwright:
         else:
             save("guest-200.json", {"frames": page.evaluate("proof.frameCount")})
         page.wait_for_function("proof.room?.game?.status==='paused'", timeout=15000, polling=50)
+        connection = page.get_by_test_id("connection-status").inner_text()
+        assert "Route: direct." in connection
         page.wait_for_function("proof.hashes.length>0", timeout=15000, polling=50)
         page.locator(".room-panel").wait_for(state="visible")
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)

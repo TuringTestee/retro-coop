@@ -131,7 +131,8 @@ try:
     assert layout['room']['controlsVisible'] and layout['room']['voiceVisible'] and layout['room']['leaveVisible'],layout
     return layout
    shared_layouts=[shared_layout(tab) for tab in [h,g]]
-   if args.screenshots:h.screenshot(path=str(out.with_name(out.stem+'.shared-playing.png')),mask=[h.locator('input[aria-label="Room invitation"]:visible')])
+   if args.screenshots:
+    for role,tab in [('host',h),('guest',g)]:tab.screenshot(path=str(out.with_name(out.stem+f'.{role}.shared-playing.png')),mask=[tab.locator('input[aria-label="Room invitation"]:visible')])
    fps=h.evaluate('proof.fps');assert fps==g.evaluate('proof.fps');target_frames=max(360,math.ceil(args.seconds*fps))
    play_started=time.monotonic()
    for tab in [h,g]:tab.evaluate('releaseFrames()')
@@ -213,7 +214,7 @@ try:
    else:h.get_by_role('button',name='Pause',exact=True).click()
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
    if args.screenshots:
-    h.screenshot(path=str(out.with_name('paused.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
+    for role,tab in [('host',h),('guest',g)]:tab.screenshot(path=str(out.with_name(f'{role}.paused.png')),full_page=True,mask=[tab.locator('input[aria-label="Room invitation"]:visible')])
     h.set_viewport_size({'width':390,'height':844});h.screenshot(path=str(out.with_name('paused-mobile.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')]);h.set_viewport_size({'width':1280,'height':1050})
    before=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert before[0]==before[1],before
    if args.fault=='device':
