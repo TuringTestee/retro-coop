@@ -15,7 +15,12 @@ for(const terminal of ['failed','channel-close','channel-error'])test(`transient
   createDataChannel(){return this.channel;}
   async createOffer(){return {type:'offer',sdp:'test'};}
   async setLocalDescription(){}
-  async getStats(){return new Map();}
+  async getStats(){return new Map([
+   ['transport',{type:'transport',selectedCandidatePairId:'pair'}],
+   ['pair',{type:'candidate-pair',id:'pair',localCandidateId:'local',remoteCandidateId:'remote',currentRoundTripTime:0.042}],
+   ['local',{type:'local-candidate',candidateType:'host'}],
+   ['remote',{type:'remote-candidate',candidateType:'host'}],
+  ]);}
   close(){this.closed++;this.connectionState='closed';}
  }
  globalThis.RTCPeerConnection=FakePeer as unknown as typeof RTCPeerConnection;
@@ -28,12 +33,14 @@ for(const terminal of ['failed','channel-close','channel-error'])test(`transient
   pc.channel.onmessage({data:JSON.stringify({type:'transportProbe',nonce:'r'.repeat(36)})});
   now=217;pc.channel.onmessage({data:JSON.stringify({type:'transportReply',nonce})});await setImmediate();
   assert.equal(ready,1);assert.equal(observedRtt,117);const before=wire.length;
+  assert.equal(updates.at(-1).pingMs,42);
   pc.connectionState='disconnected';pc.onconnectionstatechange();
   assert.equal(pc.closed,0,'a transient connectivity indication destroyed the live transport');
   assert.equal(closed,0);assert.equal(sent.filter(x=>x.type==='peerFailed').length,0);
   pc.connectionState='connected';pc.onconnectionstatechange();await setImmediate();
   assert.equal(ready,1);assert.equal(wire.length,before,'recovery sent another transport challenge');
   assert.equal(updates.at(-1).status,'Peer transport connected.');
+  assert.equal(updates.at(-1).pingMs,42,'an unchanged valid RTT must return after recovery');
   if(terminal==='failed'){pc.connectionState='failed';pc.onconnectionstatechange();}
   else if(terminal==='channel-close')pc.channel.onclose();
   else pc.channel.onerror();

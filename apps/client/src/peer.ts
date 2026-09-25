@@ -36,8 +36,8 @@ export class PeerConnection {
      if(pc.connectionState==='failed')this.fail(epoch);
      // ICE disconnected is transient; native failure/channel closure are terminal.
      // Known-input scheduling and its existing stall bound still govern gameplay.
-     else if(pc.connectionState==='disconnected')this.update({status:'Connection interrupted. Waiting for transport recovery.',epoch});
-     else if(pc.connectionState==='connected'&&this.connectedState){this.update({...this.connectedState,pingMs:undefined});void this.sampleMetrics(epoch);if(!this.connectedState.route)this.refreshRoute(epoch,20);}
+     else if(pc.connectionState==='disconnected'){if(this.connectedState)this.connectedState={...this.connectedState,route:undefined,pingMs:undefined};this.update({status:'Connection interrupted. Waiting for transport recovery.',epoch});}
+     else if(pc.connectionState==='connected'&&this.connectedState){this.connectedState={...this.connectedState,route:undefined,pingMs:undefined};this.update(this.connectedState);void this.sampleMetrics(epoch);this.refreshRoute(epoch,20);}
     };
     pc.ondatachannel=({channel})=>{if(this.epoch===epoch) this.wire(channel,epoch);else channel.close();};
     this.timer=setTimeout(()=>this.fail(epoch),peerLimits.prepareMs+peerLimits.connectMs);
