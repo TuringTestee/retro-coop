@@ -28,6 +28,16 @@ def run(host,guest,out,root,errors,source,build_files):
   guest.get_by_role('button',name='Accept assignment',exact=True).focus();guest.keyboard.press('Enter');guest.wait_for_function("document.activeElement?.dataset.testid==='controller-mode'")
   for page in pages:page.wait_for_function('v=>!proof.room.game.controllerProposal&&proof.room.game.controllers.mode===v[0]&&proof.room.game.controllers.p1===v[1]',arg=[mode,p1],polling=20)
   assert before==[page.evaluate('proof.frameCount') for page in pages]
+  for page,role in [(host,'host'),(guest,'guest')]:
+   card=page.locator('.play-controls')
+   if mode=='shared':
+    assert 'Shared P1' in card.inner_text()
+    assert ('Your input is idle.' in card.inner_text()) == (role!=p1)
+    assert card.locator('.play-bindings').count() == (1 if role==p1 else 0)
+   else:
+    assert ('Player 1' if role==p1 else 'Player 2') in card.inner_text()
+  host.screenshot(path=str(out.with_suffix(f'.sidebar-{mode}-{p1}-host.png')))
+  guest.screenshot(path=str(out.with_suffix(f'.sidebar-{mode}-{p1}-guest.png')))
  def resume():
   old=host.evaluate('proof.room.game.epoch')
   for page in pages:page.locator('.room-panel').get_by_role('button',name='Ready to resume',exact=True).click()
@@ -66,5 +76,5 @@ def run(host,guest,out,root,errors,source,build_files):
  host.screenshot(path=str(out.with_suffix('.after.png')),mask=[host.get_by_label('Room invitation',exact=True)])
  guest.screenshot(path=str(out.with_suffix('.guest.png')),mask=[guest.get_by_label('Room invitation',exact=True)])
  assert not errors,errors
- result={'result':'pass','source':source,'build_files':build_files,'scenarios':results,'decline_cancel_preserved_hash':baseline,'final_equal_native_hash':final,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
+ result={'result':'pass','live_sidebar_assignment_and_idle_states':True,'source':source,'build_files':build_files,'scenarios':results,'decline_cancel_preserved_hash':baseline,'final_equal_native_hash':final,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
  out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));return result

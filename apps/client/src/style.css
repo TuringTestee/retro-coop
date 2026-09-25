@@ -68,3 +68,26 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .fullscreen-release{align-self:center}
 .release-notice button{background:#b5a3ff;color:#171323;font-weight:750;border-color:#b5a3ff}
 .playing .player-info button:first-child{background:#303146;color:#fff;font-weight:400;border-color:#52536e}
+
+/* Current controls and immediate voice actions precede the room's occasional tools. */
+.playing{grid-template-columns:minmax(0,1fr) minmax(260px,300px)}
+.playing.with-room{grid-template-columns:minmax(0,1fr) minmax(260px,300px)}
+.solo-controls{display:none}
+.playing>.solo-controls{display:block;grid-column:2;grid-row:2;min-height:0;overflow:auto}
+.play-controls,.voice-card{border:1px solid #46465e;border-radius:10px;background:#202130;padding:12px;margin:0 0 12px;min-width:0;overflow-wrap:anywhere}
+.play-controls h2,.voice-card h2{font-size:14px;line-height:1.4;margin:0 0 8px}
+.play-controls h2 span,.voice-card h2 span{font-weight:400;color:#b8acd9}
+.play-controls p,.voice-card p{font-size:12px;margin:5px 0}
+.play-bindings{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;margin:8px 0}
+.play-bindings>div{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:baseline;gap:4px}
+.play-bindings dt,.play-bindings dd{margin:0}
+.play-bindings dd{color:#eeeefa}
+.play-controls button,.voice-card button{font-size:12px;padding:5px 8px;margin:4px 6px 0 0}
+.play-controls .text-action,.voice-card .text-action{background:transparent;border-color:transparent;color:#c6b9ff;font-weight:400;padding-left:0}
+.tooling>.solo-controls,.released>.solo-controls{display:none!important}
+@media(max-width:760px){
+ .playing,.playing.with-room{height:auto;min-height:100dvh;overflow:visible;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
+ .playing>.panel{grid-column:1;grid-row:2;min-height:350px}
+ .playing>.solo-controls,.playing.with-room>.room-panel{grid-column:1;grid-row:3;max-height:none;overflow:visible}
+ .playing .screen{height:min(55dvh,420px);max-width:100%}
+}
