@@ -111,7 +111,9 @@ export class GameClient {
  private pause(reason:GameReason){
   const scheduler=this.scheduler;if(!scheduler||this.awaitingFence||this.fence!==undefined)return;
   this.awaitingFence=true;this.publish({status:'Pausing both players at a common frame…',busy:true});
-  void this.send({type:'gamePause',epoch:scheduler.epoch,frame:scheduler.frame+scheduler.delay+1,reason}).catch(error=>{if(this.scheduler===scheduler)this.fail(String(error),'network');});
+  // The other browser may be ahead even while both input streams are healthy.
+  // Leave room for that lead and for the pause message to arrive.
+  void this.send({type:'gamePause',epoch:scheduler.epoch,frame:scheduler.frame+Math.floor(gameplayLimits.inputWindow/2),reason}).catch(error=>{if(this.scheduler===scheduler)this.fail(String(error),'network');});
  }
  private async finishPause(){
   const scheduler=this.scheduler;if(!scheduler||this.pausedSent)return;this.pausedSent=true;
