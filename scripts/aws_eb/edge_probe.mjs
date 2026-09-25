@@ -8,13 +8,13 @@ const origin = process.argv[3] ?? 'https://retro-coop.1001.page';
 const websocket = new URL('/coordinator/ws', base);
 websocket.protocol = 'ws:';
 
-async function connect(localAddress, forgedAddress, requestOrigin=origin, albAddress=localAddress) {
+async function connect(localAddress, forgedAddress, requestOrigin=origin, peerAddress=localAddress) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(websocket, {
       origin: requestOrigin,
       localAddress,
-      // Mirror the ALB: append the real transport peer after untrusted entries.
-      headers: {'X-Forwarded-For': `${forgedAddress}, ${albAddress}`},
+      // Exercise Nginx's final-address parser; Caddy separately proves the public peer boundary.
+      headers: {'X-Forwarded-For': `${forgedAddress}, ${peerAddress}`},
       handshakeTimeout: 3000,
     });
     socket.once('open', () => resolve(socket));
@@ -22,9 +22,9 @@ async function connect(localAddress, forgedAddress, requestOrigin=origin, albAdd
   });
 }
 
-async function denied(localAddress, forgedAddress, requestOrigin=origin, status=403, albAddress=localAddress) {
+async function denied(localAddress, forgedAddress, requestOrigin=origin, status=403, peerAddress=localAddress) {
   try {
-    const socket = await connect(localAddress, forgedAddress, requestOrigin, albAddress);
+    const socket = await connect(localAddress, forgedAddress, requestOrigin, peerAddress);
     socket.close();
     throw Error('Unexpected WebSocket admission');
   } catch (error) {

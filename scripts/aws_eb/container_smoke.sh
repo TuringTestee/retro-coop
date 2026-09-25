@@ -57,6 +57,18 @@ until curl --silent --fail http://127.0.0.1:18080/healthz >/dev/null; do
 done
 node scripts/aws_eb/edge_probe.mjs http://127.0.0.1:8080
 node scripts/aws_eb/caddy_probe.mjs http://127.0.0.1:18080
+# The ROM probe leaves a room in its 60-second host reconnect window.
+# Reset ephemeral state before exercising all twenty simultaneous rooms.
+docker compose -p "$project" -f "$temporary/docker-compose.yml" -f "$temporary/local.yml" restart coordinator
+attempt=0
+until curl --silent --fail http://127.0.0.1:8080/healthz >/dev/null; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 30 ]; then
+    echo 'Coordinator did not recover for the twenty-room probe.' >&2
+    exit 1
+  fi
+  sleep .2
+done
 coordinator_id=$(docker compose -p "$project" -f "$temporary/docker-compose.yml" -f "$temporary/local.yml" ps -q coordinator)
 docker exec "$coordinator_id" node /app/memory_probe.mjs
 python3 scripts/aws_eb/source_smoke.py --compose "$temporary/docker-compose.yml"

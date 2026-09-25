@@ -26,6 +26,7 @@ BUDGET = "retro-coop-website-monthly"
 BOOTSTRAP_PREFIX = "retro-coop/bootstrap"
 RELEASE_PREFIX = "retro-coop/releases"
 INSTANCE_TYPE = "t4g.micro"
+REVIEWED_PLAN_REVISION = "8a516aa4bb49364df38c514e184abcbcae7b216a"
 
 
 def aws(*args: str) -> dict:
@@ -157,7 +158,7 @@ def setup(args: argparse.Namespace) -> None:
         raise ValueError("Supply the reviewed 31-day cost record before provisioning")
     cost = json.loads(args.reviewed_cost_record.read_text())
     if cost.get("warningUsd") != 50 or cost.get("shutdownProjectedUsd") != 100 or \
-            not re.fullmatch(r"[a-f0-9]{40}", str(cost.get("reviewedPlanRevision", ""))):
+            cost.get("reviewedPlanRevision") != REVIEWED_PLAN_REVISION:
         raise ValueError("Cost record must name the reviewed plan and $50/$100 operating thresholds")
     projected = cost.get("projected31DayUsd")
     if isinstance(projected, bool) or not isinstance(projected, (int, float)) or not 0 < projected < 100:
@@ -242,16 +243,25 @@ def instance_and_eip(outputs: dict[str, str], resources: dict) -> tuple[str, str
     return instance_id, ip
 
 
-def verify_live_boundary(outputs: dict[str, str], resources: dict) -> str:
+def verify_live_boundary(outputs: dict[str, str], resources: dict, load_test: bool) -> str:
     instance_id, ip = instance_and_eip(outputs, resources)
     commands = ["ss -H -ltn", "ss -H -lun", "curl -fsS http://127.0.0.1:8080/healthz",
-                "docker ps --format '{{.Names}}'",
-                "coordinator=$(docker ps --filter label=com.docker.compose.service=coordinator --format '{{.ID}}'); test -n \"$coordinator\" && docker exec \"$coordinator\" node /app/memory_probe.mjs"]
+                "docker ps --format '{{.Names}}'"]
+    if load_test:
+        commands.append("set -e; coordinator=$(docker ps --filter label=com.docker.compose.service=coordinator --format '{{.ID}}'); test -n \"$coordinator\"; docker exec \"$coordinator\" node /app/memory_probe.mjs; docker restart \"$coordinator\" >/dev/null; for n in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz >/dev/null && break; sleep 1; done; curl -fsS http://127.0.0.1:8080/healthz")
+    else:
+        commands.append("awk '/MemAvailable/{print \"AvailableKiB:\" $2}' /proc/meminfo")
     command_id = aws("ssm", "send-command", "--instance-ids", instance_id, "--document-name", "AWS-RunShellScript",
                      "--parameters", json.dumps({"commands": commands}))["Command"]["CommandId"]
     deadline = time.monotonic() + 90
     while time.monotonic() < deadline:
-        result = aws("ssm", "get-command-invocation", "--command-id", command_id, "--instance-id", instance_id)
+        try:
+            result = aws("ssm", "get-command-invocation", "--command-id", command_id, "--instance-id", instance_id)
+        except subprocess.CalledProcessError as error:
+            if "InvocationDoesNotExist" not in (error.stderr or ""):
+                raise
+            time.sleep(5)
+            continue
         if result["Status"] == "Success":
             output = result["StandardOutputContent"]
             if not all(value in output for value in ("127.0.0.1:8787", "127.0.0.1:8080", ":80", ":443", ":3478", "retro-coop-coordinator")):
@@ -259,11 +269,16 @@ def verify_live_boundary(outputs: dict[str, str], resources: dict) -> str:
             names = output.splitlines()
             if not all(any(service in name for name in names) for service in ("coordinator", "edge", "caddy", "turn")):
                 raise ValueError("The single-instance Compose services are incomplete")
-            match = re.search(r"^MEMORY_PROOF:(\{[^\n]+\})$", output, re.MULTILINE)
-            proof = json.loads(match.group(1)) if match else {}
-            if proof.get("rooms") != 20 or proof.get("romBytes") != 20 * (16 + 16384) or \
-                    proof.get("availableKiB", 0) < 128000:
-                raise ValueError("The 20-room ROM workload lacks 128 MiB host memory headroom; inspect before DNS")
+            if load_test:
+                match = re.search(r"^MEMORY_PROOF:(\{[^\n]+\})$", output, re.MULTILINE)
+                proof = json.loads(match.group(1)) if match else {}
+                if proof.get("rooms") != 20 or proof.get("romBytes") != 20 * (16 + 16384) or \
+                        proof.get("availableKiB", 0) < 128000:
+                    raise ValueError("The 20-room ROM workload lacks 128 MiB host memory headroom; inspect before DNS")
+            else:
+                match = re.search(r"AvailableKiB:(\d+)", output)
+                if not match or int(match.group(1)) < 128000:
+                    raise ValueError("The micro instance has less than 128 MiB available after update")
             return ip
         if result["Status"] in ("Failed", "Cancelled", "TimedOut"):
             raise ValueError("SSM could not confirm the single-instance boundary")
@@ -374,6 +389,8 @@ def deploy(args: argparse.Namespace) -> None:
     reviewed_main()
     identity()
     outputs = stack_outputs()
+    if args.hosted_zone_id != stack_parameters()["HostedZoneId"]:
+        raise ValueError("Deploy hosted zone differs from the named foundation")
     record = release_record(args.bundle)
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
     if record["sourceRevision"] != revision:
@@ -408,14 +425,20 @@ def deploy(args: argparse.Namespace) -> None:
                 "--solution-stack-name", args.solution_stack, "--option-settings", json.dumps(options(outputs, args)))
     current = wait_for_environment("Ready")
     resources = aws("elasticbeanstalk", "describe-environment-resources", "--environment-name", ENV)["EnvironmentResources"]
-    ip = verify_live_boundary(outputs, resources)
     old_record = dns_record(args.hosted_zone_id)
+    ip = verify_live_boundary(outputs, resources, load_test=old_record is None)
     old_ip = address(old_record)
     guard, previous = verify_guard(outputs, ip, old_ip)
     new_record = a_record(ip)
     changed = old_record != new_record
     if changed:
-        change_dns(args.hosted_zone_id, "UPSERT" if old_record else "CREATE", new_record)
+        try:
+            change_dns(args.hosted_zone_id, "UPSERT" if old_record else "CREATE", new_record)
+        except Exception:
+            if previous != ip:
+                command("ssm", "put-parameter", "--name", outputs["ExpectedIpParameterName"],
+                        "--type", "String", "--value", previous, "--overwrite")
+            raise
     try:
         https_probe(ip)
     except Exception:
@@ -459,6 +482,8 @@ def teardown(args: argparse.Namespace) -> None:
     status = stack_status()
     parameters = stack_parameters() if status in ("CREATE_COMPLETE", "UPDATE_COMPLETE") else {}
     outputs = stack_outputs() if parameters else {}
+    if parameters and args.hosted_zone_id != parameters["HostedZoneId"]:
+        raise ValueError("Teardown hosted zone differs from the named foundation")
     if existing:
         expected = args.expected_ip
         if outputs:
