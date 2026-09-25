@@ -1,0 +1,11 @@
+The current WebRTC ICE negotiation already offers Standard clients direct and TURN candidates. This change makes the selected route observable without delaying connection or adding a second negotiation. It does not claim that a TURN allocation means relay gameplay.
+
+# Implementation
+
+- Keep Standard on `iceTransportPolicy: all` and Relay only on `relay`; rely on the selected ICE candidate pair, which the existing `connectionRoute` classifies for Chrome and Firefox. The ICE standard recommends higher priority for host, peer-reflexive and server-reflexive candidates than relayed candidates. Do not add a speculative direct-only timeout: it could add connection delay and force fallback before a direct candidate succeeds.
+- When a browser confirms a selected route, send only `direct` or `relay` with the current peer epoch and membership. The coordinator validates the enum and epoch, then emits one structured route log per member per epoch. Log room ID, role, policy and route, without candidate strings, addresses, SDP, credentials or ROM bytes. A route observed after the initial channel-ready event must still be reported. Stale epochs and duplicate reports do not produce logs.
+- Reuse `connectionStatus` for the fixed in-game side panel. Render its relay result as a distinct notice when the actual selected route is relay; preserve the current failure text and recovery controls. A direct route must not show relay text.
+- Measure rendered FPS over recent wall-clock time from actual frames displayed by `LocalPlayer`; reset it when play stops or a new game loads. Read live peer RTT from the selected ICE candidate pair via `getStats`, update at a bounded interval, and show a dash while it is unavailable. The game sidebar renders compact FPS and ping without another screen or duplicate connection control. The initial handshake RTT is not a substitute for live ping.
+- Test direct, fallback relay, explicit Relay only, route refresh, stale reports, no duplicate logs, and unavailable/updated FPS and ping. Exercise direct and forced relay through the public browser entry point. Run the README pre-flight and relevant CI checks.
+
+This is route diagnostics, not a server relay-use percentage: browsers can omit a report, and logs cannot establish a population rate without sampling and aggregation.
