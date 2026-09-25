@@ -1,4 +1,4 @@
-The current WebRTC ICE negotiation already offers Standard clients direct and TURN candidates. This change makes the selected route observable without delaying connection or adding a second negotiation. It does not claim that a TURN allocation means relay gameplay.
+The current WebRTC ICE negotiation already offers Standard clients direct and TURN candidates. This change makes the selected route observable without delaying connection or adding a second negotiation. It does not claim that a TURN allocation means relay gameplay. The [user direction and metric journey](../design/direct-route-visibility.md) govern this work; [relay copy and recovery](../design/relay-route-status-direction.md) remain owned by the existing direction and [journeys](../design/relay-route-status-journeys.md).
 
 # Implementation
 
@@ -9,3 +9,5 @@ The current WebRTC ICE negotiation already offers Standard clients direct and TU
 - Test direct, fallback relay, explicit Relay only, route refresh, stale reports, no duplicate logs, and unavailable/updated FPS and ping. Exercise direct and forced relay through the public browser entry point. Run the README pre-flight and relevant CI checks.
 
 This is route diagnostics, not a server relay-use percentage: browsers can omit a report, and logs cannot establish a population rate without sampling and aggregation.
+
+Ownership search before implementation: `rg -n 'relay|connectionStatus|connectionRoute|roundTripMs|frames' apps/client/src apps/coordinator/src packages/contracts/src docs/design docs/implementation --glob '!**/evidence/**'` found route selection in `peer.ts`/`peer-route.ts`, status copy in `connection-status.ts` and the existing relay direction, metrics source in `player.ts`, handshake RTT in `game-client.ts`, and relay admission in coordinator `peer.ts`. Retain each owner; add only selected-route diagnostics and current metrics at these boundaries. README's connection guide remains the public reference and needs no duplicate rule.

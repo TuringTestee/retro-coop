@@ -1,11 +1,16 @@
-Retro Coop should connect players directly whenever their networks permit it. If the selected gameplay path uses the relay, show that fact in the game and keep the players playing.
+Players should see live FPS and peer ping while playing together. The game should call out relay use only when the selected gameplay path is relayed.
 
-# Direct connection and relay journey
+# Direction and source
 
-1. A host creates a room and a guest joins with Standard connection privacy. The browsers test direct and relay candidates through WebRTC ICE. ICE prefers direct candidates; the chosen path, rather than the presence of a TURN candidate, determines whether gameplay uses the relay.
-2. If the chosen path is direct, shared play starts with no relay mention in the game side panel. The compact side panel shows current rendered FPS and peer network ping. If either metric is not yet available, show a dash instead of an invented value.
-3. If direct connectivity is unavailable and the chosen path is relayed, shared play starts normally. The fixed game side panel adds a short notice: “Direct connection unavailable. Relay keeps you playing together.” The notice stays visible while the route is relayed and clears if a later connection becomes direct. FPS and ping remain visible.
-4. If either player selects Relay only before connecting, both use relay candidates. The game side panel instead says “Relay only is on. Connected through the relay.” If relay capacity or service is unavailable, show the specific failure and Retry or Stay in room; never silently switch to direct.
-5. If the connection is interrupted, replace the relay notice with the existing interruption and recovery status. A new successful route determines the next notice.
+The user requested on September 25, 2026: “learn from war3 or aoe, try not to rely -- only when absolutely needed, and flag logs for debugging, and make sure the game shows what we added as warning message”; then “make sure you do exactly how war3 or aoe2 to handle direct game connection, and show FPS and network ping on the sidebar”; then “also show if rely (don't mention rely if not, because its uncommon”. These are the governing requests for this change.
 
-The relay notice appears only after the selected path is known. No new setup control or extra page is needed. Connection status and compact metrics share the existing fixed side panel.
+The [existing relay direction](relay-route-status-direction.md) owns the exact relay messages and their placement. The [existing relay journeys](relay-route-status-journeys.md) own route change and recovery. This document adds only the metric journey below. The browser uses the same player-hosted model—server discovery, direct gameplay when possible—through WebRTC ICE. It cannot reuse a native game's network protocol.
+
+# Game sidebar metric journey
+
+1. When shared play starts, the fixed side panel shows “FPS — · Ping —” until real samples arrive. It does not mention relay merely because a TURN candidate was offered.
+2. After rendered frames and the selected peer connection produce samples, the values update as “FPS 60 · Ping 42 ms” (example numbers). FPS counts frames actually drawn per elapsed second. Ping is the selected peer path's current round-trip time, not the room server's response time or the first handshake delay.
+3. If play pauses or the path has no current RTT sample, the relevant value becomes a dash. It updates again on resume or reconnection. A new game resets both readings.
+4. If the selected path is relayed, the existing relay direction's message appears near these metrics. Direct play has no relay warning. Failures use the existing recovery journey.
+
+There is no extra setup step, control, page, or duplicate connection status.
