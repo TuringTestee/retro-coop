@@ -55,4 +55,6 @@ assert "TURN_SECRET: ${TURN_SECRET:?" in compose
 assert "SourceSecurityGroupId: !Ref AlbSecurityGroup" in foundation
 assert "FromPort: 8787" not in foundation and "FromPort: 22" not in foundation
 assert "SecretsManager::Secret" in foundation and "HttpTokens: required" in foundation
-print("EB source boundary passed (immutable bundle, same-host loopback, final ALB address, scoped ingress, managed secret, no SSH).")
+assert "ScheduleExpression: rate(6 hours)" in foundation and "State: ENABLED" in foundation
+assert "Handler: cost_guard.handler" in foundation and "GuardErrorAlarm:" in foundation
+print("EB source boundary passed (immutable bundle, same-host loopback, final ALB address, scoped ingress, managed secret, scheduled guard, no SSH).")

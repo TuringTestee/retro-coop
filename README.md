@@ -14,6 +14,8 @@ Open the URL printed by the command, normally **http://127.0.0.1:8765/**. If tha
 
 This command starts the current client and a local room coordinator, and Ctrl-C stops both. It supports testing two browser windows on this computer. A friend on another network needs the deployed HTTPS application; local loopback addresses are not reachable from their computer.
 
+The [AWS website operations guide](docs/implementation/d24-aws-eb-operations.md) has the Elastic Beanstalk release, cost guard, rollback and teardown commands. Public deployment remains separate from the local demo and is gated on reviewed source and cloud checks.
+
 ### Test with two browser tabs
 
 1. In tab A, open the URL printed by `sh scripts/demo.sh` and choose **Join as host** on an empty Super Tilt Bro room. Wait for the game to load. Note the room code beside its name.

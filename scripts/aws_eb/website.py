@@ -6,8 +6,10 @@ import json
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from package import ROOT, IMAGE
@@ -52,6 +54,19 @@ def stack_outputs() -> dict[str, str]:
     if len(rows) != 1 or rows[0]["StackStatus"] not in ("CREATE_COMPLETE", "UPDATE_COMPLETE"):
         raise ValueError("The Retro Coop foundation stack is not ready")
     return {row["OutputKey"]: row["OutputValue"] for row in rows[0]["Outputs"]}
+
+
+def stack_status() -> str | None:
+    rows = aws("cloudformation", "list-stacks")["StackSummaries"]
+    active = [row["StackStatus"] for row in rows if row["StackName"] == STACK and row["StackStatus"] != "DELETE_COMPLETE"]
+    if len(active) > 1:
+        raise ValueError("More than one active foundation stack has the reviewed name")
+    return active[0] if active else None
+
+
+def stack_parameters() -> dict[str, str]:
+    stack = aws("cloudformation", "describe-stacks", "--stack-name", STACK)["Stacks"][0]
+    return {row["ParameterKey"]: row["ParameterValue"] for row in stack["Parameters"]}
 
 
 def environment() -> dict | None:
@@ -125,6 +140,8 @@ def setup(args: argparse.Namespace) -> None:
         raise ValueError("The 31-day cost scenario exceeds the reviewed $100 operating ceiling")
     if dns_record(args.hosted_zone_id):
         raise ValueError("Website DNS name already exists; inspect it before provisioning")
+    if stack_status():
+        raise ValueError("The named foundation stack already exists; inspect or tear it down before setup")
     if environment():
         raise ValueError("The named EB environment already exists")
     if aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]:
@@ -141,11 +158,18 @@ def setup(args: argparse.Namespace) -> None:
     bucket = aws("elasticbeanstalk", "create-storage-location")["S3Bucket"]
     for name in ("render_turn.py", "configure_turn.sh"):
         command("s3", "cp", str(ROOT / "scripts/aws_eb" / name), f"s3://{bucket}/{BOOTSTRAP_PREFIX}/{name}")
+    guard_key = f"{BOOTSTRAP_PREFIX}/cost-guard-{subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()}.zip"
+    with tempfile.TemporaryDirectory(prefix="retro-eb-guard-") as directory:
+        package = Path(directory) / "cost-guard.zip"
+        with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(ROOT / "scripts/aws_eb/cost_guard.py", "cost_guard.py")
+        command("s3", "cp", str(package), f"s3://{bucket}/{guard_key}")
     budget(args.alert_email)
     command("cloudformation", "deploy", "--template-file", str(ROOT / "deploy/aws-eb/foundation.yaml"),
             "--stack-name", STACK, "--capabilities", "CAPABILITY_NAMED_IAM", "--parameter-overrides",
             f"VpcId={args.vpc_id}", f"RelaySubnetId={args.relay_subnet_id}", f"RelayAmiId={args.relay_ami_id}",
-            f"HostedZoneId={args.hosted_zone_id}", f"BootstrapBucket={bucket}", f"BootstrapPrefix={BOOTSTRAP_PREFIX}")
+            f"HostedZoneId={args.hosted_zone_id}", f"BootstrapBucket={bucket}", f"BootstrapPrefix={BOOTSTRAP_PREFIX}",
+            f"GuardCodeKey={guard_key}", f"AlertEmail={args.alert_email}")
     outputs = stack_outputs()
     print(json.dumps({"foundation": STACK, "relayPublicIp": outputs["RelayPublicIp"],
                       "certificateArn": outputs["CertificateArn"], "ecrRepository": outputs["EcrRepository"],
@@ -237,6 +261,62 @@ def verify_live_boundary(outputs: dict[str, str], resources: dict, alb: dict) ->
     raise TimeoutError("SSM instance boundary check did not finish")
 
 
+def verify_guard(outputs: dict[str, str], alb_dns: str) -> dict:
+    email = stack_parameters()["AlertEmail"]
+    monitored = aws("budgets", "describe-budget", "--account-id", ACCOUNT, "--budget-name", BUDGET)["Budget"]
+    limit = monitored.get("BudgetLimit", {})
+    try:
+        valid_limit = limit.get("Unit") == "USD" and Decimal(str(limit.get("Amount"))) == 100
+    except InvalidOperation:
+        valid_limit = False
+    if monitored.get("BudgetType") != "COST" or monitored.get("TimeUnit") != "MONTHLY" or \
+            monitored.get("CostFilters") or not valid_limit:
+        raise ValueError("The named account-wide monthly $100 Budget is missing or changed")
+    notifications = aws("budgets", "describe-notifications-for-budget", "--account-id", ACCOUNT,
+                        "--budget-name", BUDGET)["Notifications"]
+    present = {(row["NotificationType"], float(row["Threshold"])) for row in notifications
+               if row.get("ComparisonOperator") == "GREATER_THAN" and row.get("ThresholdType") == "PERCENTAGE"}
+    if not {("ACTUAL", 50.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0)}.issubset(present):
+        raise ValueError("The $50/$100 actual and forecast Budget alerts are incomplete")
+    for row in notifications:
+        if (row.get("NotificationType"), float(row.get("Threshold", -1))) not in {("ACTUAL", 50.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0)}:
+            continue
+        notice = {key: row[key] for key in ("NotificationType", "ComparisonOperator", "Threshold", "ThresholdType")}
+        subscribers = aws("budgets", "describe-subscribers-for-notification", "--account-id", ACCOUNT,
+                          "--budget-name", BUDGET, "--notification", json.dumps(notice))["Subscribers"]
+        if {"SubscriptionType": "EMAIL", "Address": email} not in subscribers:
+            raise ValueError("The Budget alert recipient differs from the reviewed operator input")
+    schedule = aws("scheduler", "get-schedule", "--name", outputs["GuardScheduleName"])
+    if schedule.get("State") != "ENABLED" or schedule.get("ScheduleExpression") != "rate(6 hours)" or \
+            schedule.get("Target", {}).get("Arn") != outputs["GuardFunctionArn"]:
+        raise ValueError("The six-hour cost guard schedule is not enabled")
+    subscribers = aws("sns", "list-subscriptions-by-topic", "--topic-arn", outputs["GuardAlertTopicArn"])["Subscriptions"]
+    if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" and
+               row.get("SubscriptionArn", "PendingConfirmation") != "PendingConfirmation" for row in subscribers):
+        raise ValueError("Confirm the cost guard failure alert email subscription before public DNS")
+    alarm = aws("cloudwatch", "describe-alarms", "--alarm-names", "retro-coop-cost-guard-errors")["MetricAlarms"]
+    if len(alarm) != 1 or not alarm[0].get("ActionsEnabled") or outputs["GuardAlertTopicArn"] not in alarm[0]["AlarmActions"]:
+        raise ValueError("Cost guard failures have no active operator alarm")
+    parameter = outputs["ExpectedAlbParameterName"]
+    previous = aws("ssm", "get-parameter", "--name", parameter)["Parameter"]["Value"]
+    if previous not in ("UNCONFIGURED", alb_dns):
+        raise ValueError("Recorded website ALB differs from this EB environment")
+    if previous != alb_dns:
+        command("ssm", "put-parameter", "--name", parameter, "--type", "String", "--value", alb_dns, "--overwrite")
+    if aws("ssm", "get-parameter", "--name", parameter)["Parameter"]["Value"] != alb_dns:
+        raise ValueError("Cost guard did not record the exact website ALB")
+    with tempfile.TemporaryDirectory(prefix="retro-eb-guard-probe-") as directory:
+        path = Path(directory) / "result.json"
+        metadata = aws("lambda", "invoke", "--function-name", outputs["GuardFunctionArn"],
+                       "--payload", '{"dryRun":true}', "--cli-binary-format", "raw-in-base64-out", str(path))
+        if metadata.get("StatusCode") != 200 or metadata.get("FunctionError"):
+            raise ValueError("Cost guard dry run failed; inspect its content-free CloudWatch error log")
+        result = json.loads(path.read_text())
+    if result.get("dryRun") is not True or result.get("wouldStop") is not False or result.get("actions") != []:
+        raise ValueError("Cost guard dry run did not confirm operation below the shutdown threshold")
+    return result
+
+
 def release_record(bundle: Path) -> dict:
     with zipfile.ZipFile(bundle) as archive:
         if set(archive.namelist()) != {"docker-compose.yml", "release.json", ".ebextensions/01-environment.config", ".ebextensions/02-http-redirect.config"}:
@@ -296,6 +376,7 @@ def deploy(args: argparse.Namespace) -> None:
     if alb["Type"] != "application" or alb["Scheme"] != "internet-facing":
         raise ValueError("EB did not create an internet-facing ALB")
     verify_live_boundary(outputs, resources, alb)
+    guard = verify_guard(outputs, alb["DNSName"])
     record_set = {"Name": HOST + ".", "Type": "A", "AliasTarget": {
         "HostedZoneId": alb["CanonicalHostedZoneId"], "DNSName": alb["DNSName"], "EvaluateTargetHealth": True}}
     existing = dns_record(args.hosted_zone_id)
@@ -304,7 +385,9 @@ def deploy(args: argparse.Namespace) -> None:
     if not existing:
         change_dns(args.hosted_zone_id, "CREATE", record_set)
     print(json.dumps({"endpoint": f"https://{HOST}", "version": version, "status": current["Status"],
-                      "health": current.get("Health"), "alb": alb["DNSName"], "bundle": f"s3://{bucket}/{key}"}))
+                      "health": current.get("Health"), "alb": alb["DNSName"], "bundle": f"s3://{bucket}/{key}",
+                      "costGuard": {"schedule": outputs["GuardScheduleName"], "actualUsd": guard["actualUsd"],
+                                    "forecastUsd": guard["forecastUsd"]}}))
 
 
 def rollback(args: argparse.Namespace) -> None:
@@ -328,8 +411,13 @@ def teardown(args: argparse.Namespace) -> None:
     identity()
     if args.confirm != HOST:
         raise ValueError(f"Use --confirm {HOST} to remove the named website")
+    if args.bucket and args.bucket != f"elasticbeanstalk-{REGION}-{ACCOUNT}":
+        raise ValueError("Deployment bucket does not match the reviewed account and region")
     current = environment()
     existing = dns_record(args.hosted_zone_id)
+    status = stack_status()
+    parameters = stack_parameters() if status in ("CREATE_COMPLETE", "UPDATE_COMPLETE") else {}
+    outputs = stack_outputs() if parameters else {}
     if existing:
         if current:
             resources = aws("elasticbeanstalk", "describe-environment-resources", "--environment-name", ENV)["EnvironmentResources"]
@@ -339,9 +427,19 @@ def teardown(args: argparse.Namespace) -> None:
             alb = aws("elbv2", "describe-load-balancers", "--names", lbs[0]["Name"])["LoadBalancers"][0]
             if existing["AliasTarget"]["DNSName"].rstrip(".") != alb["DNSName"].rstrip("."):
                 raise ValueError("Website DNS does not point at the named environment")
+        else:
+            expected = args.expected_alb_dns
+            if outputs:
+                recorded = aws("ssm", "get-parameter", "--name", outputs["ExpectedAlbParameterName"])["Parameter"]["Value"]
+                if expected and expected != recorded:
+                    raise ValueError("Supplied ALB differs from the named foundation record")
+                expected = recorded
+            if not expected or expected == "UNCONFIGURED" or existing.get("AliasTarget", {}).get("DNSName", "").rstrip(".") != expected.rstrip("."):
+                raise ValueError("No named EB environment exists; supply and verify the exact prior ALB before deleting DNS")
         change_dns(args.hosted_zone_id, "DELETE", existing)
-    if current:
+    if current and current.get("Status") not in ("Terminating", "Terminated"):
         command("elasticbeanstalk", "terminate-environment", "--environment-name", ENV)
+    if current:
         wait_for_environment("Terminated")
     apps = aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]
     if apps:
@@ -350,12 +448,18 @@ def teardown(args: argparse.Namespace) -> None:
             if not version["VersionLabel"].startswith("main-"):
                 raise ValueError("Unexpected application version; inspect before deleting the application")
         command("elasticbeanstalk", "delete-application", "--application-name", APP)
-    command("cloudformation", "delete-stack", "--stack-name", STACK)
-    command("cloudformation", "wait", "stack-delete-complete", "--stack-name", STACK)
-    bucket = aws("elasticbeanstalk", "create-storage-location")["S3Bucket"]
-    for prefix in (RELEASE_PREFIX, BOOTSTRAP_PREFIX):
-        command("s3", "rm", f"s3://{bucket}/{prefix}/", "--recursive")
-    command("budgets", "delete-budget", "--account-id", ACCOUNT, "--budget-name", BUDGET)
+    if status:
+        command("cloudformation", "delete-stack", "--stack-name", STACK)
+        command("cloudformation", "wait", "stack-delete-complete", "--stack-name", STACK)
+    bucket = parameters.get("BootstrapBucket") or args.bucket
+    if bucket:
+        if bucket != f"elasticbeanstalk-{REGION}-{ACCOUNT}":
+            raise ValueError("Deployment bucket does not match the reviewed account and region")
+        for prefix in (RELEASE_PREFIX, BOOTSTRAP_PREFIX):
+            command("s3", "rm", f"s3://{bucket}/{prefix}/", "--recursive")
+    names = {row["BudgetName"] for row in aws("budgets", "describe-budgets", "--account-id", ACCOUNT)["Budgets"]}
+    if BUDGET in names:
+        command("budgets", "delete-budget", "--account-id", ACCOUNT, "--budget-name", BUDGET)
     print(json.dumps({"removed": HOST, "foundation": STACK, "deploymentPrefixes": [RELEASE_PREFIX, BOOTSTRAP_PREFIX]}))
 
 
@@ -376,6 +480,8 @@ def main() -> None:
     teardown_parser = sub.add_parser("teardown", help="Remove only Retro Coop website resources")
     teardown_parser.add_argument("--hosted-zone-id", required=True)
     teardown_parser.add_argument("--confirm", required=True)
+    teardown_parser.add_argument("--expected-alb-dns")
+    teardown_parser.add_argument("--bucket", help="Exact EB storage bucket for partial setup cleanup")
     args = parser.parse_args()
     try:
         {"setup": setup, "deploy": deploy, "rollback": rollback, "teardown": teardown}[args.action](args)

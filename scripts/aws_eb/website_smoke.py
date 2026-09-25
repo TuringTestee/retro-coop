@@ -2,6 +2,8 @@
 """Exercise the EB operator's scoping and failure gates without contacting AWS."""
 
 from argparse import Namespace
+import json
+from pathlib import Path
 
 import website
 
@@ -33,11 +35,79 @@ except ValueError:
     pass
 assert len(calls) == 1
 
+guard_outputs = {"GuardScheduleName": "retro-coop-cost-guard-6h",
+                 "GuardFunctionArn": "arn:guard", "GuardAlertTopicArn": "arn:alerts",
+                 "ExpectedAlbParameterName": "/retro-coop/website/expected-alb-dns"}
+notifications = [{"NotificationType": mode, "ComparisonOperator": "GREATER_THAN",
+                  "Threshold": threshold, "ThresholdType": "PERCENTAGE"}
+                 for mode, threshold in (("ACTUAL", 50), ("ACTUAL", 100), ("FORECASTED", 100))]
+state = {"confirmed": True, "alb": "UNCONFIGURED", "invocations": 0,
+         "result": {"dryRun": True, "wouldStop": False, "actions": [],
+                    "actualUsd": "40", "forecastUsd": "80"}}
+
+
+def guard_aws(*args):
+    key = args[:2]
+    if key == ("budgets", "describe-budget"):
+        return {"Budget": {"BudgetType": "COST", "TimeUnit": "MONTHLY",
+                           "BudgetLimit": {"Unit": "USD", "Amount": "100"}}}
+    if key == ("budgets", "describe-notifications-for-budget"):
+        return {"Notifications": notifications}
+    if key == ("budgets", "describe-subscribers-for-notification"):
+        return {"Subscribers": [{"SubscriptionType": "EMAIL", "Address": "bill@example.test"}]}
+    if key == ("scheduler", "get-schedule"):
+        return {"State": "ENABLED", "ScheduleExpression": "rate(6 hours)", "Target": {"Arn": "arn:guard"}}
+    if key == ("sns", "list-subscriptions-by-topic"):
+        return {"Subscriptions": [{"Endpoint": "bill@example.test", "Protocol": "email",
+                                   "SubscriptionArn": "arn:subscription" if state["confirmed"] else "PendingConfirmation"}]}
+    if key == ("cloudwatch", "describe-alarms"):
+        return {"MetricAlarms": [{"ActionsEnabled": True, "AlarmActions": ["arn:alerts"]}]}
+    if key == ("ssm", "get-parameter"):
+        return {"Parameter": {"Value": state["alb"]}}
+    if key == ("lambda", "invoke"):
+        state["invocations"] += 1
+        Path(args[-1]).write_text(json.dumps(state["result"]))
+        return {"StatusCode": 200}
+    raise AssertionError(f"Unexpected AWS read: {args}")
+
+
+def guard_command(*args):
+    if args[:2] != ("ssm", "put-parameter"):
+        raise AssertionError(f"Unexpected AWS change: {args}")
+    state["alb"] = args[args.index("--value") + 1]
+
+
+website.aws = guard_aws
+website.command = guard_command
+website.stack_parameters = lambda: {"AlertEmail": "bill@example.test"}
+assert website.verify_guard(guard_outputs, "retro-alb.example") == state["result"]
+assert state["alb"] == "retro-alb.example" and state["invocations"] == 1
+state["confirmed"] = False
+try:
+    website.verify_guard(guard_outputs, "retro-alb.example")
+    raise AssertionError("Public DNS gate accepted an unconfirmed operator alert")
+except ValueError:
+    pass
+assert state["invocations"] == 1
+state["confirmed"] = True
+state["result"] = {**state["result"], "wouldStop": True,
+                   "actions": ["delete_exact_website_alias"], "forecastUsd": "100"}
+try:
+    website.verify_guard(guard_outputs, "retro-alb.example")
+    raise AssertionError("Public DNS gate accepted a guard above the shutdown threshold")
+except ValueError:
+    pass
+assert state["invocations"] == 2
+
 website.identity = lambda: None
 try:
-    website.teardown(Namespace(confirm="another-site.example", hosted_zone_id="Z1"))
+    website.teardown(Namespace(confirm="another-site.example", hosted_zone_id="Z1", bucket=None))
     raise AssertionError("Teardown accepted a foreign hostname")
 except ValueError:
     pass
-assert len(calls) == 1
-print("EB operator source passed (single instance, exact groups and secret, alert recipient, teardown scope).")
+try:
+    website.teardown(Namespace(confirm=website.HOST, hosted_zone_id="Z1", bucket="foreign-bucket"))
+    raise AssertionError("Teardown accepted a foreign storage bucket")
+except ValueError:
+    pass
+print("EB operator source passed (single instance, exact groups and secret, guard DNS gate, teardown scope).")

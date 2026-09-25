@@ -13,6 +13,10 @@ Parameters:
     Type: String
   BootstrapPrefix:
     Type: String
+  GuardCodeKey:
+    Type: String
+  AlertEmail:
+    Type: String
 Resources:
   Images:
     Type: AWS::ECR::Repository
@@ -164,11 +168,173 @@ Resources:
       Tags:
         - Key: Name
           Value: retro-coop-turn
+        - Key: Project
+          Value: retro-coop
   RelayAddressAssociation:
     Type: AWS::EC2::EIPAssociation
     Properties:
       AllocationId: !GetAtt RelayAddress.AllocationId
       InstanceId: !Ref RelayInstance
+  ExpectedAlbDns:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /retro-coop/website/expected-alb-dns
+      Type: String
+      Value: UNCONFIGURED
+  GuardLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/retro-coop-cost-guard
+      RetentionInDays: 7
+  GuardRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ScopedWebsiteShutdown
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: budgets:ViewBudget
+                Resource: !Sub arn:aws:budgets::${AWS::AccountId}:budget/retro-coop-website-monthly
+              - Effect: Allow
+                Action: billing:GetBillingViewData
+                Resource: '*'
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/retro-coop/website/expected-alb-dns
+              - Effect: Allow
+                Action: route53:ListResourceRecordSets
+                Resource: !Sub arn:aws:route53:::hostedzone/${HostedZoneId}
+              - Effect: Allow
+                Action: route53:ChangeResourceRecordSets
+                Resource: !Sub arn:aws:route53:::hostedzone/${HostedZoneId}
+                Condition:
+                  ForAllValues:StringEquals:
+                    route53:ChangeResourceRecordSetsActions: [DELETE]
+                    route53:ChangeResourceRecordSetsNormalizedRecordNames: [retro-coop.1001.page]
+                    route53:ChangeResourceRecordSetsRecordTypes: [A]
+              - Effect: Allow
+                Action: elasticbeanstalk:DescribeEnvironments
+                Resource: '*'
+              - Effect: Allow
+                Action: elasticbeanstalk:TerminateEnvironment
+                Resource: !Sub arn:aws:elasticbeanstalk:${AWS::Region}:${AWS::AccountId}:environment/retro-coop/retro-coop-web
+              - Effect: Allow
+                Action: ec2:DescribeInstances
+                Resource: '*'
+              - Effect: Allow
+                Action: ec2:TerminateInstances
+                Resource: !Sub arn:aws:ec2:${AWS::Region}:${AWS::AccountId}:instance/${RelayInstance}
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/retro-coop-cost-guard:*
+  GuardFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: GuardLogGroup
+    Properties:
+      FunctionName: retro-coop-cost-guard
+      Runtime: python3.12
+      Handler: cost_guard.handler
+      MemorySize: 128
+      Timeout: 30
+      Role: !GetAtt GuardRole.Arn
+      Code:
+        S3Bucket: !Ref BootstrapBucket
+        S3Key: !Ref GuardCodeKey
+      Environment:
+        Variables:
+          ACCOUNT_ID: !Ref AWS::AccountId
+          HOSTNAME: retro-coop.1001.page
+          HOSTED_ZONE_ID: !Ref HostedZoneId
+          RELAY_INSTANCE_ID: !Ref RelayInstance
+          EXPECTED_ALB_PARAMETER: !Ref ExpectedAlbDns
+  ScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeOnlyCostGuard
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt GuardFunction.Arn
+  GuardSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: retro-coop-cost-guard-6h
+      ScheduleExpression: rate(6 hours)
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      State: ENABLED
+      Target:
+        Arn: !GetAtt GuardFunction.Arn
+        RoleArn: !GetAtt ScheduleRole.Arn
+        Input: '{"dryRun":false}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3600
+          MaximumRetryAttempts: 2
+  GuardAlerts:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: retro-coop-cost-guard-failures
+  GuardAlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+      TopicArn: !Ref GuardAlerts
+  GuardErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: retro-coop-cost-guard-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GuardFunction
+      Statistic: Sum
+      Period: 3600
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref GuardAlerts]
+  GuardTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref GuardAlerts]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: sns:Publish
+            Resource: !Ref GuardAlerts
+          - Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref GuardAlerts
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:retro-coop-cost-guard-errors
 Outputs:
   EcrRepository:
     Value: !GetAtt Images.RepositoryUri
@@ -186,3 +352,11 @@ Outputs:
     Value: !Ref EbProfile
   RelayInstanceId:
     Value: !Ref RelayInstance
+  GuardFunctionArn:
+    Value: !GetAtt GuardFunction.Arn
+  GuardScheduleName:
+    Value: !Ref GuardSchedule
+  GuardAlertTopicArn:
+    Value: !Ref GuardAlerts
+  ExpectedAlbParameterName:
+    Value: !Ref ExpectedAlbDns

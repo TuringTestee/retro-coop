@@ -125,6 +125,7 @@ jobs:
         run: |
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/source_smoke.py
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/website_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/cost_guard_smoke.py
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target edge --tag retro-coop-eb-edge:candidate .
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target coordinator --tag retro-coop-eb-coordinator:candidate .
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
