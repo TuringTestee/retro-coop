@@ -39,6 +39,7 @@ def run(host, guest, output):
     host.evaluate('window.holdCapture=true')
     card.get_by_role('button', name='Enable voice', exact=True).click()
     host.wait_for_function('!!window.releaseCapture')
+    card.get_by_role('button', name='Cancel microphone request', exact=True).wait_for()
     assert 'Requesting microphone' in card.inner_text()
     host.screenshot(path=str(output.with_suffix('.sidebar-pending.png')), full_page=True)
     card.get_by_role('button', name='Cancel microphone request', exact=True).click()
