@@ -5,11 +5,26 @@ from pathlib import Path
 import unittest
 from verify import verify
 from workload import active_seconds
+from browser_errors import classify_page_errors
 import firefox_driver
 from prepare_stock_firefox import VERSION, URL, ARCHIVE_SHA256, ARCHIVE_BYTES
 
 
 class GameplayEvidenceTests(unittest.TestCase):
+    def test_only_early_recovered_firefox_socket_errors_are_diagnostics(self):
+        socket = 'ws://127.0.0.1:41825/coordinator/ws'
+        startup = [
+            {'message': f'Firefox can’t establish a connection to the server at {socket}.', 'elapsed': 9.315},
+            {'message': f'The connection to {socket} was interrupted while the page was loading.', 'elapsed': 9.315},
+        ]
+        late = {'message': startup[0]['message'], 'elapsed': 605.0}
+        unrelated = {'message': 'Unexpected script failure', 'elapsed': 4.0}
+        recovered, fatal = classify_page_errors([*startup, late, unrelated], socket, 12.0, True)
+        self.assertEqual(recovered, startup)
+        self.assertEqual(fatal, [late, unrelated])
+        self.assertEqual(classify_page_errors(startup, socket, 12.0, False), ([], startup))
+        self.assertEqual(classify_page_errors(startup, socket, 8.0, True), ([], startup))
+
     @classmethod
     def setUpClass(cls):
         cls.record = json.loads((Path(__file__).resolve().parents[2] /
