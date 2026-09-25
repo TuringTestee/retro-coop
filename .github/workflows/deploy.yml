@@ -24,6 +24,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
       CI_RUN_ID: ${{ github.event.workflow_run.id }}
+      CI_COMPLETED_AT: ${{ github.event.workflow_run.updated_at }}
       AWS_REGION: us-east-1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -102,10 +103,13 @@ jobs:
         run: |
           set -euo pipefail
           expected="main-${SOURCE_SHA:0:12}"
-          actual=$(aws elasticbeanstalk describe-environments --application-name retro-coop \
-            --environment-names retro-coop-web --query 'Environments[0].VersionLabel' --output text)
+          read -r actual state health < <(aws elasticbeanstalk describe-environments --application-name retro-coop \
+            --environment-names retro-coop-web --query 'Environments[0].[VersionLabel,Status,Health]' --output text)
           test "$actual" = "$expected"
+          test "$state" = Ready
+          test "$health" = Green
           curl --fail --silent --show-error --max-time 15 https://retro-coop.atobot.cloud/healthz | grep -q retro-coop
+          total_seconds=$(python3 -c 'import datetime,sys; t=datetime.datetime.fromisoformat(sys.argv[1].replace("Z","+00:00")); print(int((datetime.datetime.now(datetime.timezone.utc)-t).total_seconds()))' "$CI_COMPLETED_AT")
           {
             echo "### Website release"
             echo "CI run: $CI_RUN_ID"
@@ -114,6 +118,7 @@ jobs:
             echo "Live version: $actual"
             echo "Bundle: ${BUNDLE_SECONDS}s"
             echo "EB update and site verification: ${WEBSITE_SECONDS}s"
+            echo "From CI completion to live verification: ${total_seconds}s"
             echo "Public endpoint: https://retro-coop.atobot.cloud/"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Report failed release and live version
