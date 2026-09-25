@@ -41,10 +41,14 @@ def main() -> None:
     references = {}
     for target in ("edge", "coordinator"):
         tag = f"{REPO}:{target}-{revision}"
-        subprocess.run(["docker", "build", "--file", "deploy/aws-eb/Dockerfile", "--target", target, "--tag", tag, "."], cwd=ROOT, check=True)
-        subprocess.run(["docker", "push", tag], cwd=ROOT, check=True)
+        existing = json.loads(run("aws", "ecr", "list-images", "--region", REGION,
+                                  "--repository-name", "retro-coop", "--filter", "tagStatus=TAGGED", "--output", "json"))
+        if not any(row.get("imageTag") == f"{target}-{revision}" for row in existing["imageIds"]):
+            subprocess.run(["docker", "build", "--file", "deploy/aws-eb/Dockerfile", "--target", target, "--tag", tag, "."], cwd=ROOT, check=True)
+            subprocess.run(["docker", "push", tag], cwd=ROOT, check=True)
         record = json.loads(run("aws", "ecr", "describe-images", "--region", REGION, "--repository-name", "retro-coop", "--image-ids", f"imageTag={target}-{revision}", "--output", "json"))["imageDetails"][0]
         references[target] = f"{REPO}@{record['imageDigest']}"
+        subprocess.run(["docker", "pull", references[target]], cwd=ROOT, check=True)
     with tempfile.TemporaryDirectory(prefix="retro-eb-release-") as directory:
         temporary = Path(directory)
         container = run("docker", "create", references["edge"])

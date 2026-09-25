@@ -2,7 +2,7 @@
 # Run on the dedicated Ubuntu EC2 relay after fetching the managed secret.
 set -eu
 
-test "$(id -u)" -eq 0 || { echo 'Run as root on the staging VM.' >&2; exit 2; }
+test "$(id -u)" -eq 0 || { echo 'Run as root on the relay instance.' >&2; exit 2; }
 test "$#" -eq 3 || { echo 'Use: configure_turn.sh PUBLIC_IP PRIVATE_IP SECRET_FILE' >&2; exit 2; }
 public_ip=$1
 private_ip=$2
@@ -24,7 +24,7 @@ rm -f "$secret_file"
 
 cat > /etc/systemd/system/retro-coop-turn-limit.service <<EOF
 [Unit]
-Description=Limit Retro Coop staging relay egress
+Description=Limit Retro Coop relay egress
 Before=retro-coop-turn.service
 
 [Service]
