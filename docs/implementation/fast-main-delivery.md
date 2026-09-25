@@ -2,6 +2,21 @@
 
 A successful main build should reach the existing Retro Coop website automatically. Shared play gets a 30-second release test, and the live site gets a host-and-guest check with automatic rollback if that check fails. Longer soak tests run after release and report regressions without delaying every deployment.
 
+## Source and delivery ownership
+
+The user requested on 2026-09-25: “the release gate should be just 30s long, 10 min is too long”; “setup CICD”; “CI should be short, and CD should be also under 5min”; “add post release testing” with rollback when needed; and “keep main CD synced with https://retro-coop.atobot.cloud/”. This plan is a direct response to that request and adds no new player-facing design. The [verification strategy](browser-nes-platform.md#verification-strategy) owns the current and accepted test policy during migration.
+
+The selected [Retro Coop delivery Project](https://github.com/orgs/TuringTestee/projects/1) has these committed draft cards. Root is dispatcher and single delivery owner; each card's builder uses `issue-resolver` in an isolated worktree, then an independent reviewer accepts its PR. A card is ready only when its named dependency is merged and checked.
+
+| Card | Dependency | Acceptance owner |
+|---|---|---|
+| Fast 30-second main release gate (`PVTI_lADOE0HVec4BkDjlzg8znF4`) | This reviewed, merged plan | Root: measured browser-pair evidence and CI timing |
+| Automatic main deployment to existing AWS site (`PVTI_lADOE0HVec4BkDjlzg8znG4`) | Fast gate integrated, dedicated OIDC role | Root: exact-source deploy and elapsed time |
+| Integrated live host-and-guest release check (`PVTI_lADOE0HVec4BkDjlzg8znHk`) | Automatic CD integrated | Root: public two-browser proof and rollback rehearsal |
+| Post-release ten-minute qualification (`PVTI_lADOE0HVec4BkDjlzg8znIQ`) | Fast gate integrated | Root: scheduled/manual evidence and failure report |
+
+The integrated release gate is the live host-and-guest card: it may close only after all four cards are integrated and the public site proves the requested player journey. Project fields hold status, priority, next action and blockers; this table records only dependency and acceptance ownership.
+
 ## Current evidence and target
 
 - Main CI currently runs 600-second gameplay and network workloads for Chrome–Chrome, Firefox–Firefox, and Chrome–Firefox. The `main` push at `4466a05` was still running more than 12 minutes after it started. PR build, entrypoint and native ARM64 image checks had passed.
