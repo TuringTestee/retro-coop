@@ -288,14 +288,19 @@ def verify_guard(outputs: dict[str, str], alb_dns: str) -> dict:
             raise ValueError("The Budget alert recipient differs from the reviewed operator input")
     schedule = aws("scheduler", "get-schedule", "--name", outputs["GuardScheduleName"])
     if schedule.get("State") != "ENABLED" or schedule.get("ScheduleExpression") != "rate(6 hours)" or \
-            schedule.get("Target", {}).get("Arn") != outputs["GuardFunctionArn"]:
+            schedule.get("Target", {}).get("Arn") != outputs["GuardFunctionArn"] or \
+            json.loads(schedule.get("Target", {}).get("Input", "null")) != {"dryRun": False}:
         raise ValueError("The six-hour cost guard schedule is not enabled")
     subscribers = aws("sns", "list-subscriptions-by-topic", "--topic-arn", outputs["GuardAlertTopicArn"])["Subscriptions"]
     if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" and
                row.get("SubscriptionArn", "PendingConfirmation") != "PendingConfirmation" for row in subscribers):
         raise ValueError("Confirm the cost guard failure alert email subscription before public DNS")
     alarm = aws("cloudwatch", "describe-alarms", "--alarm-names", "retro-coop-cost-guard-errors")["MetricAlarms"]
-    if len(alarm) != 1 or not alarm[0].get("ActionsEnabled") or outputs["GuardAlertTopicArn"] not in alarm[0]["AlarmActions"]:
+    if len(alarm) != 1 or not alarm[0].get("ActionsEnabled") or \
+            outputs["GuardAlertTopicArn"] not in alarm[0]["AlarmActions"] or \
+            alarm[0].get("Namespace") != "AWS/Lambda" or alarm[0].get("MetricName") != "Errors" or \
+            alarm[0].get("Dimensions") != [{"Name": "FunctionName", "Value": "retro-coop-cost-guard"}] or \
+            alarm[0].get("ComparisonOperator") != "GreaterThanThreshold" or alarm[0].get("Threshold") != 0:
         raise ValueError("Cost guard failures have no active operator alarm")
     parameter = outputs["ExpectedAlbParameterName"]
     previous = aws("ssm", "get-parameter", "--name", parameter)["Parameter"]["Value"]

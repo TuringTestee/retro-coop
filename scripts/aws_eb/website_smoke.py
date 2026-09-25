@@ -41,7 +41,7 @@ guard_outputs = {"GuardScheduleName": "retro-coop-cost-guard-6h",
 notifications = [{"NotificationType": mode, "ComparisonOperator": "GREATER_THAN",
                   "Threshold": threshold, "ThresholdType": "PERCENTAGE"}
                  for mode, threshold in (("ACTUAL", 50), ("ACTUAL", 100), ("FORECASTED", 100))]
-state = {"confirmed": True, "alb": "UNCONFIGURED", "invocations": 0,
+state = {"confirmed": True, "scheduleDryRun": False, "alb": "UNCONFIGURED", "invocations": 0,
          "result": {"dryRun": True, "wouldStop": False, "actions": [],
                     "actualUsd": "40", "forecastUsd": "80"}}
 
@@ -56,12 +56,16 @@ def guard_aws(*args):
     if key == ("budgets", "describe-subscribers-for-notification"):
         return {"Subscribers": [{"SubscriptionType": "EMAIL", "Address": "bill@example.test"}]}
     if key == ("scheduler", "get-schedule"):
-        return {"State": "ENABLED", "ScheduleExpression": "rate(6 hours)", "Target": {"Arn": "arn:guard"}}
+        return {"State": "ENABLED", "ScheduleExpression": "rate(6 hours)",
+                "Target": {"Arn": "arn:guard", "Input": json.dumps({"dryRun": state["scheduleDryRun"]})}}
     if key == ("sns", "list-subscriptions-by-topic"):
         return {"Subscriptions": [{"Endpoint": "bill@example.test", "Protocol": "email",
                                    "SubscriptionArn": "arn:subscription" if state["confirmed"] else "PendingConfirmation"}]}
     if key == ("cloudwatch", "describe-alarms"):
-        return {"MetricAlarms": [{"ActionsEnabled": True, "AlarmActions": ["arn:alerts"]}]}
+        return {"MetricAlarms": [{"ActionsEnabled": True, "AlarmActions": ["arn:alerts"],
+                                  "Namespace": "AWS/Lambda", "MetricName": "Errors",
+                                  "Dimensions": [{"Name": "FunctionName", "Value": "retro-coop-cost-guard"}],
+                                  "ComparisonOperator": "GreaterThanThreshold", "Threshold": 0}]}
     if key == ("ssm", "get-parameter"):
         return {"Parameter": {"Value": state["alb"]}}
     if key == ("lambda", "invoke"):
@@ -90,6 +94,14 @@ except ValueError:
     pass
 assert state["invocations"] == 1
 state["confirmed"] = True
+state["scheduleDryRun"] = True
+try:
+    website.verify_guard(guard_outputs, "retro-alb.example")
+    raise AssertionError("Public DNS gate accepted a schedule that only dry runs")
+except ValueError:
+    pass
+assert state["invocations"] == 1
+state["scheduleDryRun"] = False
 state["result"] = {**state["result"], "wouldStop": True,
                    "actions": ["delete_exact_website_alias"], "forecastUsd": "100"}
 try:
