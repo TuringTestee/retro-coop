@@ -29,6 +29,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--crane", required=True, type=Path, help="Pinned crane v0.20.6 executable")
+    parser.add_argument("--ci-run-id", type=int, help="Exact successful main CI run that supplied the image artifact")
     args = parser.parse_args()
     if run("git", "branch", "--show-current") != "main" or run("git", "status", "--porcelain"):
         parser.error("Build from a clean main checkout")
@@ -44,10 +45,18 @@ def main() -> None:
                                 "--repository-names", "retro-coop", "--output", "json"))["repositories"][0]
     if repository["repositoryUri"] != REPO or repository["imageTagMutability"] != "IMMUTABLE":
         parser.error("Expected the dedicated immutable ECR repository")
-    runs = json.loads(run("gh", "run", "list", "--repo", "TuringTestee/retro-coop", "--commit", revision,
-                          "--branch", "main", "--workflow", "CI", "--event", "push", "--status", "success",
-                          "--json", "databaseId,headSha,conclusion,event", "--limit", "20"))
-    candidates = [row for row in runs if row["headSha"] == revision and row["event"] == "push" and row["conclusion"] == "success"]
+    if args.ci_run_id:
+        inspected = json.loads(run("gh", "run", "view", str(args.ci_run_id), "--repo", "TuringTestee/retro-coop",
+                                   "--json", "databaseId,headSha,headBranch,conclusion,event,workflowName"))
+        candidates = [inspected]
+    else:
+        candidates = json.loads(run("gh", "run", "list", "--repo", "TuringTestee/retro-coop", "--commit", revision,
+                                    "--branch", "main", "--workflow", "CI", "--event", "push", "--status", "success",
+                                    "--json", "databaseId,headSha,headBranch,conclusion,event,workflowName", "--limit", "20"))
+    candidates = [row for row in candidates if row["headSha"] == revision and row["headBranch"] == "main" and
+                  row["workflowName"] == "CI" and row["event"] == "push" and row["conclusion"] == "success"]
+    if len(candidates) != 1 and args.ci_run_id:
+        parser.error("The selected CI run is not a successful push to this exact main commit")
     if not candidates:
         parser.error("No successful native ARM64 CI run exists for this exact main commit")
     run_id = str(candidates[0]["databaseId"])
