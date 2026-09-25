@@ -36,7 +36,7 @@ def main() -> None:
     revision = run("git", "rev-parse", "HEAD")
     if revision != run("git", "rev-parse", "origin/main"):
         parser.error("Local main differs from origin/main")
-    if "v0.20.6" not in run(str(args.crane), "version"):
+    if run(str(args.crane), "version") not in ("v0.20.6", "0.20.6"):
         parser.error("Use the reviewed crane v0.20.6 binary")
     identity = json.loads(run("aws", "sts", "get-caller-identity", "--output", "json"))
     if identity.get("Account") != ACCOUNT:
