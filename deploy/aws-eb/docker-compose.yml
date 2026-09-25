@@ -1,0 +1,30 @@
+services:
+  coordinator:
+    image: __COORDINATOR_IMAGE__
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /run/retro-coop-roms:uid=1000,gid=1000,mode=0700,size=300m
+      - /tmp:mode=1777,size=64m
+    environment:
+      COORDINATOR_STAGE: staging
+      COORDINATOR_HOST: 127.0.0.1
+      COORDINATOR_PORT: "8787"
+      COORDINATOR_TRUSTED_PROXIES: 127.0.0.1
+      COORDINATOR_ORIGINS: ${COORDINATOR_ORIGINS:?exact HTTPS origin required}
+      COORDINATOR_ROM_DIR: /run/retro-coop-roms
+      COORDINATOR_REQUIRE_CUSTOM_UPLOAD: "1"
+      COORDINATOR_EMPTY_OFFERS: super-tilt-bro-pal,from-below-1.0
+      TURN_URLS: ${TURN_URLS:?TURN URL required}
+      TURN_SECRET: ${TURN_SECRET:?managed TURN secret required}
+      TURN_ROOM_LIMIT: "8"
+  edge:
+    image: __EDGE_IMAGE__
+    network_mode: host
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=128m
+    depends_on:
+      - coordinator

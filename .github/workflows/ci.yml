@@ -109,7 +109,7 @@ jobs:
   images:
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
     steps:
@@ -121,18 +121,15 @@ jobs:
         timeout-minutes: 1
         with:
           node-version-file: .node-version
-      - name: Build and probe exact staging images within the shared deadline
+      - name: Build and probe the EB source package within the shared deadline
         run: |
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target edge --tag retro-coop-staging-edge:candidate .
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/staging/Dockerfile --target coordinator --tag retro-coop-staging-coordinator:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/source_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/website_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target edge --tag retro-coop-eb-edge:candidate .
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- docker build --file deploy/aws-eb/Dockerfile --target coordinator --tag retro-coop-eb-coordinator:candidate .
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/container_smoke.sh
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/render_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/acme_hook_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/turn_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/turn_operator_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/staging/prepare_cloud_smoke.py
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/staging/kubernetes_smoke.sh
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/aws_eb/container_smoke.sh
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/turn_smoke.py
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
   core:
     if: github.event_name == 'push'

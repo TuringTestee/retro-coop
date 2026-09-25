@@ -1,19 +1,20 @@
 import WebSocket from 'ws';
 import {createHash, randomUUID} from 'node:crypto';
-import https from 'node:https';
+import http from 'node:http';
 
 const base = process.argv[2];
-if (!base || !base.startsWith('https://')) throw Error('Pass the local HTTPS edge URL.');
-const origin = new URL(base).origin;
+if (!base || !base.startsWith('http://')) throw Error('Pass the local HTTP edge URL.');
+const origin = process.argv[3] ?? 'https://retro-coop.1001.page';
 const websocket = new URL('/coordinator/ws', base);
-websocket.protocol = 'wss:';
+websocket.protocol = 'ws:';
 
-async function connect(localAddress, forgedAddress, requestOrigin=origin) {
+async function connect(localAddress, forgedAddress, requestOrigin=origin, albAddress=localAddress) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(websocket, {
       origin: requestOrigin,
       localAddress,
-      headers: {'X-Forwarded-For': forgedAddress},
+      // Mirror the ALB: append the real transport peer after untrusted entries.
+      headers: {'X-Forwarded-For': `${forgedAddress}, ${albAddress}`},
       handshakeTimeout: 3000,
     });
     socket.once('open', () => resolve(socket));
@@ -21,9 +22,9 @@ async function connect(localAddress, forgedAddress, requestOrigin=origin) {
   });
 }
 
-async function denied(localAddress, forgedAddress, requestOrigin=origin, status=403) {
+async function denied(localAddress, forgedAddress, requestOrigin=origin, status=403, albAddress=localAddress) {
   try {
-    const socket = await connect(localAddress, forgedAddress, requestOrigin);
+    const socket = await connect(localAddress, forgedAddress, requestOrigin, albAddress);
     socket.close();
     throw Error('Unexpected WebSocket admission');
   } catch (error) {
@@ -32,7 +33,7 @@ async function denied(localAddress, forgedAddress, requestOrigin=origin, status=
 }
 
 const health = await fetch(new URL('/healthz', base));
-if (health.status !== 200 || await health.text() !== 'ok') throw Error('HTTPS edge health failed');
+if (health.status !== 200 || !(await health.text()).includes('retro-coop')) throw Error('Edge and coordinator health failed');
 const page = await fetch(new URL('/create', base));
 const html = await page.text();
 if (page.status !== 200 || !html.includes('<title>Retro Coop</title>')) throw Error('Static page routing failed');
@@ -55,6 +56,16 @@ try {
   for (let index=0; index<21; index++) distinctAddresses.push(await connect(`127.0.1.${index+1}`, '203.0.113.200'));
 } finally {
   for (const socket of distinctAddresses) socket.close();
+}
+
+const ipv6Address = [];
+try {
+  for (let index=0; index<6; index++) ipv6Address.push(await connect('127.0.4.1', `192.0.2.${index+1}`, origin, '2001:db8::1'));
+  await denied('127.0.4.1', '192.0.2.7', origin, 429, '2001:db8::1');
+  const another = await connect('127.0.4.1', '192.0.2.1', origin, '2001:db8::2');
+  another.close();
+} finally {
+  for (const socket of ipv6Address) socket.close();
 }
 
 async function command(socket, value) {
@@ -98,16 +109,16 @@ try {
   const romUrl = new URL(`/coordinator/rooms/${room.id}/rom`, base);
   const upload = (bearer, uploadIntent) => fetch(romUrl, {
     method:'PUT',
-    headers:{Origin:origin,Authorization:`Bearer ${bearer}`,'X-Room-Intent':uploadIntent,'Content-Type':'application/octet-stream'},
+    headers:{Origin:origin,Authorization:`Bearer ${bearer}`,'X-Room-Intent':uploadIntent,'Content-Type':'application/octet-stream','X-Forwarded-For':'203.0.113.1, 127.0.2.1'},
     body:rom,
   });
   const rejectedUpload = await upload('x'.repeat(43), intent);
   if (rejectedUpload.status !== 403) throw Error(`Unauthorized host upload returned ${rejectedUpload.status}; expected 403`);
   const started = performance.now();
   const acceptedUpload = await new Promise((resolve, reject) => {
-    const request = https.request(romUrl, {
+    const request = http.request(romUrl, {
       method:'PUT',
-      headers:{Origin:origin,Authorization:`Bearer ${hostToken}`,'X-Room-Intent':intent,'Content-Type':'application/octet-stream','Content-Length':String(rom.length)},
+      headers:{Origin:origin,Authorization:`Bearer ${hostToken}`,'X-Room-Intent':intent,'Content-Type':'application/octet-stream','Content-Length':String(rom.length),'X-Forwarded-For':'203.0.113.1, 127.0.2.1'},
     }, response => {
       response.resume();
       response.once('end', () => resolve(response.statusCode));
@@ -128,7 +139,7 @@ try {
   const published = (await command(host, {type:'confirmCreate',intent})).room;
   const joined = (await command(guest, {type:'join',invite:published.invite,intent:randomUUID()})).room;
   const download = (bearer, membership) => fetch(romUrl, {
-    headers:{Origin:origin,Authorization:`Bearer ${bearer}`,'X-Room-Membership':membership},
+    headers:{Origin:origin,Authorization:`Bearer ${bearer}`,'X-Room-Membership':membership,'X-Forwarded-For':'203.0.113.2, 127.0.2.2'},
   });
   const rejectedDownload = await download(hostToken, joined.chatMembership);
   if (rejectedDownload.status !== 403) throw Error(`Unauthorized guest download returned ${rejectedDownload.status}; expected 403`);
@@ -139,4 +150,4 @@ try {
   guest.close();
 }
 
-console.log(JSON.stringify({https:true,staticRoute:true,versionedAsset:true,originDenied:true,forgedAddressCannotSplitQuota:true,distinctTransportAddressesAdmitted:21,hostUpload:true,progressingUploadSeconds,guestDownload:true,transferAuthorization:true}));
+console.log(JSON.stringify({edgeAndCoordinatorHealth:true,staticRoute:true,versionedAsset:true,originDenied:true,forgedAddressCannotSplitQuota:true,distinctTransportAddressesAdmitted:21,ipv6ForwardingAndQuota:true,hostUpload:true,progressingUploadSeconds,guestDownload:true,transferAuthorization:true}));

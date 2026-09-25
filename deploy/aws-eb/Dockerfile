@@ -25,10 +25,10 @@ ENV PUBLIC_CATALOG_GAMES=super-tilt-bro-pal,from-below-1.0
 RUN npm run build:staging
 
 FROM nginx:1.29.3-alpine@sha256:b3c656d55d7ad751196f21b7fd2e8d4da9cb430e32f646adcf92441b72f82b14 AS edge
-COPY deploy/staging/nginx.conf /etc/nginx/nginx.conf
+COPY deploy/aws-eb/nginx.conf /etc/nginx/nginx.conf
 COPY --from=client-build /app/apps/client/dist /usr/share/nginx/html
 USER 101:101
-EXPOSE 8080 8081 8443
+EXPOSE 8080
 ENTRYPOINT ["nginx"]
 CMD ["-g", "daemon off;"]
 

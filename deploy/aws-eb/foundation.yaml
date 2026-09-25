@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Retro Coop website support resources in us-east-1. The EB environment is created from a reviewed immutable release separately.
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  RelaySubnetId:
+    Type: AWS::EC2::Subnet::Id
+  RelayAmiId:
+    Type: AWS::EC2::Image::Id
+  HostedZoneId:
+    Type: String
+  BootstrapBucket:
+    Type: String
+  BootstrapPrefix:
+    Type: String
+Resources:
+  Images:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: retro-coop
+      ImageTagMutability: IMMUTABLE
+      EmptyOnDelete: true
+      ImageScanningConfiguration:
+        ScanOnPush: true
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: retro-coop.1001.page
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: retro-coop.1001.page
+          HostedZoneId: !Ref HostedZoneId
+  TurnSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Shared short-lived TURN credential signing key
+      GenerateSecretString:
+        PasswordLength: 64
+        ExcludeUppercase: true
+        ExcludePunctuation: true
+        IncludeSpace: false
+        RequireEachIncludedType: false
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Retro Coop public HTTPS load balancer
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Retro Coop edge only from its ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref AlbSecurityGroup
+  RelaySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Retro Coop bounded public UDP TURN allocations, no SSH
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 3478
+          ToPort: 3478
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: udp
+          FromPort: 49160
+          ToPort: 49175
+          CidrIp: 0.0.0.0/0
+  EbRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadTurnSecret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref TurnSecret
+  EbProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref EbRole]
+  RelayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadRelayBootMaterial
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref TurnSecret
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:aws:s3:::${BootstrapBucket}/${BootstrapPrefix}/*
+  RelayProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref RelayRole]
+  RelayAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  RelayInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: !Ref RelayAmiId
+      SubnetId: !Ref RelaySubnetId
+      IamInstanceProfile: !Ref RelayProfile
+      SecurityGroupIds: [!Ref RelaySecurityGroup]
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -eu
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends awscli coturn iproute2 python3
+          install -d -m 0700 /opt/retro-coop /run/retro-coop
+          aws s3 cp s3://${BootstrapBucket}/${BootstrapPrefix}/render_turn.py /opt/retro-coop/render_turn.py --region ${AWS::Region} --quiet
+          aws s3 cp s3://${BootstrapBucket}/${BootstrapPrefix}/configure_turn.sh /opt/retro-coop/configure_turn.sh --region ${AWS::Region} --quiet
+          aws secretsmanager get-secret-value --secret-id ${TurnSecret} --region ${AWS::Region} --query SecretString --output json | python3 -c 'import json,sys;sys.stdout.write(json.load(sys.stdin))' > /run/retro-coop/secret
+          chmod 0600 /run/retro-coop/secret
+          token=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token)
+          private_ip=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/local-ipv4)
+          sh /opt/retro-coop/configure_turn.sh ${RelayAddress} "$private_ip" /run/retro-coop/secret
+      Tags:
+        - Key: Name
+          Value: retro-coop-turn
+  RelayAddressAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt RelayAddress.AllocationId
+      InstanceId: !Ref RelayInstance
+Outputs:
+  EcrRepository:
+    Value: !GetAtt Images.RepositoryUri
+  CertificateArn:
+    Value: !Ref Certificate
+  TurnSecretArn:
+    Value: !Ref TurnSecret
+  RelayPublicIp:
+    Value: !Ref RelayAddress
+  AlbSecurityGroupId:
+    Value: !Ref AlbSecurityGroup
+  AppSecurityGroupId:
+    Value: !Ref AppSecurityGroup
+  EbProfileName:
+    Value: !Ref EbProfile
+  RelayInstanceId:
+    Value: !Ref RelayInstance

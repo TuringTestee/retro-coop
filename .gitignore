@@ -10,3 +10,4 @@ scripts/gameplay/__pycache__/
 apps/client/src/generated/
 scripts/peer/__pycache__/
 scripts/voice/__pycache__/
+scripts/aws_eb/__pycache__/
