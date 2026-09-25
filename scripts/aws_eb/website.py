@@ -303,13 +303,14 @@ def verify_guard(outputs: dict[str, str], ip: str, old_ip: str | None) -> tuple[
                   "--budget-name", BUDGET)["Notifications"]
     required = {("ACTUAL", 50.0), ("ACTUAL", 100.0), ("FORECASTED", 100.0)}
     present = {(row["NotificationType"], float(row["Threshold"])) for row in notices
-               if row.get("ComparisonOperator") == "GREATER_THAN" and row.get("ThresholdType") == "PERCENTAGE"}
+               if row.get("ComparisonOperator") == "GREATER_THAN" and row.get("ThresholdType", "PERCENTAGE") == "PERCENTAGE"}
     if not required.issubset(present):
         raise ValueError("The $50/$100 actual and forecast Budget alerts are incomplete")
     for row in notices:
         if (row.get("NotificationType"), float(row.get("Threshold", -1))) not in required:
             continue
-        notice = {key: row[key] for key in ("NotificationType", "ComparisonOperator", "Threshold", "ThresholdType")}
+        notice = {key: row[key] for key in ("NotificationType", "ComparisonOperator", "Threshold")}
+        notice["ThresholdType"] = row.get("ThresholdType", "PERCENTAGE")
         subscribers = aws("budgets", "describe-subscribers-for-notification", "--account-id", ACCOUNT,
                           "--budget-name", BUDGET, "--notification", json.dumps(notice))["Subscribers"]
         if {"SubscriptionType": "EMAIL", "Address": email} not in subscribers:
