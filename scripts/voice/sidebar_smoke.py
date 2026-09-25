@@ -4,6 +4,7 @@ from pathlib import Path
 
 def run(host, guest, output):
     output = Path(output)
+    guest.get_by_test_id('room-view').wait_for(state='detached')
     guest.goto(host.get_by_label('Room invitation', exact=True).input_value())
     guest.get_by_role('button', name='Join room', exact=True).click()
     guest.get_by_role('button', name='Prepare to play', exact=True).click()
