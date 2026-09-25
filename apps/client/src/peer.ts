@@ -13,11 +13,12 @@ export class PeerConnection {
  private role?:RoomRole;
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
+ private routeTimer?:ReturnType<typeof setTimeout>;
  private serial=Promise.resolve();
  private connectedState?:ConnectionState;
  private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
  constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
- close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
+ close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
  private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {this.close(event.reason);return;}
@@ -82,7 +83,19 @@ export class PeerConnection {
    const stats=await this.pc!.getStats();if(this.epoch!==epoch) return;
    const route=connectionRoute(stats);
    this.update({status:'Peer transport connected.',route,epoch});
-   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',route,epoch};this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);}
+   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',route,epoch};this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);if(!route)this.refreshRoute(epoch,20);}
   }catch {this.fail(epoch);}
+ }
+ private refreshRoute(epoch:string,remaining:number) {
+  clearTimeout(this.routeTimer);
+  this.routeTimer=setTimeout(async()=>{
+   const pc=this.pc;if(this.epoch!==epoch||!pc||!this.connectedState)return;
+   try {
+    const route=connectionRoute(await pc.getStats());
+    if(this.epoch!==epoch||this.pc!==pc||!this.connectedState)return;
+    if(route){this.connectedState={...this.connectedState,route};this.update(this.connectedState);return;}
+   }catch {return;}
+   if(remaining>1)this.refreshRoute(epoch,remaining-1);
+  },100);
  }
 }

@@ -51,10 +51,14 @@ try:
     out.write_text(json.dumps(failure,indent=2)+'\n');print(json.dumps(failure),flush=True)
     raise
    result=[]
-   for tab in [h,g]:
-    data=tab.evaluate('''async()=>{const pc=peerProof.pcs.at(-1),stats=await pc.getStats();let selected;
+   probe='''async()=>{const pc=peerProof.pcs.at(-1),stats=await pc.getStats();let selected;
      stats.forEach(s=>{if(s.type==='transport'&&s.selectedCandidatePairId){const pair=stats.get(s.selectedCandidatePairId);selected={local:stats.get(pair.localCandidateId).candidateType,remote:stats.get(pair.remoteCandidateId).candidateType,bytesSent:pair.bytesSent,bytesReceived:pair.bytesReceived}}});
-     return {...selected,policy:pc.getConfiguration().iceTransportPolicy,gatherBeforeStart:peerProof.gatherBeforeStart,relayCandidatesOnly:peerProof.sentCandidates.every(c=>c.includes(' typ relay '))};}''')
+     return {...selected,policy:pc.getConfiguration().iceTransportPolicy,gatherBeforeStart:peerProof.gatherBeforeStart,relayCandidatesOnly:peerProof.sentCandidates.every(c=>c.includes(' typ relay '))};}'''
+   for tab in [h,g]:
+    data=tab.evaluate(probe)
+    for _ in range(50):
+     if data['bytesSent']>0 and data['bytesReceived']>0:break
+     tab.wait_for_timeout(100);data=tab.evaluate(probe)
     assert not data['gatherBeforeStart'];assert data['bytesSent']>0 and data['bytesReceived']>0
     if route=='relay':assert data['local']=='relay' and data['remote']=='relay' and data['policy']=='relay'
     result.append(data)
