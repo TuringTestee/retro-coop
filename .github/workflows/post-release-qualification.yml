@@ -1,0 +1,223 @@
+name: Post-release qualification
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+permissions:
+  contents: read
+  actions: read
+env:
+  D02_BUDGET_SECONDS: '1800'
+jobs:
+  watchdog:
+    if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'post-release-proof')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 31
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enforce one 30-minute deadline, including queue time
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 spikes/d02/ci_budget.py watch --gate qualification
+  fixture:
+    if: ${{ github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'post-release-proof')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - name: Record the original run deadline
+        id: budget
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "deadline=$(python3 spikes/d02/ci_budget.py deadline)" >> "$GITHUB_OUTPUT"
+      - name: Build the original diagnostic fixture and pinned core
+        env:
+          D02_DEADLINE: ${{ steps.budget.outputs.deadline }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then test "$GITHUB_REF" = refs/heads/main; fi
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- bash -c '
+            set -euo pipefail
+            rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+            cd spikes/d02
+            python3 original_fixture.py fixture.local.nes
+            cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown
+            cd ../..
+            npm ci
+            RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
+            npm run build:staging
+          '
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: post-release-fixture
+          path: |
+            spikes/d02/fixture.local.nes
+            spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: post-release-client
+          path: apps/client/dist
+          if-no-files-found: warn
+          retention-days: 14
+  core:
+    needs: fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: post-release-fixture
+          path: spikes/d02
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: post-release-client
+          path: apps/client/dist
+      - name: Record the original run deadline
+        id: budget
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "deadline=$(python3 spikes/d02/ci_budget.py deadline)" >> "$GITHUB_OUTPUT"
+      - name: Run the complete core qualification
+        env:
+          D02_DEADLINE: ${{ steps.budget.outputs.deadline }}
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh core
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: post-release-core
+          path: |
+            spikes/d02/*.local.json
+            spikes/d02/*.local.txt
+            spikes/d02/*.local.png
+            spikes/d02/gameplay.local/**
+            spikes/d02/.gameplay-runs/**/*.json
+            spikes/d02/.gameplay-runs/**/*.log
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+  network:
+    needs: fixture
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pair: [Chrome-Chrome, Firefox-Firefox, Chrome-Firefox]
+    env:
+      D02_PAIR: ${{ matrix.pair }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: post-release-fixture
+          path: spikes/d02
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: post-release-client
+          path: apps/client/dist
+      - name: Record the original run deadline
+        id: budget
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "deadline=$(python3 spikes/d02/ci_budget.py deadline)" >> "$GITHUB_OUTPUT"
+      - name: Run 600 seconds of game and probe traffic
+        env:
+          D02_DEADLINE: ${{ steps.budget.outputs.deadline }}
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh network-full
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: post-release-network-${{ matrix.pair }}
+          path: |
+            spikes/d02/*.local.json
+            spikes/d02/*.local.txt
+            spikes/d02/*.local.png
+            spikes/d02/.network-runs/**/*.json
+            spikes/d02/.network-runs/**/*.log
+            spikes/d02/.gameplay-runs/**/*.json
+            spikes/d02/.gameplay-runs/**/*.log
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+  qualification:
+    if: ${{ always() && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'post-release-proof'))) }}
+    needs: [fixture, core, network]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      D02_FIXTURE: ${{ needs.fixture.result }}
+      D02_CORE: ${{ needs.core.result }}
+      D02_NETWORK: ${{ needs.network.result }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: ${{ needs.network.result == 'success' }}
+        with:
+          pattern: post-release-network-*
+          path: /tmp/post-release-network
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: ${{ needs.core.result == 'success' }}
+        with:
+          name: post-release-core
+          path: /tmp/post-release-core
+      - name: Report results and verify all full browser pairs
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          python3 spikes/d02/post_release_summary.py --network-dir /tmp/post-release-network --core-dir /tmp/post-release-core | tee "$GITHUB_STEP_SUMMARY"
+      - name: Prove a missing pair makes qualification fail
+        if: ${{ needs.core.result == 'success' && needs.network.result == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pair_file=$(find /tmp/post-release-network -name pair.local.json -path '*Chrome-Firefox*' -print -quit)
+          test -n "$pair_file"
+          mv "$pair_file" "$pair_file.withheld"
+          trap 'mv "$pair_file.withheld" "$pair_file"' EXIT
+          if python3 spikes/d02/post_release_summary.py --network-dir /tmp/post-release-network --core-dir /tmp/post-release-core > /tmp/post-release-injected-failure.md; then
+            echo 'A missing pair incorrectly passed qualification.' >&2
+            exit 1
+          fi
+          grep -q 'missing required browser pair' /tmp/post-release-injected-failure.md
+          {
+            echo ''
+            echo '## Injected missing-pair check'
+            cat /tmp/post-release-injected-failure.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: post-release-injected-failure-report
+          path: /tmp/post-release-injected-failure.md
+          if-no-files-found: warn
+          retention-days: 14
