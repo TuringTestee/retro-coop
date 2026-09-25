@@ -45,15 +45,15 @@ Resources:
                 Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/retro-coop
               - Sid: ReleaseBundleObjects
                 Effect: Allow
-                Action: [s3:PutObject, s3:GetObject, s3:GetObjectAcl]
+                Action: s3:PutObject
                 # v21 constructs a leading-slash key, while the observed S3 request uses the normal path.
                 Resource:
                   - !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/retro-coop/*
                   - !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}//retro-coop/*
-              - Sid: ExistingEnvironmentExtensions
+              - Sid: ReadExistingEbBucketObjects
                 Effect: Allow
                 Action: [s3:GetObject, s3:GetObjectAcl]
-                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/resources/environments/*/_runtime/_embedded_extensions/retro-coop/*
+                Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/*
               - Sid: InspectReleaseBucket
                 Effect: Allow
                 Action: [s3:GetBucketLocation, s3:ListBucket]
@@ -62,7 +62,8 @@ Resources:
                 Effect: Allow
                 Action: [elasticbeanstalk:CreateStorageLocation, elasticbeanstalk:DescribeEnvironments,
                          elasticbeanstalk:DescribeApplicationVersions, elasticbeanstalk:DescribeApplications,
-                         elasticbeanstalk:DescribeEvents, ec2:DescribeImages]
+                         elasticbeanstalk:DescribeEvents, ec2:DescribeImages,
+                         autoscaling:DescribeAutoScalingGroups]
                 Resource: '*'
               - Sid: CreateOnlyWebsiteVersion
                 Effect: Allow
