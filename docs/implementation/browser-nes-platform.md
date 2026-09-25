@@ -64,7 +64,7 @@ Provision only after selecting a plan that can enforce the budget. Configure rel
 
 Deploy immutable versioned client/core assets to staging first and retain previous versions for active lobbies. Rehearse rolling back the client and coordinator and restoring catalog/configuration; a coordinator restart intentionally closes ephemeral lobbies. Document a maintenance message and the accepted interruption. Keep secrets outside source control and test the chosen provider's configuration recovery mechanism. Do not back up chat, user ROMs, or cloud saves because this release does not persist them.
 
-Start a limited beta only after AC-01–16 evidence, both catalog artifacts' provenance and qualification, cost enforcement, and the reviewed operational runbook are complete. The operator reviews redacted health and abuse signals daily during the initial beta and assesses the first two weeks before increasing admission. The user selected AWS Elastic Beanstalk for the bounded staging trial; the [D24 AWS deployment plan](d24-aws-eb-staging.md) owns its cost and teardown gates.
+Start a limited beta only after AC-01–16 evidence, both catalog artifacts' provenance and qualification, cost enforcement, and the reviewed operational runbook are complete. The operator reviews redacted health and abuse signals daily during the initial beta and assesses the first two weeks before increasing admission. The user selected a publicly reachable AWS Elastic Beanstalk website with a running instance; the [D24 AWS deployment plan](d24-aws-eb-staging.md) owns its cost and operations gates.
 
 ## Risks and reassessment
 
