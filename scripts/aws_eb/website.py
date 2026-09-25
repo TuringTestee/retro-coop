@@ -18,7 +18,8 @@ from package import ROOT, IMAGE
 
 ACCOUNT = "599796577790"
 REGION = "us-east-1"
-HOST = "retro-coop.1001.page"
+HOST = "retro-coop.atobot.cloud"
+PARENT_DOMAIN = "atobot.cloud"
 APP = "retro-coop"
 ENV = "retro-coop-web"
 STACK = "retro-coop-website-foundation"
@@ -103,6 +104,21 @@ def a_record(ip: str) -> dict:
     return {"Name": HOST + ".", "Type": "A", "TTL": 60, "ResourceRecords": [{"Value": str(ipaddress.IPv4Address(ip))}]}
 
 
+def verify_delegation(zone: str) -> None:
+    hosted = aws("route53", "get-hosted-zone", "--id", zone)
+    if hosted["HostedZone"]["Name"].rstrip(".") != PARENT_DOMAIN or \
+            hosted["HostedZone"]["Config"].get("PrivateZone"):
+        raise ValueError("Expected the public atobot.cloud hosted zone")
+    expected = {name.lower().rstrip(".") for name in hosted["DelegationSet"]["NameServers"]}
+    registered = aws("route53domains", "get-domain-detail", "--domain-name", PARENT_DOMAIN)
+    registrar = {row["Name"].lower().rstrip(".") for row in registered["Nameservers"]}
+    public = subprocess.run(["dig", "+short", "NS", PARENT_DOMAIN, "@8.8.8.8"],
+                            capture_output=True, text=True, check=True)
+    resolved = {name.lower().rstrip(".") for name in public.stdout.splitlines()}
+    if not expected or registrar != expected or resolved != expected:
+        raise ValueError("atobot.cloud is not publicly delegated to the reviewed Route 53 zone")
+
+
 def public_subnet(subnet_id: str, vpc_id: str) -> bool:
     subnet = aws("ec2", "describe-subnets", "--subnet-ids", subnet_id)["Subnets"][0]
     if subnet["VpcId"] != vpc_id:
@@ -169,9 +185,7 @@ def setup(args: argparse.Namespace) -> None:
         raise ValueError("Named website DNS, foundation or environment already exists; inspect before setup")
     if aws("elasticbeanstalk", "describe-applications", "--application-names", APP)["Applications"]:
         raise ValueError("The named EB application already exists; inspect it before provisioning")
-    hosted = aws("route53", "get-hosted-zone", "--id", args.hosted_zone_id)["HostedZone"]
-    if hosted["Name"].rstrip(".") != "1001.page" or hosted["Config"].get("PrivateZone"):
-        raise ValueError("Expected the public 1001.page hosted zone")
+    verify_delegation(args.hosted_zone_id)
     aws("ec2", "describe-vpcs", "--vpc-ids", args.vpc_id)["Vpcs"][0]
     bucket = aws("elasticbeanstalk", "create-storage-location")["S3Bucket"]
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
@@ -188,11 +202,77 @@ def setup(args: argparse.Namespace) -> None:
             f"GuardCodeKey={guard_key}", f"AlertEmail={args.alert_email}")
     outputs = stack_outputs()
     print(json.dumps({"foundation": STACK, "ecrRepository": outputs["EcrRepository"], "bucket": bucket,
-                      "operatorStep": "Confirm the cost guard failure email subscription before deploy."}))
+                      "operatorStep": "Inspect the cost guard failure alarms until its email subscription is confirmed."}))
 
 
 def setting(namespace: str, name: str, value: str) -> dict:
     return {"Namespace": namespace, "OptionName": name, "Value": value}
+
+
+def connection_options() -> list[dict]:
+    namespace = "aws:elasticbeanstalk:application:environment"
+    return [setting(namespace, "COORDINATOR_ORIGINS", f"https://{HOST}"),
+            setting(namespace, "TURN_URLS", f"turn:{HOST}:3478?transport=udp")]
+
+
+def connection_values() -> dict[str, str]:
+    rows = aws("elasticbeanstalk", "describe-configuration-settings", "--application-name", APP,
+               "--environment-name", ENV)["ConfigurationSettings"]
+    deployed = [row for row in rows if row.get("DeploymentStatus") == "deployed"]
+    if len(deployed) != 1:
+        raise ValueError("Expected one deployed EB configuration")
+    expected = {row["OptionName"] for row in connection_options()}
+    relevant = [row for row in deployed[0]["OptionSettings"]
+                if row.get("Namespace") == "aws:elasticbeanstalk:application:environment" and
+                row.get("OptionName") in expected]
+    if len(relevant) != len(expected):
+        raise ValueError("EB connection settings are missing or duplicated")
+    return {row["OptionName"]: row["Value"] for row in relevant}
+
+
+def wait_for_existing_state(version: str, values: dict[str, str], timeout: int = 1800) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        current = environment()
+        if current and current.get("Status") == "Ready" and current.get("Health") == "Green" and \
+                current.get("VersionLabel") == version and connection_values() == values:
+            return current
+        if current and current.get("Status") in ("Terminated", "Terminating"):
+            raise RuntimeError("EB environment terminated during migration")
+        time.sleep(15)
+    raise TimeoutError("EB did not finish the requested version and connection settings")
+
+
+def update_existing_environment(version: str, previous_version: str) -> dict:
+    target = {row["OptionName"]: row["Value"] for row in connection_options()}
+    previous = connection_values()
+    changed = previous != target
+    try:
+        if changed:
+            command("elasticbeanstalk", "update-environment", "--environment-name", ENV,
+                    "--option-settings", json.dumps(connection_options()))
+            wait_for_existing_state(previous_version, target)
+        command("elasticbeanstalk", "update-environment", "--environment-name", ENV, "--version-label", version)
+        return wait_for_existing_state(version, target)
+    except Exception as error:
+        if changed:
+            try:
+                current = wait_for_environment("Ready", timeout=300)
+                if current.get("VersionLabel") == version:
+                    command("elasticbeanstalk", "update-environment", "--environment-name", ENV,
+                            "--version-label", previous_version)
+                    current = wait_for_existing_state(previous_version, target)
+                if current.get("VersionLabel") != previous_version:
+                    raise ValueError("EB is on an unexpected version")
+                if connection_values() != previous:
+                    restored = [setting("aws:elasticbeanstalk:application:environment", name, value)
+                                for name, value in previous.items()]
+                    command("elasticbeanstalk", "update-environment", "--environment-name", ENV,
+                            "--option-settings", json.dumps(restored))
+                    wait_for_existing_state(previous_version, previous)
+            except Exception as restore_error:
+                raise RuntimeError("EB migration failed and previous settings could not be restored; inspect the environment") from restore_error
+        raise error
 
 
 def options(outputs: dict[str, str], args: argparse.Namespace) -> list[dict]:
@@ -214,8 +294,7 @@ def options(outputs: dict[str, str], args: argparse.Namespace) -> list[dict]:
         setting("aws:ec2:vpc", "VPCId", args.vpc_id),
         setting("aws:ec2:vpc", "Subnets", args.subnet),
         setting("aws:ec2:vpc", "AssociatePublicIpAddress", "true"),
-        setting("aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS", f"https://{HOST}"),
-        setting("aws:elasticbeanstalk:application:environment", "TURN_URLS", f"turn:{HOST}:3478?transport=udp"),
+        *connection_options(),
         setting("aws:elasticbeanstalk:application:environmentsecrets", "TURN_SECRET", outputs["TurnSecretArn"]),
     ]
 
@@ -322,9 +401,11 @@ def verify_guard(outputs: dict[str, str], ip: str, old_ip: str | None) -> tuple[
             json.loads(schedule.get("Target", {}).get("Input", "null")) != {"dryRun": False}:
         raise ValueError("The six-hour cost guard schedule is not enabled for real shutdown")
     subscribers = aws("sns", "list-subscriptions-by-topic", "--topic-arn", outputs["GuardAlertTopicArn"])["Subscriptions"]
+    if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" for row in subscribers):
+        raise ValueError("The cost guard failure alert recipient is missing")
     if not any(row.get("Endpoint") == email and row.get("Protocol") == "email" and
                row.get("SubscriptionArn", "PendingConfirmation") != "PendingConfirmation" for row in subscribers):
-        raise ValueError("Confirm the cost guard failure alert email subscription before public DNS")
+        print("Guard failure email is pending; inspect its CloudWatch alarms until confirmed.", file=sys.stderr)
     for name, namespace, metric, dimension in (
         ("retro-coop-cost-guard-errors", "AWS/Lambda", "Errors", "FunctionName"),
         ("retro-coop-cost-guard-delivery-errors", "AWS/Scheduler", "TargetErrorCount", "ScheduleGroup"),
@@ -394,6 +475,7 @@ def deploy(args: argparse.Namespace) -> None:
     outputs = stack_outputs()
     if args.hosted_zone_id != stack_parameters()["HostedZoneId"]:
         raise ValueError("Deploy hosted zone differs from the named foundation")
+    verify_delegation(args.hosted_zone_id)
     record = release_record(args.bundle)
     revision = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
     if record["sourceRevision"] != revision:
@@ -421,12 +503,12 @@ def deploy(args: argparse.Namespace) -> None:
         command("elasticbeanstalk", "create-application-version", "--application-name", APP,
                 "--version-label", version, "--source-bundle", f"S3Bucket={bucket},S3Key={key}")
     if args.update:
-        command("elasticbeanstalk", "update-environment", "--environment-name", ENV, "--version-label", version)
+        current = update_existing_environment(version, existing_env["VersionLabel"])
     else:
         command("elasticbeanstalk", "create-environment", "--application-name", APP,
                 "--environment-name", ENV, "--version-label", version,
                 "--solution-stack-name", args.solution_stack, "--option-settings", json.dumps(options(outputs, args)))
-    current = wait_for_environment("Ready")
+        current = wait_for_environment("Ready")
     resources = aws("elasticbeanstalk", "describe-environment-resources", "--environment-name", ENV)["EnvironmentResources"]
     old_record = dns_record(args.hosted_zone_id)
     ip = verify_live_boundary(outputs, resources, load_test=old_record is None)

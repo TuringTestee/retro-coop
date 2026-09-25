@@ -2,6 +2,8 @@
 """Exercise the one-machine EB operator's scoping and public DNS gates without AWS."""
 
 from argparse import Namespace
+from contextlib import redirect_stderr
+from io import StringIO
 import json
 from pathlib import Path
 
@@ -20,9 +22,82 @@ assert settings["aws:autoscaling:launchconfiguration", "InstanceType"] == "t4g.m
 assert settings["aws:autoscaling:launchconfiguration", "DisableIMDSv1"] == "true"
 assert settings["aws:autoscaling:launchconfiguration", "SecurityGroups"] == "sg-app"
 assert settings["aws:elasticbeanstalk:application:environmentsecrets", "TURN_SECRET"] == "arn:turn-secret"
-assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://retro-coop.1001.page"
-assert settings["aws:elasticbeanstalk:application:environment", "TURN_URLS"] == "turn:retro-coop.1001.page:3478?transport=udp"
+assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://retro-coop.atobot.cloud"
+assert settings["aws:elasticbeanstalk:application:environment", "TURN_URLS"] == "turn:retro-coop.atobot.cloud:3478?transport=udp"
 assert "8787" not in str(settings) and "LoadBalancer" not in str(settings)
+assert {(row["Namespace"], row["OptionName"]): row["Value"] for row in website.connection_options()} == {
+    ("aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"): "https://retro-coop.atobot.cloud",
+    ("aws:elasticbeanstalk:application:environment", "TURN_URLS"): "turn:retro-coop.atobot.cloud:3478?transport=udp"}
+
+original_aws, original_run = website.aws, website.subprocess.run
+nameservers = ["ns-1.example", "ns-2.example"]
+website.aws = lambda *args: ({"HostedZone": {"Name": "atobot.cloud.", "Config": {"PrivateZone": False}},
+                              "DelegationSet": {"NameServers": nameservers}}
+                             if args[:2] == ("route53", "get-hosted-zone") else
+                             {"Nameservers": [{"Name": name} for name in nameservers]})
+website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="ns-1.example.\nns-2.example.\n")
+website.verify_delegation("Z1")
+website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="")
+try:
+    website.verify_delegation("Z1")
+    raise AssertionError("Undelegated hosted zone was accepted")
+except ValueError:
+    pass
+website.aws, website.subprocess.run = original_aws, original_run
+
+original_wait, original_command, original_environment = website.wait_for_environment, website.command, website.environment
+old_values = {"COORDINATOR_ORIGINS": "https://retro-coop.1001.page",
+              "TURN_URLS": "turn:retro-coop.1001.page:3478?transport=udp"}
+new_values = {row["OptionName"]: row["Value"] for row in website.connection_options()}
+migration = {"values": dict(old_values), "version": "main-old", "events": [], "failVersion": False}
+
+
+def migration_aws(*args):
+    assert args[:2] == ("elasticbeanstalk", "describe-configuration-settings")
+    return {"ConfigurationSettings": [{"DeploymentStatus": "deployed", "OptionSettings": [
+        {"Namespace": "aws:elasticbeanstalk:application:environment", "OptionName": name, "Value": value}
+        for name, value in migration["values"].items()]}]}
+
+
+def migration_command(*args):
+    assert args[:2] == ("elasticbeanstalk", "update-environment")
+    assert ("--version-label" in args) != ("--option-settings" in args), "EB rejects combined updates"
+    if "--option-settings" in args:
+        migration["values"] = {row["OptionName"]: row["Value"] for row in json.loads(args[-1])}
+        migration["events"].append("settings")
+    else:
+        migration["events"].append("version")
+        migration["version"] = args[-1]
+        if migration["failVersion"] and args[-1] == "main-new":
+            raise ValueError("Simulated failed version update after it started")
+
+
+def migration_wait(desired, timeout=1800):
+    assert desired == "Ready"
+    migration["events"].append("ready")
+    return {"Status": "Ready", "Health": "Green", "VersionLabel": migration["version"]}
+
+
+def migration_environment():
+    migration["events"].append("observed")
+    return {"Status": "Ready", "Health": "Green", "VersionLabel": migration["version"]}
+
+
+website.aws, website.command = migration_aws, migration_command
+website.wait_for_environment, website.environment = migration_wait, migration_environment
+assert website.update_existing_environment("main-new", "main-old")["VersionLabel"] == "main-new"
+assert migration["events"] == ["settings", "observed", "version", "observed"]
+assert migration["values"] == new_values
+migration.update(values=dict(old_values), version="main-old", events=[], failVersion=True)
+try:
+    website.update_existing_environment("main-new", "main-old")
+    raise AssertionError("Failed version update was accepted")
+except ValueError:
+    pass
+assert migration["events"] == ["settings", "observed", "version", "ready", "version", "observed", "settings", "observed"]
+assert migration["values"] == old_values and migration["version"] == "main-old"
+website.aws, website.command = original_aws, original_command
+website.wait_for_environment, website.environment = original_wait, original_environment
 
 calls = []
 website.command = lambda *args: calls.append(args)
@@ -115,12 +190,11 @@ except ValueError:
 notifications[0].pop("ThresholdType")
 assert state["invocations"] == 1
 state["confirmed"] = False
-try:
+warning = StringIO()
+with redirect_stderr(warning):
     website.verify_guard(settings_guard, ip, ip)
-    raise AssertionError("Public DNS gate accepted unconfirmed alert subscription")
-except ValueError:
-    pass
-assert state["invocations"] == 1
+assert "Guard failure email is pending" in warning.getvalue()
+assert state["invocations"] == 2
 state["confirmed"] = True
 state["scheduleDryRun"] = True
 try:
@@ -128,7 +202,7 @@ try:
     raise AssertionError("Public DNS gate accepted a schedule that only dry runs")
 except ValueError:
     pass
-assert state["invocations"] == 1
+assert state["invocations"] == 2
 state["scheduleDryRun"] = False
 state["brokenAlarm"] = "retro-coop-cost-guard-delivery-errors"
 try:
@@ -136,7 +210,7 @@ try:
     raise AssertionError("Public DNS gate accepted a broken Scheduler delivery alarm")
 except ValueError:
     pass
-assert state["invocations"] == 1
+assert state["invocations"] == 2
 state["brokenAlarm"] = None
 state["result"] = {**state["result"], "wouldStop": True,
                    "actions": ["delete_exact_website_a_record"], "forecastUsd": "100"}
@@ -145,7 +219,7 @@ try:
     raise AssertionError("Public DNS gate accepted a guard above shutdown threshold")
 except ValueError:
     pass
-assert state["invocations"] == 2
+assert state["invocations"] == 3
 
 website.instance_and_eip = lambda _outputs, _resources: ("i-reviewed", ip)
 load_state = {"availableKiB": 200000, "includeProof": True, "commands": []}

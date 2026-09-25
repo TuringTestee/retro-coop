@@ -44,7 +44,7 @@ external-ip={args.public_ip}/{args.private_ip}
 listening-port={args.listen_port}
 min-port=49160
 max-port=49175
-realm=retro-coop.1001.page
+realm=retro-coop.atobot.cloud
 use-auth-secret
 static-auth-secret={secret}
 user-quota=4

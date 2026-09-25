@@ -108,7 +108,7 @@ Resources:
                 Condition:
                   ForAllValues:StringEquals:
                     route53:ChangeResourceRecordSetsActions: [DELETE]
-                    route53:ChangeResourceRecordSetsNormalizedRecordNames: [retro-coop.1001.page]
+                    route53:ChangeResourceRecordSetsNormalizedRecordNames: [retro-coop.atobot.cloud]
                     route53:ChangeResourceRecordSetsRecordTypes: [A]
               - Effect: Allow
                 Action: elasticbeanstalk:DescribeEnvironments
@@ -135,7 +135,7 @@ Resources:
       Environment:
         Variables:
           ACCOUNT_ID: !Ref AWS::AccountId
-          HOSTNAME: retro-coop.1001.page
+          HOSTNAME: retro-coop.atobot.cloud
           HOSTED_ZONE_ID: !Ref HostedZoneId
           EXPECTED_IP_PARAMETER: !Ref ExpectedWebsiteIp
   GuardScheduleGroup:

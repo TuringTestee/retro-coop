@@ -38,7 +38,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
 EOF_LOCAL
-export COORDINATOR_ORIGINS=https://retro-coop.1001.page
+export COORDINATOR_ORIGINS=https://retro-coop.atobot.cloud
 export TURN_URLS=turn:127.0.0.1:3478?transport=udp
 export TURN_SECRET=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 export TURN_PUBLIC_IP=54.1.2.3
