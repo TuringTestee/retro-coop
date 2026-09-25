@@ -215,6 +215,8 @@ jobs:
     needs: [build, entrypoint, images, network]
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      completed: ${{ steps.main_gate.outputs.completed }}
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
       D02_BUILD: ${{ needs.build.result }}
@@ -252,6 +254,10 @@ jobs:
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+      - name: Mark passing main release gate
+        id: main_gate
+        if: github.event_name == 'push'
+        run: echo "completed=$(date +%s)" >> "$GITHUB_OUTPUT"
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: preflight
@@ -303,10 +309,8 @@ jobs:
           mkdir -p /tmp/retro-eb-tools
           tar -xzf /tmp/go-containerregistry.tar.gz -C /tmp/retro-eb-tools crane
       - name: Publish checked images and bundle
-        id: package
         run: |
           set -euo pipefail
-          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
           python3 scripts/aws_eb/build_release.py --crane /tmp/retro-eb-tools/crane \
             --artifact-dir "$GITHUB_WORKSPACE/aws-eb-arm64-images" \
             --output "$GITHUB_WORKSPACE/retro-coop-release.zip"
@@ -351,10 +355,11 @@ jobs:
           SITE_URL: ${{ vars.SITE_URL }}
           PREVIOUS_VERSION: ${{ steps.release.outputs.previous }}
           EXPECTED_VERSION: ${{ steps.release.outputs.version }}
-          RELEASE_STARTED: ${{ steps.package.outputs.started }}
+          GATE_COMPLETED: ${{ needs.preflight.outputs.completed }}
         run: |
           set -euo pipefail
           test -n "$SITE_URL"
+          test "$GATE_COMPLETED" -gt 0
           read -r actual state health < <(aws elasticbeanstalk describe-environments \
             --application-name "$EB_APPLICATION_NAME" --environment-names "$EB_ENVIRONMENT_NAME" \
             --query 'Environments[0].[VersionLabel,Status,Health]' --output text)
@@ -367,5 +372,5 @@ jobs:
             echo "Live version: $actual"
             echo "EB status: $state / $health"
             echo "Public endpoint: $SITE_URL"
-            echo "Release elapsed: $(( $(date +%s) - RELEASE_STARTED )) seconds"
+            echo "Release elapsed after gate: $(( $(date +%s) - GATE_COMPLETED )) seconds"
           } >> "$GITHUB_STEP_SUMMARY"
