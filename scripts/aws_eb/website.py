@@ -215,6 +215,66 @@ def connection_options() -> list[dict]:
             setting(namespace, "TURN_URLS", f"turn:{HOST}:3478?transport=udp")]
 
 
+def connection_values() -> dict[str, str]:
+    rows = aws("elasticbeanstalk", "describe-configuration-settings", "--application-name", APP,
+               "--environment-name", ENV)["ConfigurationSettings"]
+    deployed = [row for row in rows if row.get("DeploymentStatus") == "deployed"]
+    if len(deployed) != 1:
+        raise ValueError("Expected one deployed EB configuration")
+    expected = {row["OptionName"] for row in connection_options()}
+    relevant = [row for row in deployed[0]["OptionSettings"]
+                if row.get("Namespace") == "aws:elasticbeanstalk:application:environment" and
+                row.get("OptionName") in expected]
+    if len(relevant) != len(expected):
+        raise ValueError("EB connection settings are missing or duplicated")
+    return {row["OptionName"]: row["Value"] for row in relevant}
+
+
+def wait_for_existing_state(version: str, values: dict[str, str], timeout: int = 1800) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        current = environment()
+        if current and current.get("Status") == "Ready" and current.get("Health") == "Green" and \
+                current.get("VersionLabel") == version and connection_values() == values:
+            return current
+        if current and current.get("Status") in ("Terminated", "Terminating"):
+            raise RuntimeError("EB environment terminated during migration")
+        time.sleep(15)
+    raise TimeoutError("EB did not finish the requested version and connection settings")
+
+
+def update_existing_environment(version: str, previous_version: str) -> dict:
+    target = {row["OptionName"]: row["Value"] for row in connection_options()}
+    previous = connection_values()
+    changed = previous != target
+    try:
+        if changed:
+            command("elasticbeanstalk", "update-environment", "--environment-name", ENV,
+                    "--option-settings", json.dumps(connection_options()))
+            wait_for_existing_state(previous_version, target)
+        command("elasticbeanstalk", "update-environment", "--environment-name", ENV, "--version-label", version)
+        return wait_for_existing_state(version, target)
+    except Exception as error:
+        if changed:
+            try:
+                current = wait_for_environment("Ready", timeout=300)
+                if current.get("VersionLabel") == version:
+                    command("elasticbeanstalk", "update-environment", "--environment-name", ENV,
+                            "--version-label", previous_version)
+                    current = wait_for_existing_state(previous_version, target)
+                if current.get("VersionLabel") != previous_version:
+                    raise ValueError("EB is on an unexpected version")
+                if connection_values() != previous:
+                    restored = [setting("aws:elasticbeanstalk:application:environment", name, value)
+                                for name, value in previous.items()]
+                    command("elasticbeanstalk", "update-environment", "--environment-name", ENV,
+                            "--option-settings", json.dumps(restored))
+                    wait_for_existing_state(previous_version, previous)
+            except Exception as restore_error:
+                raise RuntimeError("EB migration failed and previous settings could not be restored; inspect the environment") from restore_error
+        raise error
+
+
 def options(outputs: dict[str, str], args: argparse.Namespace) -> list[dict]:
     environment_ns = "aws:elasticbeanstalk:environment"
     launch = "aws:autoscaling:launchconfiguration"
@@ -443,13 +503,12 @@ def deploy(args: argparse.Namespace) -> None:
         command("elasticbeanstalk", "create-application-version", "--application-name", APP,
                 "--version-label", version, "--source-bundle", f"S3Bucket={bucket},S3Key={key}")
     if args.update:
-        command("elasticbeanstalk", "update-environment", "--environment-name", ENV, "--version-label", version,
-                "--option-settings", json.dumps(connection_options()))
+        current = update_existing_environment(version, existing_env["VersionLabel"])
     else:
         command("elasticbeanstalk", "create-environment", "--application-name", APP,
                 "--environment-name", ENV, "--version-label", version,
                 "--solution-stack-name", args.solution_stack, "--option-settings", json.dumps(options(outputs, args)))
-    current = wait_for_environment("Ready")
+        current = wait_for_environment("Ready")
     resources = aws("elasticbeanstalk", "describe-environment-resources", "--environment-name", ENV)["EnvironmentResources"]
     old_record = dns_record(args.hosted_zone_id)
     ip = verify_live_boundary(outputs, resources, load_test=old_record is None)

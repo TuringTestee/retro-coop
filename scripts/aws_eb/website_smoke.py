@@ -45,6 +45,60 @@ except ValueError:
     pass
 website.aws, website.subprocess.run = original_aws, original_run
 
+original_wait, original_command, original_environment = website.wait_for_environment, website.command, website.environment
+old_values = {"COORDINATOR_ORIGINS": "https://retro-coop.1001.page",
+              "TURN_URLS": "turn:retro-coop.1001.page:3478?transport=udp"}
+new_values = {row["OptionName"]: row["Value"] for row in website.connection_options()}
+migration = {"values": dict(old_values), "version": "main-old", "events": [], "failVersion": False}
+
+
+def migration_aws(*args):
+    assert args[:2] == ("elasticbeanstalk", "describe-configuration-settings")
+    return {"ConfigurationSettings": [{"DeploymentStatus": "deployed", "OptionSettings": [
+        {"Namespace": "aws:elasticbeanstalk:application:environment", "OptionName": name, "Value": value}
+        for name, value in migration["values"].items()]}]}
+
+
+def migration_command(*args):
+    assert args[:2] == ("elasticbeanstalk", "update-environment")
+    assert ("--version-label" in args) != ("--option-settings" in args), "EB rejects combined updates"
+    if "--option-settings" in args:
+        migration["values"] = {row["OptionName"]: row["Value"] for row in json.loads(args[-1])}
+        migration["events"].append("settings")
+    else:
+        migration["events"].append("version")
+        migration["version"] = args[-1]
+        if migration["failVersion"] and args[-1] == "main-new":
+            raise ValueError("Simulated failed version update after it started")
+
+
+def migration_wait(desired, timeout=1800):
+    assert desired == "Ready"
+    migration["events"].append("ready")
+    return {"Status": "Ready", "Health": "Green", "VersionLabel": migration["version"]}
+
+
+def migration_environment():
+    migration["events"].append("observed")
+    return {"Status": "Ready", "Health": "Green", "VersionLabel": migration["version"]}
+
+
+website.aws, website.command = migration_aws, migration_command
+website.wait_for_environment, website.environment = migration_wait, migration_environment
+assert website.update_existing_environment("main-new", "main-old")["VersionLabel"] == "main-new"
+assert migration["events"] == ["settings", "observed", "version", "observed"]
+assert migration["values"] == new_values
+migration.update(values=dict(old_values), version="main-old", events=[], failVersion=True)
+try:
+    website.update_existing_environment("main-new", "main-old")
+    raise AssertionError("Failed version update was accepted")
+except ValueError:
+    pass
+assert migration["events"] == ["settings", "observed", "version", "ready", "version", "observed", "settings", "observed"]
+assert migration["values"] == old_values and migration["version"] == "main-old"
+website.aws, website.command = original_aws, original_command
+website.wait_for_environment, website.environment = original_wait, original_environment
+
 calls = []
 website.command = lambda *args: calls.append(args)
 website.budget("bill@example.test")
