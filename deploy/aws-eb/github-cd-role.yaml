@@ -56,7 +56,7 @@ Resources:
                 Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/*
               - Sid: WriteExistingEbRuntimeObjects
                 Effect: Allow
-                Action: s3:PutObject
+                Action: [s3:PutObject, s3:PutObjectAcl, s3:DeleteObject]
                 Resource: !Sub arn:aws:s3:::elasticbeanstalk-${AWS::Region}-${AWS::AccountId}/resources/environments/*/_runtime/*
               - Sid: InspectReleaseBucket
                 Effect: Allow
