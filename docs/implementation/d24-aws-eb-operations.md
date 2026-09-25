@@ -12,6 +12,8 @@ EB reads the TURN signing key from Secrets Manager into the two services that ne
 
 `foundation.yaml` owns only the dedicated ECR repository, secret, app security group and role, named SSM IP parameter, Lambda, six-hour Scheduler group, and failure alerts. It does not create an EC2 instance. `website.py` creates the EB environment, then tests its one-instance/EIP boundary, 20-room small-ROM memory load, Budget and alert wiring, and non-destructive guard invocation before publishing DNS. Lambda handler failures and Scheduler delivery/drop failures alert the confirmed operator email. The account-wide Budget can include unrelated account spend; forecast and billing reporting have delay, so the shutdown is not a hard billing cap.
 
+AWS Budgets can omit `ThresholdType` when reading back a percentage notification, even when creation supplied `PERCENTAGE`. The guard treats an omitted type as percentage and still rejects an explicit `ABSOLUTE_VALUE`; it checks the exact three notification thresholds and their email subscribers before DNS.
+
 The first live environment returned Yellow from enhanced EB health with an “Unable to assume role” warning even when its instance was healthy. The existing service role, its full ARN, AWS's monitoring service-linked role, and a temporary dedicated role all produced the same warning. Basic EB health returned Green with the existing service role, so new environments select Basic health explicitly. The deployment still requires Green and separately checks the exact instance, public ingress, web/coordinator/TURN listeners, `/healthz`, and the 20-room memory workload before DNS. The temporary test role was removed.
 
 ## Local and CI proof

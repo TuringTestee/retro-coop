@@ -49,7 +49,7 @@ settings_guard = {"GuardScheduleName": "retro-coop-cost-guard-6h", "GuardSchedul
                   "GuardFunctionArn": "arn:guard", "GuardAlertTopicArn": "arn:alerts",
                   "ExpectedIpParameterName": "/retro-coop/website/expected-ip"}
 notifications = [{"NotificationType": mode, "ComparisonOperator": "GREATER_THAN",
-                  "Threshold": threshold, "ThresholdType": "PERCENTAGE"}
+                  "Threshold": threshold}
                  for mode, threshold in (("ACTUAL", 50), ("ACTUAL", 100), ("FORECASTED", 100))]
 state = {"confirmed": True, "scheduleDryRun": False, "ip": "UNCONFIGURED", "invocations": 0,
          "result": {"dryRun": True, "wouldStop": False, "actions": [],
@@ -64,6 +64,7 @@ def guard_aws(*args):
     if key == ("budgets", "describe-notifications-for-budget"):
         return {"Notifications": notifications}
     if key == ("budgets", "describe-subscribers-for-notification"):
+        assert json.loads(args[-1])["ThresholdType"] == "PERCENTAGE"
         return {"Subscribers": [{"SubscriptionType": "EMAIL", "Address": "bill@example.test"}]}
     if key == ("scheduler", "get-schedule"):
         assert args[-2:] == ("--group-name", "retro-coop-cost-guard")
@@ -105,6 +106,14 @@ website.stack_parameters = lambda: {"AlertEmail": "bill@example.test"}
 result, previous = website.verify_guard(settings_guard, ip, None)
 assert result == state["result"] and previous == "UNCONFIGURED"
 assert state["ip"] == ip and state["invocations"] == 1
+notifications[0]["ThresholdType"] = "ABSOLUTE_VALUE"
+try:
+    website.verify_guard(settings_guard, ip, ip)
+    raise AssertionError("Public DNS gate accepted an absolute-value Budget threshold")
+except ValueError:
+    pass
+notifications[0].pop("ThresholdType")
+assert state["invocations"] == 1
 state["confirmed"] = False
 try:
     website.verify_guard(settings_guard, ip, ip)
