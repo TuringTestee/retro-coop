@@ -109,8 +109,11 @@ try:
     # The absent owner's mapping is preserved; explicit Leave releases local play.
     open_room(h).get_by_role('button',name='Leave room',exact=True).click()
     h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
-    h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume local game',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
-    result={'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume local game',exact=True).click()
+    # Voluntary Leave returns to the directory; this header action only opens the local player.
+    assert h.get_by_test_id('frames').inner_text()=='0 frames'
+    h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
+    result={'source':source,'build_files':build_files,'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'navigation_preserved_frames':0,'resumed_local_frames':int(h.get_by_test_id('frames').inner_text().split()[0]),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.barrier_timeout or args.retry_barrier:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='failed'",timeout=15000,polling=50)
@@ -199,6 +202,7 @@ try:
      open_room(h).get_by_role('button',name='Leave room',exact=True).click()
      h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
     h.get_by_role('button',name='Resume local game',exact=True).click()
+    if args.kick_playing:h.get_by_role('button',name='Resume',exact=True).click()
     h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
     result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
