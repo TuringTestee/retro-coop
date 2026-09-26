@@ -54,7 +54,7 @@ export class GameSession {
   if(!this.state.epoch)throw Error('game_not_playing');
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Game epoch is changing. Synchronize again.');
   this.offers.clear();this.acks.clear();this.state={...this.state,status:'pausing',reason};this.deadline=this.now()+gameplayLimits.barrierMs;
-  this.send(this.host,{type:'gameFreeze',epoch:this.state.epoch,reason});
+  this.send(this.host,{type:'gameFreeze',epoch:this.state.epoch!,reason});
  }
  requestRoles(pending:RoleTransaction,owners:ControllerAssignment){
   if(this.state.pending)throw Error('role_change_pending');
@@ -101,7 +101,7 @@ export class GameSession {
    if(command.type==='gameRoleCancel'){this.state.pending=undefined;this.proposed=undefined;this.stop('Role change cancelled. Previous roles and game progress are preserved.');}
    else {this.state.pending.status='freezing';this.state.pending.reason=undefined;this.freeze('Retrying the role change at the preserved frame.');}return;
   }
-  if(command.epoch!==this.state.epoch)throw Error('stale_game');
+  if(!('epoch' in command)||command.epoch!==this.state.epoch)throw Error('stale_game');
   if(command.type==='gamePause'){
    if(!this.owners().includes(member))throw Error('controller_only');if(this.state.status==='playing')this.freeze(`Play paused (${command.reason}).`);return;
   }
@@ -127,6 +127,7 @@ export class GameSession {
    if(!this.owners().includes(member)){for(const transfer of [...this.transfers.values()])if(transfer.recipient===member)this.cancelTransfer(transfer,'Observer synchronization failed. Retry.');return;}
    this.stop(`Play paused (${command.reason}). Prepare again; game progress is preserved.`,'failed');return;
   }
+  if(!('transferId' in command))throw Error('invalid_game');
   const transfer=this.transfers.get(command.transferId);if(!transfer)throw Error('stale_checkpoint');
   if(command.type==='gameCaptured'){
    if(member!==this.host||transfer.frame!==undefined||transfer.purpose==='controller'&&(command.frame!==this.frame||command.hash!==this.hash))throw Error('stale_checkpoint');
