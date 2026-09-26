@@ -123,7 +123,7 @@ export class GameClient {
  private authorizedCheckpoint(metadata:CheckpointMetadata){
   const spec=this.checkpointSpec;return !!spec&&!!this.intent&&this.checkpointPeerEpoch===this.peerEpoch&&this.room?.peer.epoch===this.peerEpoch&&metadata.transferId===spec.transferId&&metadata.epoch===spec.epoch&&metadata.frame===spec.frame&&metadata.hash===spec.hash&&metadata.sender===this.room?.hostMembership&&metadata.recipient===this.room?.guestMembership;
  }
- private cancelCheckpoint(){this.checkpointExporting=undefined;this.player()?.cancelPeerCheckpoint();clearTimeout(this.checkpointTimer);this.checkpointTimer=undefined;this.checkpointSpec=undefined;this.checkpointReceiver.cancel();this.checkpointSender.cancel();this.publish({synchronizing:false});}
+ private cancelCheckpoint(){this.checkpointExporting=undefined;this.player()?.cancelPeerCheckpoint();clearTimeout(this.checkpointTimer);this.checkpointTimer=undefined;this.checkpointSpec=undefined;this.checkpointReceiver.cancel();this.checkpointSender.cancel();if(this.state.synchronizing)this.publish({synchronizing:false});}
  private beginCheckpoint(spec:Extract<GameEvent,{type:'gameCheckpoint'}>){
   if(!this.eligible()||this.peerEpoch!==spec.peerEpoch||this.room?.game?.epoch!==spec.epoch)return;
   this.cancelCheckpoint();this.checkpointSpec=spec;this.publish({busy:true,synchronizing:true,status:'Synchronizing the host’s paused game…'});
