@@ -36,7 +36,7 @@ test('decline cancel timeout disconnect and replacement keep progress and cannot
 });
 test('paused reassignment replaces epoch and cannot consume earlier readiness or start acknowledgement',()=>{
  const {game}=setup();game.ready('host',offer());game.ready('guest',offer());game.requestStart();const epoch=game.view().epoch!;game.ack('host',epoch,hash);game.ack('guest',epoch,hash);
- game.pause(epoch,20,'user','host');game.pausedAt('host',epoch,20,hash);game.pausedAt('guest',epoch,20,hash);
+ game.pause(epoch,20,'user','host');game.frozen('host',epoch,20,hash);game.pausedAt('host',epoch,20,hash);game.pausedAt('guest',epoch,20,hash);
  game.ready('host',{...offer(),frame:20,fresh:false},true);game.ready('guest',{...offer(),frame:20,fresh:false},true);
  game.proposeControllers('host',proposal(0,epoch));assert.throws(()=>game.resume('host',epoch),/resume_not_ready/);
  const command=respond(game);game.respondControllers('host',command);game.respondControllers('guest',command);

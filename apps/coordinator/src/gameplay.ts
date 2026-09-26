@@ -10,6 +10,8 @@ export class GameSession {
  private deadline=0;
  private hash?:string;
  private pauseFrame?:number;
+ private startFrame=0;
+ private checkpoint?:{id:string;frame:number;hash:string;sending?:boolean};
  private paused=new Map<GameRole,{frame:number;hash:string}>();
  private state:GameView={status:'waiting',controllers:{...defaultControllers}};
  private controllerDeadline=0;
@@ -33,6 +35,7 @@ export class GameSession {
  }
  ready(role:GameRole,offer:Offer,established=false) {
   if(this.state.controllerProposal)throw Error('controller_consent_pending');
+  if(this.checkpoint)throw Error('checkpoint_pending');
   if((offer.controllerRevision??0)!==this.state.controllers!.revision)throw Error('stale_controllers');
   if(!this.peerEpoch||offer.peerEpoch!==this.peerEpoch) throw Error('stale_game');
   if(['playing','starting','pausing'].includes(this.state.status)) throw Error('game_already_started');
@@ -40,12 +43,18 @@ export class GameSession {
   if(!established&&role==='guest'&&this.startRequested&&!this.offers.has('host')) this.send('host',{type:'gameInspect',peerEpoch:this.peerEpoch});
   const host=this.offers.get('host'),guest=this.offers.get('guest');if(!host||!guest) return;
   if(!established&&!this.startRequested)return;
-  if(established&&(host.frame!==guest.frame||host.hash!==guest.hash)) {this.stop('Initial machine states differ. Choose a fresh matching game or cancel.','failed');return;}
+  if(established&&(host.frame!==guest.frame||host.hash!==guest.hash)) {
+   if(!this.state.epoch)throw Error('stale_game');
+   this.checkpoint={id:randomBytes(24).toString('base64url'),frame:host.frame,hash:host.hash};this.deadline=this.now()+gameplayLimits.checkpointMs;
+   this.state={...this.state,status:'paused',reason:'Synchronizing the host’s paused game before resume.'};
+   this.broadcast({type:'gameCheckpoint',peerEpoch:this.peerEpoch,epoch:this.state.epoch!,transferId:this.checkpoint.id,frame:host.frame,hash:host.hash});return;
+  }
   if(established){this.state={...this.state,status:'resume_ready',reason:undefined};return;}
   this.prepareInitial();
  }
  unready(role:GameRole,peerEpoch:string) {
   if(!this.peerEpoch||peerEpoch!==this.peerEpoch)throw Error('stale_game');
+  if(this.checkpoint){this.stop('Synchronization cancelled. Game progress is preserved.');return;}
   this.offers.delete(role);
   if(this.startRequested&&this.state.status==='starting')this.stop('A player cancelled preparation. Both players must prepare again.','failed');
   else if(this.startRequested){this.startRequested=false;this.deadline=0;}
@@ -59,31 +68,48 @@ export class GameSession {
  }
  resume(role:GameRole,epoch:string) {if(role!=='host'||this.state.status!=='resume_ready'||epoch!==this.state.epoch)throw Error('resume_not_ready');this.begin(this.offers.get('host')!,this.offers.get('guest')!);}
  private begin(host:Offer,guest:Offer) {
-  this.hash=host.hash;this.acks.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
+  this.hash=host.hash;this.startFrame=host.frame;this.acks.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
   this.state={...this.state,status:'starting',reason:undefined,epoch:randomBytes(24).toString('base64url'),delay:Math.max(host.delay,guest.delay)};
-  this.broadcast({type:'gamePrepare',peerEpoch:this.peerEpoch!,epoch:this.state.epoch!,hash:this.hash,delay:this.state.delay!,controllers:this.state.controllers});
+  this.broadcast({type:'gamePrepare',peerEpoch:this.peerEpoch!,epoch:this.state.epoch!,hash:this.hash,delay:this.state.delay!,frame:this.startFrame,controllers:this.state.controllers});
  }
  ack(role:GameRole,epoch:string,hash:string):boolean {
   if(this.state.status!=='starting'||epoch!==this.state.epoch||hash!==this.hash) throw Error('stale_game');
   this.acks.add(role);if(this.acks.size!==2) return false;
   this.state={...this.state,status:'playing'};
-  this.broadcast({type:'gameStart',peerEpoch:this.peerEpoch!,epoch,delay:this.state.delay!,controllers:this.state.controllers});return true;
+  this.broadcast({type:'gameStart',peerEpoch:this.peerEpoch!,epoch,delay:this.state.delay!,frame:this.startFrame,controllers:this.state.controllers});return true;
  }
  pause(epoch:string,frame:number,reason:string,role:GameRole) {
   if(epoch!==this.state.epoch)throw Error('stale_game');
   if(this.state.status==='pausing')return;
   if(this.state.status!=='playing')throw Error('game_not_playing');
-  this.pauseFrame=frame;this.paused.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
+  this.pauseFrame=undefined;this.paused.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
   this.state={...this.state,status:'pausing',reason:`${role==='host'?'Host':'Guest'} requested pause (${reason}).`};
+  this.send('host',{type:'gameFreeze',epoch,reason:this.state.reason!});
+ }
+ frozen(role:GameRole,epoch:string,frame:number,hash:string) {
+  if(role!=='host'||this.state.status!=='pausing'||epoch!==this.state.epoch||this.pauseFrame!==undefined||frame<this.startFrame)throw Error('stale_game');
+  this.pauseFrame=frame;this.hash=hash;
   this.broadcast({type:'gamePauseAt',epoch,frame,reason:this.state.reason!});
+ }
+ checkpointReady(role:GameRole,epoch:string,id:string) {
+  if(role!=='guest'||epoch!==this.state.epoch||id!==this.checkpoint?.id)throw Error('stale_checkpoint');
+  if(this.checkpoint!.sending)return;this.checkpoint!.sending=true;
+  this.send('host',{type:'gameCheckpointSend',epoch,transferId:id});
+ }
+ checkpointAck(role:GameRole,epoch:string,id:string,frame:number,hash:string) {
+  const pending=this.checkpoint;
+  if(role!=='guest'||epoch!==this.state.epoch||!pending||pending.id!==id||pending.frame!==frame||pending.hash!==hash)throw Error('stale_checkpoint');
+  const guest=this.offers.get('guest');if(!guest)throw Error('stale_checkpoint');
+  this.offers.set('guest',{...guest,frame,hash,fresh:false});this.checkpoint=undefined;
+  this.state={...this.state,status:'resume_ready',reason:'The paused game is synchronized. The host can resume.'};
  }
  pausedAt(role:GameRole,epoch:string,frame:number,hash:string) {
   if(this.state.status!=='pausing'||epoch!==this.state.epoch||frame!==this.pauseFrame)throw Error('stale_game');
   this.paused.set(role,{frame,hash});if(this.paused.size!==2)return;
-  if(this.paused.get('host')!.hash!==this.paused.get('guest')!.hash){this.stop('Pause states differ. Shared play remains paused; checkpoint recovery is not available yet.','failed');return;}
+  if(this.paused.get('host')!.hash!==this.hash||this.paused.get('host')!.hash!==this.paused.get('guest')!.hash){this.stop('Pause states differ. Shared play remains paused; prepare both players to synchronize from the host.','failed');return;}
   this.stop(`${this.state.reason} Both players are paused at the same frame.`);
  }
- stop(reason:string,status:GameView['status']='paused') {if(!this.state.epoch||status==='late_join')this.startRequested=false;this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,controllerProposal:undefined};this.broadcast({type:'gameStop',epoch:this.state.epoch,reason});}
+ stop(reason:string,status:GameView['status']='paused') {this.checkpoint=undefined;if(!this.state.epoch||status==='late_join')this.startRequested=false;this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,controllerProposal:undefined};this.broadcast({type:'gameStop',epoch:this.state.epoch,reason});}
  private controllerContext(command:{peerEpoch:string;epoch?:string}) {
   if(!this.peerEpoch||command.peerEpoch!==this.peerEpoch||command.epoch!==this.state.epoch)throw Error('stale_game');
  }
@@ -108,5 +134,5 @@ export class GameSession {
  }
  /** A departed guest cannot leave controller ownership or consent for a replacement. */
  resetControllers() {this.state.controllers={...defaultControllers,mode:this.sharedP1?'shared':'separate',revision:this.state.controllers!.revision+1};this.stop('Membership changed. Controller assignment reset; shared play remains paused.');}
- sweep() {if(this.state.controllerProposal&&this.now()>=this.controllerDeadline){this.stop('Controller request timed out. Previous ownership and progress are preserved.');return true;}if((this.state.status==='waiting'&&this.startRequested||['starting','pausing'].includes(this.state.status))&&this.now()>=this.deadline) {this.stop('Shared start timed out. Retry or cancel; the original game is preserved.','failed');return true;}return false;}
+ sweep() {if(this.checkpoint&&this.now()>=this.deadline){this.stop('Game synchronization timed out. Progress is preserved; prepare again to retry.','failed');return true;}if(this.state.controllerProposal&&this.now()>=this.controllerDeadline){this.stop('Controller request timed out. Previous ownership and progress are preserved.');return true;}if((this.state.status==='waiting'&&this.startRequested||['starting','pausing'].includes(this.state.status))&&this.now()>=this.deadline) {this.stop('Shared start timed out. Retry or cancel; the original game is preserved.','failed');return true;}return false;}
 }

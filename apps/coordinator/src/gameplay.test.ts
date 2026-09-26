@@ -24,6 +24,7 @@ test('exact file prerequisites and both initial acknowledgements precede establi
  assert.equal(t.act(0,{type:'gameAck',epoch,hash:'c'.repeat(64)}).room!.established,false);
  const playing=t.act(1,{type:'gameAck',epoch,hash:'c'.repeat(64)}).room!;assert.equal(playing.established,true);assert.equal(playing.reservationUntil,undefined);assert.equal(playing.status,'playing');
  assert.equal(t.act(1,{type:'gamePause',epoch,frame:128,reason:'focus'}).room!.game?.status,'pausing');
+ t.act(0,{type:'gameFrozen',epoch,frame:128,hash:'c'.repeat(64)});
  assert.throws(()=>t.act(0,{type:'gamePaused',epoch,frame:127,hash:'c'.repeat(64)}),/stale_game/);
  assert.equal(t.act(0,{type:'gamePaused',epoch,frame:128,hash:'c'.repeat(64)}).room!.game?.status,'pausing');
  assert.equal(t.act(1,{type:'gamePaused',epoch,frame:128,hash:'c'.repeat(64)}).room!.game?.status,'paused');
@@ -107,4 +108,38 @@ test('host Start with a prepared guest requests host inspection and one shared b
  t.act(1,{type:'leave',intent:t.joined.reservationIntent});
  const observer=t.rooms.attach(undefined,()=>{},()=>{});
  assert.throws(()=>t.rooms.handle(observer.token,{type:'joinCode',code:started.code!,intent:randomUUID(),requestId:randomUUID()}),/room_started/);
+});
+
+test('stalled authority freezes its last completed frame and checkpoint recovery requires both consents and exact acknowledgement',()=>{
+ const t=setup(),hash='c'.repeat(64);t.act(1,{type:'file',fingerprint});t.ready(1);t.ready(0);const epoch=t.start().room!.game!.epoch!;
+ for(const who of [0,1])t.act(who,{type:'gameAck',epoch,hash});
+ t.act(1,{type:'gamePause',epoch,frame:3,reason:'network'});
+ assert.equal(t.events[0].at(-2)?.type==='gameFreeze'||t.events[0].some(e=>e.type==='gameFreeze'),true);
+ assert.throws(()=>t.act(1,{type:'gameFrozen',epoch,frame:6,hash}),/stale_game/);
+ t.act(0,{type:'gameFrozen',epoch,frame:6,hash});
+ for(const who of [0,1])t.act(who,{type:'gamePaused',epoch,frame:6,hash});
+ t.ready(0,{frame:6,hash,fresh:false});assert.equal(t.events[0].some(e=>e.type==='gameCheckpoint'),false);
+ t.ready(1,{frame:3,hash:'d'.repeat(64),fresh:false});
+ const pending=t.events[1].find(e=>e.type==='gameCheckpoint')!;assert.equal(pending.type,'gameCheckpoint');if(pending.type!=='gameCheckpoint')throw Error('missing checkpoint');
+ assert.equal(pending.frame,6);assert.equal(pending.hash,hash);
+ assert.throws(()=>t.act(0,{type:'gameResume',epoch}),/resume_not_ready/);
+ assert.throws(()=>t.act(0,{type:'gameCheckpointReady',epoch,transferId:pending.transferId}),/stale_checkpoint/);
+ t.act(1,{type:'gameCheckpointReady',epoch,transferId:pending.transferId});assert.ok(t.events[0].some(e=>e.type==='gameCheckpointSend'));
+ assert.throws(()=>t.act(1,{type:'gameCheckpointAck',epoch,transferId:pending.transferId,frame:3,hash}),/stale_checkpoint/);
+ t.act(1,{type:'gameCheckpointAck',epoch,transferId:pending.transferId,frame:6,hash});
+ const resumed=t.act(0,{type:'gameResume',epoch}).room!;assert.equal(resumed.game?.status,'starting');
+ const prepare=t.events[0].filter(e=>e.type==='gamePrepare').at(-1)!;assert.equal(prepare.type==='gamePrepare'&&prepare.frame,6);
+});
+
+test('checkpoint cancellation timeout and stale acknowledgements never resume or consume fresh consent',()=>{
+ for(const cancel of [true,false]){
+  const t=setup(),hash='c'.repeat(64);t.act(1,{type:'file',fingerprint});t.ready(1);t.ready(0);const epoch=t.start().room!.game!.epoch!;
+  for(const who of [0,1])t.act(who,{type:'gameAck',epoch,hash});
+  t.act(0,{type:'gameAbort',epoch,reason:'network'});t.ready(0,{frame:9,fresh:false});t.ready(1,{frame:8,fresh:false});
+  const pending=t.events[1].find(e=>e.type==='gameCheckpoint')!;if(pending.type!=='gameCheckpoint')throw Error('missing checkpoint');
+  if(cancel)t.act(1,{type:'gameUnready',peerEpoch:t.joined.peer.epoch});else{t.advance(15_000);for(const who of [0,1])t.act(who,{type:'heartbeat'});t.advance(15_000);}
+  assert.throws(()=>t.act(1,{type:'gameCheckpointAck',epoch,transferId:pending.transferId,frame:9,hash}),/stale_checkpoint/);
+  assert.throws(()=>t.act(0,{type:'gameResume',epoch}),/resume_not_ready/);
+  t.ready(0,{frame:9,fresh:false});assert.equal(t.events[0].filter(e=>e.type==='gameCheckpoint').length,1);
+ }
 });

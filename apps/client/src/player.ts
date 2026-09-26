@@ -1,5 +1,5 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-import type { WorkerRequest, WorkerResponse, LocalFileRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
+import type { WorkerRequest, WorkerResponse, LocalFileRequest, PeerCheckpointRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
 import { defaults, inputMask, padInputs, ReleasedInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
@@ -7,12 +7,12 @@ import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from '
 import { inspectCartridge, hex } from './cartridge.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 
-type FileCommand<Request = LocalFileRequest> = Request extends LocalFileRequest ? Omit<Request,'requestId'> : never;
+type FileCommand<Request = LocalFileRequest | PeerCheckpointRequest> = Request extends LocalFileRequest | PeerCheckpointRequest ? Omit<Request,'requestId'> : never;
 type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;writing?:Promise<void>};
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean};
+export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean};
 export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; renderFps?:number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
@@ -42,13 +42,13 @@ export class LocalPlayer {
   return new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>{this.pending.delete(requestId);reject(Error('The save operation timed out. Try again.'));},10000);
    this.pending.set(requestId,{worker,resolve,reject,timer});
-   try {this.send(worker,{...message,requestId} as LocalFileRequest);} catch(error){clearTimeout(timer);this.pending.delete(requestId);reject(error);}
+   try {this.send(worker,{...message,requestId} as LocalFileRequest | PeerCheckpointRequest);} catch(error){clearTimeout(timer);this.pending.delete(requestId);reject(error);}
   });
  }
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
  frameRate(){return this.fps;}
- async holdForGame() {if(!this.inputDevice().available)throw Error('Reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
- startGame(driver:GameDriver) {if(!this.active||this.state.loading||!this.inputDevice().available)throw Error('Reconnect your controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameProgressAt=this.gameStarted;this.gameLastPumpAt=this.gameStarted;this.gameFrames=0;this.shared=true;this.last=0;this.fpsSampleAt=0;this.publish({shared:true,running:true,renderFps:undefined,status:'Playing together.'});if(!document.hidden)this.canvas.focus();this.pumpGame();}
+ async holdForGame(ownsInput=true) {if(ownsInput&&!this.inputDevice().available)throw Error('Reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
+ startGame(driver:GameDriver) {if(!this.active||this.state.loading||driver.ownsInput!==false&&!this.inputDevice().available)throw Error('Reconnect your controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameProgressAt=this.gameStarted;this.gameLastPumpAt=this.gameStarted;this.gameFrames=0;this.shared=true;this.last=0;this.fpsSampleAt=0;this.publish({shared:true,running:true,renderFps:undefined,status:'Playing together.'});if(!document.hidden&&driver.ownsInput!==false)this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
  stopGame(status:string,leave=false) {clearTimeout(this.gameTimer);this.game=undefined;this.expectedFrame=undefined;this.fpsSampleAt=0;if(leave)this.shared=false;this.suspend();this.publish({renderFps:undefined,status});}
  private async prepareBattery(worker:Worker,isCurrent:()=>boolean):Promise<{session?:BatterySession;issue?:string}> {
@@ -109,6 +109,26 @@ export class LocalPlayer {
   this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
  }
 
+ sampleGameInput(){const {pad,available}=this.inputDevice();return available?this.controllerMask(pad):0;}
+ async exportPeerCheckpoint(epoch:string,frame:number){
+  if(!this.shared||this.state.running||this.busy)throw Error('Pause at a completed frame before synchronization.');
+  const reply=await this.fileRequest({type:'peer-checkpoint-export',epoch,frame});
+  if(reply.type!=='peer-checkpoint-exported')throw Error('Unexpected checkpoint export');return reply;
+ }
+ private checkpointOperation?:string;
+ cancelPeerCheckpoint(){const operationId=this.checkpointOperation;this.checkpointOperation=undefined;if(operationId)void this.fileRequest({type:'peer-checkpoint-cancel',operationId}).catch(()=>{});}
+ async importPeerCheckpoint(epoch:string,frame:number,bytes:ArrayBuffer,identity:string,hash:string,isCurrent:()=>boolean){
+  if(!this.shared||this.state.running||this.busy||!isCurrent())throw Error('Synchronization authorization changed.');
+  this.cancelPeerCheckpoint();const operationId=crypto.randomUUID();this.checkpointOperation=operationId;
+  try{
+   const prepared=await this.fileRequest({type:'peer-checkpoint-prepare',operationId,epoch,frame,bytes,identity,hash});
+   if(prepared.type!=='peer-checkpoint-prepared'||!isCurrent()||this.checkpointOperation!==operationId)throw Error('Synchronization authorization changed.');
+   const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId});
+   if(reply.type!=='peer-checkpoint-imported')throw Error('Unexpected checkpoint import');
+   this.audio.flush();this.release();this.expectedFrame=undefined;this.fpsSampleAt=0;
+   this.publish({frames:frame,renderFps:undefined,rewind:undefined,status:'Paused game synchronized. Waiting for shared resume.'});return reply;
+  }finally{if(this.checkpointOperation===operationId)this.cancelPeerCheckpoint();}
+ }
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
   if(this.shared)throw Error('Shared rewind is not available yet. Leave the room before rewinding locally.');
@@ -196,7 +216,7 @@ export class LocalPlayer {
  private stepLocal(now:number) {
   const {pad,available} = this.inputDevice();
   this.releasedPad.sample(padInputs(pad));
-  if(!available) {
+  if(!available && this.game?.ownsInput!==false) {
    if(this.state.running) this.pause('device');
    if(!this.state.inputIssue) this.publish({inputIssue:disconnectedMessage});
    return;
@@ -216,7 +236,7 @@ export class LocalPlayer {
   if(!this.active||!this.state.running)return;
   if(this.game.draining()){this.drainGame();return;}
   const {pad,available}=this.inputDevice();
-  if(!available){this.pause('device');return;}
+  if(!available&&this.game.ownsInput!==false){this.pause('device');return;}
   const now=performance.now(),gap=now-this.gameLastPumpAt;
   this.gameLastPumpAt=now;
   // A suspended tab resumes with wall-time debt, not evidence of lost input.
@@ -226,7 +246,7 @@ export class LocalPlayer {
   if(this.busy&&now-this.gameProgressAt>gameplayLimits.stallMs){this.pause('network');return;}
   const elapsed=now-this.gameStarted;
   if(this.busy||this.gameFrames>=Math.floor(elapsed*this.fps/1000))return;
-  const next=this.game.next(this.controllerMask(pad));if(!next)return;
+  const next=this.game.next(this.game.ownsInput===false?0:this.controllerMask(pad));if(!next)return;
   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  };
 
