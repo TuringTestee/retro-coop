@@ -1,7 +1,7 @@
 """Require all three production browser pairs and the same immutable client/core artifact."""
 import argparse,json
 from pathlib import Path
-from verify import require,verify
+from verify import require,verify,normalized_periodic_hashes
 
 def verify_matrix(directory, seconds=30):
  observed={}
@@ -22,7 +22,9 @@ def verify_matrix(directory, seconds=30):
    require(result['result']=='pass' and not result['page_errors'],'forced-relay browser failure')
    require(result['route']=='relay' and result['target_seconds']==8 and 8<=result['active_seconds']<=10,'missing measured forced-relay play')
    require(result['source']==first['source'] and result['identity']==first['identity'] and result['build_files']==first['build_files'],'forced-relay source or artifact mismatch')
-   require(result['final'][0]==result['final'][1] and result['peers'][0]['sentHashes']==result['peers'][1]['sentHashes'],'forced-relay peer divergence')
+   require(result['pause'][0]==result['pause'][1] and result['final'][0]==result['final'][1],'forced-relay pause divergence')
+   hashes=[normalized_periodic_hashes(peer['sentHashes'],pause,final) for peer,pause,final in zip(result['peers'],result['pause'],result['final'])]
+   require(len(hashes)==2 and hashes[0]==hashes[1],'forced-relay peer divergence')
    relays[pair]=result
   require(set(relays)==set(observed),'missing forced-relay browser pair')
  # Human input and pause timing can differ across runs. Each pair must agree on
