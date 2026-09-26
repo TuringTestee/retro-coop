@@ -13,6 +13,7 @@ pub(crate) struct Codec {
     template: Value,
     hardware: Value,
     region: NesRegion,
+    initialized: bool,
 }
 impl Codec {
     pub(crate) fn new(deck: &ControlDeck, rom: &[u8; 32], core: &[u8; 32]) -> Result<Self, String> {
@@ -27,6 +28,11 @@ impl Codec {
             template,
             hardware: validation::dynamic(deck),
             region: deck.region(),
+            // The seven reset cycles execute before any cartridge instruction.
+            // A lazy codec created later must never bless its current mid-frame state.
+            initialized: deck.bus().cpu.cycle == 7
+                && deck.bus().ppu.frame_number() == 0
+                && deck.bus().ppu.scanline == 0,
         })
     }
     fn value(&self, deck: &ControlDeck) -> Value {
@@ -41,7 +47,7 @@ impl Codec {
         Ok(payload)
     }
     /// Hash trusted live state, including power-on before the first committed frame.
-    /// Import/export committed-boundary validation remains unchanged.
+    /// Import/export accepts committed boundaries or the exact trusted initialized state.
     pub(crate) fn hash(&self, deck: &ControlDeck) -> Result<[u8; 32], String> {
         let payload = Self::payload(&self.value(deck))?;
         let mut digest = Sha256::new();
@@ -63,6 +69,15 @@ impl Codec {
     fn validate(&self, value: &Value) -> Result<(), String> {
         if value.as_object().is_none_or(|o| o.len() != 2) {
             return Err("Unknown local state fields".into());
+        }
+        // Power-on is a real F0 freeze boundary, before clock_frame has synchronized
+        // clocks. Accept only byte-equivalent trusted hardware AND mapper dynamics;
+        // frame/cycle counters alone must not admit an arbitrary early scanline.
+        if self.initialized
+            && value["hardware"] == self.hardware
+            && value["mapper"] == self.template["mapper"]
+        {
+            return Ok(());
         }
         validation::hardware(&self.hardware, &value["hardware"], self.region)?;
         // clock_frame synchronizes after the instruction crossing the frame end;
@@ -190,7 +205,7 @@ mod tests {
         Codec::new(deck, &Sha256::digest(rom).into(), &[3; 32]).unwrap()
     }
     #[test]
-    fn live_hash_covers_power_on_mapper_and_identity_without_relaxing_restore() {
+    fn exact_power_on_and_committed_states_restore_with_matching_hashes() {
         for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {
             for mapper in [0, 1, 2, 3, 4, 7] {
                 let (rom, mut first) = cartridge(mapper, region);
@@ -198,10 +213,12 @@ mod tests {
                 let codec = codec(&rom, &first);
                 let initial = codec.hash(&first).unwrap();
                 assert_eq!(initial, codec.hash(&second).unwrap());
-                assert!(
-                    codec.export(&first).is_err(),
-                    "power-on does not become an importable checkpoint"
-                );
+                let power_on = codec.export(&first).unwrap();
+                codec.validate_file(&power_on).unwrap();
+                let _ = second.clock_frame().unwrap();
+                codec.restore(&mut second, &power_on).unwrap();
+                assert_eq!(initial, codec.hash(&second).unwrap());
+                assert_eq!(second.bus().ppu.frame_number(), 0);
                 let other = Codec::new(&first, &Sha256::digest(&rom).into(), &[4; 32]).unwrap();
                 assert_ne!(
                     initial,
@@ -225,6 +242,34 @@ mod tests {
                 assert_eq!(codec.hash(&first).unwrap(), codec.hash(&second).unwrap());
             }
         }
+    }
+    #[test]
+    fn power_on_exception_rejects_tampering_and_lazy_midframe_templates() {
+        let (rom, mut deck) = cartridge(1, NesRegion::Ntsc);
+        let initial = codec(&rom, &deck);
+        let saved = initial.export(&deck).unwrap();
+        deck.clock_instr().unwrap();
+        assert_eq!(deck.bus().ppu.frame_number(), 0);
+        let lazy = codec(&rom, &deck);
+        assert!(!lazy.initialized);
+        assert!(initial.export(&deck).is_err());
+        assert!(lazy.export(&deck).is_err());
+        let _ = deck.clock_frame().unwrap();
+        let advanced = initial.hash(&deck).unwrap();
+        for bad in [
+            alter(&saved, |v| v["hardware"]["cpu"]["cycle"] = json!(9)),
+            alter(&saved, |v| v["hardware"]["ppu"]["scanline"] = json!(100)),
+            alter(&saved, |v| v["hardware"]["memory"]["ram"][0] = json!(1)),
+            alter(&saved, |v| v["hardware"]["ppu"]["spr_count"] = json!(9)),
+            alter(&saved, |v| {
+                v["mapper"]["Sxrom"]["mmc1"]["shift_count"] = json!(1)
+            }),
+        ] {
+            assert!(initial.restore(&mut deck, &bad).is_err());
+            assert_eq!(initial.hash(&deck).unwrap(), advanced);
+        }
+        initial.restore(&mut deck, &saved).unwrap();
+        assert_eq!(initial.export(&deck).unwrap(), saved);
     }
     #[test]
     fn changed_banks_partial_serial_irq_and_regions_restore_then_replay() {
@@ -313,6 +358,12 @@ mod tests {
         for (mapper, submapper, prg, chr, region) in cases {
             let (rom, mut deck) = nes2_cartridge(mapper, submapper, prg, chr, region);
             let codec = codec(&rom, &deck);
+            let power_on = codec.export(&deck).unwrap();
+            let power_on_hash = codec.hash(&deck).unwrap();
+            clock_inputs(&mut deck, 1, 2).unwrap();
+            codec.restore(&mut deck, &power_on).unwrap();
+            assert_eq!(codec.hash(&deck).unwrap(), power_on_hash);
+            assert_eq!(deck.bus().ppu.frame_number(), 0);
             for _ in 0..5 {
                 clock_inputs(&mut deck, 1, 2).unwrap();
             }
