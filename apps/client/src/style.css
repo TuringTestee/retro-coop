@@ -71,7 +71,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .tool-page h2{margin-top:0}.tool-page [role=alertdialog]{max-width:650px}
 @media(max-width:600px){.tooling>.tool-page{padding:12px}}
 
-@media(max-width:760px){html,body,#root{height:auto;min-height:100%;overflow:auto}.playing.with-room{height:auto;min-height:100dvh;overflow:visible;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.playing.with-room>.panel{grid-column:1;grid-row:2;min-height:350px}.playing.with-room>.room-panel{grid-column:1;grid-row:3;max-height:none;overflow:visible}.playing.with-room .screen{height:min(55dvh,420px)}}
+@media(max-width:760px){html,body,#root{height:auto;min-height:100%;overflow:auto}}
 .released{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
 .released>.panel,.released>.room-panel,.released>.directory-panel,.released>.create-game,.released>.catalog-status,.released>.discovery-notices,.released>.tool-page{display:none!important}
 .released>.release-notice{grid-column:1;grid-row:2}
@@ -101,8 +101,11 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .play-controls .text-action,.voice-card .text-action{background:transparent;border-color:transparent;color:#c6b9ff;font-weight:400;padding-left:0}
 .tooling>.solo-controls,.released>.solo-controls{display:none!important}
 @media(max-width:760px){
- .playing,.playing.with-room{height:auto;min-height:100dvh;overflow:visible;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}
- .playing>.panel{grid-column:1;grid-row:2;min-height:350px}
- .playing>.solo-controls,.playing.with-room>.room-panel{grid-column:1;grid-row:3;max-height:none;overflow:visible}
- .playing .screen{height:min(55dvh,420px);max-width:100%}
+ /* Keep the existing stacked player/room arrangement within one viewport.
+    Room contents and wrapped player controls scroll inside their own regions. */
+ .playing,.playing.with-room{height:100dvh;min-height:0;overflow:hidden;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,3fr) minmax(0,2fr)}
+ .playing>.panel{grid-column:1;grid-row:2;min-height:0;grid-template-rows:minmax(0,1fr) minmax(0,clamp(3.5rem,14dvh,6rem))}
+ .playing>.solo-controls,.playing.with-room>.room-panel{grid-column:1;grid-row:3;min-height:0;max-height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-padding:8px}
+ .playing .screen{min-height:0;height:100%;max-width:100%}
+ .playing .player-info{min-height:0;overflow:auto;align-content:start;padding:7px;scroll-padding:8px}
 }
