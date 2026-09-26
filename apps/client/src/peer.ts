@@ -27,7 +27,7 @@ export class PeerConnection {
    this.close('Preparing connection privacy…');this.epoch=event.epoch;this.pairId=event.pairId;this.offerer=event.offerer;
    try {
     if(effectivePolicy(event.policy,this.options.preference?.() ?? 'standard')!==event.policy) throw Error('Privacy downgrade rejected');
-    const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.offerer);
+    const pc=new RTCPeerConnection({bundlePolicy:'max-bundle',iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.offerer);
     const epoch=event.epoch;
     pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',pairId:this.pairId,epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
     pc.onconnectionstatechange=()=>{

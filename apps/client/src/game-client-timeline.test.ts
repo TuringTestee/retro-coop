@@ -16,7 +16,7 @@ async function setup(role:'host'|'member'|'observer',start=917){
  const commands:Command[]=[],updates:GameplayState[]=[],data=channel(),checkpoint=channel();let frame=start,driver!:GameDriver,drains=0,cancels=0,exports=0,imports=0,stops=0,wakes=0;
  let importHook:((current:()=>boolean)=>Promise<{frame:number;hash:string}>)|undefined,sendHook:((command:Command)=>Promise<void>)|undefined,hashHook:(()=>Promise<{frame:number;hash:string;fresh:boolean}>)|undefined;
  const bytes=new Uint8Array(100).fill(7).buffer;
- const mock={isLoaded:()=>true,frameRate:()=>60,holdForGame:async()=>({hash,frame,fresh:false}),stateHash:()=>hashHook?hashHook():Promise.resolve({hash,frame,fresh:false}),startGame:(value:GameDriver)=>{driver=value;},wakeGame(){wakes++;},sampleGameInput:()=>0,drainGame(){drains++;},stopGame(){stops++;},allowLocalPlay(){},releaseControllers(){},cancelPeerCheckpoint(){cancels++;},exportPeerCheckpoint:async()=>{exports++;return {bytes,hash,identity,epoch,frame};},importPeerCheckpoint:async(_epoch:string,f:number,_bytes:ArrayBuffer,_identity:string,_hash:string,current:()=>boolean)=>{imports++;return importHook?importHook(current):{frame:f,hash};}};
+ const mock={isLoaded:()=>true,frameRate:()=>60,holdForGame:async()=>({hash,frame,fresh:false}),stateHash:()=>hashHook?hashHook():Promise.resolve({hash,frame,fresh:false}),startGame:(value:GameDriver)=>{driver=value;},wakeGame(){wakes++;},sampleGameInput:()=>0,drainGame(){drains++;},stopGame(){stops++;},allowLocalPlay(){},async bindGameEpoch(){},resumeGamePresentation(){},releaseControllers(){},cancelPeerCheckpoint(){cancels++;},exportPeerCheckpoint:async()=>{exports++;return {bytes,hash,identity,epoch,frame};},importPeerCheckpoint:async(_epoch:string,f:number,_bytes:ArrayBuffer,_identity:string,_hash:string,current:()=>boolean)=>{imports++;return importHook?importHook(current):{frame:f,hash};}};
  const game=new GameClient(()=>mock as unknown as LocalPlayer,async command=>{commands.push(command);await sendHook?.(command);},state=>updates.push(state));
  const room:RoomView={id:'r'.repeat(22),label:'Room',visibility:'public',status:'waiting',host:'Host',occupancy:3,openSlots:2,hostReady:true,established:true,started:'shared',chatMembership:self,hostMembership:host,invite:'i'.repeat(22),role:role==='host'?'host':'member',slot:role==='host'?'slot-1':role==='member'?'slot-2':'slot-3',revision:1,controllerRoles:['player1','player2'],connectionPolicy:'standard',peers:[],reservationIntent:'j'.repeat(22),fingerprint,matches:true,game:{status:role==='observer'?'playing':'paused',epoch,delay:6,controllers:{owners:[host,member],revision:1},ready:[],startRequested:false},slots:[{id:'slot-1',role:'player1',open:true,revision:0,member:{id:host,nickname:'Host',connected:true,matches:true,acquisition:'loaded'}},{id:'slot-2',role:'player2',open:true,revision:0,member:{id:member,nickname:'Member',connected:true,matches:true,acquisition:'loaded'}},{id:'slot-3',role:'observer',open:true,revision:0,member:{id:observer,nickname:'Observer',connected:true,matches:true,acquisition:'loaded'}},...(['slot-4','slot-5'] as const).map(id=>({id,role:'observer' as const,open:true,revision:0}))]};
  game.enter(room);game.selected(fingerprint);game.ready(remote,data.rtc,peerEpoch);game.checkpointChannel(remote,checkpoint.rtc,peerEpoch);
@@ -80,8 +80,8 @@ test('removed observer channel callbacks cannot disturb ongoing host authority',
 test('authority replays observer history then isolates a slow observer without blocking controller commits',async()=>{
  const h=await setup('host'),observerData=channel(),observerCheckpoint=channel();try{
   h.game.ready(observer,observerData.rtc,peerEpoch);h.game.checkpointChannel(observer,observerCheckpoint.rtc,peerEpoch);
-  const request={type:'gameCapture' as const,epoch,transferId,recipient:observer,purpose:'observer' as const};h.game.handle(request);await until(()=>h.commands.some(c=>c.type==='gameCaptured'));
-  h.data.receive(JSON.stringify({kind:'input',epoch,frame:917,mask:2}));assert.equal(h.driver.next(1)?.frame,917);h.complete(917);
+  const request={type:'gameCapture' as const,epoch,transferId,recipient:observer,purpose:'observer' as const};h.game.handle(request);await flush();assert.equal(h.stats().exports,0);
+  h.data.receive(JSON.stringify({kind:'input',epoch,frame:917,mask:2}));assert.equal(h.driver.next(1)?.frame,917);h.complete(917);await until(()=>h.commands.some(c=>c.type==='gameCaptured'));
   h.game.handle({...h.spec,recipient:observer,purpose:'observer'});h.game.handle({type:'gameCheckpointSend',epoch,transferId,recipient:observer});h.game.handle({type:'gameCatchup',epoch,transferId,recipient:observer,frame:917});
   assert.deepEqual(observerData.sent.map(raw=>JSON.parse(raw as string)),[{kind:'frame',epoch,frame:917,p1:0,p2:2},{kind:'live',epoch,transferId,frame:918}]);
   Object.defineProperty(observerData.rtc,'bufferedAmount',{value:65537,configurable:true});h.data.receive(JSON.stringify({kind:'input',epoch,frame:918,mask:4}));assert.equal(h.driver.next(1)?.frame,918);h.complete(918);
@@ -95,4 +95,15 @@ test('observer epoch change discards old timeline and requests a fresh passive c
 });
 test('passive replay queue stays bounded and overflow fails only that observer',async()=>{
  const h=await setup('observer');try{h.game.handle(h.spec);await deliver(h);for(let i=0;i<=2048;i++)h.data.receive(JSON.stringify({kind:'frame',epoch,frame:917+i,p1:0,p2:0}));await flush();assert.equal(h.commands.at(-1)?.type,'gameCheckpointFailed');assert.equal(h.commands.some(c=>c.type==='gamePause'||c.type==='gameAbort'),false);assert.equal(h.driver.next(0),undefined);}finally{h.game.dispose();}
+});
+test('observer replay waits for an in-flight interval hash without skipping that hash',async()=>{
+ const h=await setup('host',119),other=channel();let finish!:(value:{frame:number;hash:string;fresh:boolean})=>void;
+ try{h.game.ready(observer,other.rtc,peerEpoch);h.setHash(()=>new Promise(resolve=>{finish=resolve;}));
+  h.game.handle({type:'gameCapture',epoch,transferId,recipient:observer,purpose:'observer'});
+  h.data.receive(JSON.stringify({kind:'input',epoch,frame:119,mask:2}));assert.equal(h.driver.next(0)?.frame,119);h.complete(119);
+  await until(()=>h.commands.some(command=>command.type==='gameCaptured'));
+  h.game.handle({type:'gameCatchup',epoch,transferId,recipient:observer,frame:119});assert.equal(other.sent.length,0);
+  finish({frame:120,hash,fresh:false});await flush();
+  assert.deepEqual(other.sent.map(value=>JSON.parse(value as string)),[{kind:'frame',epoch,frame:119,p1:0,p2:2},{kind:'hash',epoch,frame:120,hash},{kind:'live',epoch,transferId,frame:120}]);
+ }finally{h.game.dispose();}
 });

@@ -60,3 +60,14 @@ test('prepared deadline and overlapping replacement reject without importing',as
  const pending=h.rpc({data:prepare});await h.rpc({data:{...prepare,operationId:next}});await pending;
  await h.rpc({data:{type:'peer-checkpoint-commit',requestId:3,operationId}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-error');assert.deepEqual(h.stats(),{imports:0,clears:0});
 });
+test('prepare binds an unchanged completed state to a new epoch before any frame executes',async()=>{
+ const h=await harness(),next='n'.repeat(22);
+ await h.rpc({data:{type:'peer-checkpoint-prepare',operationId,requestId:1,epoch,frame:917,bytes:h.bytes,identity,hash:h.hash}});
+ await h.rpc({data:{type:'peer-checkpoint-commit',requestId:2,operationId}});
+ for(const wrong of [{frame:918,hash:h.hash},{frame:917,hash:'f'.repeat(64)}]){
+  await h.rpc({data:{type:'peer-checkpoint-bind',requestId:3,epoch:next,...wrong}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-error');
+  await h.rpc({data:{type:'peer-checkpoint-export',requestId:4,epoch,frame:917}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-exported');
+ }
+ await h.rpc({data:{type:'peer-checkpoint-bind',requestId:5,epoch:next,frame:917,hash:h.hash}});assert.deepEqual(h.messages.at(-1),{type:'peer-checkpoint-bound',requestId:5,epoch:next,frame:917,hash:h.hash});
+ await h.rpc({data:{type:'peer-checkpoint-export',requestId:6,epoch:next,frame:917}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-exported');assert.equal(h.stats().imports,1);
+});

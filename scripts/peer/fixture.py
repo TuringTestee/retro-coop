@@ -29,14 +29,14 @@ class LocalTurn:
 relay-ip=127.0.0.1
 listening-port={self.port}
 min-port=49200
-max-port=49249
+max-port=49223
 realm=retro-coop-local
 use-auth-secret
 static-auth-secret={self.secret}
 user-quota=4
-total-quota=16
+total-quota=24
 relay-threads=1
-max-bps=100000
+max-bps=66666
 bps-capacity=1600000
 allow-loopback-peers
 no-multicast-peers

@@ -110,6 +110,10 @@ export class LocalPlayer {
  }
 
  sampleGameInput(){const {pad,available}=this.inputDevice();return available?this.controllerMask(pad):0;}
+ async bindGameEpoch(epoch:string,frame:number,hash:string){
+  if(!this.shared||this.state.running||this.busy)throw Error('Pause before preparing shared play.');
+  const reply=await this.fileRequest({type:'peer-checkpoint-bind',epoch,frame,hash});if(reply.type!=='peer-checkpoint-bound')throw Error('Unexpected game epoch response');
+ }
  async exportPeerCheckpoint(epoch:string,frame?:number){
   if(!this.shared||frame!==undefined&&(this.state.running||this.busy))throw Error('Pause at a completed frame before synchronization.');
   const reply=await this.fileRequest({type:'peer-checkpoint-export',epoch,frame});
@@ -254,6 +258,7 @@ export class LocalPlayer {
   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  };
 
+ resumeGamePresentation(){this.gameStarted=performance.now();this.gameFrames=0;this.gameProgressAt=this.gameLastPumpAt=this.gameStarted;this.audio.flush();}
  wakeGame(epoch:string) {if(this.game?.epoch===epoch)this.pumpGame();}
 
  drainGame() {
