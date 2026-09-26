@@ -9,9 +9,15 @@ function status(room:RoomView,slot:RoomSlot) {
  if(!member)return slot.open?'Open':'Closed';
  if(!member.connected)return 'Disconnected · waiting to reconnect';
  if(!member.matches||member.acquisition!=='loaded')return ({checking:'Checking game…',downloading:'Downloading game…',loading:'Loading game…',failed:'Game preparation failed',loaded:'Waiting for matching game'})[member.acquisition];
- if(room.game.pending?.roles.some(change=>change.slotId===slot.id))return room.game.pending.status==='failed'?'Role change failed':'Changing role…';
+ const proposed=room.game.pending?.roles.find(change=>change.slotId===slot.id);
+ if(proposed)return room.game.pending!.status==='failed'?`Change to ${slotRoleLabel(proposed.role)} failed`:`Changing to ${slotRoleLabel(proposed.role)}…`;
  if(room.game.ready.includes(member.id))return 'Ready';
- if(room.started)return slot.role==='observer'?'Observer':'Playing';
+ if(room.started){
+  if(['paused','failed','resume_ready'].includes(room.game.status))return slot.role==='observer'?'Observer · game paused':'Paused';
+  if(room.game.status==='pausing')return 'Pausing…';
+  if(room.game.status==='starting')return 'Starting…';
+  return slot.role==='observer'?'Observer':'Playing';
+ }
  return slot.role==='observer'?'Game loaded · observer':'Game loaded · prepare to play';
 }
 
@@ -33,8 +39,8 @@ export function RoomSlots({room,connected,act}:{room:RoomView;connected:boolean;
  const locked=pending||!connected||!!room.game.pending;
  return <div ref={panel} className="room-slots" aria-label="Room slots">
   {SLOT_IDS.map((id,index)=>{const slot=room.slots.find(value=>value.id===id);if(!slot)throw Error(`Missing room slot ${id}`);const member=slot.member,confirm=removing?.slotId===id&&removing.membership===member?.id;return <section key={id} data-testid="room-slot" data-slot-id={id} aria-label={`Slot ${index+1}`}>
-   <div data-slot-region="identity"><strong>Slot {index+1} · {slotRoleLabel(slot.role)}</strong><span>{member?`${member.nickname}${member.id===room.chatMembership?' · You':''}${member.id===room.hostMembership?' · Host':''}`:'Empty'}</span></div>
-   <div data-slot-region="status" role="status">{status(room,slot)}</div>
+   <div data-slot-region="identity" tabIndex={0} aria-label={`Slot ${index+1} identity`}><strong>Slot {index+1} · {slotRoleLabel(slot.role)}</strong><span>{member?`${member.nickname}${member.id===room.chatMembership?' · You':''}${member.id===room.hostMembership?' · Host':''}`:'Empty'}</span></div>
+   <div data-slot-region="status" role="status" tabIndex={0} aria-label={`Slot ${index+1} status`}>{status(room,slot)}</div>
    <div data-slot-region="actions">{room.role==='host'&&<>
     <label>Role <select aria-label={`Slot ${index+1} role`} value={slot.role} disabled={locked} onChange={event=>void send({type:'slotRole',roomId:room.id,slotId:id,role:event.target.value as SlotRole,expectedRevision:room.revision})}>{room.controllerRoles.map(role=><option key={role} value={role}>{slotRoleLabel(role)}</option>)}<option value="observer">Observer</option></select></label>
     {!member&&<button disabled={locked} onClick={()=>void send({type:'slotAvailability',roomId:room.id,slotId:id,open:!slot.open,expectedRevision:room.revision})}>{slot.open?'Close slot':'Open slot'}</button>}
