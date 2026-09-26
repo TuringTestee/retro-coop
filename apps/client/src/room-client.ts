@@ -206,6 +206,7 @@ export class RoomClient {
  selectedGame(file:Fingerprint){this.selectedFile=file;this.game.selected(file);}
  isGuest(){return this.state.room?.role==='guest';}
  retryGame(){this.game.retry();}
+ cancelSynchronization(){this.game.cancelIntent();}
  readyToResume(){void this.game.resumeReady();}
  resumeTogether(){void this.game.resumeTogether();}
  chatDraft(text:string){this.chat.draft(text);}

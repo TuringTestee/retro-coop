@@ -5,7 +5,7 @@ import {matchesFile,type Fingerprint,type RoomView} from '../../../packages/cont
 import type {LocalPlayer} from './player.ts';
 import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
-export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;intent?:boolean};
+export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;synchronizing?:boolean;intent?:boolean};
 /** Coordinates one installed peer receiver, one worker and one acknowledged timeline. */
 export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private renew=false;
@@ -123,12 +123,12 @@ export class GameClient {
  private authorizedCheckpoint(metadata:CheckpointMetadata){
   const spec=this.checkpointSpec;return !!spec&&!!this.intent&&this.checkpointPeerEpoch===this.peerEpoch&&this.room?.peer.epoch===this.peerEpoch&&metadata.transferId===spec.transferId&&metadata.epoch===spec.epoch&&metadata.frame===spec.frame&&metadata.hash===spec.hash&&metadata.sender===this.room?.hostMembership&&metadata.recipient===this.room?.guestMembership;
  }
- private cancelCheckpoint(){this.checkpointExporting=undefined;this.player()?.cancelPeerCheckpoint();clearTimeout(this.checkpointTimer);this.checkpointTimer=undefined;this.checkpointSpec=undefined;this.checkpointReceiver.cancel();this.checkpointSender.cancel();}
+ private cancelCheckpoint(){this.checkpointExporting=undefined;this.player()?.cancelPeerCheckpoint();clearTimeout(this.checkpointTimer);this.checkpointTimer=undefined;this.checkpointSpec=undefined;this.checkpointReceiver.cancel();this.checkpointSender.cancel();this.publish({synchronizing:false});}
  private beginCheckpoint(spec:Extract<GameEvent,{type:'gameCheckpoint'}>){
   if(!this.eligible()||this.peerEpoch!==spec.peerEpoch||this.room?.game?.epoch!==spec.epoch)return;
-  this.cancelCheckpoint();this.checkpointSpec=spec;this.publish({busy:true,status:'Synchronizing the host’s paused game…'});
+  this.cancelCheckpoint();this.checkpointSpec=spec;this.publish({busy:true,synchronizing:true,status:'Synchronizing the host’s paused game…'});
   this.checkpointTimer=setTimeout(()=>{if(this.checkpointSpec===spec){this.checkpointReceiver.expire();this.checkpointSender.expire();this.fail('Game synchronization timed out. Prepare again to retry.','network');}},CHECKPOINT_TIMEOUT_MS);
-  if(this.room?.role==='guest')void this.send({type:'gameCheckpointReady',epoch:spec.epoch,transferId:spec.transferId}).catch(error=>this.fail(String(error),'network'));
+  if(this.room?.role==='guest')void this.send({type:'gameCheckpointReady',epoch:spec.epoch,transferId:spec.transferId}).catch(error=>{if(this.checkpointSpec===spec)this.fail(String(error),'network');});
  }
  private sendCheckpoint(spec:Extract<GameEvent,{type:'gameCheckpoint'}>){
   if(this.room?.role!=='host'||this.checkpointSender.retainedBytes||this.checkpointExporting===spec.transferId)return;this.checkpointExporting=spec.transferId;
