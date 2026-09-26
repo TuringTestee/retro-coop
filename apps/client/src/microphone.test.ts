@@ -5,13 +5,13 @@ function fixture(){
  let state:MicrophoneState|undefined;
  const pending:Array<(stream:MediaStream)=>void>=[],sent:Array<MediaStreamTrack|null>=[];
  const microphone=new Microphone(()=>new Promise(resolve=>pending.push(resolve)),value=>{state=value;});
- microphone.endpoint({replaceTrack:async track=>{sent.push(track);}});
+ void microphone.bind('one',{replaceTrack:async track=>{sent.push(track);}});
  function stream(){const track=Object.assign(new EventTarget(),{enabled:true,stopped:false,stop(){this.stopped=true;}});return {track,stream:{getTracks:()=>[track],getAudioTracks:()=>[track]} as unknown as MediaStream};}
  return {microphone,pending,sent,stream,state:()=>state!};
 }
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('late permission grant after leaving stops capture and cannot attach to replacement peer',async()=>{
- const f=fixture(),operation=f.microphone.enable();await tick();f.microphone.endpoint();const media=f.stream();f.pending[0](media.stream);await operation;
+ const f=fixture(),operation=f.microphone.enable();await tick();f.microphone.close();const media=f.stream();f.pending[0](media.stream);await operation;
  assert.equal(media.track.stopped,true);assert.equal(f.sent.some(Boolean),false);assert.equal(f.state().phase,'off');
 });
 test('focus changes preserve open microphone and explicit mute, including pending permission',async()=>{
@@ -41,10 +41,43 @@ test('switching devices stops the old capture and requires deliberate unmute',as
 });
 test('permission denial preserves a useful retry state without touching gameplay',async()=>{
  let state:MicrophoneState|undefined;const microphone=new Microphone(async()=>{throw new DOMException('denied','NotAllowedError');},value=>{state=value;});
- microphone.endpoint({replaceTrack:async()=>{}});await microphone.enable();assert.equal(state!.phase,'error');assert.match(state!.error!,/Text chat still works/);assert.equal(state!.transmitting,false);
+ void microphone.bind('one',{replaceTrack:async()=>{}});await microphone.enable();assert.equal(state!.phase,'error');assert.match(state!.error!,/Text chat still works/);assert.equal(state!.transmitting,false);
 });
 
 test('leaving before queued setup begins never asks for microphone permission',async()=>{
- const f=fixture(),operation=f.microphone.enable();f.microphone.endpoint();await operation;
+ const f=fixture(),operation=f.microphone.enable();f.microphone.close();await operation;
  assert.equal(f.pending.length,0);assert.equal(f.state().phase,'off');
+});
+
+test('four senders share one capture and peer removal/rebinding preserves explicit mute',async()=>{
+ const f=fixture(),peers=Array.from({length:3},()=>[] as (MediaStreamTrack|null)[]);
+ await Promise.all(peers.map((sent,i)=>f.microphone.bind(String(i),{replaceTrack:async track=>{sent.push(track);}})));
+ const operation=f.microphone.enable();await tick();const media=f.stream();f.pending[0](media.stream);await operation;
+ assert.equal(f.pending.length,1);for(const sent of [f.sent,...peers])assert.equal(sent.at(-1),media.track);
+ f.microphone.mute(true);f.microphone.unbind('1');const replacement:(MediaStreamTrack|null)[]=[];
+ await f.microphone.bind('1',{replaceTrack:async track=>{replacement.push(track);}});
+ assert.equal(replacement.at(-1),media.track);assert.equal(media.track.enabled,false);assert.equal(media.track.stopped,false);assert.equal(f.pending.length,1);
+ await assert.rejects(f.microphone.bind('fifth',{replaceTrack:async()=>{}}),/four/);
+ f.microphone.mute(false);f.microphone.blur();assert.equal(media.track.enabled,true);
+ f.microphone.close();await tick();assert.equal(media.track.stopped,true);for(const sent of [f.sent,...peers,replacement])assert.equal(sent.at(-1),null);
+});
+test('peer retry during permission does not cancel capture and late grant binds only current senders',async()=>{
+ const f=fixture(),operation=f.microphone.enable();await tick();f.microphone.unbind('one');
+ const current:(MediaStreamTrack|null)[]=[];await f.microphone.bind('one',{replaceTrack:async track=>{current.push(track);}});
+ const media=f.stream();f.pending[0](media.stream);await operation;
+ assert.equal(f.sent.some(Boolean),false);assert.equal(current.at(-1),media.track);assert.equal(media.track.stopped,false);assert.equal(f.state().muted,false);
+});
+test('late failed binding cannot mute shared capture or replace a newer sender',async()=>{
+ const f=fixture(),operation=f.microphone.enable();await tick();const media=f.stream();f.pending[0](media.stream);await operation;
+ let reject!:(error:Error)=>void;
+ const stale=f.microphone.bind('retry',{replaceTrack:track=>track?new Promise<void>((_resolve,no)=>{reject=no;}):Promise.resolve()});await tick();
+ const current:(MediaStreamTrack|null)[]=[];await f.microphone.bind('retry',{replaceTrack:async track=>{current.push(track);}});
+ reject(Error('old transport failed'));await assert.rejects(stale);await tick();
+ assert.equal(current.at(-1),media.track);assert.equal(media.track.enabled,true);assert.equal(f.state().phase,'ready');
+});
+test('one failed peer binding can retry the same sender without reacquiring or muting other peers',async()=>{
+ const f=fixture(),operation=f.microphone.enable();await tick();const media=f.stream();f.pending[0](media.stream);await operation;
+ let fail=true;const sent:(MediaStreamTrack|null)[]=[];const sender={replaceTrack:async(track:MediaStreamTrack|null)=>{if(fail&&track)throw Error('temporary sender failure');sent.push(track);}};
+ await assert.rejects(f.microphone.bind('retry',sender));assert.equal(media.track.enabled,true);assert.equal(media.track.stopped,false);
+ fail=false;await f.microphone.bind('retry',sender);assert.equal(sent.at(-1),media.track);assert.equal(f.pending.length,1);assert.equal(f.state().phase,'ready');
 });
