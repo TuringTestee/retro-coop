@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {Rooms,limits,RoomError} from './rooms.ts';
 import {createCoordinator,shutdown} from './server.ts';
-import {parseRoomCommand,ROOM_METADATA_BYTES,ROOM_WIRE_BURST,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+import {parseRoomCommand,ROOM_METADATA_BYTES,ROOM_COMMAND_BURST,ROOM_WIRE_BURST,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 const human=(preview:RoomPreview|undefined):HumanRoomPreview=>{assert.ok(preview&&preview.occupancy!==0);return preview as HumanRoomPreview;};
 import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
 import {LOCAL_SCHEMA,LOCAL_SETTINGS} from '../../../packages/contracts/src/fingerprint.ts';
@@ -413,4 +413,11 @@ test('separate WebSocket browsers retain unready observers and admit late member
   const late=data(await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;assert.equal(late.slot,'slot-3');assert.equal(late.occupancy,3);assert.equal(late.game.epoch,epoch);
   assert.equal(data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!.id,room.id);
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
+});
+
+test('five-member command headroom remains finite and expires at the existing window',()=>{
+ const t=setup(),host=t.guest();t.host(host.token);
+ for(let i=0;i<ROOM_COMMAND_BURST-2;i++)t.act(host.token,{type:'heartbeat'});
+ assert.throws(()=>t.act(host.token,{type:'heartbeat'}),error=>error instanceof RoomError&&error.code==='rate_limited'&&error.retryAfterMs===10000);
+ t.advance(10000);assert.doesNotThrow(()=>t.act(host.token,{type:'heartbeat'}));
 });

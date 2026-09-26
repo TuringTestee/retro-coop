@@ -8,10 +8,10 @@ import re
 from pathlib import Path
 
 
-# Ten room pairs use twenty allocations; four spare allocations permit bounded
-# overlap during pair retries. Keep the existing aggregate bandwidth budget.
+# Ten room pairs use twenty allocations. A member reconnect replaces eight
+# endpoints; four more allocations bound overlap. Aggregate bandwidth is unchanged.
 RELAY_PAIRS = 10
-RELAY_ALLOCATIONS = RELAY_PAIRS * 2 + 4
+RELAY_ALLOCATIONS = RELAY_PAIRS * 2 + 8 + 4
 RELAY_MIN_PORT = 49160
 RELAY_MAX_PORT = RELAY_MIN_PORT + RELAY_ALLOCATIONS - 1
 RELAY_BANDWIDTH = 1_600_000

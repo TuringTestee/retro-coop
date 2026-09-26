@@ -107,6 +107,32 @@ jobs:
       - name: Complete the focused pull-request gate within the original deadline
         if: github.event_name == 'pull_request'
         run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+  five-members:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: d02-build
+          path: spikes/d02
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version-file: .node-version
+      - name: Verify five-member play, recovery and relay voice
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh slots
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: five-member-journeys
+          path: spikes/d02/five-members.local/**
+          if-no-files-found: warn
+          retention-days: 7
   images:
     needs: build
     runs-on: ubuntu-24.04-arm

@@ -3,7 +3,7 @@ import {catalogAvailability} from 'virtual:catalog';
 import {catalogEntry,catalogId,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {catalogFingerprint} from './catalog-fingerprint.ts';
 import {downloadCatalogEntry} from './catalog-download.ts';
-import {acquireGuestRom,GuestPlaceExpiredError} from './guest-rom.ts';
+import {acquireMemberRom,MemberReservationExpiredError} from './member-rom.ts';
 import type {LocalPlayer} from './player.ts';
 import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceSession,VoiceState} from './voice.ts';
@@ -45,13 +45,13 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   const current=()=>memberCurrent(operation);
   void client.current?.memberAcquisition(room.id,room.chatMembership,'checking');
   try{
-   const result=await acquireGuestRom(room,token,operation.controller.signal,bytes=>{if(current()){setMemberAcquisition({phase:'downloading',message:`Downloading game… ${gameSize(bytes)} / ${gameSize(room.fingerprint.cartridge.bytes)}`});void client.current?.memberAcquisition(room.id,room.chatMembership,'downloading');}},current);
+   const result=await acquireMemberRom(room,token,operation.controller.signal,bytes=>{if(current()){setMemberAcquisition({phase:'downloading',message:`Downloading game… ${gameSize(bytes)} / ${gameSize(room.fingerprint.cartridge.bytes)}`});void client.current?.memberAcquisition(room.id,room.chatMembership,'downloading');}},current);
    if(!current())return;
    setMemberAcquisition({phase:'loading',message:'Loading game…',notice:result.notice});
    void client.current?.memberAcquisition(room.id,room.chatMembership,'loading');
    if(!onAcquired(result.file,current))throw Error('The game could not start loading. Retry download.');
    operation.sawLoading=true;
-  }catch(error){if(current()){setMemberAcquisition({phase:error instanceof GuestPlaceExpiredError?'expired':'failed',message:error instanceof Error?error.message:'Download failed. Retry download.'});void client.current?.memberAcquisition(room.id,room.chatMembership,'failed');}}
+  }catch(error){if(current()){setMemberAcquisition({phase:error instanceof MemberReservationExpiredError?'expired':'failed',message:error instanceof Error?error.message:'Download failed. Retry download.'});void client.current?.memberAcquisition(room.id,room.chatMembership,'failed');}}
  };
  const leaveMember=async()=>{const room=memberRoom.current;cancelMember();if(room?.reservationIntent)await client.current?.act({type:'leave',intent:room.reservationIntent});if(invite)clearInvitation();else onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());};
  const clearInvitation=()=>{client.current?.clearPreview();history.replaceState(null,'',location.pathname+location.search);setInvite(null);onInvitationDismiss();onBrowse();requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.directory-panel input')?.focus());};
@@ -169,7 +169,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   {playCards}
   {invite&&!room&&state.preview&&<p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/5 slots · {state.preview.status}. {'openSlots' in state.preview?`${state.preview.openSlots} open slots.`:''} {state.preview.catalogId?`${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.`:'Host-shared NES; Join downloads the verified game.'}</p>}
   {invite&&!room&&<div className="invite-action">{state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&<><ConnectionPolicyControl compact policy={policy} change={changePolicy}/><button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Join room</button></>}{!state.busy&&!state.preview&&<button onClick={()=>void client.current?.preview(invite)}>Retry invitation</button>}<button onClick={clearInvitation}>View public rooms</button></div>}
-  {room?.role==='member'&&!room.catalogId&&memberAcquisition&&(!room.started||memberAcquisition.phase!=='loaded')&&<div className="guest-acquisition" role="status" aria-live="polite"><p>{memberAcquisition.message}</p>{memberAcquisition.notice&&<p>{memberAcquisition.notice}</p>}{['checking','downloading','loading'].includes(memberAcquisition.phase)&&<button onClick={()=>void leaveMember()}>Cancel preparation</button>}{memberAcquisition.phase==='failed'&&<button onClick={()=>void startMember(room)}>Retry download</button>}{memberAcquisition.phase==='expired'&&<button onClick={()=>void leaveMember()}>Return to rooms</button>}</div>}
+  {room?.role==='member'&&!room.catalogId&&memberAcquisition&&(!room.started||memberAcquisition.phase!=='loaded')&&<div className="member-acquisition" role="status" aria-live="polite"><p>{memberAcquisition.message}</p>{memberAcquisition.notice&&<p>{memberAcquisition.notice}</p>}{['checking','downloading','loading'].includes(memberAcquisition.phase)&&<button onClick={()=>void leaveMember()}>Cancel preparation</button>}{memberAcquisition.phase==='failed'&&<button onClick={()=>void startMember(room)}>Retry download</button>}{memberAcquisition.phase==='expired'&&<button onClick={()=>void leaveMember()}>Return to rooms</button>}</div>}
   {room?.catalogId==='from-below-1.0'&&!room.started&&<p>This game supports Player 1 only. The host can assign that controller to any member; the other slots are observers.</p>}
   {room&&selectionLoading&&!includedBusy&&!(room.role==='member'&&!room.catalogId)&&<p role="status">Checking the selected file… <button onClick={()=>{player()?.cancel();client.current?.beginSelection();}}>Cancel loading</button></p>}
   {room&&<RoomSlots room={room} connected={state.connected} act={command=>client.current!.act(command)}/>}

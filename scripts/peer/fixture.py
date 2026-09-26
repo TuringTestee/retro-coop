@@ -29,14 +29,14 @@ class LocalTurn:
 relay-ip=127.0.0.1
 listening-port={self.port}
 min-port=49200
-max-port=49223
+max-port=49231
 realm=retro-coop-local
 use-auth-secret
 static-auth-secret={self.secret}
 user-quota=4
-total-quota=24
+total-quota=32
 relay-threads=1
-max-bps=66666
+max-bps=50000
 bps-capacity=1600000
 allow-loopback-peers
 no-multicast-peers
@@ -79,6 +79,23 @@ log-file=stdout
             "TURN_SECRET": self.secret,
             "TURN_ROOM_LIMIT": "1",
         }
+
+    def allocation_counts(self):
+        # Keep only aggregate counts; coturn usernames, credentials and addresses stay private.
+        active, created = set(), set()
+        peak = 0
+        for line in self.log.read_text(errors='replace').splitlines():
+            match = re.search(r'session (\d+):', line)
+            if not match:
+                continue
+            session = match.group(1)
+            if 'incoming packet ALLOCATE processed, success' in line:
+                active.add(session)
+                created.add(session)
+                peak = max(peak, len(active))
+            elif 'closed (2nd stage)' in line or 'deleted' in line:
+                active.discard(session)
+        return {'created_sessions': len(created), 'peak_live_allocations': peak, 'live_allocations': len(active)}
 
     def error_codes(self):
         # Only numeric codes leave the private temporary directory.

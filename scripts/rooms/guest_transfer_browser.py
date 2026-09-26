@@ -114,7 +114,7 @@ with sync_playwright() as playwright:
     guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
     guest.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
     assert cleared, 'The cross-tab Clear did not race with the room download'
-    assert 'download again next time' in guest.locator('.guest-acquisition').inner_text().lower()
+    assert 'download again next time' in guest.locator('.member-acquisition').inner_text().lower()
     if args.output:
         guest.screenshot(path=str(args.output / 'cross-tab-clear-memory-only.png'))
     clearer.get_by_role('button', name='Back', exact=True).click()
@@ -148,7 +148,7 @@ with sync_playwright() as playwright:
     altered.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
     altered.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=30000)
     assert altered.get_by_role('button', name='Prepare to play', exact=True).count() == 0
-    assert 'did not match' in altered.locator('.guest-acquisition').inner_text()
+    assert 'did not match' in altered.locator('.member-acquisition').inner_text()
     if args.output:
         altered.screenshot(path=str(args.output / 'altered-download-rejected.png'))
     altered.unroute('**/rooms/*/rom', corrupt_download)
@@ -188,7 +188,7 @@ with sync_playwright() as playwright:
     quota_guest.get_by_role('searchbox').fill(code)
     quota_guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
     quota_guest.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
-    assert 'download again next time' in quota_guest.locator('.guest-acquisition').inner_text().lower()
+    assert 'download again next time' in quota_guest.locator('.member-acquisition').inner_text().lower()
     if args.output:
         quota_guest.screenshot(path=str(args.output / 'storage-full-memory-only.png'))
     quota_guest.get_by_role('button', name='Prepare to play', exact=True).click()

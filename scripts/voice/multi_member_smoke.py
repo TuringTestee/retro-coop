@@ -66,22 +66,7 @@ def bounds(pages, peers):
     return snapshots
 
 
-def allocation_counts(log):
-    # Keep only aggregate counts; coturn usernames, credentials and addresses stay private.
-    active, created = set(), set()
-    peak = 0
-    for line in log.splitlines():
-        match = re.search(r'session (\d+):', line)
-        if not match:
-            continue
-        session = match.group(1)
-        if 'incoming packet ALLOCATE processed, success' in line:
-            active.add(session)
-            created.add(session)
-            peak = max(peak, len(active))
-        elif 'closed (2nd stage)' in line or 'deleted' in line:
-            active.discard(session)
-    return {'created_sessions': len(created), 'peak_live_allocations': peak}
+
 
 
 def main():
@@ -213,9 +198,9 @@ window.WebSocket=class extends RoomSocket {constructor(...args){super(...args);
             departure_bounds = bounds(pages[:4], 3)
             assert departure_bounds[0]['enabled'] and all(not value['enabled'] for value in departure_bounds[1:])
             host.screenshot(path=str(args.output.with_suffix('.png')))
-            allocations = allocation_counts(turn.log.read_text(errors='replace')) if turn else None
+            allocations = turn.allocation_counts() if turn else None
             if turn:
-                assert 20 <= allocations['peak_live_allocations'] <= 24, allocations
+                assert 20 <= allocations['peak_live_allocations'] <= 32, allocations
                 assert not turn.error_codes().get('486'), turn.error_codes()
             assert not errors, errors
             result = {'result': 'pass', 'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=runtime, text=True).strip(),

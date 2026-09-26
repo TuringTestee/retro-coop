@@ -20,7 +20,7 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
 
  return <section className="voice-panel" aria-label="Voice controls">
   <h3 tabIndex={-1}>Voice</h3><p role="status" data-testid="microphone-status">{mic.phase==='requesting'?'Microphone permission pending…':mic.phase==='error'?'Microphone unavailable':mic.phase==='off'?'Microphone off':mic.muted?'Microphone muted':mic.transmitting?'Transmitting microphone audio':'Listening · hold to talk'}</p>
-  {!state.connected && <p>Connect to the other player to enable voice. Text chat works before voice is ready.</p>}
+  {!state.connected && <p>Connect to room members to enable voice. Text chat works before voice is ready.</p>}
   {(mic.phase==='off'||mic.phase==='error') && <button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>}
   {mic.phase==='requesting' && <button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>}
   {mic.phase==='ready' && <><button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button><button onClick={()=>voice.microphone.disable()}>Disable microphone</button></>}

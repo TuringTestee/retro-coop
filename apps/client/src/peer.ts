@@ -67,7 +67,7 @@ export class PeerConnection {
   const nonce=crypto.randomUUID();let verified=false,replied=false,announced=false,probeAt=0,roundTripMs=0;
   const complete=()=>{if(verified && replied && !announced) {announced=true;void this.connected(epoch,channel,roundTripMs);}};
   // Remote channels can announce open before their native send path is ready.
-  // The host initiates; an inbound probe proves the guest can send its own challenge.
+  // The offerer initiates; an inbound probe proves the answerer can send its own challenge.
   const probe=()=>{probeAt=performance.now();channel.send(JSON.stringify({type:'transportProbe',nonce}));};
   channel.onopen=()=>{if(this.epoch===epoch && this.offerer) probe();};
   channel.onmessage=({data})=>{

@@ -3,11 +3,11 @@ import {clientConfig} from './config.ts';
 import {verifiedDownload} from './verified-download.ts';
 import {acquireVerifiedRom,type AcquiredRom} from './rom-acquisition.ts';
 
-export type GuestRomResult=AcquiredRom;
-export class GuestPlaceExpiredError extends Error {}
+export type MemberRomResult=AcquiredRom;
+export class MemberReservationExpiredError extends Error {}
 
 /** RT4 supplies current() from its room and operation generation before loading or preparing. */
-export async function acquireGuestRom(room:RoomView,token:string,signal:AbortSignal,progress:(bytes:number)=>void,current:()=>boolean,fetcher:typeof fetch=fetch):Promise<GuestRomResult> {
+export async function acquireMemberRom(room:RoomView,token:string,signal:AbortSignal,progress:(bytes:number)=>void,current:()=>boolean,fetcher:typeof fetch=fetch):Promise<MemberRomResult> {
  if(room.role!=='member' || room.catalogId)throw Error('This room does not have a host-shared game.');
  const membership=room.chatMembership,expected=room.fingerprint;
  const check=()=>{signal.throwIfAborted();if(!current())throw Error('The room changed. Return to rooms and join again.');};
@@ -15,7 +15,7 @@ export async function acquireGuestRom(room:RoomView,token:string,signal:AbortSig
   check();const endpoint=new URL(clientConfig.coordinatorUrl,location.href);endpoint.pathname=endpoint.pathname.replace(/\/$/,'')+`/rooms/${encodeURIComponent(room.id)}/rom`;endpoint.search='';endpoint.hash='';
   let response:Response;
   try{response=await fetcher(endpoint,{method:'GET',headers:{Authorization:`Bearer ${token}`,'X-Room-Membership':membership},signal,credentials:'omit',redirect:'error',cache:'no-store'});}catch(error){check();throw Error('The room game could not download. Retry download.',{cause:error});}
-  check();if(!response.ok)throw response.status===403?new GuestPlaceExpiredError('Your room place expired. Return to rooms.'):Error('The room game could not download. Retry download.');
+  check();if(!response.ok)throw response.status===403?new MemberReservationExpiredError('Your room place expired. Return to rooms.'):Error('The room game could not download. Retry download.');
   return verifiedDownload(response,{bytes:expected.cartridge.bytes,sha256:expected.romSha256},signal,progress);
  });
 }

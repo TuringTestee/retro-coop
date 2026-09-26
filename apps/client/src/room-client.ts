@@ -62,7 +62,7 @@ export class RoomClient {
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
   if(room&&room.id!==this.voluntaryExitRoomId)this.voluntaryExitRoomId=undefined;
-  // A guest admitted from an invitation still needs its preview after removal.
+  // A member admitted from an invitation still needs its preview after removal.
   if(room&&room.id!==this.previewingId){this.previewingInvite=undefined;this.previewingId=undefined;}
   this.game.enter(room);this.publish({room,chat:this.chat.enter(room),...(room?{releaseNotice:undefined}:{})});this.reportLoadedGame();
   if(!room)this.closePeers('Room closed.',true);else for(const [id,peer] of this.peers)if(!room.peers.some(view=>view.pairId===id)){peer.close('Member left.');this.peers.delete(id);this.peerStates.delete(id);}
@@ -101,7 +101,7 @@ export class RoomClient {
     let event:RoomEvent;try {event = JSON.parse(data);}catch{return;}
     if(event.type === 'result') {
      const pending = this.pending.get(event.requestId);if(!pending) return;clearTimeout(pending.timer);this.pending.delete(event.requestId);
-     if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(event.error==='place_taken'&&pending.kind==='claimCode'?'Someone claimed Host first. Review the updated row to join as Guest or choose another room.':messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'),{code:event.error,retryAfterMs:event.retryAfterMs}));}
+     if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(event.error==='place_taken'&&pending.kind==='claimCode'?'Someone claimed Host first. Review the updated row to join an open slot or choose another room.':messages[event.error] ?? 'The room request was rejected. Your local game is preserved.'),{code:event.error,retryAfterMs:event.retryAfterMs}));}
     } else if(event.type==='chat') this.chat.receive(event);
     else if(event.type.startsWith('game'))this.game.handle(event as GameEvent);
     else if(event.type.startsWith('peer')) this.peerEvent(event as PeerEvent);

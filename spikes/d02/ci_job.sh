@@ -20,7 +20,7 @@ if [ "$D02_JOB" = build ]; then
   timeout --foreground 60s sh scripts/preflight.sh
   exit
 fi
-if [ "$D02_JOB" = entrypoint ]; then
+if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
   python3 -m venv /tmp/d02-entrypoint-venv
   /tmp/d02-entrypoint-venv/bin/pip install playwright==1.58.0
   # The pinned Ubuntu runner already has Chromium's libraries. Installing apt
@@ -29,6 +29,19 @@ if [ "$D02_JOB" = entrypoint ]; then
   export PATH="/tmp/d02-entrypoint-venv/bin:$PATH"
   npm ci
   RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
+  if [ "$D02_JOB" = slots ]; then
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq coturn
+    npm run build
+    mkdir -p spikes/d02/five-members.local
+    timeout --foreground 75s python3 scripts/gameplay/five_slots_smoke.py --output spikes/d02/five-members.local/direct.json
+    timeout --foreground 75s python3 scripts/gameplay/five_slots_smoke.py --relay --output spikes/d02/five-members.local/relay.json
+    timeout --foreground 30s python3 scripts/gameplay/five_slots_smoke.py --initial-stall --output spikes/d02/five-members.local/poweron.json
+    timeout --foreground 45s python3 scripts/voice/multi_member_smoke.py --relay --output spikes/d02/five-members.local/voice-relay.json
+    timeout --foreground 30s python3 scripts/gameplay/late_controller_smoke.py --output spikes/d02/five-members.local/late-controller.json
+    timeout --foreground 60s python3 scripts/gameplay/observer_failure_smoke.py --output spikes/d02/five-members.local/observer-failure.json
+    exit
+  fi
   timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
   RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py
   npm run build
@@ -36,7 +49,7 @@ if [ "$D02_JOB" = entrypoint ]; then
   # The enclosing CI namespace owns cleanup if either bounded probe fails.
   timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice &
   D02_VOICE_PID=$!
-  timeout --foreground 30s python3 scripts/featured/solo_release_browser.py --output spikes/d02/public-entrypoint.local/solo-release
+  timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
   timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
   wait "$D02_VOICE_PID"
   timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility unlisted --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-unlisted
