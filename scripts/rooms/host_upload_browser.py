@@ -48,7 +48,8 @@ async def main():
             assert await host.get_by_role('button',name='Cancel',exact=True).is_visible()
             assert await host.get_by_test_id('room-view').count()==0
             guest=await context.new_page();await guest.goto(URL)
-            assert await guest.locator('.room-list li').filter(has_text='1/2 · Waiting for guest').count()==0
+            # The in-flight unlisted upload must expose no human room, regardless of occupancy.
+            assert await guest.locator('.room-list li').filter(has=guest.get_by_role('button',name='Join',exact=True)).count()==0
             await host.get_by_role('button',name='Cancel',exact=True).click()
             release.set()
             await host.get_by_role('button',name='Create room',exact=True).wait_for()
