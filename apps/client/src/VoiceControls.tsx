@@ -11,7 +11,8 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
    {mic.error&&<p>{mic.error} {mic.error.includes('denied')&&'Review microphone permission in your browser’s site settings, then try again.'}</p>}
    {state.connectionError&&<p>{state.connectionError} <button className="text-action" onClick={()=>voice.retryBinding()}>Retry voice connection</button></p>}
    {state.playbackError&&<p>{state.playbackError} <button className="text-action" onClick={()=>voice.retrySound()}>Enable voice sound</button></p>}
-   {mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:mic.mode==='push'&&!mic.muted?talk:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
+   {mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
+   {mic.phase==='ready'&&mic.mode==='push'&&talk}
    {mic.mode==='push'&&<p className="talk-binding">Push to talk · {talkBinding}</p>}
    <button className="text-action voice-settings" onClick={onSettings}>Voice settings</button>
   </section>;
@@ -32,6 +33,6 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
   <button aria-pressed={state.remoteMuted} onClick={()=>voice.remoteMute(!state.remoteMuted)}>{state.remoteMuted?'Unmute remote voice':'Mute remote voice'}</button>
   <label htmlFor={`${id}-volume`}>Remote voice volume {Math.round(state.volume*100)}%</label><input id={`${id}-volume`} type="range" min="0" max="100" value={Math.round(state.volume*100)} onChange={event=>voice.volume(Number(event.target.value)/100)}/>
   {state.playbackError && <p>{state.playbackError}<button onClick={()=>voice.retrySound()}>Enable voice sound</button></p>}
-  <p className="hint">Switching windows mutes your microphone. Unmute deliberately when you return. Device replacement also stays muted. Browser echo cancellation and noise suppression are best effort; headphones can help. No recording or transcription.</p>
+  <p className="hint">Open microphone stays on when you switch tabs or windows. Use Mute microphone to stop transmitting. Switching away releases push-to-talk. Device replacement stays muted until you unmute. Browser echo cancellation and noise suppression are best effort; headphones can help. No recording or transcription.</p>
  </section>;
 }

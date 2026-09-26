@@ -164,12 +164,11 @@ try:
     host.evaluate("voicePad.buttons[10]={pressed:true,value:1}")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.evaluate("voicePad.connected=false")
-    panel.get_by_text("Microphone muted", exact=True).wait_for()
+    panel.get_by_text("Listening · hold to talk", exact=True).wait_for()
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.get_by_role("button", name="Settings", exact=True).click()
     host.get_by_label("Input device", exact=True).select_option("keyboard")
     host.get_by_role("button", name="Back", exact=True).click()
-    panel.get_by_role("button", name="Unmute microphone", exact=True).click()
     panel.get_by_label("Voice mode", exact=True).select_option("open")
     panel.get_by_role("button", name="Mute remote voice", exact=True).click()
     assert host.evaluate("voiceAudio.at(-1).muted")
@@ -280,8 +279,9 @@ try:
         path=str(Path(args.output).with_suffix(".mobile.png")), full_page=True
     )
     host.evaluate("window.dispatchEvent(new Event('blur'))")
-    host.locator(".room-panel").get_by_text("Microphone muted", exact=True).wait_for()
-    assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
+    host.locator(".room-panel").get_by_text("Transmitting microphone audio", exact=True).wait_for()
+    assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
+    panel.get_by_role("button", name="Mute microphone", exact=True).click()
     host.evaluate("window.dispatchEvent(new Event('focus'))")
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     panel.get_by_role("button", name="Unmute microphone", exact=True).click()
@@ -346,7 +346,7 @@ try:
         "native_browser_permission_denial_and_retry": (
             True if args.pair.startswith("Chrome") else None
         ),
-        "blur_mutes_focus_does_not_unmute": True,
+        "focus_preserves_explicit_microphone_mute": True,
         "leave_stops_both_tracks": True,
         "missing_device_selection_allows_default_retry": True,
         "timeline_mutating_worker_commands_unchanged": timeline_before,
@@ -359,7 +359,7 @@ try:
         "device_replacement_muted_until_deliberate_unmute": True,
         "failed_sender_attachment_retries_without_peer_reset": True,
         "mobile_no_overflow": True,
-        "selected_gamepad_push_to_talk_and_unplug_mute": True,
+        "selected_gamepad_push_to_talk_and_unplug_release": True,
         "seconds": round(time.monotonic() - started, 2),
     }
     Path(args.output).write_text(json.dumps(result, indent=2) + "\n")

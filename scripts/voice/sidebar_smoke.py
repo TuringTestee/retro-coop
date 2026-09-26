@@ -72,6 +72,8 @@ def run(host, guest, output):
         tab.wait_for_function("async()=>[...(await pcs.at(-1).getStats()).values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.totalAudioEnergy>0)")
     host.screenshot(path=str(output.with_suffix('.sidebar-live.png')), full_page=True)
     host.evaluate("dispatchEvent(new Event('blur'))")
+    assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&t.enabled)")
+    card.get_by_role('button', name='Mute microphone', exact=True).click()
     card.get_by_role('button', name='Unmute microphone', exact=True).wait_for()
     assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&!t.enabled)")
     host.screenshot(path=str(output.with_suffix('.sidebar-muted.png')), full_page=True)
@@ -80,7 +82,8 @@ def run(host, guest, output):
     host.get_by_label('Voice mode', exact=True).select_option('push')
     host.get_by_role('button', name='Back', exact=True).click()
     assert 'Push to talk · V' in card.inner_text()
-    assert card.get_by_role('button').count() == 2  # Talk and the detail route.
+    assert card.get_by_role('button', name='Mute microphone', exact=True).is_visible()
+    assert card.get_by_role('button', name='Hold to talk', exact=True).is_visible()
     card.get_by_role('button', name='Hold to talk', exact=True).focus()
     host.keyboard.down('Space')
     host.wait_for_function('captures.at(-1).getAudioTracks().every(t=>t.enabled)')
@@ -97,7 +100,7 @@ def run(host, guest, output):
     guest.get_by_role('button', name='Confirm leave', exact=True).click()
     for tab in [host,guest]:
         tab.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'pending_cancel_survives_playback_failure':True,'two_way_audio_during_game':True,'blur_retains_muted_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
+    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'pending_cancel_survives_playback_failure':True,'two_way_audio_during_game':True,'focus_preserves_mute_and_open_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
 
 
 def solo(browser, url, rom, output, root):

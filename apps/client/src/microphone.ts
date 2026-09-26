@@ -55,7 +55,8 @@ export class Microphone {
  private unavailable(error:string){this.disable();this.publish({phase:'error',error});}
  disable(){const generation=++this.generation;this.stopTracks();this.publish({phase:'off',muted:true,error:undefined});void this.replace(null,generation).catch(()=>{});}
  mute(muted:boolean){this.held=false;this.publish({muted});}
- blur(){this.mute(true);}
+ // Focus releases momentary input; only an explicit action changes microphone mute.
+ blur(){this.hold(false);}
  selectDevice(device:string){this.publish({device});}
  mode(mode:'open'|'push'){this.held=false;this.publish({mode});}
  hold(held:boolean){if(this.held!==held){this.held=held;this.publish();}}
