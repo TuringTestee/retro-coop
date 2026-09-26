@@ -219,11 +219,11 @@ Controls cover all NES buttons, keyboard and detected gamepads, with an input-te
 
 Display & sound includes nearest-neighbor/scanlines, local volume, and audio activation state. Connection exposes the U2 privacy choice and current connection status. Local data opens U6 management. A guest nickname is editable outside active play and explains “Temporary name for this browser session”; no login/account UI is implied.
 
-In chat, Enable voice requests microphone access on click; optional push-to-talk mode explains its binding. Off, permission pending, listening/not transmitting, transmitting, microphone unavailable, and muted states have text. Provide an on-screen hold-to-talk button with keyboard equivalent plus [Mute voice] for incoming audio and [Disable microphone] for local capture; switching away releases transmission. A denied microphone shows “Microphone access was denied. Text chat still works” with [Try again] and browser-settings help, not a blocking modal. No recording/transcription controls are present.
+In chat, Enable voice requests microphone access on click; optional push-to-talk mode explains its binding. Off, permission pending, listening/not transmitting, transmitting, microphone unavailable, and muted states have text. Provide an on-screen hold-to-talk button with keyboard equivalent plus [Mute voice] for incoming audio and [Disable microphone] for local capture; switching away releases held push-to-talk only, with open-microphone and mute behavior governed by [Background voice](background-voice.md). A denied microphone shows “Microphone access was denied. Text chat still works” with [Try again] and browser-settings help, not a blocking modal. No recording/transcription controls are present.
 
 Chat input has a 500-character counter near the limit; oversize cannot send. A rate limit displays the remaining wait without discarding typed text. Disconnected send shows “Not sent” with explicit Retry after reconnect; never imply delivery or automatically duplicate a message. Lobby closure clears chat, and the panel explains “Chat is temporary; messages from before you joined aren't shown.” Messages use plain text with no HTML/link previews or attachments.
 
-Conversational voice settings provide microphone device, local mute, remote mute/volume and optional Push-to-talk mode. Show permission/device/connection failures separately. Enable starts only after user action; reconnect, focus return and device replacement require deliberate unmute. Stop tracks on leave/kick/expiry or peer replacement. Never let a voice retry reset gameplay. Echo cancellation/noise suppression are best-effort browser settings, verified with game audio and speakers as well as headphones.
+Conversational voice settings provide microphone device, local mute, remote mute/volume and optional Push-to-talk mode. Show permission/device/connection failures separately. Enable starts only after user action; reconnect requires renewed opt-in and device replacement requires deliberate unmute. Focus return preserves the explicit mute choice under [Background voice](background-voice.md). Stop tracks on leave/kick/expiry or peer replacement. Never let a voice retry reset gameplay. Echo cancellation/noise suppression are best-effort browser settings, verified with game audio and speakers as well as headphones.
 
 Session controller mode defaults to Separate P1/P2. Optional Shared P1 explains “Take turns controlling a single-player game.” The host requests Pass controller while paused; the named recipient accepts or declines. Display the sole current owner, release held input on accepted transfer and acknowledge ownership before resume. Decline/cancel leaves the previous owner and timeline intact. Never infer that an arbitrary ROM supports simultaneous co-op.
 
@@ -289,7 +289,7 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S18 | Player maps keyboard/gamepad and tests inputs — U7 | Binding conflicts, cancellation/defaults, unplug fallback | AC-08 |
 | S19 | Player adjusts filters/audio and uses fullscreen — U4/U7 | Audio gesture/denial; local changes don't alter emulation | AC-08 |
 | S20 | Player types temporary text chat — U3/U4/U7 | Input suppression, oversize/rate limit, unsent retry, no history | AC-08, AC-10 |
-| S21 | Player opts into voice and can stop it — U3/U4/U7 | Permission denied, muted/unavailable, release on blur | AC-08, AC-10 |
+| S21 | Player opts into voice and can stop it — U3/U4/U7 | Permission denied, muted/unavailable, held push-to-talk release on blur | AC-08, AC-10 |
 | S22 | Players recover a brief disconnect — U8→U3/U4 | Reselect ROM, reservation expiry, authenticated resume | AC-06, AC-09 |
 | S23 | Players recover desync safely — U8/U5 | One recovery attempt; repeat/invalid state remains paused | AC-06 |
 | S24 | Host loses a guest or leaves themselves — U8/U9 | Guest slot reopens; host loss closes; no host migration | AC-09 |
@@ -299,7 +299,7 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S28 | Players understand service restart, capacity, and degraded network — U8/U1 | Loaded game retained; honest retry; no direct privacy fallback | AC-09, AC-11–12 |
 | S29 | Visitor understands catalog versus user-file content — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
 | S30 | Keyboard/screen-reader user completes the core journey — U1–U9 | Focus restore, announced status, picker alternative, no traps | AC-08, AC-12 |
-| S31 | Player loses focus/device without stuck input or live microphone — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
+| S31 | Player loses focus without stuck input; device loss stops unavailable capture — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
 | S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–16 |
 | S33 | Visitor finds a friend by room/host/code — U1/U9 | Duplicate names, no match, expired code, unlisted non-resolution | AC-14 |
 | S34 | Guest enables conversational voice and manages devices — U3/U4/U7 | Echo, unavailable mic, background open mic and explicit mute, remote mute, independent retry | AC-16 |
