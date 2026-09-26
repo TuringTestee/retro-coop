@@ -2,10 +2,14 @@
 import argparse
 import contextlib
 import json
+import math
 import os
 from pathlib import Path
+import struct
 import subprocess
+import tempfile
 import time
+import wave
 
 from playwright.sync_api import sync_playwright
 
@@ -15,13 +19,26 @@ ENERGY = """async () => [...(await pcs.at(-1).getStats()).values()]
  .reduce((sum, s) => sum + (s.totalAudioEnergy ?? 0), 0)"""
 
 
+def write_tone(path):
+    # Original generated sound, not microphone samples. Chromium loops this fake-device input.
+    with wave.open(str(path), 'wb') as output:
+        output.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
+        output.writeframes(b''.join(struct.pack('<h', int(6000 * math.sin(2 * math.pi * 440 * i / 48000)
+                                                        * (0.6 + 0.4 * math.sin(2 * math.pi * 3 * i / 48000))))
+                                   for i in range(48000)))
+    return path
+
+
 def audio_arrives(receiver):
     before = receiver.evaluate(ENERGY)
-    receiver.wait_for_function(
-        f"async before => (await ({ENERGY})()) > before + 0.00001",
-        arg=before, polling=100, timeout=10000,
-    )
-    return receiver.evaluate(ENERGY) - before
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        current = receiver.evaluate(ENERGY)
+        if current > before + 0.00001:
+            return current - before
+        receiver.wait_for_timeout(100)
+    stats = receiver.evaluate("async () => [...(await pcs.at(-1).getStats()).values()].filter(s=>s.type==='inbound-rtp'&&s.kind==='audio').map(s=>({packets:s.packetsReceived,bytes:s.bytesReceived,energy:s.totalAudioEnergy,samples:s.totalSamplesReceived}))")
+    raise AssertionError(f'no new decoded audio energy arrived from background sender: {stats}')
 
 
 def audio_stops(receiver):
@@ -41,17 +58,21 @@ def audio_stops(receiver):
 
 
 def run(playwright, url, mode, output, headed):
+    errors = []
     with contextlib.ExitStack() as stack:
+        tone = write_tone(Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='retro-voice-'))) / 'tone.wav')
         def launch():
             browser = playwright.chromium.launch(
                 channel='chromium', headless=not headed,
                 ignore_default_args=['--mute-audio', '--disable-background-timer-throttling',
                                      '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'],
-                args=['--use-fake-device-for-media-stream'],
+                args=['--use-fake-device-for-media-stream', f'--use-file-for-fake-audio-capture={tone}'],
             )
             stack.callback(browser.close)
             context = browser.new_context(permissions=['microphone'], viewport={'width': 1280, 'height': 900})
-            context.add_init_script((ROOT / 'scripts/voice/fixtures.js').read_text())
+            context.add_init_script(f'if (location.origin === {json.dumps(url)}) {{\n'
+                                    + (ROOT / 'scripts/voice/fixtures.js').read_text() + '\n}')
+            context.on('page', lambda page: page.on('pageerror', lambda error: errors.append(str(error))))
             return browser, context
 
         browser, context = launch()
@@ -64,15 +85,14 @@ def run(playwright, url, mode, output, headed):
         invitation = host.get_by_label('Room invitation', exact=True).input_value()
         if mode == 'same-browser-tabs':
             with host.expect_popup() as popup:
-                host.evaluate('(url) => window.open(url)', invitation)
+                host.evaluate("window.open('about:blank')")
             guest = popup.value
+            guest.goto(invitation)
         else:
             _, other_context = launch()
             guest = other_context.new_page()
             guest.goto(invitation)
-        errors = []
         for tab in [host, guest]:
-            tab.on('pageerror', lambda error: errors.append(str(error)))
             # Playwright enables focus emulation. Disable it so target activation produces real focus events.
             tab.context.new_cdp_session(tab).send('Emulation.setFocusEmulationEnabled', {'enabled': False})
         guest.get_by_role('button', name='Join room', exact=True).click()
@@ -80,25 +100,33 @@ def run(playwright, url, mode, output, headed):
             tab.wait_for_function("pcs.at(-1)?.connectionState === 'connected'")
             tab.bring_to_front()
             tab.locator('details.voice-disclosure > summary').click()
-            tab.get_by_label('Remote voice volume', exact=False).fill('0')
+            tab.get_by_label('Remote voice volume', exact=False).fill('10')
             tab.get_by_role('button', name='Enable voice', exact=True).click()
             tab.wait_for_function('captures.at(-1)?.getAudioTracks()[0].enabled')
 
+        # With separate processes, background the sender using an unrelated page in its own browser.
+        focus_target = guest
+        if mode == 'independent-processes':
+            with host.expect_popup() as popup:
+                host.evaluate("window.open('about:blank')")
+            focus_target = popup.value
+        def background_host():
+            focus_target.bring_to_front()
+            host.wait_for_function('!document.hasFocus()')
+
         host.bring_to_front()
         host.get_by_role('button', name='Mute microphone', exact=True).wait_for()
-        guest.bring_to_front()
-        host.wait_for_function('!document.hasFocus()')
+        background_host()
         assert host.evaluate('captures.at(-1).getAudioTracks()[0].enabled'), 'tab focus muted open microphone'
         background_energy = audio_arrives(guest)
         host.bring_to_front()
         host.get_by_role('button', name='Mute microphone', exact=True).click()
-        guest.bring_to_front()
-        host.wait_for_function('!document.hasFocus()')
+        background_host()
         assert not host.evaluate('captures.at(-1).getAudioTracks()[0].enabled')
         audio_stops(guest)
         host.bring_to_front()
         host.get_by_role('button', name='Unmute microphone', exact=True).click()
-        guest.bring_to_front()
+        background_host()
         unmuted_energy = audio_arrives(guest)
         host.screenshot(path=str(output / f'{mode}-background.png'))
 
@@ -107,7 +135,7 @@ def run(playwright, url, mode, output, headed):
         host.get_by_role('button', name='Hold to talk', exact=True).focus()
         host.keyboard.down('Space')
         host.wait_for_function('captures.at(-1).getAudioTracks()[0].enabled')
-        guest.bring_to_front()
+        background_host()
         host.wait_for_function('!captures.at(-1).getAudioTracks()[0].enabled')
         host.bring_to_front()
         host.keyboard.up('Space')
@@ -128,11 +156,10 @@ def run(playwright, url, mode, output, headed):
         for tab in [host, guest]:
             tab.locator('.voice-card').wait_for()
             tab.bring_to_front()
-            tab.locator('.voice-card').get_by_role('button', name='Enable voice', exact=True).click()
+            tab.locator('.voice-card').get_by_role('button', name='Mute microphone', exact=True).wait_for()
         host.bring_to_front()
         frame = int(host.get_by_test_id('game-frame').inner_text().split()[0])
-        guest.bring_to_front()
-        host.wait_for_function('!document.hasFocus()')
+        background_host()
         playing_energy = audio_arrives(guest)
         host.wait_for_function("f => Number(document.querySelector('[data-testid=game-frame]').textContent.split(' ')[0]) >= f + 30", arg=frame)
         host.screenshot(path=str(output / f'{mode}-playing.png'))

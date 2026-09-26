@@ -1,5 +1,7 @@
 """Exercise the compact cards through the public room, Settings and controller paths."""
 from pathlib import Path
+from background_smoke import audio_arrives
+from playwright.sync_api import expect
 
 
 def run(host, guest, output):
@@ -69,7 +71,7 @@ def run(host, guest, output):
     card.get_by_role('button', name='Mute microphone', exact=True).wait_for()
     guest.locator('.voice-card').get_by_role('button', name='Enable voice', exact=True).click()
     for tab in [host,guest]:
-        tab.wait_for_function("async()=>[...(await pcs.at(-1).getStats()).values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.totalAudioEnergy>0)")
+        audio_arrives(tab)
     host.screenshot(path=str(output.with_suffix('.sidebar-live.png')), full_page=True)
     host.evaluate("dispatchEvent(new Event('blur'))")
     assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&t.enabled)")
@@ -89,6 +91,10 @@ def run(host, guest, output):
     host.wait_for_function('captures.at(-1).getAudioTracks().every(t=>t.enabled)')
     host.keyboard.up('Space')
     host.wait_for_function('captures.at(-1).getAudioTracks().every(t=>!t.enabled)')
+    card.get_by_role('button', name='Mute microphone', exact=True).click()
+    expect(card.get_by_role('button', name='Hold to talk', exact=True)).to_be_disabled()
+    card.get_by_role('button', name='Unmute microphone', exact=True).click()
+    assert not host.evaluate('captures.at(-1).getAudioTracks()[0].enabled')
     host.set_viewport_size({'width':800,'height':900})
     assert host.locator('canvas').evaluate("c=>{const a=c.getBoundingClientRect(),b=c.closest('.panel').getBoundingClientRect();return a.left>=b.left&&a.right<=b.right}")
     host.screenshot(path=str(output.with_suffix('.sidebar-small-desktop.png')),full_page=True)

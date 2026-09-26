@@ -1,6 +1,7 @@
-import argparse, contextlib, json, os, subprocess, sys, time
+import argparse, contextlib, json, os, subprocess, sys, tempfile, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from background_smoke import audio_arrives, write_tone
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--chrome", action="store_true")
@@ -26,6 +27,7 @@ pages = []
 errors = []
 turn = None
 try:
+    tone = write_tone(Path(stack.enter_context(tempfile.TemporaryDirectory(prefix='retro-voice-'))) / 'tone.wav')
     turn = stack.enter_context(fixture)
     server = subprocess.Popen(
         ["node", "scripts/rooms/browser-server.ts"],
@@ -49,6 +51,7 @@ try:
                 ignore_default_args=["--mute-audio"],
                 args=[
                     "--use-fake-device-for-media-stream",
+                    f"--use-file-for-fake-audio-capture={tone}",
                 ]
             )
             if kind == "Chrome"
@@ -121,15 +124,13 @@ try:
         assert tab.evaluate("captures.length") == 0
         panel.get_by_label(
             "Remote voice volume", exact=False
-        ).fill("0")
+        ).fill("10")
         panel.get_by_role("button", name="Enable voice", exact=True).click()
         panel.get_by_text(
             "Transmitting microphone audio", exact=True
         ).wait_for()
     for tab in [host, guest]:
-        tab.wait_for_function(
-            """async()=>{const stats=await pcs.at(-1).getStats();return [...stats.values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.totalAudioEnergy>0&&s.packetsReceived>0)}"""
-        )
+        audio_arrives(tab)
     panel = host.locator(".room-panel")
     frame_before = host.get_by_test_id("frames").inner_text()
     panel.get_by_label("Voice mode", exact=True).select_option("push")
@@ -351,7 +352,7 @@ try:
         "missing_device_selection_allows_default_retry": True,
         "timeline_mutating_worker_commands_unchanged": timeline_before,
         "rejoin_requires_opt_in_and_new_push_to_talk_input": True,
-        "remote_volume_zero_via_setting": True,
+        "remote_volume_ten_via_setting": True,
         "page_errors": errors,
         "push_to_talk_key_button_and_typing_isolation": True,
         "permission_device_and_playback_retry_preserve_peer_and_frames": True,
