@@ -125,6 +125,8 @@ export class LocalPlayer {
    if(prepared.type!=='peer-checkpoint-prepared'||!isCurrent()||this.checkpointOperation!==operationId)throw Error('Synchronization authorization changed.');
    const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId});
    if(reply.type!=='peer-checkpoint-imported')throw Error('Unexpected checkpoint import');
+   // An authorized native commit is atomic; late delivery must not affect a newer UI/input owner.
+   if(!isCurrent()||this.checkpointOperation!==operationId)return reply;
    this.audio.flush();this.release();this.expectedFrame=undefined;this.fpsSampleAt=0;
    this.publish({frames:frame,renderFps:undefined,rewind:undefined,status:'Paused game synchronized. Waiting for shared resume.'});return reply;
   }finally{if(this.checkpointOperation===operationId)this.cancelPeerCheckpoint();}
@@ -160,7 +162,9 @@ export class LocalPlayer {
  private muted = true;
  private audio = createAudioQueue(() => this.context, () => this.state.running, () => this.gain);
  private state: PlayerState = {status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
- constructor(private canvas: HTMLCanvasElement, private update: (state: PlayerState) => void) {
+ private canvas:HTMLCanvasElement;private update:(state:PlayerState)=>void;
+ constructor(canvas: HTMLCanvasElement, update: (state: PlayerState) => void) {
+  this.canvas=canvas;this.update=update;
   this.persistenceTimer=window.setInterval(()=>{void this.persistBattery();},10000);window.addEventListener('pagehide',this.pagehide);
   this.fpsTimer=window.setInterval(()=>this.sampleFps(),1000);
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
