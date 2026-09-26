@@ -1,0 +1,381 @@
+{
+  "controlled_worker_delivery_floor_ms": 0,
+  "result": "pass",
+  "page_errors": [],
+  "target_seconds": 30,
+  "pair": "Firefox-Firefox",
+  "browsers": {
+    "Firefox": "146.0.1"
+  },
+  "firefox_driver": "Playwright bundled patched Firefox",
+  "active_seconds": 30.16,
+  "identity": {
+    "romSha256": "29b69405c375e2f349be89c08fef4654db99381c871ad05c16650c9da17bcb03",
+    "coreSha256": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4",
+    "localSchema": 1,
+    "settings": "auto-region;zero-ram;48000hz;standard-p1-p2",
+    "cartridge": {
+      "format": "iNES",
+      "mapper": 0,
+      "submapper": 0,
+      "region": "NTSC",
+      "bytes": 24592
+    }
+  },
+  "build_files": {
+    "assets/worker-4SGvh10w.js": "777721d4e50f51b5d02a4f84211e4a302944b61f837856266a85c0d0e7386595",
+    "assets/index-HI6SSg3g.js": "6555635817e800ec4bda12bd511cb0d73133b01786f9e214796e80c013d2f16c",
+    "assets/retro_coop_d02-DZZ0sjs7.wasm": "97e820753d145332103f5672b87c7082c749a4ee5d861d7b0def8d12afed12b4"
+  },
+  "target_frames": 1800,
+  "pause": [
+    {
+      "hash": "4b33b907f0ac7092a642dd21e071462461849c1db31b9ebd998e886d5581f0e5",
+      "frame": 266,
+      "fresh": false
+    },
+    {
+      "hash": "4b33b907f0ac7092a642dd21e071462461849c1db31b9ebd998e886d5581f0e5",
+      "frame": 266,
+      "fresh": false
+    }
+  ],
+  "final": [
+    {
+      "hash": "b887503752757d87f4e73bdc4f2d578ba0386e73c580dab07fd94bd4771bf3e6",
+      "frame": 1819,
+      "fresh": false
+    },
+    {
+      "hash": "b887503752757d87f4e73bdc4f2d578ba0386e73c580dab07fd94bd4771bf3e6",
+      "frame": 1819,
+      "fresh": false
+    }
+  ],
+  "network_evidence": {
+    "run_id": "406aa553c458441ba36f15f14bbbb6ce",
+    "netem_before": [
+      {
+        "kind": "netem",
+        "handle": "8001:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 0,
+        "packets": 0,
+        "drops": 0,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "netem_after": [
+      {
+        "kind": "netem",
+        "handle": "8001:",
+        "root": true,
+        "refcnt": 2,
+        "options": {
+          "limit": 1000,
+          "delay": {
+            "delay": 0.05,
+            "jitter": 0.01,
+            "correlation": 0
+          },
+          "loss-random": {
+            "loss": 0.01,
+            "correlation": 0
+          },
+          "ecn": false,
+          "gap": 0
+        },
+        "bytes": 9215145,
+        "packets": 8878,
+        "drops": 77,
+        "overlimits": 0,
+        "requeues": 0,
+        "backlog": 0,
+        "qlen": 0
+      }
+    ],
+    "route": [
+      {
+        "type": "local",
+        "dst": "10.201.0.1",
+        "dev": "lo",
+        "prefsrc": "10.201.0.1",
+        "flags": [],
+        "uid": 0,
+        "cache": [
+          "local"
+        ]
+      }
+    ],
+    "udp_headers": {
+      "scope": "IPv4 UDP header observations on namespace lo; no payload retained",
+      "wall_seconds": 56.209452684,
+      "flows": {
+        "10.201.0.1:52870>10.201.0.1:53748": {
+          "observations": 3744,
+          "udp_bytes": 394752
+        },
+        "10.201.0.1:53748>10.201.0.1:52870": {
+          "observations": 3727,
+          "udp_bytes": 385755
+        }
+      }
+    }
+  },
+  "run_id": "406aa553c458441ba36f15f14bbbb6ce",
+  "capture_provenance": {
+    "run": "https://github.com/TuringTestee/retro-coop/actions/runs/36274452208",
+    "artifact": "d02-pair-Firefox-Firefox",
+    "path": ".gameplay-runs/406aa553c458441ba36f15f14bbbb6ce/gameplay.json",
+    "sha256": "c1f2a4510a0752af6816bf9f132a6da96881592fe795ec5b93e9982f18cf56f4",
+    "reduction": "Unmodified verifier input fields only; each peer retains its first initial hash and negotiated delays."
+  },
+  "peers": [
+    {
+      "fps": 60,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "pNWQ6TfhmWNUFUVVroOgraJ8gaDUQQay",
+          "frame": 120,
+          "hash": "25bde00762142e44fceadb3aaed1fbac5e20a1e838bd5b2a3766d60469542e26"
+        },
+        {
+          "kind": "hash",
+          "epoch": "pNWQ6TfhmWNUFUVVroOgraJ8gaDUQQay",
+          "frame": 240,
+          "hash": "c457adcba1e0552db2b0bdd38548fb208b8f021f38a1ab615ed204b8c76e7bc7"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 360,
+          "hash": "dd6e4555c4424a49899ba76fb2e546687fe42c81f992985a0d0fbaf2d84c7e09"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 480,
+          "hash": "2c967e2562dfe80cfc2fafc95ca66167d5efd782e3d875ed4db4aa7b97f809c7"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 600,
+          "hash": "e69d61f70e70cfc0943c1d35c58b5839acd68dbb880dbc1ef7bea7759d7a05b2"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 720,
+          "hash": "19bd7a560efd9a869c07cd7df2b42cc73c182a20f0fa61db90b58127b3493506"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 840,
+          "hash": "63b1f9150088311fbd4acab6b734d32c89c052dc585383e6f6dd9acfb2dafb19"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 960,
+          "hash": "f283acf1103cf974444af515ca6ab5f060b20b1b0c7f663861c6b16ed1899dce"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1080,
+          "hash": "d749ea51668ef60ccaf8715d56613dd4ce1ebbf7febacfe4e28463010abbdfb6"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1200,
+          "hash": "45524bca4877c94c10aef4d7e4d5927a73f8fedb271ba32d1801f0890360a193"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1320,
+          "hash": "6071ec3eb5e6048bf1d2b5fa5f9b2de1ded8045c3e22ef8504a048eb0cc203af"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1440,
+          "hash": "cba0e4bfc7c010605adf081c01cd0a81506876449ec8c5346ac8bc4910fd8d55"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1560,
+          "hash": "47c44113b8dec91bcd8cd23978ae0b70ee798527df2bfead293dd02e6d33ee61"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1680,
+          "hash": "fc848e6c78f88da90e790a897d2dd5cbff9698104114564cfa05a88825ff8346"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1800,
+          "hash": "b2ad8933426d3eaf6ab091956249eb4065c77a0659b7cd2c8994a6af71246080"
+        }
+      ],
+      "scriptedInputs": 26,
+      "controllerRam": [
+        128,
+        64
+      ],
+      "frameCount": 1819,
+      "hashes": [
+        {
+          "hash": "183010f18d4a9d03690d31e3748421dff82064dc15df8970c85555d016eca339",
+          "frame": 0,
+          "fresh": true
+        }
+      ],
+      "timing": {
+        "delays": [
+          8,
+          8
+        ]
+      }
+    },
+    {
+      "fps": 60,
+      "sentHashes": [
+        {
+          "kind": "hash",
+          "epoch": "pNWQ6TfhmWNUFUVVroOgraJ8gaDUQQay",
+          "frame": 120,
+          "hash": "25bde00762142e44fceadb3aaed1fbac5e20a1e838bd5b2a3766d60469542e26"
+        },
+        {
+          "kind": "hash",
+          "epoch": "pNWQ6TfhmWNUFUVVroOgraJ8gaDUQQay",
+          "frame": 240,
+          "hash": "c457adcba1e0552db2b0bdd38548fb208b8f021f38a1ab615ed204b8c76e7bc7"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 360,
+          "hash": "dd6e4555c4424a49899ba76fb2e546687fe42c81f992985a0d0fbaf2d84c7e09"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 480,
+          "hash": "2c967e2562dfe80cfc2fafc95ca66167d5efd782e3d875ed4db4aa7b97f809c7"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 600,
+          "hash": "e69d61f70e70cfc0943c1d35c58b5839acd68dbb880dbc1ef7bea7759d7a05b2"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 720,
+          "hash": "19bd7a560efd9a869c07cd7df2b42cc73c182a20f0fa61db90b58127b3493506"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 840,
+          "hash": "63b1f9150088311fbd4acab6b734d32c89c052dc585383e6f6dd9acfb2dafb19"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 960,
+          "hash": "f283acf1103cf974444af515ca6ab5f060b20b1b0c7f663861c6b16ed1899dce"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1080,
+          "hash": "d749ea51668ef60ccaf8715d56613dd4ce1ebbf7febacfe4e28463010abbdfb6"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1200,
+          "hash": "45524bca4877c94c10aef4d7e4d5927a73f8fedb271ba32d1801f0890360a193"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1320,
+          "hash": "6071ec3eb5e6048bf1d2b5fa5f9b2de1ded8045c3e22ef8504a048eb0cc203af"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1440,
+          "hash": "cba0e4bfc7c010605adf081c01cd0a81506876449ec8c5346ac8bc4910fd8d55"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1560,
+          "hash": "47c44113b8dec91bcd8cd23978ae0b70ee798527df2bfead293dd02e6d33ee61"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1680,
+          "hash": "fc848e6c78f88da90e790a897d2dd5cbff9698104114564cfa05a88825ff8346"
+        },
+        {
+          "kind": "hash",
+          "epoch": "Pkdd-6nE4sHhWANswNAgIUXN_UQUq2iU",
+          "frame": 1800,
+          "hash": "b2ad8933426d3eaf6ab091956249eb4065c77a0659b7cd2c8994a6af71246080"
+        }
+      ],
+      "scriptedInputs": 26,
+      "controllerRam": [
+        128,
+        64
+      ],
+      "frameCount": 1819,
+      "hashes": [
+        {
+          "hash": "183010f18d4a9d03690d31e3748421dff82064dc15df8970c85555d016eca339",
+          "frame": 0,
+          "fresh": true
+        }
+      ],
+      "timing": {
+        "delays": [
+          8,
+          8
+        ]
+      }
+    }
+  ]
+}

@@ -5,6 +5,28 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'spikes/d02'))
 from verify_realtime import require,verify_network_evidence,digest,number
 import firefox_driver
 
+def normalized_periodic_hashes(hashes,pause,final):
+ """Validate absolute checkpoint order; omit only acknowledged optional endpoints."""
+ groups={}
+ for packet in hashes:
+  require(packet['kind']=='hash' and digest(packet['hash']),'invalid checkpoint record')
+  groups.setdefault(packet['epoch'],[]).append(packet['frame'])
+ require(len(groups)==2,'missing initial or resumed checkpoint epoch')
+ pause_frame,final_frame=pause['frame'],final['frame']
+ require(type(pause_frame) is int and type(final_frame) is int and 0<pause_frame<final_frame,'invalid epoch frame boundaries')
+ # Both epochs share one absolute frame count. Every interior interval is
+ # mandatory. A hash already sent at the freeze boundary must match its ack.
+ boundaries=((0,pause_frame,pause['hash']),(pause_frame,final_frame,final['hash']))
+ expected=[]
+ for epoch,(start,end,boundary_hash) in zip(groups,boundaries):
+  expected.extend((epoch,frame) for frame in range((start//120+1)*120,end,120))
+  endpoints=[packet for packet in hashes if packet['epoch']==epoch and packet['frame']==end]
+  if endpoints:
+   require(end%120==0 and len(endpoints)==1 and endpoints[0]['hash']==boundary_hash,'invalid periodic boundary checkpoint')
+   expected.append((epoch,end))
+ require([(packet['epoch'],packet['frame']) for packet in hashes]==expected,'missing or reordered periodic checkpoint')
+ return [packet for packet in hashes if packet['frame'] not in (pause_frame,final_frame)]
+
 def verify(result,seconds):
  require(not result.get('controlled_worker_delivery_floor_ms'), 'controlled diagnostic is not qualification')
  require(result['result']=='pass' and not result['page_errors'],'browser failure')
@@ -22,15 +44,8 @@ def verify(result,seconds):
  frames=math.ceil(seconds*fps);require(result['target_frames']==frames,'workload is not bound to reported region rate')
  require(result['pause'][0]==result['pause'][1] and result['final'][0]==result['final'][1],'pause divergence')
  require(result['final'][0]['frame']>=frames,'short committed workload')
- require(peers[0]['sentHashes']==peers[1]['sentHashes'],'missing or divergent epoch/frame hash')
- hashes=peers[0]['sentHashes'];groups={}
- for packet in hashes:
-  require(packet['kind']=='hash' and digest(packet['hash']),'invalid checkpoint record')
-  groups.setdefault(packet['epoch'],[]).append(packet['frame'])
- require(len(groups)==2,'missing initial or resumed checkpoint epoch')
- lengths=[result['pause'][0]['frame'],result['final'][0]['frame']-result['pause'][0]['frame']]
- # A fence endpoint is separately hashed by both pause acknowledgements.
- require(list(groups.values())==[list(range(120,length,120)) for length in lengths],'missing or reordered periodic checkpoint')
+ normalized=[normalized_periodic_hashes(peer['sentHashes'],result['pause'][i],result['final'][i]) for i,peer in enumerate(peers)]
+ require(normalized[0]==normalized[1],'missing or divergent epoch/frame hash')
  require(peers[0]['hashes'][0]==peers[1]['hashes'][0],'initial machine hashes differ')
  for peer in peers:
   require(peer.get('scriptedInputs',0)>=max(1,(frames-300)//60),'missing sustained controller transitions')
