@@ -114,7 +114,7 @@ try:
         panel = open_room(tab)
         panel.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
         tab.wait_for_function(
-            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Relay only is on. Connected through the relay.':'Route: direct.')",
+            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Connected member links use the relay route.':'Connected member links use the direct route.')",
             arg="relay" if args.relay else "direct",
         )
         if args.relay:
@@ -203,10 +203,16 @@ try:
     ).wait_for()
     host.evaluate("window.missingDevice=false;window.rejectAttachment=true")
     panel.get_by_role("button", name="Try microphone again", exact=True).click()
-    panel.get_by_text("Voice could not start.", exact=False).wait_for()
+    panel.get_by_text("A peer microphone connection failed. Retry that connection.", exact=True).wait_for()
     assert host.evaluate("pcs.length") == pc_count
     host.evaluate("window.rejectAttachment=false;window.blockPlayback=true")
-    panel.get_by_role("button", name="Try microphone again", exact=True).click()
+    capture_count = host.evaluate("captures.length")
+    open_connection(host).get_by_role("button", name="Retry connection", exact=True).click()
+    host.wait_for_function("n=>pcs.length>n&&pcs.at(-1).connectionState==='connected'", arg=pc_count)
+    assert host.evaluate("captures.length") == capture_count
+    assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&t.enabled)")
+    pc_count = host.evaluate("pcs.length")
+    panel.locator("details.voice-disclosure").evaluate("node=>node.open=true")
     panel.get_by_role("button", name="Enable voice sound", exact=True).wait_for()
     host.evaluate("window.blockPlayback=false")
     panel.get_by_role("button", name="Enable voice sound", exact=True).click()
@@ -292,40 +298,30 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="detached")
-    for tab in [host, guest]:
-        tab.wait_for_function(
-            "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
-        )
-    # Rejoining must not retain a held push-to-talk key from the previous peer.
+    guest.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+    assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live')")
+    # A peer departure must not stop the shared microphone for remaining members.
+    # Release the physical key; a new member must not resurrect that released hold.
+    host.keyboard.up("KeyV")
+    host.wait_for_function("captures.at(-1).getTracks().every(t=>!t.enabled)")
     capture_count = host.evaluate("captures.length")
     guest.goto(host.get_by_label("Room invitation", exact=True).input_value())
     guest.get_by_role("button", name="Join room", exact=True).click()
     for tab in [host, guest]:
-        tab.wait_for_function(
-            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Relay only is on. Connected through the relay.':'Route: direct.')",
-            arg="relay" if args.relay else "direct",
-        )
+        tab.wait_for_function("pcs.at(-1)?.connectionState==='connected'")
     assert host.evaluate("captures.length") == capture_count
-    panel.get_by_role("button", name="Enable voice", exact=True).click()
-    host.wait_for_function(
-        "n=>captures.length>n && document.querySelector('[data-testid=microphone-status]').textContent!=='Microphone permission pending…'",
-        arg=capture_count,
-    )
-    host.evaluate(
-        "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
-    )
-    assert host.evaluate(
-        "captures.at(-1).getAudioTracks().every(t=>!t.enabled)"
-    ), "replaced peer retained old push-to-talk input"
-    host.keyboard.up("KeyV")
+    assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&!t.enabled)")
+    assert guest.evaluate("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"), "rejoining member captured without consent"
     host.get_by_role("button", name="Leave room", exact=True).focus()
     host.keyboard.down("KeyV")
-    host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
+    host.wait_for_function("captures.at(-1).getTracks().every(t=>t.enabled)")
     host.keyboard.up("KeyV")
     open_room(guest).get_by_role("button", name="Leave room", exact=True).click()
-    host.wait_for_function(
-        "captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))"
-    )
+    guest.get_by_test_id("room-view").wait_for(state="detached")
+    assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&!t.enabled)")
+    # Explicit local disable still releases capture before the next UI journey.
+    panel.get_by_role("button", name="Disable microphone", exact=True).click()
+    host.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
     assert (
         host.evaluate("timelineWrites") == timeline_before
     ), "voice changed the local emulator timeline"
@@ -348,17 +344,20 @@ try:
             True if args.pair.startswith("Chrome") else None
         ),
         "focus_preserves_explicit_microphone_mute": True,
-        "leave_stops_both_tracks": True,
+        "departure_stops_only_departing_capture": True,
+        "remaining_capture_and_mute_survive_peer_replacement": True,
+        "explicit_disable_stops_capture": True,
         "missing_device_selection_allows_default_retry": True,
         "timeline_mutating_worker_commands_unchanged": timeline_before,
-        "rejoin_requires_opt_in_and_new_push_to_talk_input": True,
+        "rejoining_member_requires_opt_in": True,
+        "new_peer_does_not_restore_released_push_to_talk": True,
         "remote_volume_ten_via_setting": True,
         "page_errors": errors,
         "push_to_talk_key_button_and_typing_isolation": True,
         "permission_device_and_playback_retry_preserve_peer_and_frames": True,
         "late_cancelled_capture_stops": True,
         "device_replacement_muted_until_deliberate_unmute": True,
-        "failed_sender_attachment_retries_without_peer_reset": True,
+        "failed_sender_attachment_retries_pair_without_recapturing_or_muting_microphone": True,
         "mobile_no_overflow": True,
         "selected_gamepad_push_to_talk_and_unplug_release": True,
         "seconds": round(time.monotonic() - started, 2),

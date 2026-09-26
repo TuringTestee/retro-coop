@@ -38,7 +38,11 @@ try:
             return row
         def shared(host, guest):
             guest.get_by_role('button', name='Prepare to play', exact=True).click()
-            host.get_by_text('Guest is prepared. Start together when you are ready.', exact=True).wait_for(timeout=30000)
+            try:
+                host.wait_for_function("proof.room?.game.ready.includes(proof.room.slots[1].member?.id)", timeout=30000, polling=50)
+            except Exception:
+                print(json.dumps({'host':host.evaluate('({room:proof.room,text:document.body.innerText})'),'guest':guest.evaluate('({room:proof.room,text:document.body.innerText})')}),flush=True)
+                raise
             host.get_by_role('button', name='Start game', exact=True).click()
             for tab in (host, guest):
                 try:
@@ -54,13 +58,13 @@ try:
             assert hashes[0] and hashes[0] == hashes[1]
             return {'frames': [tab.evaluate('proof.frameCount') for tab in (host, guest)], 'matching_hash': hashes[0]}
         host = page()
-        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/2 · Waiting for host').first
+        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · Waiting for host').first
         offer.get_by_role('button', name='Join as host').click()
         host.get_by_role('button', name='Start game', exact=True).wait_for()
         included_code = code(host)
         friend = page()
         row = friend.locator('.room-list li').filter(has_text=included_code)
-        assert '1/2 · Waiting for guest' in row.inner_text()
+        assert '1/5 · waiting · 4 open slots' in row.inner_text()
         assert 'P1/P2 controllers · included' in row.inner_text()
         friend.screenshot(path=str(args.output / 'included-directory.png'))
         file_choosers = []

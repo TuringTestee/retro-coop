@@ -159,7 +159,7 @@ def run(playwright, url, mode, output, headed):
         guest.bring_to_front()
         guest.get_by_role('button', name='Prepare to play', exact=True).click()
         host.bring_to_front()
-        host.get_by_text('Guest is prepared. Start together when you are ready.', exact=True).wait_for()
+        host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=30000)
         host.get_by_role('button', name='Start game', exact=True).click()
         for tab in [host, guest]:
             tab.locator('.voice-card').wait_for()
@@ -173,13 +173,16 @@ def run(playwright, url, mode, output, headed):
         host.screenshot(path=str(output / f'{mode}-playing.png'))
         guest.get_by_role('button', name='Leave room', exact=True).click()
         guest.get_by_role('button', name='Confirm leave', exact=True).click()
-        for tab in [host, guest]:
-            tab.wait_for_function("captures.every(s => s.getTracks().every(t => t.readyState === 'ended'))")
+        guest.wait_for_function("captures.every(s => s.getTracks().every(t => t.readyState === 'ended'))")
+        assert host.evaluate("captures.at(-1).getTracks().every(t => t.readyState === 'live' && t.enabled)")
+        host.get_by_role('button', name='Leave room', exact=True).click()
+        host.get_by_role('button', name='Confirm leave', exact=True).click()
+        host.wait_for_function("captures.every(s => s.getTracks().every(t => t.readyState === 'ended'))")
         assert not errors, errors
         return {'mode': mode, 'browser': browser.version, 'background_energy_delta': background_energy,
                 'unmuted_energy_delta': unmuted_energy, 'playing_energy_delta': playing_energy,
                 'mute_silence_observed': True, 'push_release_and_fresh_press': True,
-                'background_shared_frames': 30, 'leave_stops_capture': True, 'page_errors': errors}
+                'background_shared_frames': 30, 'departing_member_stops_capture': True, 'other_member_leave_preserves_capture': True, 'host_leave_stops_capture': True, 'page_errors': errors}
 
 
 if __name__ == '__main__':
