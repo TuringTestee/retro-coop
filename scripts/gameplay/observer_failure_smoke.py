@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import subprocess
 import time
+from urllib.parse import urlsplit
 
 from playwright.sync_api import sync_playwright
 
@@ -121,6 +122,7 @@ def main():
             host.set_input_files('input[type=file]', str(static / 'generated/diagnostic.nes'))
             host.get_by_role('button', name='Create room', exact=True).click()
             invite = host.get_by_label('Room invitation', exact=True).input_value()
+            assert urlsplit(invite).path == '/', 'Displayed invitation must use the canonical room route, never /create'
             for page in pages[1:]:
                 page.goto(invite)
                 page.get_by_role('button', name='Join room', exact=True).click()
