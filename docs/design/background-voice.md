@@ -4,7 +4,7 @@ Players can keep talking while another tab or window has focus. A visible microp
 
 ## Direction and scope
 
-The owner requested this on 2026-09-26: “make sure when users do voice chat, even if it's from the same machien with different browser tab, or from differet machine, there's a mic mute button not affected from tab focus, player should even talk with background -- like a real video meeting.” [Feature #156](https://github.com/TuringTestee/retro-coop/issues/156) tracks delivery. This faithful amendment replaces the focus-mutes-open-microphone policy in [optional voice](../implementation/d17-voice.md). Five-slot membership and stable layout are separate requested features, #157 and #158, and are not claimed complete by this change.
+The owner requested this on 2026-09-26: “make sure when users do voice chat, even if it's from the same machien with different browser tab, or from differet machine, there's a mic mute button not affected from tab focus, player should even talk with background -- like a real video meeting.” [Feature #156](https://github.com/TuringTestee/retro-coop/issues/156) tracks delivery. This faithful amendment replaces the focus-mutes-open-microphone policy in [optional voice](../implementation/d17-voice.md). This is the governing requested policy; the existing runtime still uses focus-driven muting until #156 is implemented. Current platform/UI/scenario/sidebar documents point here for the replacement policy. Five-slot membership and stable layout are separate requested features, #157 and #158, and are not claimed complete by this change.
 
 ## Talk, switch tabs, and mute
 

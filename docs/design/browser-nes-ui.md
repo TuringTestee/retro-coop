@@ -158,7 +158,7 @@ Both players can request Pause; it pauses the shared timeline and identifies the
 
 Save is local and non-disruptive at a committed frame. It opens U6 and reports success only after persistence succeeds. Rewind is host-only in multiplayer; guests see “Host controls shared rewind” as explanatory text in More, not an actionable button. More exposes [Saves], [Request restart] for the host, [Session settings], and [Leave session]/[Close session] appropriate to role. Solo practice permits immediate local rewind/restore/reset with the same confirmation for replacing progress, without a nonexistent peer approval.
 
-Click/tap [Enable sound] appears if browser audio is suspended; volume preferences are local. Fullscreen keeps an obvious [Exit fullscreen] action and explains Esc; if the browser declines fullscreen, keep play usable in the normal layout. Chat focus releases game buttons and visibly says “Typing in chat”; clicking/focusing the game restores game input. Losing page focus releases held keys and push-to-talk immediately and mutes open mic. Returning focus never unmutes automatically. Settings that only affect display/audio/mapping do not independently rewind or reset either client.
+Click/tap [Enable sound] appears if browser audio is suspended; volume preferences are local. Fullscreen keeps an obvious [Exit fullscreen] action and explains Esc; if the browser declines fullscreen, keep play usable in the normal layout. Chat focus releases game buttons and visibly says “Typing in chat”; clicking/focusing the game restores game input. Losing page focus releases held keys and push-to-talk immediately. Microphone mute remains an explicit choice under [Background voice](background-voice.md). Settings that only affect display/audio/mapping do not independently rewind or reset either client.
 
 ## U5 — Shared rewind, load, and restart
 
@@ -302,7 +302,7 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S31 | Player loses focus/device without stuck input or live microphone — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
 | S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–16 |
 | S33 | Visitor finds a friend by room/host/code — U1/U9 | Duplicate names, no match, expired code, unlisted non-resolution | AC-14 |
-| S34 | Guest enables conversational voice and manages devices — U3/U4/U7 | Echo, unavailable mic, open-mic blur mute, remote mute, independent retry | AC-16 |
+| S34 | Guest enables conversational voice and manages devices — U3/U4/U7 | Echo, unavailable mic, background open mic and explicit mute, remote mute, independent retry | AC-16 |
 | S35 | Players use native two-player/alternating turns or pass P1 — U7/U9 | Single-player explanation, declined handoff, atomic ownership and clear held input | AC-15 |
 | S36 | Visitor drops an unknown title on supported hardware — U2/U8 | Experimental label, unsupported hardware, runtime failure, no ROM upload | AC-15 |
 | S37 | Visitor reaches play with minimal actions — U1→U2/U3→U4 | Cold download, local selection, browser prompt, cancellation, measured slow/failure states | AC-13, AC-16 |
