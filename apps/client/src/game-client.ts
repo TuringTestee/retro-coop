@@ -7,7 +7,7 @@ import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
 type Spec=Extract<GameEvent,{type:'gameCheckpoint'}>;
 type Capture=Awaited<ReturnType<LocalPlayer['exportPeerCheckpoint']>>;
-type Outgoing={request:Extract<GameEvent,{type:'gameCapture'}>;capture?:Capture;digest?:string;spec?:Spec;timer:ReturnType<typeof setTimeout>;cursor?:number;sending?:boolean};
+type Outgoing={request:Extract<GameEvent,{type:'gameCapture'}>;capture?:Capture;digest?:string;spec?:Spec;timer:ReturnType<typeof setTimeout>;cursor?:number;sending?:boolean;exporting?:boolean};
 type Link={epoch:string;channel:RTCDataChannel;roundTripMs:number;checkpoint?:RTCDataChannel;live:boolean};
 export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;synchronizing?:boolean;intent?:boolean;observing?:boolean};
 /** One local emulator; the authority owns at most four independently bounded replica links. */
@@ -76,7 +76,7 @@ export class GameClient {
   if(event.type==='gameCatchup'){const outgoing=this.outgoing.get(event.transferId);if(outgoing){outgoing.cursor=event.frame;this.catchup(outgoing);}return;}
   if(event.type==='gameSyncStop'){
    const outgoing=this.outgoing.get(event.transferId);if(outgoing)this.cancelOutgoing(outgoing);
-   if(this.incoming?.transferId===event.transferId){this.cancelIncoming();this.scheduler=undefined;this.player()?.stopGame(event.reason);this.publish({busy:false,synchronizing:false,status:event.reason});}return;
+   if(this.incoming?.transferId===event.transferId||!this.incoming&&this.observeRequested===event.epoch&&!this.scheduler){this.cancelIncoming();this.scheduler=undefined;this.player()?.stopGame(event.reason);this.publish({busy:false,synchronizing:false,status:event.reason});}return;
   }
   if(event.type==='gameStop'){this.clear(event.reason);return;}
   if(event.type==='gameFreeze'){
@@ -117,7 +117,7 @@ export class GameClient {
  }
  private next(mask:number){const scheduler=this.scheduler;if(!scheduler||this.frozen||this.hashing||this.pausedSent)return;if(this.fence!==undefined&&scheduler.frame>=this.fence){void this.finishPause();return;}
   try{scheduler.sample(this.fence!==undefined?0:mask);const value=scheduler.next();if(!value){if(this.ownsInput()||this.authority()){this.missingSince ||=performance.now();if(performance.now()-this.missingSince>gameplayLimits.stallMs)this.pause('network');}return;}this.missingSince=0;return {frame:scheduler.frame,p1:value[0],p2:value[1]};}catch(error){this.fail(String(error),'network');}}
- private committed(frame:number){const scheduler=this.scheduler;if(!scheduler||frame!==scheduler.frame)return;try{scheduler.commit();}catch(error){this.fail(String(error),'network');return;}this.publish({frame:scheduler.frame});
+ private committed(frame:number){const scheduler=this.scheduler;if(!scheduler||frame!==scheduler.frame)return;try{scheduler.commit();}catch(error){this.fail(String(error),'network');return;}this.publish({frame:scheduler.frame});for(const outgoing of this.outgoing.values())if(!outgoing.capture&&!outgoing.exporting)this.exportCapture(outgoing);
   if(this.fence===scheduler.frame){void this.finishPause();return;}
   if(scheduler.frame%gameplayLimits.hashInterval===0){this.hashing=true;void this.player()!.stateHash().then(info=>{if(this.scheduler===scheduler){scheduler.hash(info.hash);this.publish({hash:info.hash});}}).catch(error=>{if(this.scheduler===scheduler)this.fail(String(error),'mismatch');}).finally(()=>{if(this.scheduler===scheduler){this.hashing=false;this.finishCatchup();this.player()?.wakeGame(scheduler.epoch);}});}else this.finishCatchup();
  }
@@ -141,7 +141,9 @@ export class GameClient {
   try{await this.player()!.holdForGame(false);if(this.incoming!==spec)return;this.scheduler=undefined;await this.send({type:'gameCheckpointReady',epoch:spec.epoch,transferId:spec.transferId});}catch(error){if(this.incoming===spec)this.failIncoming(spec,String(error));}
  }
  private capture(request:Extract<GameEvent,{type:'gameCapture'}>){if(!this.authority()||request.epoch!==this.room?.game.epoch||this.outgoing.size>=4||[...this.outgoing.values()].some(value=>value.request.recipient===request.recipient))return;
-  const outgoing:Outgoing={request,timer:setTimeout(()=>this.failOutgoing(outgoing,'Checkpoint transfer timed out.'),CHECKPOINT_TIMEOUT_MS)};this.outgoing.set(request.transferId,outgoing);const scheduler=this.scheduler;
+  const outgoing:Outgoing={request,timer:setTimeout(()=>this.failOutgoing(outgoing,'Checkpoint transfer timed out.'),CHECKPOINT_TIMEOUT_MS)};this.outgoing.set(request.transferId,outgoing);if(request.purpose==='observer'&&this.scheduler?.frame===0)return;this.exportCapture(outgoing);
+ }
+ private exportCapture(outgoing:Outgoing){const request=outgoing.request,scheduler=this.scheduler;outgoing.exporting=true;
   if(!this.exporting||this.exporting.epoch!==request.epoch){const promise=this.player()!.exportPeerCheckpoint(request.epoch);this.exporting={epoch:request.epoch,promise};void promise.finally(()=>{if(this.exporting?.promise===promise)this.exporting=undefined;}).catch(()=>{});}
   void this.exporting.promise.then(async capture=>{const digest=await checkpointDigest(capture.bytes);if(this.outgoing.get(request.transferId)!==outgoing||request.purpose==='observer'&&this.scheduler!==scheduler)return;outgoing.capture=capture;outgoing.digest=digest;await this.send({type:'gameCaptured',epoch:request.epoch,transferId:request.transferId,frame:capture.frame,hash:capture.hash});}).catch(error=>{if(this.outgoing.get(request.transferId)===outgoing)this.failOutgoing(outgoing,String(error));});
  }
