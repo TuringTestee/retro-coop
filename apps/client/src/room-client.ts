@@ -29,7 +29,7 @@ export class RoomClient {
  private socket?:WebSocket;
  private policy:ConnectionPolicy='standard';
  private game=new GameClient(()=>this.player(),command=>this.request(command),gameplay=>this.publish({gameplay}));
- private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,media:this.voice,ready:(channel,epoch,roundTripMs)=>this.game.ready(channel,epoch,roundTripMs),closed:epoch=>this.game.closed(epoch)});
+ private peer=new PeerConnection(command=>this.request(command),connection=>this.publish({connection}),{preference:()=>this.policy,media:this.voice,checkpoint:(channel,epoch)=>this.game.checkpointChannel(channel,epoch),ready:(channel,epoch,roundTripMs)=>this.game.ready(channel,epoch,roundTripMs),closed:epoch=>this.game.closed(epoch)});
  private connecting?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;
@@ -206,6 +206,7 @@ export class RoomClient {
  selectedGame(file:Fingerprint){this.selectedFile=file;this.game.selected(file);}
  isGuest(){return this.state.room?.role==='guest';}
  retryGame(){this.game.retry();}
+ cancelSynchronization(){this.game.cancelIntent();}
  readyToResume(){void this.game.resumeReady();}
  resumeTogether(){void this.game.resumeTogether();}
  chatDraft(text:string){this.chat.draft(text);}

@@ -1,7 +1,7 @@
 import coreUrl from './generated/retro_coop_d02.wasm?url';
 import { hex } from './cartridge.ts';
-import { isLocalFileOperation, localFileKind, isWorkerRequest, type WorkerResponse, type RewindInfo } from '../../../packages/contracts/src/index.ts';
-// This adapter uses only the local-player ABI. Peer checkpoint exports are not called.
+import { isPeerCheckpointOperation, isLocalFileOperation, localFileKind, isWorkerRequest, type WorkerResponse, type RewindInfo } from '../../../packages/contracts/src/index.ts';
+// Peer checkpoints reuse the validated canonical local-state codec through dedicated RPCs.
 type Core = WebAssembly.Exports & {
  memory: WebAssembly.Memory; local_alloc(size:number):number; local_initialize(ptr:number,size:number):number;
  local_has_battery():number; local_battery_info():number; local_battery_limit():number; local_battery_alloc(size:number):number; local_bind_core(ptr:number,size:number):number;
@@ -16,11 +16,21 @@ function copy(kind: number) { const ptr = core!.local_output(kind); return new U
 function check(ok: number) { if (!ok) throw Error(new TextDecoder().decode(copy(0))); }
 let loading = false, frame=0, fresh=true;
 let rewindIssue:string|undefined,sharedEpoch:string|undefined;
+let checkpointGeneration=0, preparing=false;
+let candidate: {operationId:string;generation:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;deadline:number}|undefined;
+let candidateTimer:ReturnType<typeof setTimeout>|undefined;
+function clearCandidate(){checkpointGeneration++;candidate=undefined;clearTimeout(candidateTimer);candidateTimer=undefined;}
 function historyInfo():RewindInfo {check(core!.local_rewind_info());return {...JSON.parse(new TextDecoder().decode(copy(0))),issue:rewindIssue};}
 onmessage = async ({data}: MessageEvent<unknown>) => {
  try {
   if (!isWorkerRequest(data)) throw Error('Invalid worker request');
+  if(data.type==='peer-checkpoint-cancel') {
+   if(candidate?.operationId===data.operationId)clearCandidate();
+   send({type:'peer-checkpoint-cancelled',requestId:data.requestId,operationId:data.operationId});return;
+  }
+  if(preparing){if(data.type==='peer-checkpoint-prepare'||data.type==='load')clearCandidate();throw Error('Checkpoint preparation is pending');}
   if (loading) throw Error('Emulator is loading');
+  if(data.type==='load'||data.type==='frame'||data.type==='state-rewind'||data.type==='state-import'||data.type==='battery-import')clearCandidate();
   if (data.type === 'load') {
    loading = true;
    try {
@@ -46,6 +56,50 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     frame=0;fresh=true;sharedEpoch=undefined;rewindIssue=undefined;send({type:'ready',fps:core.local_fps(),coreSha256,battery:!!core.local_has_battery()});
    } finally { loading = false; }
   } else if (!core) throw Error('Load the emulator first');
+  else if (isPeerCheckpointOperation(data)) {
+   if(data.type==='peer-checkpoint-export') {
+    if(frame!==data.frame || sharedEpoch!==data.epoch)throw Error('Checkpoint boundary is stale');
+    check(core.local_state_export());const bytes=copy(0);
+    check(core.local_state_hash());const hash=hex(copy(0));
+    check(core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));
+    send({type:'peer-checkpoint-exported',requestId:data.requestId,epoch:data.epoch,frame,bytes,identity,hash},[bytes]);
+   } else if(data.type==='peer-checkpoint-prepare') {
+    clearCandidate();
+    const generation=checkpointGeneration;
+    candidate={operationId:data.operationId,generation,epoch:data.epoch,frame:data.frame,bytes:data.bytes,identity:data.identity,hash:data.hash,deadline:performance.now()+15_000};
+    candidateTimer=setTimeout(()=>{if(candidate?.generation===generation)clearCandidate();},15_000);
+    preparing=true;
+    try {
+     if(data.bytes.byteLength>core.local_state_limit())throw Error('Checkpoint exceeds codec limit');
+     const ptr=core.local_state_alloc(data.bytes.byteLength);
+     if(!ptr)throw Error('Checkpoint allocation failed');
+     new Uint8Array(core.memory.buffer,ptr,data.bytes.byteLength).set(new Uint8Array(data.bytes));
+     check(core.local_state_validate(ptr,data.bytes.byteLength));
+     const bytes=new Uint8Array(data.bytes);
+     if(hex(bytes.slice(8,40).buffer)!==data.identity)throw Error('Checkpoint identity mismatch');
+     const canonical=new Uint8Array(32+bytes.byteLength-72);canonical.set(bytes.subarray(8,40));canonical.set(bytes.subarray(72),32);
+     const hash=hex(await crypto.subtle.digest('SHA-256',canonical));
+     if(hash!==data.hash)throw Error('Checkpoint state hash mismatch');
+     if(candidate?.generation!==generation||performance.now()>=candidate.deadline)throw Error('Checkpoint preparation cancelled or expired');
+     send({type:'peer-checkpoint-prepared',requestId:data.requestId,operationId:data.operationId,epoch:data.epoch,frame:data.frame,hash});
+    } catch(error){if(candidate?.generation===generation)clearCandidate();throw error;}
+    finally {preparing=false;}
+   } else if(data.type==='peer-checkpoint-commit') {
+    const prepared=candidate;
+    if(!prepared||prepared.operationId!==data.operationId)throw Error('Checkpoint commit is stale');
+    clearCandidate();
+    if(performance.now()>=prepared.deadline)throw Error('Checkpoint preparation expired');
+    // No asynchronous gap exists after the owner's final authorization check.
+    const ptr=core.local_state_alloc(prepared.bytes.byteLength);
+    if(!ptr)throw Error('Checkpoint allocation failed');
+    new Uint8Array(core.memory.buffer,ptr,prepared.bytes.byteLength).set(new Uint8Array(prepared.bytes));
+    // Import validates transactionally and consumes this allocation. A separate
+    // validate call here would free the same bytes before import reads them.
+    check(core.local_state_import(ptr,prepared.bytes.byteLength));
+    core.local_rewind_clear();rewindIssue=undefined;frame=prepared.frame;sharedEpoch=prepared.epoch;fresh=false;
+    send({type:'peer-checkpoint-imported',requestId:data.requestId,operationId:data.operationId,epoch:prepared.epoch,frame,hash:prepared.hash});
+   }
+  }
   else if (isLocalFileOperation(data)) {
    const kind=localFileKind(data.type);
    const api=kind==='battery'
@@ -70,7 +124,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
   }
   else if (data.type === 'pause') send({type:'paused'});
   else {
-   check(core.local_frame(data.p1,data.p2));frame++;fresh=false;
+   check(core.local_frame(data.p1,data.p2));frame=data.frame===undefined?frame+1:data.frame+1;fresh=false;
    if(data.epoch!==undefined){if(sharedEpoch!==data.epoch)core.local_rewind_clear();sharedEpoch=data.epoch;rewindIssue=undefined;}
    else {sharedEpoch=undefined;if(!rewindIssue) {try{check(core.local_rewind_record(data.p1,data.p2));}catch(error){rewindIssue=error instanceof Error ? error.message : 'Rewind unavailable';core.local_rewind_clear();}}}
    const pixels = copy(5), audio = copy(2);
@@ -78,6 +132,6 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
   }
  } catch (error) {
   const message=error instanceof Error ? error.message : 'Emulator failed';
-  send(isLocalFileOperation(data) ? {type:`${localFileKind(data.type)}-error`,requestId:data.requestId,message} : {type:'error',message});
+  send(isPeerCheckpointOperation(data) ? {type:'peer-checkpoint-error',requestId:data.requestId,message} : isLocalFileOperation(data) ? {type:`${localFileKind(data.type)}-error`,requestId:data.requestId,message} : {type:'error',message});
  }
 };

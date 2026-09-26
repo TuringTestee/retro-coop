@@ -19,10 +19,10 @@ test('a completed old readiness request cannot overwrite a later membership chan
  const {setImmediate}=await import('node:timers/promises');
  const updates:{status:string}[]=[];
  let finish!:()=>void;
- const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
  const game=new GameClient(()=>player,()=>new Promise<void>(resolve=>{finish=resolve;}),state=>updates.push(state));
  const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
- game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+ game.enter({id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
  game.selected(fingerprint);
  game.playIntent();
  game.ready({readyState:'open'} as RTCDataChannel,'peer');
@@ -36,10 +36,10 @@ test('explicit host retry submits readiness regardless of guest inspection order
  const {setImmediate}=await import('node:timers/promises');
  for(const guestFirst of [true,false]){
   const sent:unknown[]=[];let holds=0;
-  const player={frameRate:()=>60,holdForGame:async()=>{holds++;return {hash:'c'.repeat(64),frame:0,fresh:true};},stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+  const player={frameRate:()=>60,holdForGame:async()=>{holds++;return {hash:'c'.repeat(64),frame:0,fresh:true};},cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
   const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
   const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
-  game.enter({id:'room',role:'host',matches:true,fingerprint,peer:{epoch:'peer'},game:{status:'failed'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+  game.enter({id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'host',matches:true,fingerprint,peer:{epoch:'peer'},game:{status:'failed'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
   game.selected(fingerprint);game.ready({readyState:'open'} as RTCDataChannel,'peer');
   game.handle({type:'gameStop',reason:'Shared start timed out.'});
   if(guestFirst){game.handle({type:'gameInspect',peerEpoch:'peer'});await setImmediate();assert.equal(holds,0,'background inspection renewed canceled intent');}
@@ -53,11 +53,11 @@ test('explicit host retry submits readiness regardless of guest inspection order
 test('correcting a wrong guest file requires explicit preparation after the old-file stop',async()=>{
  const {setImmediate}=await import('node:timers/promises');
  const sent:unknown[]=[];
- const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
  const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
  const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
  const wrong={...fingerprint,romSha256:'d'.repeat(64)};
- const room={id:'room',role:'guest',matches:false,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView;
+ const room={id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'guest',matches:false,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView;
  game.enter(room);game.ready({readyState:'open'} as RTCDataChannel,'peer');game.selected(wrong);
  game.selected(fingerprint);game.enter({...room,matches:true});await setImmediate();
  assert.equal(sent.length,0,'loading a matching file must not prepare the guest automatically');
@@ -72,10 +72,10 @@ test('canceling an in-flight readiness offer releases only that operation owners
  const {setImmediate}=await import('node:timers/promises');
  for(const completeOldFirst of [true,false]){
   const sent:unknown[]=[];const finish:Array<()=>void>=[];
-  const player={frameRate:()=>60,holdForGame:()=>new Promise(resolve=>finish.push(()=>resolve({hash:'c'.repeat(64),frame:0,fresh:true}))),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+  const player={frameRate:()=>60,holdForGame:()=>new Promise(resolve=>finish.push(()=>resolve({hash:'c'.repeat(64),frame:0,fresh:true}))),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
   const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
   const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
-  game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+  game.enter({id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
   game.selected(fingerprint);game.playIntent();game.ready({readyState:'open'} as RTCDataChannel,'peer');await setImmediate();
   assert.equal(finish.length,1);game.cancelIntent();
   if(completeOldFirst){finish[0]();await setImmediate();}
@@ -83,17 +83,17 @@ test('canceling an in-flight readiness offer releases only that operation owners
   if(!completeOldFirst){finish[0]();await setImmediate();}
   game.retry();await setImmediate();assert.equal(finish.length,2,'old completion released the newer offer');
   finish[1]();await setImmediate();assert.deepEqual(sent.map(command=>(command as {type:string}).type),['gameUnready','gameReady'],'only current readiness may publish after retraction');
-  game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+  game.enter({id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},established:false} as import('../../../packages/contracts/src/rooms.ts').RoomView);
   await setImmediate();assert.equal(finish.length,2,'retry during preparation invalidated completed readiness');
  }
 });
 test('changing a prepared guest file retracts the server offer',async()=>{
  const {setImmediate}=await import('node:timers/promises');
  const sent:{type:string;peerEpoch?:string}[]=[];
- const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const player={frameRate:()=>60,holdForGame:async()=>({hash:'c'.repeat(64),frame:0,fresh:true}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
  const game=new GameClient(()=>player,async command=>{sent.push(command);},()=>{});
  const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
- game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+ game.enter({id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'guest',matches:true,fingerprint,peer:{epoch:'peer'},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
  game.selected(fingerprint);game.playIntent();game.ready({readyState:'open'} as RTCDataChannel,'peer');await setImmediate();
  assert.equal(sent[0]?.type,'gameReady');
  game.selected({...fingerprint,romSha256:'d'.repeat(64)});await setImmediate();
@@ -106,67 +106,16 @@ test('current input and completed state hash wake the existing frame owner witho
  const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
  const epoch='e'.repeat(32),peerEpoch='p'.repeat(32),hash='c'.repeat(64),wakes:string[]=[];
  let driver!:import('./player.ts').GameDriver,finishHash!:(value:{hash:string})=>void;
- const player={frameRate:()=>60,holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(value:string){wakes.push(value);},stateHash:()=>new Promise<{hash:string}>(resolve=>{finishHash=resolve;}),stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
+ const player={frameRate:()=>60,holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(value:string){wakes.push(value);},stateHash:()=>new Promise<{hash:string}>(resolve=>{finishHash=resolve;}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
  const game=new GameClient(()=>player,async()=>{},()=>{});
  const channel={readyState:'open',send(){},onmessage:undefined} as unknown as RTCDataChannel;
- game.enter({id:'room',role:'guest',matches:true,fingerprint,peer:{epoch:peerEpoch},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
+ game.enter({id:'room',hostMembership:'host-member',guestMembership:'guest-member',role:'guest',matches:true,fingerprint,peer:{epoch:peerEpoch},reservationIntent:'intent'} as import('../../../packages/contracts/src/rooms.ts').RoomView);
  game.selected(fingerprint);game.playIntent();game.ready(channel,peerEpoch);await setImmediate();
  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:6});await setImmediate();
  game.handle({type:'gameStart',peerEpoch,epoch,delay:6});
- const receive=(frame:number,packetEpoch=epoch)=>channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch:packetEpoch,frame,mask:0})}));
+ const receive=(frame:number,packetEpoch=epoch)=>channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'frame',epoch:packetEpoch,frame,p1:0,p2:0})}));
  receive(0,'z'.repeat(32));assert.deepEqual(wakes,[],'obsolete epoch woke the current frame owner');
  for(let frame=0;frame<120;frame++){receive(frame);assert.equal(wakes.length,frame+1,'admitted input waited for polling');assert.equal(driver.next(0)?.frame,frame);driver.committed(frame);}
  assert.equal(driver.next(0),undefined,'frame advanced while its hash was pending');
  finishHash({hash});await setImmediate();assert.equal(wakes.length,121,'completed hash waited for polling');assert.ok(wakes.every(value=>value===epoch));
-});
-
-test('both clients map acknowledged P1 ownership and shared P1 discards even forged nonowner input',async()=>{
- const {setImmediate}=await import('node:timers/promises');
- const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
- const peerEpoch='p'.repeat(32),epoch='e'.repeat(32),hash='c'.repeat(64);
- for(const mode of ['separate','shared'] as const)for(const p1 of ['host','guest'] as const)for(const role of ['host','guest'] as const){
-  let driver!:import('./player.ts').GameDriver;const sent:import('../../../packages/contracts/src/gameplay.ts').GamePacket[]=[];
-  const player={frameRate:()=>60,holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(){},stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
-  const game=new GameClient(()=>player,async()=>{},()=>{}),controllers={mode,p1,revision:1};
-  const channel={readyState:'open',send(raw:string){sent.push(JSON.parse(raw));},onmessage:undefined} as unknown as RTCDataChannel;
-  game.enter({id:'room',role,matches:true,fingerprint,peer:{epoch:peerEpoch},game:{controllers,status:'paused'}} as import('../../../packages/contracts/src/rooms.ts').RoomView);
-  game.selected(fingerprint);game.playIntent();game.ready(channel,peerEpoch);await setImmediate();
-  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:3,controllers});await setImmediate();game.handle({type:'gameStart',peerEpoch,epoch,delay:3,controllers});
-  const local=role==='host'?1:2,remote=role==='host'?2:1;
-  for(let frame=0;frame<4;frame++){
-   channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch,frame,mask:frame<3?0:remote})}));
-   const next=driver.next(local)!;assert.ok(next);
-   if(frame===3)assert.deepEqual([next.p1,next.p2],[p1==='host'?1:2,mode==='shared'?0:p1==='host'?2:1],`${mode}/${p1}/${role}`);
-   driver.committed(frame);
-  }
-  const sampled=sent.find(packet=>packet.kind==='input'&&packet.frame===3);assert.equal(sampled?.kind==='input'?sampled.mask:undefined,mode==='shared'&&role!==p1?0:local);
- }
-});
-
-test('a peer already ahead of the host can still reach the requested pause frame',async()=>{
- const {setImmediate}=await import('node:timers/promises');
- const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}} as const;
- const peerEpoch='p'.repeat(32),epoch='e'.repeat(32),hash='c'.repeat(64);
- async function playing(role:'host'|'guest',frames:number){
-  let driver!:import('./player.ts').GameDriver;
-  const commands:Array<{type:string;frame?:number}>=[];
-  const player={frameRate:()=>60,holdForGame:async()=>({hash,frame:0,fresh:true}),startGame(value:typeof driver){driver=value;},wakeGame(){},drainGame(){},stopGame(){},allowLocalPlay(){}} as unknown as import('./player.ts').LocalPlayer;
-  const game=new GameClient(()=>player,async command=>{commands.push(command);},()=>{});
-  const channel={readyState:'open',send(){},onmessage:undefined} as unknown as RTCDataChannel;
-  game.enter({id:'room',role,matches:true,fingerprint,peer:{epoch:peerEpoch},game:{status:'playing'}} as import('../../../packages/contracts/src/rooms.ts').RoomView);
-  game.selected(fingerprint);game.playIntent();game.ready(channel,peerEpoch);await setImmediate();
-  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:8});await setImmediate();
-  game.handle({type:'gameStart',peerEpoch,epoch,delay:8});
-  for(let frame=0;frame<frames;frame++){
-   channel.onmessage!.call(channel,new MessageEvent('message',{data:JSON.stringify({kind:'input',epoch,frame,mask:0})}));
-   assert.equal(driver.next(0)?.frame,frame);driver.committed(frame);
-  }
-  return {game,driver,commands};
- }
- const host=await playing('host',5),guest=await playing('guest',22);
- host.driver.pause('user');
- const requested=host.commands.find(command=>command.type==='gamePause');
- assert.ok(requested?.frame!==undefined);
- guest.game.handle({type:'gamePauseAt',epoch,frame:requested.frame,reason:'Host requested pause.'});
- assert.equal(guest.commands.some(command=>command.type==='gameAbort'),false,'pause boundary was already behind the guest');
 });

@@ -27,8 +27,8 @@ class GameplayEvidenceTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.record = json.loads((Path(__file__).resolve().parents[2] /
-            'docs/implementation/d11/firefox-short.json').read_text())
+        cls.record = json.loads((Path(__file__).resolve().parent /
+            'fixtures/absolute-firefox-short.json').read_text())
 
     def test_slow_manual_setup_cannot_consume_sustained_qualification(self):
         # Failed CI paused at frame 508 and produced 594 transitions, below 595.
@@ -84,6 +84,86 @@ class GameplayEvidenceTests(unittest.TestCase):
             del peer['sentHashes'][1]
         with self.assertRaisesRegex(ValueError, 'missing or reordered'):
             verify(record, 30)
+
+    def test_resumed_frame_counter_must_not_reset(self):
+        record = copy.deepcopy(self.record)
+        for peer in record['peers']:
+            resumed = peer['sentHashes'][-1]['epoch']
+            for index, packet in enumerate(p for p in peer['sentHashes'] if p['epoch'] == resumed):
+                packet['frame'] = (index + 1) * 120
+        with self.assertRaisesRegex(ValueError, 'missing or reordered'):
+            verify(record, 30)
+
+    def test_duplicate_reordered_and_cross_epoch_hashes_fail_even_when_peers_agree(self):
+        for mutation in ['duplicate', 'reorder', 'interleave']:
+            record = copy.deepcopy(self.record)
+            for peer in record['peers']:
+                packets = peer['sentHashes']
+                if mutation == 'duplicate':
+                    packets.insert(3, copy.deepcopy(packets[2]))
+                elif mutation == 'reorder':
+                    packets[2], packets[3] = packets[3], packets[2]
+                else:
+                    packets[1], packets[2] = packets[2], packets[1]
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(ValueError, 'missing or reordered'):
+                verify(record, 30)
+
+    def test_optional_boundary_hash_must_match_the_independent_ack_exactly_once(self):
+        record = copy.deepcopy(self.record)
+        # Move the first fence to an existing actual periodic checkpoint. Keep
+        # both independently acknowledged boundary hashes equal to that record.
+        packet = record['peers'][0]['sentHashes'][1]
+        for pause in record['pause']:
+            pause.update(frame=packet['frame'], hash=packet['hash'])
+        verify(record, 30)
+        absent = copy.deepcopy(record)
+        for peer in absent['peers']:
+            del peer['sentHashes'][1]
+        verify(absent, 30)
+        asymmetric = copy.deepcopy(record)
+        del asymmetric['peers'][1]['sentHashes'][1]
+        verify(asymmetric, 30)
+        missing = copy.deepcopy(asymmetric)
+        del missing['peers'][1]['sentHashes'][1]  # Resumed frame 360 is mandatory.
+        with self.assertRaisesRegex(ValueError, 'missing or reordered'):
+            verify(missing, 30)
+        asymmetric['peers'][0]['sentHashes'][1]['hash'] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'boundary checkpoint'):
+            verify(asymmetric, 30)
+        for mutation in ['wrong_hash', 'duplicate', 'wrong_frame']:
+            changed = copy.deepcopy(record)
+            for peer in changed['peers']:
+                if mutation == 'wrong_hash':
+                    peer['sentHashes'][1]['hash'] = 'f' * 64
+                elif mutation == 'duplicate':
+                    peer['sentHashes'].insert(1, copy.deepcopy(peer['sentHashes'][1]))
+                else:
+                    peer['sentHashes'][1]['frame'] += 1
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                verify(changed, 30)
+
+    def test_final_boundary_hash_also_requires_matching_ack(self):
+        record = copy.deepcopy(self.record)
+        last = record['peers'][0]['sentHashes'][-1]
+        for final in record['final']:
+            final.update(frame=last['frame'], hash=last['hash'])
+        for peer in record['peers']:
+            peer['frameCount'] = last['frame']
+        verify(record, 30)
+        for peer in record['peers']:
+            peer['sentHashes'][-1]['hash'] = 'f' * 64
+        with self.assertRaisesRegex(ValueError, 'boundary checkpoint'):
+            verify(record, 30)
+
+    def test_hash_divergence_and_unaccounted_frames_still_fail(self):
+        for mutation in ['hash', 'frame']:
+            record = copy.deepcopy(self.record)
+            if mutation == 'hash':
+                record['peers'][1]['sentHashes'][-1]['hash'] = 'f' * 64
+            else:
+                record['peers'][1]['frameCount'] -= 1
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                verify(record, 30)
 
     def test_wrong_build_short_time_and_missing_input_are_rejected(self):
         mutations = (

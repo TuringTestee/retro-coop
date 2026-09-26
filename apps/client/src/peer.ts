@@ -3,12 +3,12 @@ import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type Pee
 import {connectionMetrics} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type PeerMedia={prepare(pc:RTCPeerConnection,role:RoomRole):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
-export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
+export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;checkpoint?:(channel:RTCDataChannel,epoch:string)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
 export type ConnectionState={status:string;route?:'direct'|'relay';pingMs?:number;epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
 export class PeerConnection {
  private pc?:RTCPeerConnection;
- private channel?:RTCDataChannel;
+ private channel?:RTCDataChannel;private checkpoint?:RTCDataChannel;
  private epoch?:string;
  private role?:RoomRole;
  private candidates:RTCIceCandidateInit[]=[];
@@ -20,7 +20,7 @@ export class PeerConnection {
  private connectedState?:ConnectionState;
  private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
  constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
- close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;this.reportedRoute=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);clearInterval(this.statsTimer);this.channel?.close();this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
+ close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;this.reportedRoute=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);clearInterval(this.statsTimer);this.channel?.close();this.checkpoint?.close();this.checkpoint=undefined;this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
  private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {this.close(event.reason);return;}
@@ -52,7 +52,7 @@ export class PeerConnection {
    const pc=this.pc;if(!pc || this.epoch!==epoch) return;
    if(event.type==='peerStart') {
     this.update({status:'Connecting… Your local game can continue.',epoch});
-    if(this.role==='host') {this.wire(pc.createDataChannel('retro-coop-control',{ordered:true}),epoch);await pc.setLocalDescription(await pc.createOffer());if(this.epoch===epoch) await this.send({type:'peerSignal',epoch,signal:{kind:'description',description:{type:'offer',sdp:pc.localDescription!.sdp}}});}
+    if(this.role==='host') {this.wire(pc.createDataChannel('retro-coop-control',{ordered:true}),epoch);if(this.options.checkpoint)this.wire(pc.createDataChannel('retro-coop-checkpoint',{ordered:true}),epoch);await pc.setLocalDescription(await pc.createOffer());if(this.epoch===epoch) await this.send({type:'peerSignal',epoch,signal:{kind:'description',description:{type:'offer',sdp:pc.localDescription!.sdp}}});}
    } else if(event.signal.kind==='description') {
     await pc.setRemoteDescription(event.signal.description);if(this.epoch!==epoch) return;
     const candidates=this.candidates;this.candidates=[];for(const candidate of candidates) {await pc.addIceCandidate(candidate);if(this.epoch!==epoch) return;}
@@ -62,6 +62,7 @@ export class PeerConnection {
   }).catch(()=>this.fail(epoch));
  }
  private wire(channel:RTCDataChannel,epoch:string) {
+  if(channel.label==='retro-coop-checkpoint'&&this.options.checkpoint){if(this.checkpoint){channel.close();this.fail(epoch);return;}this.checkpoint=channel;channel.binaryType='arraybuffer';channel.onclose=()=>{if(this.epoch===epoch)this.fail(epoch);};channel.onerror=()=>this.fail(epoch);this.options.checkpoint(channel,epoch);return;}
   if(this.channel || channel.label!=='retro-coop-control') {channel.close();this.fail(epoch);return;}
   this.channel=channel;
   const nonce=crypto.randomUUID();let verified=false,replied=false,announced=false,probeAt=0,roundTripMs=0;
