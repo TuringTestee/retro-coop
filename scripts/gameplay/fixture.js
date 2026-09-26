@@ -16,7 +16,7 @@ const raf=requestAnimationFrame.bind(window),cancel=cancelAnimationFrame.bind(wi
     const ds=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(typeof data==='string'){let d=JSON.parse(data);if(d.type==='transportProbe')probes.set(d.nonce,performance.now());
       if(d.kind==='input'&&window.gameFault==='drop-input')return;
       if(d.kind==='hash'&&window.gameFault==='bad-hash'){d={...d,hash:'0'.repeat(64)};data=JSON.stringify(d);window.gameFault=undefined;}
-      if(d.kind==='input'&&window.gameFault==='old-epoch'){ds.call(this,JSON.stringify({...d,epoch:'obsolete'.repeat(4)}));window.gameFault=undefined;}
+      if((d.kind==='input'||d.kind==='frame')&&window.gameFault==='old-epoch'){ds.call(this,JSON.stringify({...d,epoch:'obsolete'.repeat(4)}));window.gameFault=undefined;}
       if(d.kind==='input'&&window.gameFault==='future-input'){d={...d,frame:d.frame+121};data=JSON.stringify(d);window.gameFault=undefined;}
       if(d.kind==='input'&&window.gameFault==='duplicate-input'){ds.call(this,data);window.gameFault=undefined;}
       if(d.kind==='hash')proof.sentHashes.push(d);}return ds.call(this,data)};
