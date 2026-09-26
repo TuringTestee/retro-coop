@@ -3,7 +3,7 @@ export function proposeInputDelay(roundTripMs:number,fps:number) {
  if(!Number.isFinite(roundTripMs)||roundTripMs<0||!Number.isFinite(fps)||fps<=0)return gameplayLimits.delayDefault;
  return Math.min(gameplayLimits.delayMax,Math.max(gameplayLimits.delayDefault,Math.ceil(roundTripMs*fps/1000)+2));
 }
-export type TimelineMembers={local:string;authority:string;controllers:readonly [string|undefined,string|undefined]};
+export type TimelineMembers={local:string;authority:string;controllers:readonly [string|undefined,string|undefined];observer?:boolean};
 /** The host admits assigned input; replicas execute only completed authoritative frames. */
 export class GameScheduler {
  readonly epoch:string;readonly delay:number;readonly authority:boolean;
@@ -39,13 +39,13 @@ export class GameScheduler {
    queue.set(packet.frame,packet.mask);
   } else if(packet.kind==='frame') {
    if(this.authority||member!==this.members.authority)throw Error('Only the host can commit frames');
-   if(packet.frame!==this.head||packet.frame>=this.frame+gameplayLimits.inputWindow)throw Error('Invalid or duplicate committed frame');
+   if(packet.frame!==this.head||packet.frame>=this.frame+(this.members.observer?gameplayLimits.historyFrames:gameplayLimits.inputWindow))throw Error('Invalid or duplicate committed frame');
    this.frames.set(packet.frame,packet);this.head++;
   } else {
    const expected=this.authority?this.owners.has(member)&&member!==this.members.local:member===this.members.authority;
    if(!expected)return false;
    const previous=this.receivedHashes.get(member)??Math.floor(this.start/gameplayLimits.hashInterval)*gameplayLimits.hashInterval;
-   if(packet.frame!==previous+gameplayLimits.hashInterval||packet.frame<this.frame-gameplayLimits.inputWindow||packet.frame>this.frame+gameplayLimits.inputWindow)throw Error('Invalid or duplicate frame hash');
+   if(packet.frame!==previous+gameplayLimits.hashInterval||packet.frame<this.frame-gameplayLimits.inputWindow||packet.frame>this.frame+(this.members.observer?gameplayLimits.historyFrames:gameplayLimits.inputWindow))throw Error('Invalid or duplicate frame hash');
    this.receivedHashes.set(member,packet.frame);
    let hashes=this.peerHashes.get(member);if(!hashes)this.peerHashes.set(member,hashes=new Map());hashes.set(packet.frame,packet.hash);this.compare(packet.frame);
   }
@@ -62,6 +62,7 @@ export class GameScheduler {
   if(this.authority){for(const queue of this.inputs.values())queue.delete(frame);const i=frame%gameplayLimits.historyFrames;this.historyFrames[i]=frame;this.historyMasks[i*2]=next[0];this.historyMasks[i*2+1]=next[1];this.historyStart=Math.max(this.start,this.frame-gameplayLimits.historyFrames);this.send({kind:'frame',epoch:this.epoch,frame,p1:next[0],p2:next[1]});}
   else this.frames.delete(frame);
  }
+ historyFrame(frame:number):FramePacket|undefined{if(!this.authority||frame<this.historyStart||frame>=this.frame)return;const i=frame%gameplayLimits.historyFrames;if(this.historyFrames[i]!==frame)return;return {kind:'frame',epoch:this.epoch,frame,p1:this.historyMasks[i*2],p2:this.historyMasks[i*2+1]};}
  /** A fixed 20 KiB ring owns catch-up history; no observer can extend retention. */
  historySince(frame:number):FramePacket[]|undefined {
   if(!this.authority||frame<this.historyStart||frame>this.frame)return;

@@ -58,7 +58,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
   } else if (!core) throw Error('Load the emulator first');
   else if (isPeerCheckpointOperation(data)) {
    if(data.type==='peer-checkpoint-export') {
-    if(frame!==data.frame || sharedEpoch!==data.epoch)throw Error('Checkpoint boundary is stale');
+    if(data.frame!==undefined&&frame!==data.frame || sharedEpoch!==data.epoch)throw Error('Checkpoint boundary is stale');
     check(core.local_state_export());const bytes=copy(0);
     check(core.local_state_hash());const hash=hex(copy(0));
     check(core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));

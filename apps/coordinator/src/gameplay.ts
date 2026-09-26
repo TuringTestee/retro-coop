@@ -25,7 +25,8 @@ export class GameSession {
  private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(member===this.host||value.transport);}
  private checkRevision(revision:number){if(revision!==this.state.controllers.revision)throw Error('stale_controllers');}
  requestStart(){
-  if(this.state.epoch||this.state.startRequested)throw Error('game_already_started');
+  if(this.state.startRequested)return;
+  if(this.state.epoch)throw Error('game_already_started');
   if(this.owners().some(owner=>owner!==this.host&&!this.offers.has(owner)))throw Error('game_prerequisites');
   this.state.startRequested=true;this.deadline=this.now()+gameplayLimits.barrierMs;
   if(!this.offers.has(this.host))this.send(this.host,{type:'gameInspect'});else this.prepareIfReady();
@@ -95,7 +96,7 @@ export class GameSession {
    this.checkRevision(command.revision);const transfers=[...this.transfers.values()].filter(transfer=>member===this.host||transfer.recipient===member);
    if(this.state.pending&&(member===this.host||this.owners(this.proposed).includes(member)||transfers.some(transfer=>transfer.purpose==='controller'))){this.failTransaction('Synchronization cancelled. Previous roles and game progress are preserved.');return;}
    if(transfers.some(transfer=>transfer.purpose==='controller'))this.stop('Synchronization cancelled. Game progress is preserved.');
-   else {for(const transfer of transfers)this.cancelTransfer(transfer,'Synchronization cancelled. Game progress is preserved.');this.offers.delete(member);}return;
+   else {for(const transfer of transfers)this.cancelTransfer(transfer,'Synchronization cancelled. Game progress is preserved.');this.offers.delete(member);if(this.owners().includes(member)&&(this.state.startRequested||this.state.status==='starting'))this.stop('Preparation cancelled. Assigned players must prepare again.');}return;
   }
   if(command.type==='gameRoleCancel'||command.type==='gameRoleRetry'){
    if(member!==this.host||this.state.pending?.id!==command.transactionId)throw Error('stale_controllers');

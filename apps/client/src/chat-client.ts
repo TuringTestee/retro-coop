@@ -1,7 +1,7 @@
 import {CHAT_LIMITS,type ChatCommand,type ChatEvent,type ChatMessage} from '../../../packages/contracts/src/chat.ts';
 import type {RoomData,RoomView} from '../../../packages/contracts/src/rooms.ts';
 export type ChatRoom=Pick<RoomView,'id'|'chatMembership'|'role'>;
-type Outbox={command:Omit<ChatCommand,'requestId'>;nickname:string;sender:'host'|'guest';at:number;error?:string;retryAt?:number};
+type Outbox={command:Omit<ChatCommand,'requestId'>;nickname:string;sender:'host'|'member';at:number;error?:string;retryAt?:number};
 export type ChatState={messages:ChatMessage[];draft:string;outbox?:Outbox;sending:boolean};
 export class ChatClient {
  private room?:ChatRoom;

@@ -8,7 +8,7 @@ export class GuestPlaceExpiredError extends Error {}
 
 /** RT4 supplies current() from its room and operation generation before loading or preparing. */
 export async function acquireGuestRom(room:RoomView,token:string,signal:AbortSignal,progress:(bytes:number)=>void,current:()=>boolean,fetcher:typeof fetch=fetch):Promise<GuestRomResult> {
- if(room.role!=='guest' || room.catalogId)throw Error('This room does not have a host-shared game.');
+ if(room.role!=='member' || room.catalogId)throw Error('This room does not have a host-shared game.');
  const membership=room.chatMembership,expected=room.fingerprint;
  const check=()=>{signal.throwIfAborted();if(!current())throw Error('The room changed. Return to rooms and join again.');};
  return acquireVerifiedRom({bytes:expected.cartridge.bytes,sha256:expected.romSha256},'room-game.nes',signal,current,async()=>{

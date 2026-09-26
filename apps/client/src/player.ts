@@ -12,7 +12,7 @@ type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:
 const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean};
+export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
 export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; renderFps?:number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
@@ -110,8 +110,8 @@ export class LocalPlayer {
  }
 
  sampleGameInput(){const {pad,available}=this.inputDevice();return available?this.controllerMask(pad):0;}
- async exportPeerCheckpoint(epoch:string,frame:number){
-  if(!this.shared||this.state.running||this.busy)throw Error('Pause at a completed frame before synchronization.');
+ async exportPeerCheckpoint(epoch:string,frame?:number){
+  if(!this.shared||frame!==undefined&&(this.state.running||this.busy))throw Error('Pause at a completed frame before synchronization.');
   const reply=await this.fileRequest({type:'peer-checkpoint-export',epoch,frame});
   if(reply.type!=='peer-checkpoint-exported')throw Error('Unexpected checkpoint export');return reply;
  }
@@ -361,7 +361,7 @@ export class LocalPlayer {
      if(data.epoch!==undefined && (data.epoch!==this.expectedFrame?.epoch||data.frame!==this.expectedFrame.frame))return;
      const committed=this.expectedFrame;this.expectedFrame=undefined;
      this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
-     if(this.state.running) this.audio.play(data.audio);
+     if(this.state.running&&!this.game?.silent?.())this.audio.play(data.audio);
      this.publish({frames:data.frame===undefined?this.state.frames+1:data.frame+1,rewind:data.rewind});
      if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.gameProgressAt=performance.now();this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();

@@ -1,8 +1,7 @@
-import type {RoomRole} from '../../../packages/contracts/src/rooms.ts';
 import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
 import {connectionMetrics} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
-export type PeerMedia={prepare(pc:RTCPeerConnection,role:RoomRole):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
+export type PeerMedia={prepare(pc:RTCPeerConnection,offerer:boolean):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
 export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;checkpoint?:(channel:RTCDataChannel,epoch:string)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
 export type ConnectionState={status:string;route?:'direct'|'relay';pingMs?:number;epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
@@ -10,7 +9,7 @@ export class PeerConnection {
  private pc?:RTCPeerConnection;
  private channel?:RTCDataChannel;private checkpoint?:RTCDataChannel;
  private epoch?:string;
- private role?:RoomRole;
+ private offerer=false;private pairId='';
  private candidates:RTCIceCandidateInit[]=[];
  private timer?:ReturnType<typeof setTimeout>;
  private routeTimer?:ReturnType<typeof setTimeout>;
@@ -21,16 +20,16 @@ export class PeerConnection {
  private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
  constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
  close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;this.reportedRoute=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);clearInterval(this.statsTimer);this.channel?.close();this.checkpoint?.close();this.checkpoint=undefined;this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
- private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',epoch}).catch(()=>{});}
+ private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',pairId:this.pairId,epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
-  if(event.type==='peerStop') {this.close(event.reason);return;}
+  if(event.type==='peerStop') {if(event.pairId===this.pairId)this.close(event.reason);return;}
   if(event.type==='peerPrepare') {
-   this.close('Preparing connection privacy…');this.epoch=event.epoch;this.role=event.role;
+   this.close('Preparing connection privacy…');this.epoch=event.epoch;this.pairId=event.pairId;this.offerer=event.offerer;
    try {
     if(effectivePolicy(event.policy,this.options.preference?.() ?? 'standard')!==event.policy) throw Error('Privacy downgrade rejected');
-    const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.role);
+    const pc=new RTCPeerConnection({iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.offerer);
     const epoch=event.epoch;
-    pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
+    pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',pairId:this.pairId,epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
     pc.onconnectionstatechange=()=>{
      if(this.epoch!==epoch)return;
      if(pc.connectionState==='failed')this.fail(epoch);
@@ -43,7 +42,7 @@ export class PeerConnection {
     this.timer=setTimeout(()=>this.fail(epoch),peerLimits.prepareMs+peerLimits.connectMs);
     this.update({status:`Preparing ${event.policy==='relay'?'relay-only':'standard'} connection…`,epoch});
     // No offer/local description (and thus no gathering) until both peers acknowledge policy.
-    void this.send({type:'peerAck',epoch}).catch(()=>this.fail(epoch));
+    void this.send({type:'peerAck',pairId:this.pairId,epoch}).catch(()=>this.fail(epoch));
    }catch {this.fail(event.epoch);}
    return;
   }
@@ -52,11 +51,11 @@ export class PeerConnection {
    const pc=this.pc;if(!pc || this.epoch!==epoch) return;
    if(event.type==='peerStart') {
     this.update({status:'Connecting… Your local game can continue.',epoch});
-    if(this.role==='host') {this.wire(pc.createDataChannel('retro-coop-control',{ordered:true}),epoch);if(this.options.checkpoint)this.wire(pc.createDataChannel('retro-coop-checkpoint',{ordered:true}),epoch);await pc.setLocalDescription(await pc.createOffer());if(this.epoch===epoch) await this.send({type:'peerSignal',epoch,signal:{kind:'description',description:{type:'offer',sdp:pc.localDescription!.sdp}}});}
+    if(this.offerer) {this.wire(pc.createDataChannel('retro-coop-control',{ordered:true}),epoch);if(this.options.checkpoint)this.wire(pc.createDataChannel('retro-coop-checkpoint',{ordered:true}),epoch);await pc.setLocalDescription(await pc.createOffer());if(this.epoch===epoch) await this.send({type:'peerSignal',pairId:this.pairId,epoch,signal:{kind:'description',description:{type:'offer',sdp:pc.localDescription!.sdp}}});}
    } else if(event.signal.kind==='description') {
     await pc.setRemoteDescription(event.signal.description);if(this.epoch!==epoch) return;
     const candidates=this.candidates;this.candidates=[];for(const candidate of candidates) {await pc.addIceCandidate(candidate);if(this.epoch!==epoch) return;}
-    if(event.signal.description.type==='offer') {this.options.media?.answer(pc);await pc.setLocalDescription(await pc.createAnswer());if(this.epoch===epoch) await this.send({type:'peerSignal',epoch,signal:{kind:'description',description:{type:'answer',sdp:pc.localDescription!.sdp}}});}
+    if(event.signal.description.type==='offer') {this.options.media?.answer(pc);await pc.setLocalDescription(await pc.createAnswer());if(this.epoch===epoch) await this.send({type:'peerSignal',pairId:this.pairId,epoch,signal:{kind:'description',description:{type:'answer',sdp:pc.localDescription!.sdp}}});}
    } else if(pc.remoteDescription) await pc.addIceCandidate(event.signal.candidate);
    else {if(this.candidates.length>=peerLimits.candidates) throw Error('Too many candidates');this.candidates.push(event.signal.candidate);}
   }).catch(()=>this.fail(epoch));
@@ -70,11 +69,11 @@ export class PeerConnection {
   // Remote channels can announce open before their native send path is ready.
   // The host initiates; an inbound probe proves the guest can send its own challenge.
   const probe=()=>{probeAt=performance.now();channel.send(JSON.stringify({type:'transportProbe',nonce}));};
-  channel.onopen=()=>{if(this.epoch===epoch && this.role==='host') probe();};
+  channel.onopen=()=>{if(this.epoch===epoch && this.offerer) probe();};
   channel.onmessage=({data})=>{
    if(this.epoch!==epoch || typeof data!=='string' || data.length>256) {this.fail(epoch);return;}
    let message;try {message=JSON.parse(data);}catch {this.fail(epoch);return;}
-   if(message.type==='transportProbe' && !replied && typeof message.nonce==='string' && message.nonce.length===36) {replied=true;if(this.role==='guest') probe();channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));complete();}
+   if(message.type==='transportProbe' && !replied && typeof message.nonce==='string' && message.nonce.length===36) {replied=true;if(!this.offerer) probe();channel.send(JSON.stringify({type:'transportReply',nonce:message.nonce}));complete();}
    else if(message.type==='transportReply' && message.nonce===nonce && !verified) {roundTripMs=performance.now()-probeAt;verified=true;complete();}
    else this.fail(epoch);
   };
@@ -86,13 +85,13 @@ export class PeerConnection {
    const stats=await this.pc!.getStats();if(this.epoch!==epoch) return;
    const metrics=connectionMetrics(stats);
    this.update({status:'Peer transport connected.',...metrics,epoch});
-   await this.send({type:'peerConnected',epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',...metrics,epoch};this.reportRoute(epoch,metrics.route);this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);if(!metrics.route)this.refreshRoute(epoch,20);this.statsTimer=setInterval(()=>void this.sampleMetrics(epoch),2000);}
+   await this.send({type:'peerConnected',pairId:this.pairId,epoch});if(this.epoch===epoch) {this.connectedState={status:'Peer transport connected.',...metrics,epoch};this.reportRoute(epoch,metrics.route);this.options.media?.connected();this.options.ready?.(channel,epoch,roundTripMs);if(!metrics.route)this.refreshRoute(epoch,20);this.statsTimer=setInterval(()=>void this.sampleMetrics(epoch),2000);}
   }catch {this.fail(epoch);}
  }
  private reportRoute(epoch:string,route:'direct'|'relay'|undefined) {
   if(!route||this.epoch!==epoch||this.reportedRoute===route)return;
   this.reportedRoute=route;
-  void this.send({type:'peerRoute',epoch,route}).catch(()=>{if(this.epoch===epoch&&this.reportedRoute===route)this.reportedRoute=undefined;});
+  void this.send({type:'peerRoute',pairId:this.pairId,epoch,route}).catch(()=>{if(this.epoch===epoch&&this.reportedRoute===route)this.reportedRoute=undefined;});
  }
  private async sampleMetrics(epoch:string) {
   const pc=this.pc;if(this.epoch!==epoch||!pc||!this.connectedState||pc.connectionState!=='connected')return;

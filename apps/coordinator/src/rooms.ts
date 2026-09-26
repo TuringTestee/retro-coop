@@ -155,7 +155,7 @@ export class Rooms {
   }
   if(command.type.startsWith('game')){
    const room=this.room(session),member=this.member(room,session);this.rate(session,'game',40,10_000);
-   try{room.game.handle(member.id,command as GameCommand);}catch(error){throw new RoomError(error instanceof Error?error.message:'game_failed');}
+   try{const slot=room.slots.find(slot=>slot.member===member)!;if(command.type==='gameReady'&&room.started&&room.game.view().epoch&&slot.role!=='observer'&&!room.controllers.owners.includes(member.id)){const pending:RoleTransaction={id:secret(),revision:room.revision,roles:[{slotId:slot.id,role:slot.role}],status:'freezing'};room.game.requestRoles(pending,this.assigned(room));}else room.game.handle(member.id,command as GameCommand);}catch(error){throw new RoomError(error instanceof Error?error.message:'game_failed');}
    if(room.game.view().status==='playing'){room.established=true;for(const member of this.members(room))if(member.acquisition==='loaded')member.reservationUntil=undefined;}
    this.publish(room);return {room:this.view(room,session)};
   }
@@ -192,7 +192,7 @@ export class Rooms {
     if(room){const member=this.member(room,session);if(member.intent===command.intent){if(room.host===session)this.close(room,'left');else this.releaseMember(room,member,'left');}}
     return {};
    }
-   case 'prepareHost':case 'startRoom':{const room=this.hosted(session,command.roomId);if(!room.confirmed||room.intent!==command.membership)throw new RoomError('membership_changed');if(!matchesFile(room.fingerprint,command.fingerprint))throw new RoomError('game_mismatch');room.hostReady=true;this.member(room,session).acquisition='loaded';this.publish(room,false);if(command.type==='startRoom'&&!room.started){try{room.game.requestStart();room.started='shared';}catch(error){throw new RoomError(error instanceof Error?error.message:'game_prerequisites');}}this.publish(room);return {room:this.view(room,session)};}
+   case 'prepareHost':case 'startRoom':{const room=this.hosted(session,command.roomId);if(!room.confirmed||room.intent!==command.membership)throw new RoomError('membership_changed');if(!matchesFile(room.fingerprint,command.fingerprint))throw new RoomError('game_mismatch');room.hostReady=true;this.member(room,session).acquisition='loaded';this.publish(room,false);if(command.type==='startRoom'&&!room.game.view().epoch){try{room.game.requestStart();room.started='shared';}catch(error){throw new RoomError(error instanceof Error?error.message:'game_prerequisites');}}this.publish(room);return {room:this.view(room,session)};}
    case 'close':this.close(this.hosted(session,command.roomId),'host_closed');return {};
    case 'memberRemove':{const room=this.hosted(session,command.roomId);if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');const member=this.members(room).find(member=>member.id===command.membership);if(!member||member.session===room.host)throw new RoomError('membership_changed');room.kicked.add(member.session.token);this.releaseMember(room,member,'removed');return {room:this.view(room,session)};}
    case 'slotAvailability':{const room=this.hosted(session,command.roomId),slot=room.slots.find(slot=>slot.id===command.slotId);if(!slot||command.expectedRevision!==room.revision)throw new RoomError('room_changed');if(slot.member)throw new RoomError('slot_occupied');if(slot.open!==command.open){slot.open=command.open;slot.revision++;room.revision++;}this.publish(room);return {room:this.view(room,session)};}
