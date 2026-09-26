@@ -2,6 +2,8 @@ Audience: Agent
 
 # Voice and play sidebar delivery plan
 
+The [stable layout amendment](../design/stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.
+
 Make voice chat easy to start during a shared game, and show the player's current control bindings in a small side panel. Reuse the existing WebRTC voice and control settings, then prove the flow in two browsers without covering the game.
 
 ## Scope and source

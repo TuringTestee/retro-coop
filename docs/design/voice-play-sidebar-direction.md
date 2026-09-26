@@ -4,6 +4,8 @@ Players should see their current game controls and voice status beside the NES s
 
 # Voice and play sidebar: direction
 
+The [stable layout amendment](stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.
+
 Players should be able to start voice chat and check the controls without leaving the game. The side area stays compact, fixed beside the game on supported desktop widths, and shows only facts and actions needed now.
 
 | Source | Behavior to deliver | Current behavior replaced |
