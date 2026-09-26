@@ -119,7 +119,7 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 | E24 | Chat is too long, rate-limited, or disconnected → retain draft, show wait/not-sent state, and offer explicit Retry after recovery. | S20 | Approved |
 | E25 | Enable voice → request microphone permission only on action; show listening/transmitting state and local/remote mute. | S21, S34 | Approved |
 | E26 | Deny microphone, unplug/switch device, or lose voice route → text/gameplay continue and voice Retry does not reset the game. | S21, S34 | Approved |
-| E27 | Use push-to-talk or open mic → release/mute on blur; returning focus never silently unmutes. | S21, S31, S34 | Approved |
+| E27 | Use push-to-talk or open mic → focus changes release held talk input and preserve explicit mute under [Background voice](background-voice.md). | S21, S31, S34 | Approved |
 | E28 | Change connection policy mid-game → pause/reconnect with new effective route; Relay only never silently becomes direct. | S09, S28 | Approved |
 | E29 | Browse rooms during play → current game stays loaded and can be resumed; Leave/replace has a deliberate effect. | S25, UJS-4 | Approved |
 | E30 | Ask to leave or quit → host/guest sees effect on other player and whether Continue locally is safe; Cancel returns to game. | S24, S25 | Approved |
@@ -142,7 +142,7 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 | F11 | Invitation or code is stale, closed, malformed, or unauthorized → explain unavailability and return to Browse games without exposing unlisted metadata. | S04, S06, S33 | Approved |
 | F12 | Save data is missing after reload/clear/eviction → show empty local saves and Import; do not pretend cloud recovery or know why data vanished. | S15, S17 | Approved |
 | F13 | Page reload loses a user ROM → ask for the same local file again; saved preferences remain if storage survives. | S05, S22 | Approved |
-| F14 | Browser loses focus during held input or open mic → release game buttons, stop transmission, then show deliberate resume/unmute. | S31, S34 | Approved |
+| F14 | Browser loses focus → release held game/talk inputs; open microphone and explicit mute follow [Background voice](background-voice.md). | S31, S34 | Approved |
 | F15 | Player clicks Cancel during download, join, save dialog, or shared proposal → stop only the current action and preserve prior valid state. | S03, S04, S13, S14, S37 | Approved |
 | F16 | A late server response arrives after cancel/leave/change room → it cannot reopen an old room, spend a slot, or replace the current game. | S04, S07, S26 | Approved visible invariant |
 

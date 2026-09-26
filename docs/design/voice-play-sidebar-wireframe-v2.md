@@ -52,7 +52,7 @@ Enable voice → P2. Edit controls → Settings/Controls; return updates this re
 +--------------------------+     +--------------------------+
 ```
 
-Mic permission succeeds → applicable mode. Mute/Unmute changes state immediately. The Talk button transmits only while held; the mapped key shown is from current controls. Blur mutes transmission while retaining the captured track; returning needs deliberate unmute. Reconnect closes the old track and requires new opt-in. Voice settings holds device, mode, remote volume/mute and Disable microphone; it is the only route to those details.
+Mic permission succeeds → applicable mode. Mute/Unmute changes state immediately. The Talk button transmits only while held; the mapped key shown is from current controls. Focus changes preserve explicit microphone mute and release held push-to-talk under [Background voice](background-voice.md). Reconnect closes the old track and requires new opt-in. Voice settings holds device, mode, remote volume/mute and Disable microphone; it is the only route to those details.
 
 ## P2a — Shared P1 controlled by the partner
 
