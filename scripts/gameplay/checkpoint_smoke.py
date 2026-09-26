@@ -1,13 +1,14 @@
 """Exercise real paused checkpoint recovery through the production worker and channel."""
 import time
 
+def worker(page,command):
+ return page.evaluate('''command=>new Promise((resolve,reject)=>{const requestId=window.checkpointProofRequest=(window.checkpointProofRequest??910000)+1;const timer=setTimeout(()=>{currentWorker.removeEventListener('message',receive);reject(Error('Worker proof timed out'))},5000);function receive({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',receive);if(data.type==='error')reject(Error(data.message));else resolve(data);}currentWorker.addEventListener('message',receive);currentWorker.postMessage({...command,requestId});})''',command)
+
 def run(host,guest,mode,relay,out):
  pages=[host,guest]
  def membership(page):
-  return page.evaluate('({id:proof.room.id,host:proof.room.hostMembership,guest:proof.room.guestMembership,self:proof.room.chatMembership,established:proof.room.established})')
+  return page.evaluate('({id:proof.room.id,host:proof.room.hostMembership,members:proof.room.slots.filter(slot=>slot.member).map(slot=>({slot:slot.id,role:slot.role,id:slot.member.id})),self:proof.room.chatMembership,established:proof.room.established})')
  members=[membership(page) for page in pages];cancelled=None;cancel_page=host if relay else guest
- def worker(page,command):
-  return page.evaluate('''command=>new Promise((resolve,reject)=>{const requestId=window.checkpointProofRequest=(window.checkpointProofRequest??910000)+1;const timer=setTimeout(()=>{currentWorker.removeEventListener('message',receive);reject(Error('Worker proof timed out'))},5000);function receive({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',receive);if(data.type==='error')reject(Error(data.message));else resolve(data);}currentWorker.addEventListener('message',receive);currentWorker.postMessage({...command,requestId});})''',command)
  host.get_by_role('button',name='Pause',exact=True).click()
  for page in pages:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
  original=worker(host,{'type':'state-hash'})['info'];assert original==worker(guest,{'type':'state-hash'})['info']
@@ -17,7 +18,7 @@ def run(host,guest,mode,relay,out):
  host.evaluate('''mode=>{window.checkpointProofMode=mode;const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(this.label==='retro-coop-checkpoint'&&data instanceof ArrayBuffer){if(window.checkpointProofMode==='cancel')return;if(window.checkpointProofMode==='corrupt'){data=data.slice(0);new Uint8Array(data)[data.byteLength-1]^=1;}}return send.call(this,data);}}''',mode)
  for page in pages:page.locator('.room-panel').get_by_role('button',name='Ready to resume',exact=True).click()
  if mode=='cancel':
-  cancel_page.wait_for_function("document.querySelector('[data-testid=game-status]').textContent.includes('Synchronizing')",polling=20)
+  cancel_page.get_by_test_id('game-status').filter(has_text='Synchronizing').wait_for()
   cancel=cancel_page.get_by_role('button',name='Cancel synchronization',exact=True)
   cancel.wait_for();cancel.scroll_into_view_if_needed();cancel_page.screenshot(path=str(out.with_suffix('.cancelling.png')))
   cancel.click()
