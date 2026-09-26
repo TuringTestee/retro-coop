@@ -1,12 +1,16 @@
 import {parseGameCommand,type GameCommand,type GameEvent,type GameView} from './gameplay.ts';
 import {validChatText,type ChatCommand,type ChatEvent,type ChatAck} from './chat.ts';
-import {validSlotId,validSlotRole,type SlotId,type SlotRole,type RoomSlot,type PlayerRole} from './slots.ts';
+import {SLOT_IDS,validSlotId,validSlotRole,type SlotId,type SlotRole,type RoomSlot,type PlayerRole} from './slots.ts';
 import {object,keys,text,token} from './protocol-validation.ts';
 import {parsePeerCommand,validPolicy,type PeerCommand,type PeerEvent,type PeerView,type ConnectionPolicy} from './peer.ts';
 import {publicCode,type DirectoryCommand} from './directory.ts';
 /** Room protocol: bounded control and text chat messages. No binary or arbitrary extension fields. */
 export const ROOM_PROTOCOL = 2;
 export const ROOM_METADATA_BYTES = 16384;
+// Each member negotiates at most four pairs; retain finite per-link command headroom.
+export const ROOM_COMMAND_BURST = 60 * (SLOT_IDS.length - 1);
+export const ROOM_GAME_BURST = 40 * (SLOT_IDS.length - 1);
+export const ROOM_WIRE_BURST = 2 * ROOM_COMMAND_BURST;
 export type RoomRole = 'host'|'member';
 export type Visibility = 'public' | 'unlisted';
 import {validFingerprint,type Fingerprint} from './fingerprint.ts';

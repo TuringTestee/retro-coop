@@ -32,7 +32,7 @@ export class GameClient {
   this.room=room;if(!room)return;
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
   if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;}
-  if(room.game.status==='resume_ready'&&this.incoming?.purpose==='controller'){this.cancelIncoming();this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}
+  if(room.game.status==='resume_ready'&&(this.incoming?.purpose==='controller'||[...this.outgoing.values()].some(value=>value.request.purpose==='controller'))){if(this.incoming?.purpose==='controller')this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])if(outgoing.request.purpose==='controller')this.cancelOutgoing(outgoing);this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}
   if(this.scheduler&&room.game.epoch!==this.scheduler.epoch&&!this.authority()&&!room.game.controllers.owners.includes(this.self()))this.clear('Game roles changed. Synchronizing the current game.');
   if(room.game.status==='playing'&&this.observerSlot()&&!this.authority()&&this.loaded()&&!this.scheduler&&!this.incoming&&!this.observeRequested)this.observe();
   if(this.intent&&!room.started)void this.offer();
@@ -141,6 +141,7 @@ export class GameClient {
   try{await this.player()!.holdForGame(false);if(this.incoming!==spec)return;this.scheduler=undefined;await this.send({type:'gameCheckpointReady',epoch:spec.epoch,transferId:spec.transferId});}catch(error){if(this.incoming===spec)this.failIncoming(spec,String(error));}
  }
  private capture(request:Extract<GameEvent,{type:'gameCapture'}>){if(!this.authority()||request.epoch!==this.room?.game.epoch||this.outgoing.size>=4||[...this.outgoing.values()].some(value=>value.request.recipient===request.recipient))return;
+  if(request.purpose==='controller')this.publish({busy:true,synchronizing:true,status:'Synchronizing the assigned player from the preserved host game…'});
   const outgoing:Outgoing={request,timer:setTimeout(()=>this.failOutgoing(outgoing,'Checkpoint transfer timed out.'),CHECKPOINT_TIMEOUT_MS)};this.outgoing.set(request.transferId,outgoing);if(request.purpose==='observer'&&this.committedEpoch!==request.epoch)return;this.exportCapture(outgoing);
  }
  private exportCapture(outgoing:Outgoing){const request=outgoing.request,scheduler=this.scheduler;outgoing.exporting=true;

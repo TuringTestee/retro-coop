@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {Rooms,limits,RoomError} from './rooms.ts';
 import {createCoordinator,shutdown} from './server.ts';
-import {parseRoomCommand,ROOM_METADATA_BYTES,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+import {parseRoomCommand,ROOM_METADATA_BYTES,ROOM_WIRE_BURST,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 const human=(preview:RoomPreview|undefined):HumanRoomPreview=>{assert.ok(preview&&preview.occupancy!==0);return preview as HumanRoomPreview;};
 import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
 import {LOCAL_SCHEMA,LOCAL_SETTINGS} from '../../../packages/contracts/src/fingerprint.ts';
@@ -184,7 +184,7 @@ test('real WebSockets enforce origin/auth/schema and atomic reservations across 
   const race = await Promise.all([a,b].map(socket=>request(socket,{type:'join',intent:randomUUID(),invite})));assert.equal(race.filter(result=>result.ok).length,1);
   const attacker = await connect(), closed = once(attacker,'close');attacker.send(Buffer.from('binary ROM'));assert.equal((await closed)[0],1008);
   const forged = await connect(), invalid = once(forged,'close');forged.send(JSON.stringify({type:'hello',requestId:randomUUID(),filename:'private.nes'}));assert.equal((await invalid)[0],1008);
-  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<121;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
+  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<=ROOM_WIRE_BURST;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
   const large = await connect(), over = once(large,'close');large.send('x'.repeat(ROOM_METADATA_BYTES+1));assert.equal((await over)[0],1009);
   const padded=await connect(),paddingClosed=once(padded,'close');padded.send(JSON.stringify({type:'nickname',requestId:randomUUID(),nickname:'peerSignal'})+' '.repeat(ROOM_METADATA_BYTES+1));assert.equal((await paddingClosed)[0],1009);
  } finally {for(const client of clients) client.terminate();await shutdown(server);}

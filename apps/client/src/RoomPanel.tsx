@@ -202,7 +202,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
    </details> : null}
   </div>}
   </details>}
-  {room&&!!room.started && <section aria-label="Shared gameplay"><p role="status" data-testid="game-status">{room.game?.reason??state.gameplay?.status}</p><p data-testid="game-frame">{state.gameplay?.frame??0} shared frames · delay {state.gameplay?.delay??'negotiating'}</p>
+  {room&&!!room.started && <section aria-label="Shared gameplay"><p role="status" data-testid="game-status">{state.gameplay?.synchronizing?state.gameplay.status:room.game?.reason??state.gameplay?.status}</p><p data-testid="game-frame">{state.gameplay?.frame??0} shared frames · delay {state.gameplay?.delay??'negotiating'}</p>
    {state.gameplay?.synchronizing&&<button onClick={()=>client.current?.cancelSynchronization()}>Cancel synchronization</button>}
    {room.established&&['paused','failed','resume_ready'].includes(room.game.status)&&<>{(selfSlot?.role!=='observer'||room.role==='host')&&<button disabled={!!room.game.pending||!!state.gameplay?.synchronizing} onClick={()=>client.current?.readyToResume()}>Ready to resume</button>}{room.role==='host'&&<button disabled={!!room.game.pending||room.game.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p role="status">{room.game.status==='resume_ready'?`Assigned players are ready. Waiting for ${room.host} to resume.`:'Waiting for the assigned players to prepare.'}</p></>}
    {room.started&&!room.established&&['failed','paused'].includes(room.game.status)&&<button onClick={()=>selfSlot?.role==='observer'?client.current?.observe():client.current?.prepareMember()}>Retry shared play</button>}

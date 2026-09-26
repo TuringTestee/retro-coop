@@ -7,7 +7,7 @@ const id=()=>randomBytes(24).toString('base64url');
 /** Room-owned authority and barriers. Observers never join an active-owner barrier. */
 export class GameSession {
  private host='';private members=new Map<string,Member>();private offers=new Map<string,Offer>();private acks=new Set<string>();private required:string[]=[];
- private transfers=new Map<string,Transfer>();private deadline=0;private hash?:string;private frame=0;private proposed?:ControllerAssignment;
+ private hasPlayed=false;private transfers=new Map<string,Transfer>();private deadline=0;private hash?:string;private frame=0;private proposed?:ControllerAssignment;
  private state:GameView={controllers:{owners:[null,null],revision:0},ready:[],startRequested:false,status:'waiting'};
  private now:()=>number;private send:(member:string,event:GameEvent)=>void;private commitRoles:(pending:RoleTransaction)=>ControllerAssignment;
  constructor(now:()=>number,send:(member:string,event:GameEvent)=>void,commitRoles:(pending:RoleTransaction)=>ControllerAssignment){this.now=now;this.send=send;this.commitRoles=commitRoles;}
@@ -36,8 +36,8 @@ export class GameSession {
   if(this.state.pending)return;
   const required=this.owners();if(required.some(member=>!this.offers.has(member)||!this.available(member)))return;
   const authority=this.offers.get(this.host)!;
-  if(!this.state.epoch){
-   if(!this.state.startRequested)return;
+  if(!this.hasPlayed){
+   if(!this.state.startRequested&&!this.state.epoch)return;
    if(required.some(member=>{const offer=this.offers.get(member)!;return !offer.fresh||offer.frame!==0||offer.hash!==authority.hash;})){this.stop('Initial states differ. Prepare fresh matching games; existing progress is preserved.','failed');return;}
    this.begin(authority.frame,authority.hash);return;
   }
@@ -120,7 +120,7 @@ export class GameSession {
   }
   if(command.type==='gameAck'){
    if(this.state.status!=='starting'||!this.required.includes(member)||command.hash!==this.hash)throw Error('stale_game');this.acks.add(member);
-   if(this.required.every(owner=>this.acks.has(owner))){this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;
+   if(this.required.every(owner=>this.acks.has(owner))){this.hasPlayed=true;this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;
     for(const owner of this.required)this.send(owner,{type:'gameStart',epoch:command.epoch,authority:this.host,frame:this.frame,hash:this.hash!,delay:this.state.delay!,controllers:this.state.controllers});
    }return;
   }

@@ -132,3 +132,10 @@ test('host inspection timeout keeps an explicit fresh Start recovery path',()=>{
  const t=setup(2);t.load(0);t.load(1);t.ready(1);t.start();assert.equal(t.view().game.epoch,undefined);t.advance(10000);assert.equal(t.view().game.status,'failed');
  t.ready(1);t.ready(0);t.start();assert.equal(t.view().game.status,'starting');assert.equal(t.view().occupancy,2);
 });
+test('expired initial barrier retries from explicit fresh offers without becoming an unreachable resume state',()=>{
+ const t=setup(2);t.load(0);t.load(1);t.ready(1);t.ready(0);const old=t.start().room!.game.epoch!;t.advance(10000);
+ assert.equal(t.view().game.status,'failed');assert.equal(t.view().established,false);
+ t.ready(1);t.ready(0);const next=t.view().game.epoch!;assert.notEqual(next,old);assert.equal(t.view().game.status,'starting');
+ assert.throws(()=>t.act(1,{type:'gameAck',epoch:old,hash}),/stale_game/);
+ t.act(0,{type:'gameAck',epoch:next,hash});t.act(1,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);assert.equal(t.view().game.frame,0);
+});
