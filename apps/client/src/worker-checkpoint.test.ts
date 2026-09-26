@@ -12,7 +12,9 @@ async function harness(){
  const hash=await checkpointDigest(new Uint8Array([...bytes.slice(8,40),...payload]).buffer);
  const memory=new WebAssembly.Memory({initial:1});let output:Uint8Array=new Uint8Array(),imports=0,clears=0;
  const emit=(bytes:Uint8Array)=>{output=bytes;new Uint8Array(memory.buffer,4096,bytes.length).set(bytes);return 1;};
- const core={memory,local_state_limit:()=>2*1024*1024,local_state_alloc:()=>1024,local_state_validate:()=>1,local_state_import:()=>{imports++;return 1;},local_rewind_clear:()=>{clears++;},local_state_export:()=>emit(bytes),local_state_hash:()=>emit(Buffer.from(hash,'hex')),local_state_info:()=>emit(new TextEncoder().encode(JSON.stringify({identity}))),local_output:()=>4096,local_output_len:()=>output.length};
+ const allocations=new Set<number>();
+ const consume=(ptr:number)=>assert.equal(allocations.delete(ptr),true,'native state operations consume their allocation exactly once');
+ const core={memory,local_state_limit:()=>2*1024*1024,local_state_alloc:()=>{assert.equal(allocations.has(1024),false);allocations.add(1024);return 1024;},local_state_validate:(ptr:number)=>{consume(ptr);return 1;},local_state_import:(ptr:number)=>{consume(ptr);imports++;return 1;},local_rewind_clear:()=>{clears++;},local_state_export:()=>emit(bytes),local_state_hash:()=>emit(Buffer.from(hash,'hex')),local_state_info:()=>emit(new TextEncoder().encode(JSON.stringify({identity}))),local_output:()=>4096,local_output_len:()=>output.length};
  const messages:contracts.WorkerResponse[]=[];
  const source=readFileSync(new URL('./worker.ts',import.meta.url),'utf8').replace(/^import .*;$/gm,'').replace('let core: Core | undefined;','let core: Core | undefined = injectedCore;');
  let now=0;
@@ -21,7 +23,7 @@ async function harness(){
  const rpc=context.onmessage as unknown as (event:{data:unknown})=>Promise<void>;
  return {bytes:bytes.buffer,hash,messages,rpc,advance:(ms:number)=>{now+=ms;},stats:()=>({imports,clears})};
 }
-test('dedicated peer RPC validates before mutation and restores exact frame/epoch/hash',async()=>{
+test('dedicated peer RPC consumes each native allocation once and restores exact frame/epoch/hash',async()=>{
  const h=await harness();const request={type:'peer-checkpoint-prepare',operationId,requestId:1,epoch,frame:917,bytes:h.bytes,identity,hash:h.hash};
  await h.rpc({data:{...request,hash:'f'.repeat(64)}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-error');assert.deepEqual(h.stats(),{imports:0,clears:0});
  await h.rpc({data:request});assert.deepEqual(h.messages.at(-1),{type:'peer-checkpoint-prepared',requestId:1,operationId,epoch,frame:917,hash:h.hash});assert.deepEqual(h.stats(),{imports:0,clears:0});

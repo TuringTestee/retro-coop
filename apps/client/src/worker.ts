@@ -93,7 +93,8 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     const ptr=core.local_state_alloc(prepared.bytes.byteLength);
     if(!ptr)throw Error('Checkpoint allocation failed');
     new Uint8Array(core.memory.buffer,ptr,prepared.bytes.byteLength).set(new Uint8Array(prepared.bytes));
-    check(core.local_state_validate(ptr,prepared.bytes.byteLength));
+    // Import validates transactionally and consumes this allocation. A separate
+    // validate call here would free the same bytes before import reads them.
     check(core.local_state_import(ptr,prepared.bytes.byteLength));
     core.local_rewind_clear();rewindIssue=undefined;frame=prepared.frame;sharedEpoch=prepared.epoch;fresh=false;
     send({type:'peer-checkpoint-imported',requestId:data.requestId,operationId:data.operationId,epoch:prepared.epoch,frame,hash:prepared.hash});
