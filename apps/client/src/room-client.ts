@@ -146,7 +146,7 @@ export class RoomClient {
   try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
   if(!isCurrent()) return false;
   const room=this.state.room;
-  if(room?.established){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
+  if(room?.established&&!(room.role==='member'&&matchesFile(room.fingerprint,fingerprint)&&!this.player()?.isLoaded(fingerprint))){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
   if(room?.role==='host'&&!matchesFile(room.fingerprint,fingerprint)){this.publish({status:'Leave this room before choosing a different game.'});return false;}
   return true;
  }
