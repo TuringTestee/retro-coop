@@ -50,7 +50,7 @@ test('checkpoint host waits for authorized receiver readiness before exporting o
  const h=await setup('host');try{
   h.game.handle(h.spec);await flush();assert.equal(h.stats().exports,0);assert.equal(h.checkpoint.sent.length,0);
   h.game.handle({type:'gameCheckpointSend',epoch,transferId:'x'.repeat(22)});await flush();assert.equal(h.stats().exports,0);
-  h.game.handle({type:'gameCheckpointSend',epoch,transferId});await until(()=>h.checkpoint.sent.length===2);assert.equal(h.stats().exports,1);assert.equal(h.checkpoint.sent.length,2);
+  h.game.handle({type:'gameCheckpointSend',epoch,transferId});h.game.handle({type:'gameCheckpointSend',epoch,transferId});await until(()=>h.checkpoint.sent.length===2);assert.equal(h.stats().exports,1);assert.equal(h.checkpoint.sent.length,2);
   const metadata=JSON.parse(h.checkpoint.sent[0] as string) as CheckpointMetadata;
   assert.equal(metadata.sender,host);assert.equal(metadata.recipient,guest);assert.equal(metadata.frame,917);assert.equal(metadata.digest,await checkpointDigest(h.bytes));assert.ok(h.checkpoint.sent[1] instanceof ArrayBuffer);
  }finally{h.game.dispose();}
@@ -81,4 +81,11 @@ test('cancelled or departed checkpoint invalidates delayed import authorization 
   finish({frame:917,hash});await flush();assert.deepEqual(h.commands.filter(x=>x.type==='gameCheckpointAck'),[]);if(!leave)assert.equal(h.commands.at(-1)?.type,'gameUnready');
  }finally{h.game.dispose();}
  }
+});
+
+test('oversized checkpoint channel messages fail before allocation or worker import',async()=>{
+ const h=await setup('guest');try{
+  h.game.handle(h.spec);h.checkpoint.receive(new ArrayBuffer(12289));await flush();
+  assert.equal(h.stats().imports,0);assert.equal(h.commands.at(-1)?.type,'gameAbort');
+ }finally{h.game.dispose();}
 });

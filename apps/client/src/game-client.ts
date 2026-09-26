@@ -1,5 +1,5 @@
 import {CheckpointReceiver,CheckpointSender,checkpointDigest} from './checkpoint.ts';
-import {parseCheckpointMetadata,CHECKPOINT_TIMEOUT_MS,CHECKPOINT_BUFFER_BYTES,type CheckpointMetadata} from '../../../packages/contracts/src/checkpoint.ts';
+import {parseCheckpointMetadata,CHECKPOINT_TIMEOUT_MS,CHECKPOINT_BUFFER_BYTES,CHECKPOINT_CHUNK_BYTES,CHECKPOINT_MAX_BYTES,type CheckpointMetadata} from '../../../packages/contracts/src/checkpoint.ts';
 import {defaultControllers,gameplayLimits,parseGamePacket,type ControllerAssignment,type GameCommand,type GameEvent,type GamePacket,type GameReason} from '../../../packages/contracts/src/gameplay.ts';
 import {matchesFile,type Fingerprint,type RoomView} from '../../../packages/contracts/src/rooms.ts';
 import type {LocalPlayer} from './player.ts';
@@ -10,7 +10,7 @@ export type GameplayState={status:string;frame:number;delay?:number;hash?:string
 export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private renew=false;
  private checkpointTransport?:RTCDataChannel;private checkpointPeerEpoch?:string;private checkpointSpec?:Extract<GameEvent,{type:'gameCheckpoint'}>;
- private checkpointSender=new CheckpointSender();private checkpointReceiver=new CheckpointReceiver();private checkpointTimer?:ReturnType<typeof setTimeout>;private checkpointSerial=Promise.resolve();
+ private checkpointSender=new CheckpointSender();private checkpointReceiver=new CheckpointReceiver();private checkpointTimer?:ReturnType<typeof setTimeout>;private checkpointSerial=Promise.resolve();private checkpointQueuedBytes=0;private checkpointQueuedMessages=0;private checkpointExporting?:string;
  private roundTripMs=0;private channel?:RTCDataChannel;private peerEpoch?:string;private inspect?:string;
  private controllers:ControllerAssignment={...defaultControllers};
  private scheduler?:GameScheduler;private prepared?:{epoch:string;delay:number;frame:number};private early:GamePacket[]=[];
@@ -104,6 +104,9 @@ export class GameClient {
   this.cancelCheckpoint();this.checkpointTransport=channel;this.checkpointPeerEpoch=peerEpoch;channel.binaryType='arraybuffer';channel.bufferedAmountLowThreshold=CHECKPOINT_BUFFER_BYTES/2;
   channel.onbufferedamountlow=()=>{if(this.checkpointTransport===channel)this.pumpCheckpoint();};
   channel.onmessage=({data})=>{if(this.checkpointTransport!==channel||this.checkpointPeerEpoch!==peerEpoch)return;
+   const bytes=typeof data==='string'?data.length*2:data instanceof ArrayBuffer?data.byteLength:Infinity;
+   if(bytes>(typeof data==='string'?2048:CHECKPOINT_CHUNK_BYTES)||this.checkpointQueuedBytes+bytes>CHECKPOINT_MAX_BYTES+64*1024||this.checkpointQueuedMessages>=256){this.fail('Checkpoint receive queue exceeded its limit.','network');return;}
+   this.checkpointQueuedBytes+=bytes;this.checkpointQueuedMessages++;
    this.checkpointSerial=this.checkpointSerial.then(async()=>{
     if(this.checkpointTransport!==channel||this.checkpointPeerEpoch!==peerEpoch)return;
     if(typeof data==='string'){const metadata=parseCheckpointMetadata(data);if(!metadata||this.room?.role!=='guest')throw Error('Invalid checkpoint metadata');this.checkpointReceiver.begin(metadata,m=>this.authorizedCheckpoint(m));return;}
@@ -112,13 +115,13 @@ export class GameClient {
     const spec=this.checkpointSpec!,current=()=>this.checkpointSpec===spec&&this.authorizedCheckpoint(result.metadata);
     const restored=await this.player()!.importPeerCheckpoint(spec.epoch,spec.frame,result.bytes,result.metadata.identity,spec.hash,current);
     if(!current())return;await this.send({type:'gameCheckpointAck',epoch:spec.epoch,transferId:spec.transferId,frame:restored.frame,hash:restored.hash});
-   }).catch(error=>{if(this.checkpointTransport===channel&&this.checkpointSpec)this.fail(String(error),'mismatch');});
+   }).catch(error=>{if(this.checkpointTransport===channel&&this.checkpointSpec)this.fail(String(error),'mismatch');}).finally(()=>{this.checkpointQueuedBytes-=bytes;this.checkpointQueuedMessages--;});
   };
  }
  private authorizedCheckpoint(metadata:CheckpointMetadata){
   const spec=this.checkpointSpec;return !!spec&&!!this.intent&&this.checkpointPeerEpoch===this.peerEpoch&&this.room?.peer.epoch===this.peerEpoch&&metadata.transferId===spec.transferId&&metadata.epoch===spec.epoch&&metadata.frame===spec.frame&&metadata.hash===spec.hash&&metadata.sender===this.room?.hostMembership&&metadata.recipient===this.room?.guestMembership;
  }
- private cancelCheckpoint(){this.player()?.cancelPeerCheckpoint();clearTimeout(this.checkpointTimer);this.checkpointTimer=undefined;this.checkpointSpec=undefined;this.checkpointReceiver.cancel();this.checkpointSender.cancel();}
+ private cancelCheckpoint(){this.checkpointExporting=undefined;this.player()?.cancelPeerCheckpoint();clearTimeout(this.checkpointTimer);this.checkpointTimer=undefined;this.checkpointSpec=undefined;this.checkpointReceiver.cancel();this.checkpointSender.cancel();}
  private beginCheckpoint(spec:Extract<GameEvent,{type:'gameCheckpoint'}>){
   if(!this.eligible()||this.peerEpoch!==spec.peerEpoch||this.room?.game?.epoch!==spec.epoch)return;
   this.cancelCheckpoint();this.checkpointSpec=spec;this.publish({busy:true,status:'Synchronizing the host’s paused game…'});
@@ -126,7 +129,7 @@ export class GameClient {
   if(this.room?.role==='guest')void this.send({type:'gameCheckpointReady',epoch:spec.epoch,transferId:spec.transferId}).catch(error=>this.fail(String(error),'network'));
  }
  private sendCheckpoint(spec:Extract<GameEvent,{type:'gameCheckpoint'}>){
-  if(this.room?.role!=='host'||this.checkpointSender.retainedBytes)return;
+  if(this.room?.role!=='host'||this.checkpointSender.retainedBytes||this.checkpointExporting===spec.transferId)return;this.checkpointExporting=spec.transferId;
   void (async()=>{
    const exported=await this.player()!.exportPeerCheckpoint(spec.epoch,spec.frame),digest=await checkpointDigest(exported.bytes);
    const metadata:CheckpointMetadata={transferId:spec.transferId,sender:this.member('host'),recipient:this.member('guest'),epoch:spec.epoch,frame:spec.frame,identity:exported.identity,hash:exported.hash,digest,byteLength:exported.bytes.byteLength};
