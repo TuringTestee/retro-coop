@@ -107,3 +107,10 @@ test('observer replay waits for an in-flight interval hash without skipping that
   assert.deepEqual(other.sent.map(value=>JSON.parse(value as string)),[{kind:'frame',epoch,frame:119,p1:0,p2:2},{kind:'hash',epoch,frame:120,hash},{kind:'live',epoch,transferId,frame:120}]);
  }finally{h.game.dispose();}
 });
+test('observer retries a new epoch even when prior synchronization stopped before a scheduler existed',async()=>{
+ const h=await setup('observer');try{const before=h.commands.filter(c=>c.type==='gameObserve').length;
+  h.game.handle({type:'gameSyncStop',epoch,transferId,reason:'Game epoch is changing.'});
+  const next='n'.repeat(22);h.game.enter({...h.room,game:{...h.room.game,epoch:next}});await flush();
+  assert.equal(h.commands.filter(c=>c.type==='gameObserve').length,before+1);assert.equal(h.updates.at(-1)?.synchronizing,true);
+ }finally{h.game.dispose();}
+});
