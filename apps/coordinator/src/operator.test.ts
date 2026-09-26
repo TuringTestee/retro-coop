@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {once} from 'node:events';
+import {once,EventEmitter} from 'node:events';
 import {randomUUID} from 'node:crypto';
 import {mkdtemp,chmod,stat,rm,symlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -14,9 +14,14 @@ import {listenOperator,operatorRequest,operatorHandler,operatorSocket,type Opera
 
 function confirmation(reply:OperatorReply) {assert.ok('confirmation' in reply);return reply.confirmation;}
 const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}};
-async function fixture(run:(t:{directory:string;url:string;operator:ReturnType<typeof createCoordinator>['operator'];advance:(ms:number)=>void;open:(address:string)=>Promise<{ws:WebSocket;events:any[];command:(value:object)=>Promise<any>}>})=>Promise<void>) {
+async function fixture(run:(t:{directory:string;url:string;operator:ReturnType<typeof createCoordinator>['operator'];advance:(ms:number)=>void;detached:(token:string)=>Promise<unknown>;open:(address:string)=>Promise<{ws:WebSocket;events:any[];command:(value:object)=>Promise<any>}>})=>Promise<void>) {
  const directory=await mkdtemp(join(tmpdir(),'retro-operator-'));await chmod(directory,0o700);
  let now=1000;const server=createCoordinator({origins:['https://client.example'],trustedProxies:['127.0.0.1'],now:()=>now});
+ // Observe the coordinator's close callback after admission cleanup, not the remote
+ // client's earlier close event. This fixture hook does not change runtime behavior.
+ const detachEvents=new EventEmitter(),detach=server.rooms.detach.bind(server.rooms);
+ server.rooms.detach=(...args:Parameters<Rooms['detach']>)=>{detach(...args);detachEvents.emit(args[0]);};
+ const detached=(token:string)=>once(detachEvents,token,{signal:AbortSignal.timeout(1000)});
  const operator=await listenOperator(directory,server.operator),clients:WebSocket[]=[];
  server.listen(0,'127.0.0.1');await once(server,'listening');
  const url=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
@@ -31,7 +36,7 @@ async function fixture(run:(t:{directory:string;url:string;operator:ReturnType<t
   });
   return {ws,events,command};
  };
- try {await run({directory,url,operator:server.operator,advance:ms=>{now+=ms;},open});}
+ try {await run({directory,url,operator:server.operator,advance:ms=>{now+=ms;},detached,open});}
  finally {for(const ws of clients)ws.terminate();operator.closeAllConnections();await new Promise<void>(done=>operator.close(()=>done()));await shutdown(server);await rm(directory,{recursive:true,force:true});}
 }
 test('operator listener requires private owned directory and has no public HTTP or WebSocket command',async()=>{
@@ -71,7 +76,7 @@ test('address block revokes old token, targets canonical proxy client, rejects f
   const token=(await blocked.command({type:'hello'})).data.session.token;await other.command({type:'hello'});
   const list=await operatorRequest(t.directory,{type:'list'});assert.ok('subjects' in list);const subject=list.subjects.find(s=>s.address==='192.0.2.1')!;assert.ok(subject);
   const preview=await operatorRequest(t.directory,{type:'block-address',subjectId:subject.id,seconds:60});
-  const closed=once(blocked.ws,'close');await operatorRequest(t.directory,{type:'confirm',confirmation:confirmation(preview)});assert.equal((await closed)[0],4003);
+  const detached=t.detached(token),closed=once(blocked.ws,'close');await operatorRequest(t.directory,{type:'confirm',confirmation:confirmation(preview)});assert.equal((await closed)[0],4003);await detached;
   assert.equal((await other.command({type:'heartbeat'})).ok,true);
   const retry=await t.open('192.0.2.1'),denied=once(retry.ws,'close');
   retry.ws.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await denied)[0],4003);assert.deepEqual(retry.events,[]);
