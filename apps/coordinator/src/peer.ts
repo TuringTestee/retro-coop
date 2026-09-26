@@ -1,4 +1,4 @@
-import {createHmac,randomBytes} from 'node:crypto';
+import {createHmac,randomBytes,createHash} from 'node:crypto';
 import {effectivePolicy,peerLimits,relaySafe,type ConnectionPolicy,type PeerView,type PeerCommand,type PeerEvent,type IceServer} from '../../../packages/contracts/src/peer.ts';
 export type RelayConfig = {urls:string[];secret:string;rooms:number};
 export function relayConfig(env:NodeJS.ProcessEnv):RelayConfig|undefined {
@@ -7,8 +7,8 @@ export function relayConfig(env:NodeJS.ProcessEnv):RelayConfig|undefined {
  if(!urls.length || urls.some(url=>!/^turns?:[A-Za-z0-9.\[\]:-]+(?:\?transport=(?:udp|tcp))?$/.test(url)) || (env.TURN_SECRET?.length??0)<32 || !Number.isInteger(rooms) || rooms<0 || rooms>20) throw Error('TURN needs explicit URLs, a secret of at least 32 characters, and TURN_ROOM_LIMIT from 0 to 20');
  return {urls,secret:env.TURN_SECRET!,rooms};
 }
-type Member={token:string;policy:ConnectionPolicy;send?:(event:PeerEvent)=>void};
-type Pair={id:string;host:Member;guest:Member;reservation:string};
+export type PeerMember={id:string;token:string;policy:ConnectionPolicy;send?:(event:PeerEvent)=>void};
+type Pair={id:string;roomId:string;host:PeerMember;guest:PeerMember;gameplay:boolean;reservation:string};
 type Round={pair:Pair;epoch:string;policy:ConnectionPolicy;status:PeerView['status'];acks:Set<string>;connected:Set<string>;routes:Map<string,'direct'|'relay'>;candidates:Map<string,number>;descriptions:Set<string>;deadline:number;relay:boolean};
 export class PeerError extends Error {}
 /** No signaling history: only the current bounded, authenticated negotiation is retained. */
@@ -16,16 +16,25 @@ export class PeerBroker {
  private rounds=new Map<string,Round>();
  private now:()=>number;private relay?:RelayConfig;
  constructor(now:()=>number,relay?:RelayConfig) {this.now=now;this.relay=relay;}
- private stop(round:Round,reason:string) {for(const member of [round.pair.host,round.pair.guest]) member.send?.({type:'peerStop',reason});}
+ private stop(round:Round,reason:string) {for(const member of [round.pair.host,round.pair.guest]) member.send?.({type:'peerStop',pairId:round.pair.id,reason});}
  clear(id:string,reason='Peer left the room.') {const round=this.rounds.get(id);if(round) this.stop(round,reason);this.rounds.delete(id);}
- view(id:string,policy:ConnectionPolicy):PeerView {const round=this.rounds.get(id);return round ? {epoch:round.epoch,policy:round.policy,status:round.status}:{policy,status:'waiting'};}
+ views(roomId:string,member:string):PeerView[]{return [...this.rounds.values()].filter(round=>round.pair.roomId===roomId&&[round.pair.host.id,round.pair.guest.id].includes(member)).map(round=>({pairId:round.pair.id,member:round.pair.host.id===member?round.pair.guest.id:round.pair.host.id,gameplay:round.pair.gameplay,epoch:round.epoch,policy:round.policy,status:round.status}));}
+ clearRoom(roomId:string,reason='Room closed.'){for(const [pairId,round] of this.rounds)if(round.pair.roomId===roomId)this.clear(pairId,reason);}
+ syncRoom(roomId:string,members:PeerMember[],authority:string){
+  const sorted=[...members].sort((a,b)=>a.id.localeCompare(b.id)),retained=new Set<string>();
+  for(let a=0;a<sorted.length;a++)for(let b=a+1;b<sorted.length;b++){
+   const host=sorted[a],guest=sorted[b],pairId=createHash('sha256').update(roomId+host.id+guest.id).digest('hex');retained.add(pairId);
+   this.sync({id:pairId,roomId,host,guest,gameplay:host.id===authority||guest.id===authority,reservation:host.id+guest.id},pairId);
+  }
+  for(const [pairId,round] of this.rounds)if(round.pair.roomId===roomId&&!retained.has(pairId))this.clear(pairId);
+ }
  sync(pair:Pair|undefined,id:string) {
   if(!pair?.host.send || !pair.guest.send) {this.clear(id);return;}
   const policy=effectivePolicy(pair.host.policy,pair.guest.policy),old=this.rounds.get(id);
   if(old && old.pair.reservation===pair.reservation && old.policy===policy && old.pair.host.policy===pair.host.policy && old.pair.guest.policy===pair.guest.policy && old.pair.host.send===pair.host.send && old.pair.guest.send===pair.guest.send) return;
   this.clear(id,'Connection policy or membership changed.');
   const occupied=[...this.rounds.values()].filter(round=>round.relay).length;
-  const relay=!!this.relay && occupied<this.relay.rooms;
+  const relay=!!this.relay && occupied<this.relay.rooms*10;
   const status:Round['status']=policy==='relay' && !relay ? this.relay ? 'relay_capacity':'relay_unavailable':'preparing';
   const round:Round={pair:{...pair,host:{...pair.host},guest:{...pair.guest}},epoch:randomBytes(24).toString('base64url'),policy,status,acks:new Set(),connected:new Set(),routes:new Map(),candidates:new Map(),descriptions:new Set(),deadline:this.now()+peerLimits.prepareMs,relay};
   this.rounds.set(id,round);
@@ -37,18 +46,18 @@ export class PeerBroker {
     const username=`${Math.floor(this.now()/1000)+300}:${randomBytes(12).toString('hex')}`;
     iceServers.push({urls:this.relay!.urls,username,credential:createHmac('sha1',this.relay!.secret).update(username).digest('base64')});
    }
-   member.send!({type:'peerPrepare',epoch:round.epoch,role:member.token===pair.host.token?'host':'guest',policy,iceServers});
+   member.send!({type:'peerPrepare',pairId:pair.id,member:member.id===pair.host.id?pair.guest.id:pair.host.id,gameplay:pair.gameplay,epoch:round.epoch,offerer:member.id===pair.host.id,policy,iceServers});
   }
  }
- handle(id:string,token:string,command:Exclude<PeerCommand,{type:'peerPolicy'}>) {
-  const round=this.rounds.get(id);
-  if(!round || round.epoch!==command.epoch || ![round.pair.host.token,round.pair.guest.token].includes(token)) throw new PeerError('stale_peer');
+ handle(roomId:string,token:string,command:Exclude<PeerCommand,{type:'peerPolicy'}>) {
+  const id=command.pairId,round=this.rounds.get(id);
+  if(!round || round.pair.roomId!==roomId || round.epoch!==command.epoch || ![round.pair.host.token,round.pair.guest.token].includes(token)) throw new PeerError('stale_peer');
   if(command.type==='peerRetry') {this.clear(id,'Retrying connection.');return;}
   if(command.type==='peerFailed') {round.status='failed';round.relay=false;this.stop(round,'Connection failed. Retry or stay in the room.');return;}
   if(command.type==='peerAck') {
    if(round.status!=='preparing') throw new PeerError('stale_peer');
    round.acks.add(token);
-   if(round.acks.size===2) {round.status='connecting';round.deadline=this.now()+peerLimits.connectMs;for(const member of [round.pair.host,round.pair.guest]) member.send!({type:'peerStart',epoch:round.epoch});}
+   if(round.acks.size===2) {round.status='connecting';round.deadline=this.now()+peerLimits.connectMs;for(const member of [round.pair.host,round.pair.guest]) member.send!({type:'peerStart',pairId:id,epoch:round.epoch});}
    return;
   }
   if(command.type==='peerConnected') {if(!['connecting','connected'].includes(round.status)) throw new PeerError('stale_peer');round.connected.add(token);if(round.connected.size===2) round.status='connected';return;}
@@ -65,11 +74,11 @@ export class PeerBroker {
    if(signal.description.type!==(host?'offer':'answer') || round.descriptions.has(token)) throw new PeerError('invalid_peer_description');
    round.descriptions.add(token);
   } else {const count=(round.candidates.get(token)??0)+1;if(count>peerLimits.candidates) throw new PeerError('peer_candidate_limit');round.candidates.set(token,count);}
-  (host?round.pair.guest:round.pair.host).send!({type:'peerSignal',epoch:round.epoch,signal});
+  (host?round.pair.guest:round.pair.host).send!({type:'peerSignal',pairId:id,epoch:round.epoch,signal});
  }
  sweep():string[] {
   const changed:string[]=[];
-  for(const [id,round] of this.rounds) if(['preparing','connecting'].includes(round.status) && this.now()>=round.deadline) {round.status='failed';round.relay=false;this.stop(round,'Connection timed out. Retry or stay in the room.');changed.push(id);}
+  for(const [id,round] of this.rounds) if(['preparing','connecting'].includes(round.status) && this.now()>=round.deadline) {round.status='failed';round.relay=false;this.stop(round,'Connection timed out. Retry or stay in the room.');changed.push(round.pair.roomId);}
   return changed;
  }
 }

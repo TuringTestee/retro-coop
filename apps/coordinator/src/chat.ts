@@ -4,7 +4,7 @@ import {type ChatAck,type ChatMessage} from '../../../packages/contracts/src/cha
 /** Room-owned retry receipts only: raw messages are broadcast without server history. */
 export class RoomChat {
  private accepted=new Map<string,{clientId:string;digest:string;id:string}>();
- send(member:string,clientId:string,text:string,sender:'host'|'guest',nickname:string,at:number):{ack:ChatAck;message?:ChatMessage} {
+ send(member:string,clientId:string,text:string,sender:'host'|'member',nickname:string,at:number):{ack:ChatAck;message?:ChatMessage} {
   const digest=createHash('sha256').update(text).digest('hex'),last=this.accepted.get(member);
   if(last?.clientId===clientId) {
    if(last.digest!==digest) throw Error('chat_retry_changed');
