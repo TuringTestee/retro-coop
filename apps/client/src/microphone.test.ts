@@ -14,11 +14,23 @@ test('late permission grant after leaving stops capture and cannot attach to rep
  const f=fixture(),operation=f.microphone.enable();await tick();f.microphone.endpoint();const media=f.stream();f.pending[0](media.stream);await operation;
  assert.equal(media.track.stopped,true);assert.equal(f.sent.some(Boolean),false);assert.equal(f.state().phase,'off');
 });
-test('blur during permission request stays muted; push-to-talk release and device end stop transmission',async()=>{
+test('focus changes preserve open microphone and explicit mute, including pending permission',async()=>{
  const f=fixture(),operation=f.microphone.enable();await tick();f.microphone.blur();const media=f.stream();f.pending[0](media.stream);await operation;
- assert.equal(media.track.enabled,false);f.microphone.mute(false);assert.equal(media.track.enabled,true);
+ assert.equal(media.track.enabled,true);f.microphone.blur();assert.equal(media.track.enabled,true);
+ f.microphone.mute(true);f.microphone.blur();assert.equal(media.track.enabled,false);assert.equal(f.state().muted,true);
+ f.microphone.mute(false);f.microphone.blur();assert.equal(media.track.enabled,true);
+});
+test('explicit mute during pending permission remains silent after permission and focus changes',async()=>{
+ const f=fixture(),operation=f.microphone.enable();await tick();f.microphone.mute(true);f.microphone.blur();const media=f.stream();f.pending[0](media.stream);await operation;
+ assert.equal(media.track.enabled,false);assert.equal(f.state().muted,true);
+ f.microphone.mute(false);assert.equal(media.track.enabled,true);
+});
+test('focus loss releases push-to-talk without changing mute; device end stops capture',async()=>{
+ const f=fixture(),operation=f.microphone.enable();await tick();const media=f.stream();f.pending[0](media.stream);await operation;
  f.microphone.mode('push');assert.equal(media.track.enabled,false);f.microphone.hold(true);assert.equal(media.track.enabled,true);
- f.microphone.blur();f.microphone.hold(true);assert.equal(media.track.enabled,false);
+ f.microphone.blur();assert.equal(media.track.enabled,false);assert.equal(f.state().muted,false);
+ f.microphone.hold(true);assert.equal(media.track.enabled,true);
+ f.microphone.mute(true);f.microphone.blur();f.microphone.hold(true);assert.equal(media.track.enabled,false);
  media.track.dispatchEvent(new Event('ended'));assert.equal(media.track.stopped,true);assert.equal(f.state().phase,'error');
 });
 test('switching devices stops the old capture and requires deliberate unmute',async()=>{
