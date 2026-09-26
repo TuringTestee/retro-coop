@@ -24,7 +24,7 @@ function setup(count=5){
  const captures=()=>events[0].filter(e=>e.type==='gameCapture');
  const authorize=(transfer:Extract<RoomEvent,{type:'gameCapture'}>,frame=917)=>{act(0,{type:'gameCaptured',epoch:transfer.epoch,transferId:transfer.transferId,frame,hash});const who=members.indexOf(transfer.recipient);act(who,{type:'gameCheckpointReady',epoch:transfer.epoch,transferId:transfer.transferId});return who;};
  const ack=(transfer:Extract<RoomEvent,{type:'gameCapture'}>,who:number,frame=917)=>act(who,{type:'gameCheckpointAck',epoch:transfer.epoch,transferId:transfer.transferId,frame,hash});
- return {rooms,sessions,senders,events,members,intents,act,view,load,ready,start,begin,role,captures,authorize,ack,advance(ms:number){now+=ms;for(let i=0;i<count;i++)act(i,{type:'heartbeat'});rooms.sweep();}};
+ return {rooms,sessions,senders,events,members,intents,act,view,load,ready,start,begin,role,captures,authorize,ack,advance(ms:number){while(ms>0){const step=Math.min(ms,10000);now+=step;ms-=step;for(let i=0;i<count;i++)act(i,{type:'heartbeat'});rooms.sweep();}}};
 }
 test('matching loaded files and all active-owner acknowledgements precede play; observers are not barriers',()=>{
  const t=setup();assert.throws(()=>t.ready(1),/game_prerequisites/);t.act(1,{type:'file',fingerprint:{...fingerprint,romSha256:otherHash}});assert.throws(()=>t.ready(1),/game_prerequisites/);
@@ -122,7 +122,7 @@ test('new member joining while role import is held invalidates the old transacti
 test('role checkpoint deadline preserves mapping and frame, permits explicit retry, and rejects expired transfer',()=>{
  const t=setup(),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');const transactionId=t.view().game.pending!.id;t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const expired=t.captures().at(-1)!;t.authorize(expired);
  t.advance(30000);assert.equal(t.view().game.pending?.status,'failed');assert.equal(t.view().game.frame,917);assert.deepEqual(t.view().game.controllers,old);assert.throws(()=>t.ack(expired,2),/stale_checkpoint/);
- t.act(0,{type:'gameRoleRetry',transactionId});t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const retry=t.captures().at(-1)!;assert.notEqual(retry.transferId,expired.transferId);t.ack(retry,t.authorize(retry));assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);
+ t.act(0,{type:'gameRoleRetry',transactionId});t.act(0,{type:'gameFrozen',epoch,frame:917,hash});assert.equal(t.view().game.pending?.status,'synchronizing');const retry=t.captures().at(-1)!;assert.notEqual(retry.transferId,expired.transferId);t.ack(retry,t.authorize(retry));assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);
 });
 test('retracted starting owner cannot use an already issued barrier acknowledgement',()=>{
  const t=setup(2);t.load(0);t.load(1);t.ready(0);t.ready(1);const epoch=t.start().room!.game.epoch!;
