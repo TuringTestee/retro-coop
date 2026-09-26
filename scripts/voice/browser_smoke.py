@@ -114,7 +114,7 @@ try:
         panel = open_room(tab)
         panel.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
         tab.wait_for_function(
-            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Connected member links use the relay route.':'Connected member links use the direct route.')",
+            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Relay only is on. Connected through the relay.':'Connected member links use the direct route.')",
             arg="relay" if args.relay else "direct",
         )
         if args.relay:
