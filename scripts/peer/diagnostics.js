@@ -1,8 +1,9 @@
 // Test-only, bounded transition evidence. Never retain SDP, addresses, credentials or payloads.
 (() => {
- const trace=[], peers=[], epochs=new Map();
+ const trace=[], peers=[], epochs=new Map(), pairs=new Map();
  const record=(kind,detail={})=>{trace.push({ms:Math.round(performance.now()),kind,...detail});if(trace.length>200)trace.shift();};
  const epoch=value=>{if(!value)return undefined;if(!epochs.has(value))epochs.set(value,epochs.size+1);return epochs.get(value);};
+ const pair=value=>{if(!value)return undefined;if(!pairs.has(value))pairs.set(value,pairs.size+1);return pairs.get(value);};
  const messageType=data=>{try{const type=JSON.parse(data).type;return ['transportProbe','transportReply'].includes(type)?type:'other';}catch{return 'invalid';}};
  const watch=(channel,id)=>{
   record('channel-observed',{id,state:channel.readyState});
@@ -20,10 +21,10 @@
  window.WebSocket=class extends Socket {
   constructor(...args){super(...args);this.addEventListener('message',event=>{
    const value=JSON.parse(event.data);
-   if(['peerPrepare','peerStart','peerSignal','peerStop'].includes(value.type))record('signaling-in',{type:value.type,epoch:epoch(value.epoch)});
-   if(value.type==='room')record('room',{epoch:epoch(value.room.peer.epoch),status:value.room.peer.status});
+   if(['peerPrepare','peerStart','peerSignal','peerStop'].includes(value.type))record('signaling-in',{type:value.type,pair:pair(value.pairId),epoch:epoch(value.epoch)});
+   if(value.type==='room')for(const peer of value.room.peers)record('room',{pair:pair(peer.pairId),epoch:epoch(peer.epoch),status:peer.status});
   });}
-  send(raw){const value=JSON.parse(raw);if(['peerAck','peerSignal','peerConnected','peerFailed','peerRetry','peerPolicy'].includes(value.type))record('signaling-out',{type:value.type,epoch:epoch(value.epoch),signal:value.signal?.kind});super.send(raw);}
+  send(raw){const value=JSON.parse(raw);if(['peerAck','peerSignal','peerConnected','peerFailed','peerRetry','peerPolicy'].includes(value.type))record('signaling-out',{type:value.type,pair:pair(value.pairId),epoch:epoch(value.epoch),signal:value.signal?.kind});super.send(raw);}
  };
  const Peer=RTCPeerConnection;
  window.RTCPeerConnection=class extends Peer {
