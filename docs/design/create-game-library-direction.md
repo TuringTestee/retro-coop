@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game direction
 
+The [stable layout amendment](stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.
+
 | Source | Behavior and replacement |
 | --- | --- |
 | User direction, 2026-09-23 | Separate Create Game from the main lobby browser. Replace the current inline **Host your NES file** bar with one **Create game** entry action. |
