@@ -362,7 +362,7 @@ export class LocalPlayer {
      const committed=this.expectedFrame;this.expectedFrame=undefined;
      this.canvas.getContext('2d')?.putImageData(new ImageData(new Uint8ClampedArray(data.pixels),256,240),0,0);
      if(this.state.running) this.audio.play(data.audio);
-     this.publish({frames:this.state.frames+1,rewind:data.rewind});
+     this.publish({frames:data.frame===undefined?this.state.frames+1:data.frame+1,rewind:data.rewind});
      if(committed && this.game?.epoch===committed.epoch){this.gameFrames++;this.gameProgressAt=performance.now();this.game.committed(committed.frame);}
      if(this.game?.draining())this.drainGame();
      else if(this.game)this.pumpGame();
