@@ -97,7 +97,7 @@ export class Rooms {
  private publish(room:Room,directory=true){
   const members=this.members(room);
   this.peers.syncRoom(room.id,room.confirmed?members.map(member=>({id:member.id,token:member.session.token,policy:member.session.policy,send:member.reconnectUntil?undefined:member.session.send})):[],room.intent);
-  room.game.configure(room.intent,members.map(member=>({id:member.id,connected:!!member.session.send&&!member.reconnectUntil,loaded:!!member.file&&matchesFile(room.fingerprint,member.file)&&member.acquisition==='loaded',transport:this.peers.views(room.id,member.id).some(peer=>peer.member===room.intent&&peer.status==='connected')})),room.controllers);
+  room.game.configure(room.intent,members.map(member=>({id:member.id,connected:!!member.session.send&&!member.reconnectUntil,loaded:!!member.file&&matchesFile(room.fingerprint,member.file)&&member.acquisition==='loaded',transport:this.peers.views(room.id,member.id).some(peer=>peer.member===room.intent&&peer.status==='connected')})),room.controllers,room.revision);
   for(const member of members)member.session.send?.({type:'room',room:this.view(room,member.session)});
   for(const session of this.sessions.values())if(session.previewInvite===room.invite)session.send?.({type:'preview',preview:this.preview(room)});if(directory)this.publishDirectory();
  }

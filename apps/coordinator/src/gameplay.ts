@@ -14,12 +14,12 @@ export class GameSession {
  view():GameView{return {...this.state,ready:[...this.offers.keys()],frame:this.frame};}
  private all(event:GameEvent){for(const member of this.members.keys())this.send(member,event);}
  private owners(assignment=this.state.controllers){return [...new Set([this.host,...assignment.owners.filter((owner):owner is string=>!!owner)])];}
- configure(host:string,members:Member[],controllers:ControllerAssignment){
+ configure(host:string,members:Member[],controllers:ControllerAssignment,revision?:number){
   const previous=this.members;this.host=host;this.members=new Map(members.map(member=>[member.id,member]));
   if(!this.state.pending)this.state.controllers=controllers;
   const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.transport&&!this.members.get(old.id)!.transport);
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
-  if(changed&&this.state.pending)this.failTransaction('Membership changed. Previous roles and game progress are preserved.');
+  if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Membership changed. Previous roles and game progress are preserved.');
   if(this.state.status==='playing'&&this.owners().some(owner=>!this.available(owner)))this.freeze('A controller owner disconnected. Game progress is preserved.');
  }
  private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(member===this.host||value.transport);}
@@ -69,7 +69,7 @@ export class GameSession {
  private finishTransaction(){
   const pending=this.state.pending;if(!pending||pending.status!=='synchronizing'||this.transfers.size)return;
   if(this.owners(this.proposed).some(member=>!this.available(member))){this.failTransaction('A proposed controller is unavailable. Retry or cancel the role change.');return;}
-  this.state.controllers=this.commitRoles(pending);this.state.pending=undefined;this.proposed=undefined;
+  try{this.state.controllers=this.commitRoles(pending);}catch{this.failTransaction('Room membership or slots changed. Previous roles and game progress are preserved.');return;}this.state.pending=undefined;this.proposed=undefined;
   this.begin(this.frame,this.hash!);
  }
  private capture(recipient:string,purpose:CheckpointPurpose){
