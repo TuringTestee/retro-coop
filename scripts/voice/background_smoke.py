@@ -136,19 +136,23 @@ def run(playwright, url, mode, output, headed):
 
         host.bring_to_front()
         host.get_by_label('Voice mode', exact=True).select_option('push')
-        host.get_by_role('button', name='Hold to talk', exact=True).focus()
-        host.keyboard.down('Space')
-        host.wait_for_function('captures.at(-1).getAudioTracks()[0].enabled')
-        background_host()
-        host.wait_for_function('!captures.at(-1).getAudioTracks()[0].enabled')
-        host.bring_to_front()
-        host.keyboard.up('Space')
-        assert host.get_by_role('button', name='Mute microphone', exact=True).is_visible()
-        assert not host.evaluate('captures.at(-1).getAudioTracks()[0].enabled')
-        host.get_by_role('button', name='Hold to talk', exact=True).focus()
-        host.keyboard.down('Space')
-        host.wait_for_function('captures.at(-1).getAudioTracks()[0].enabled')
-        host.keyboard.up('Space')
+        for key in ['Space', 'Enter']:
+            host.get_by_role('button', name='Hold to talk', exact=True).focus()
+            host.keyboard.down(key)
+            host.wait_for_function('captures.at(-1).getAudioTracks()[0].enabled')
+            background_host()
+            host.wait_for_function('!captures.at(-1).getAudioTracks()[0].enabled')
+            host.bring_to_front()
+            # Repeating down without keyup generates a real repeat event through the browser.
+            host.keyboard.down(key)
+            host.wait_for_timeout(150)
+            assert not host.evaluate('captures.at(-1).getAudioTracks()[0].enabled'), 'old held key resumed transmission'
+            assert host.get_by_role('button', name='Mute microphone', exact=True).is_visible()
+            host.keyboard.up(key)
+            host.keyboard.down(key)
+            host.wait_for_function('captures.at(-1).getAudioTracks()[0].enabled')
+            host.keyboard.up(key)
+            host.wait_for_function('!captures.at(-1).getAudioTracks()[0].enabled')
         host.get_by_label('Voice mode', exact=True).select_option('open')
 
         # The same session reaches shared play; focus changes preserve voice and frame progress.

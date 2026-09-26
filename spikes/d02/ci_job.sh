@@ -32,9 +32,13 @@ if [ "$D02_JOB" = entrypoint ]; then
   timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
   RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py
   npm run build
-  timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice
+  # Isolated servers and browser profiles let audio proof overlap the entry journey.
+  # The enclosing CI namespace owns cleanup if either bounded probe fails.
+  timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice &
+  D02_VOICE_PID=$!
   timeout --foreground 30s python3 scripts/featured/solo_release_browser.py --output spikes/d02/public-entrypoint.local/solo-release
   timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
+  wait "$D02_VOICE_PID"
   timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility unlisted --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-unlisted
   timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery
   timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
