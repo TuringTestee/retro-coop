@@ -18,7 +18,7 @@ test('both authenticated members acknowledge effective relay before any signal i
  const t=setup(2),{host,peer,room}=t.pair('relay'),epoch=room.peers[0].epoch!;
  const prepared=host.events.find(event=>event.type==='peerPrepare');assert.ok(prepared?.type==='peerPrepare');assert.equal(prepared.policy,'relay');
  const ice=prepared.iceServers[0];assert.equal(ice.credential,createHmac('sha1',t.secret).update(ice.username!).digest('base64'));assert.ok(Number(ice.username!.split(':')[0])<=301);
- const offer={kind:'description',description:{type:'offer',sdp:'v=0\r\n'}} as const;
+ const offer={kind:'description' as const,description:{type:prepared.offerer?'offer' as const:'answer' as const,sdp:'v=0\r\n'}};
  assert.throws(()=>t.act(host.token,{type:'peerSignal',epoch,signal:offer}),/peer_not_prepared/);
  t.act(host.token,{type:'peerAck',epoch});assert.equal(host.events.some(event=>event.type==='peerStart'),false);
  t.act(peer.token,{type:'peerAck',epoch});assert.equal(host.events.some(event=>event.type==='peerStart'),true);
