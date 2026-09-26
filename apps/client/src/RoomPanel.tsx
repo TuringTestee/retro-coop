@@ -76,22 +76,22 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   }
   client.current?.beginSelection();
   const operation={id,controller:new AbortController(),membership,candidate:false,sawLoading:false};included.current=operation;
-  setIncludedBusy(id);setIncludedStatus(`Downloading ${entry.title}…`);
+  setIncludedBusy(id);setIncludedStatus(`Downloading ${entry.title}…`);if(state.room)void client.current?.memberAcquisition(state.room.id,state.room.chatMembership,'downloading');
   const current=()=>included.current===operation && !operation.controller.signal.aborted;
   const timeout=window.setTimeout(()=>operation.controller.abort(Error('The included download timed out. Retry the download.')),15000);
   try {
    const file=await downloadCatalogEntry(entry,operation.controller.signal,bytes=>{if(current())setIncludedStatus(`Downloading ${entry.title}: ${bytes} / ${entry.bytes} bytes`);});
    if(!current())return;
-   operation.candidate=true;setIncludedStatus(`Download verified. Preparing ${entry.title}…`);if(!onAcquired(file,current))throw Error(`Could not start ${entry.title}. Retry download.`);
+   operation.candidate=true;setIncludedStatus(`Download verified. Preparing ${entry.title}…`);if(state.room)void client.current?.memberAcquisition(state.room.id,state.room.chatMembership,'loading');if(!onAcquired(file,current))throw Error(`Could not start ${entry.title}. Retry download.`);
   }catch(error){
-   if(included.current===operation){included.current=undefined;setIncludedBusy(undefined);setIncludedStatus(error instanceof Error ? error.message : 'Download failed. Retry the included game.');}
+   if(included.current===operation){if(state.room)void client.current?.memberAcquisition(state.room.id,state.room.chatMembership,'failed');included.current=undefined;setIncludedBusy(undefined);setIncludedStatus(error instanceof Error ? error.message : 'Download failed. Retry the included game.');}
   }finally{clearTimeout(timeout);}
  };
  useEffect(()=>{const operation=included.current;if(operation && operation.membership!==membership)cancelIncluded(state.releaseNotice?'':'The room changed. Included loading canceled; your previous game is preserved.');},[membership]);
  useEffect(()=>{if(state.releaseNotice){cancelIncluded('');setIncludedStatus('');}},[state.releaseNotice]);
  useEffect(()=>{const room=memberRoom.current;if(room?.role==='member'&&!room.catalogId)void startMember(room);else{cancelMember();setMemberAcquisition(undefined);}return()=>{cancelMember();};},[membership]);
  useEffect(()=>{if(!state.connected&&memberOperation.current){cancelMember();setMemberAcquisition({phase:'failed',message:'Room connection lost. Reconnect rooms, then retry download.'});}},[state.connected]);
- useEffect(()=>{const operation=memberOperation.current;if(!operation||!memberCurrent(operation)||memberAcquisition?.phase!=='loading')return;if(selectionLoading){operation.sawLoading=true;return;}if(operation.sawLoading){if(fingerprint&&matchesFile(memberRoom.current!.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){setMemberAcquisition({...memberAcquisition,phase:'loaded',message:'Game ready in this browser.'});void client.current?.memberAcquisition(operation.roomId,operation.membership,'loaded');}else{setMemberAcquisition({...memberAcquisition,phase:'failed',message:'The game could not load. Retry download.'});void client.current?.memberAcquisition(operation.roomId,operation.membership,'failed');}}},[selectionLoading,fingerprint,memberAcquisition?.phase]);
+ useEffect(()=>{const operation=memberOperation.current;if(!operation||!memberCurrent(operation)||memberAcquisition?.phase!=='loading')return;if(selectionLoading){operation.sawLoading=true;return;}if(operation.sawLoading){if(fingerprint&&matchesFile(memberRoom.current!.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){setMemberAcquisition({...memberAcquisition,phase:'loaded',message:'Game ready in this browser.'});}else{setMemberAcquisition({...memberAcquisition,phase:'failed',message:'The game could not load. Retry download.'});void client.current?.memberAcquisition(operation.roomId,operation.membership,'failed');}}},[selectionLoading,fingerprint,memberAcquisition?.phase]);
  useEffect(()=>{
   const operation=included.current;if(!operation?.candidate)return;
   if(selectionLoading){operation.sawLoading=true;return;}

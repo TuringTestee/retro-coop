@@ -51,7 +51,7 @@ export class RoomClient {
  private uploadAbort?:AbortController;
  private generation = 0;
  private creationGeneration = 0;
- private selectedFile?:Fingerprint;private hostLoad?:string;
+ private selectedFile?:Fingerprint;private loadedReport?:string;
  private joining?:string;
  private previewingId?:string;
  private previewingInvite?:string;
@@ -64,7 +64,7 @@ export class RoomClient {
   if(room&&room.id!==this.voluntaryExitRoomId)this.voluntaryExitRoomId=undefined;
   // A guest admitted from an invitation still needs its preview after removal.
   if(room&&room.id!==this.previewingId){this.previewingInvite=undefined;this.previewingId=undefined;}
-  this.game.enter(room);this.publish({room,chat:this.chat.enter(room),...(room?{releaseNotice:undefined}:{})});this.reportHostLoaded();
+  this.game.enter(room);this.publish({room,chat:this.chat.enter(room),...(room?{releaseNotice:undefined}:{})});this.reportLoadedGame();
   if(!room)this.closePeers('Room closed.',true);else for(const [id,peer] of this.peers)if(!room.peers.some(view=>view.pairId===id)){peer.close('Member left.');this.peers.delete(id);this.peerStates.delete(id);}
  }
  private apply(data:RoomData) {
@@ -210,8 +210,8 @@ export class RoomClient {
  memberToken(){return this.token;}
  async memberAcquisition(roomId:string,membership:string,phase:'checking'|'downloading'|'loading'|'loaded'|'failed'){if(this.state.room?.id!==roomId||this.state.room.chatMembership!==membership)return false;try{await this.request({type:'memberAcquisition',roomId,membership,phase});return true;}catch(error){if(this.state.room?.id===roomId&&this.state.room.chatMembership===membership)this.publish({status:error instanceof Error?error.message:'Room status could not update. Reconnect rooms.'});return false;}}
 
- private reportHostLoaded(){const room=this.state.room,file=this.selectedFile;if(!room||room.role!=='host'||!file||!matchesFile(room.fingerprint,file)||!this.player()?.isLoaded(file)||room.slots.find(slot=>slot.member?.id===room.chatMembership)?.member?.acquisition==='loaded')return;const key=room.id+room.chatMembership;if(this.hostLoad===key)return;this.hostLoad=key;void this.request({type:'memberAcquisition',roomId:room.id,membership:room.chatMembership,phase:'loaded'}).then(data=>{if(this.state.room?.id===room.id&&this.state.room.chatMembership===room.chatMembership)this.apply(data);}).catch(error=>{if(this.hostLoad===key){this.hostLoad=undefined;this.failure(error);}});}
- selectedGame(file:Fingerprint){this.selectedFile=file;this.game.selected(file);this.reportHostLoaded();}
+ private reportLoadedGame(){const room=this.state.room,file=this.selectedFile;if(!room||!file||!matchesFile(room.fingerprint,file)||!this.player()?.isLoaded(file)||room.slots.find(slot=>slot.member?.id===room.chatMembership)?.member?.acquisition==='loaded')return;const key=room.id+room.chatMembership;if(this.loadedReport===key)return;this.loadedReport=key;void this.request({type:'memberAcquisition',roomId:room.id,membership:room.chatMembership,phase:'loaded'}).then(data=>{if(this.state.room?.id===room.id&&this.state.room.chatMembership===room.chatMembership)this.apply(data);}).catch(error=>{if(this.loadedReport===key){this.loadedReport=undefined;this.failure(error);}}).finally(()=>{if(this.loadedReport===key)this.loadedReport=undefined;});}
+ selectedGame(file:Fingerprint){this.selectedFile=file;this.game.selected(file);this.reportLoadedGame();}
  isMember(){return this.state.room?.role==='member';}
  observe(){this.game.observe();}
  retryGame(){this.game.retry();}
