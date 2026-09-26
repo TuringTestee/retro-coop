@@ -8,7 +8,7 @@ import {clearLocalData,deleteRom,putRom,readRom} from './saves.ts';
 
 const bytes=Uint8Array.from({length:16+16384},(_,i)=>i<4?[0x4e,0x45,0x53,0x1a][i]:i===4?1:0);
 const hash=createHash('sha256').update(bytes).digest('hex');
-const room={id:'r'.repeat(43),role:'guest',chatMembership:'m'.repeat(43),fingerprint:{romSha256:hash,cartridge:{bytes:bytes.length}}} as RoomView;
+const room={id:'r'.repeat(43),role:'member',chatMembership:'m'.repeat(43),fingerprint:{romSha256:hash,cartridge:{bytes:bytes.length}}} as RoomView;
 const response=()=>new Response(bytes.slice(),{headers:{'Content-Length':String(bytes.length)}});
 const token='t'.repeat(43),signal=new AbortController().signal;
 (globalThis as {location?:{href:string}}).location={href:'http://127.0.0.1:5173/'};
