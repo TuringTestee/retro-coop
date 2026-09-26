@@ -2,6 +2,8 @@ Audience: Human
 
 # Included games and arbitrary NES files
 
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+
 Visitors can join ordinary public rooms for Super Tilt Bro or From Below without choosing a local ROM. They can also drop their own NES files and host internet rooms; the included catalog never limits which titles they may try.
 
 The approved [lobby experience amendment](lobby-refactor.md) replaces the launchers below with ordinary 0/2 public rooms and governs entry, room ownership, and Start timing. The launcher sketches and acceptance wording in this document are historical; its exact content identities, download checks, credits, and license placeholders remain relevant.

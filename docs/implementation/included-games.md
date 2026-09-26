@@ -2,6 +2,8 @@ Audience: Agent
 
 # Two-game catalog amendment
 
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+
 Implement one small catalog with Super Tilt Bro first and From Below second, reusing the current player, room and peer protocols. Keep arbitrary-file hosting independent of catalog membership. The exact supplied Super Tilt Bro artifact is identified below; runtime qualification is pending, not inferred from its header or source repository.
 
 The approved [lobby refactor](lobby-refactor.md) replaces this amendment's special launcher and automatic-start presentation. This document continues to own exact asset identities, verified packaging, credits, and license placeholders. The old launcher/filter requirements and D19 delivery checklist below are historical planning evidence; gate #66 owns current integrated UI acceptance.

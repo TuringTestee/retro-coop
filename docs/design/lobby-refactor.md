@@ -4,6 +4,8 @@ Audience: Human
 
 # Lobby experience amendment
 
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+
 **Status:** Approved and merged in planning PR #72. This document governs the current discovery and lobby behavior; the rendered implementation is verified separately at gate #66.
 
 The [room game download amendment](room-rom-transfer.md) supersedes this document's guest matching-file and no-transfer rules; its delivery issues #87–#91 are integrated. PR #101 approved the [Create Game baseline](create-game-library-wireframe-v2.md), which replaces this document's inline **Host your NES file** and automatic-create path after CG1/CG2 implementation. [v4](create-game-library-wireframe-v4.md) is a pending PR #103 proposal for Guest-place and stable pages. Until implementation integrates, the inline bar remains in the running UI. Included-game 0/2 offers and host Start remain.
