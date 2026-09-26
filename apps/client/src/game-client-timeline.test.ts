@@ -12,15 +12,16 @@ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchem
 function channel(){const sent:(string|ArrayBuffer)[]=[];const rtc={readyState:'open',bufferedAmount:0,onmessage:undefined,send:(data:string|ArrayBuffer)=>sent.push(data)} as unknown as RTCDataChannel;return {rtc,sent,receive:(data:unknown)=>rtc.onmessage!.call(rtc,new MessageEvent('message',{data}))};}
 async function setup(role:'host'|'guest',start=917){
  const commands:Omit<GameCommand,'requestId'>[]=[],updates:GameplayState[]=[],data=channel(),checkpoint=channel();let frame=start,driver!:GameDriver,drains=0,cancels=0,exports=0,imports=0;
+ let sendHook:((command:{type:string;transferId?:string})=>Promise<void>)|undefined;
  let importHook:((current:()=>boolean)=>Promise<{frame:number;hash:string}>)|undefined;
  const bytes=new Uint8Array(100).fill(7).buffer;
  const mock={frameRate:()=>60,holdForGame:async()=>({hash,frame,fresh:false}),stateHash:async()=>({hash,frame,fresh:false}),startGame:(value:GameDriver)=>{driver=value;},wakeGame(){},sampleGameInput:()=>0,drainGame(){drains++;},stopGame(){},allowLocalPlay(){},releaseControllers(){},cancelPeerCheckpoint(){cancels++;},exportPeerCheckpoint:async()=>{exports++;return {bytes,hash,identity,epoch,frame};},importPeerCheckpoint:async(_epoch:string,f:number,_bytes:ArrayBuffer,_identity:string,_hash:string,current:()=>boolean)=>{imports++;return importHook?importHook(current):{frame:f,hash};}};
- const game=new GameClient(()=>mock as unknown as LocalPlayer,async command=>{commands.push(command);},state=>updates.push(state));
+ const game=new GameClient(()=>mock as unknown as LocalPlayer,async command=>{commands.push(command);await sendHook?.(command);},state=>updates.push(state));
  const room={id:'room',hostMembership:host,guestMembership:guest,role,matches:true,fingerprint,peer:{epoch:peerEpoch},established:true,game:{status:'paused',epoch}} as RoomView;
  game.enter(room);game.selected(fingerprint);game.playIntent();game.ready(data.rtc,peerEpoch);game.checkpointChannel(checkpoint.rtc,peerEpoch);
  game.handle({type:'gamePrepare',peerEpoch,epoch,hash,delay:6,frame:start});await setImmediate();game.handle({type:'gameStart',peerEpoch,epoch,delay:6,frame:start});assert.ok(driver,'start barrier installed the real frame driver');
  const spec:Extract<GameEvent,{type:'gameCheckpoint'}>={type:'gameCheckpoint',peerEpoch,epoch,transferId,frame:start,hash};
- return {game,commands,updates,data,checkpoint,driver,bytes,spec,stats:()=>({drains,cancels,exports,imports}),complete:(f:number)=>{frame=f+1;driver.committed(f);},setImport:(hook:typeof importHook)=>{importHook=hook;}};
+ return {game,commands,updates,data,checkpoint,driver,bytes,spec,stats:()=>({drains,cancels,exports,imports}),complete:(f:number)=>{frame=f+1;driver.committed(f);},setImport:(hook:typeof importHook)=>{importHook=hook;},setSend:(hook:typeof sendHook)=>{sendHook=hook;}};
 }
 const flush=async()=>{for(let i=0;i<4;i++)await setImmediate();};
 async function until(done:()=>boolean){const deadline=Date.now()+1000;while(!done()){if(Date.now()>=deadline)assert.fail("Asynchronous checkpoint did not settle");await delay(1);}}
@@ -58,7 +59,7 @@ test('checkpoint host waits for authorized receiver readiness before exporting o
 
 async function deliver(h:Awaited<ReturnType<typeof setup>>,overrides:Partial<CheckpointMetadata>={}){
  const metadata:CheckpointMetadata={transferId,sender:host,recipient:guest,epoch,frame:917,identity,hash,digest:await checkpointDigest(h.bytes),byteLength:h.bytes.byteLength,...overrides};
- h.checkpoint.receive(JSON.stringify(metadata));h.checkpoint.receive(encodeCheckpointChunk(transferId,0,new Uint8Array(h.bytes)));await until(()=>h.stats().imports>0||h.commands.some(x=>x.type==='gameAbort'));await flush();
+ h.checkpoint.receive(JSON.stringify(metadata));h.checkpoint.receive(encodeCheckpointChunk(metadata.transferId,0,new Uint8Array(h.bytes)));await until(()=>h.stats().imports>0||h.commands.some(x=>x.type==='gameAbort'));await flush();
 }
 test('authorized guest acknowledges exact restored state; wrong member fails before import',async()=>{
  for(const wrongMember of [false,true]){
@@ -97,5 +98,25 @@ test('failed old import and old transfer packets cannot cancel a newer checkpoin
   const next={...h.spec,transferId:'n'.repeat(22)};h.game.handle(next);reject(Error('Old checkpoint was cancelled'));await flush();
   assert.equal(h.commands.some(command=>command.type==='gameAbort'),false);
   await deliver(h);assert.equal(h.commands.some(command=>command.type==='gameAbort'),false,'old transfer bytes cancelled the new authorization');
+ }finally{h.game.dispose();}
+});
+
+test('late rejected readiness for an old checkpoint cannot cancel its replacement',async()=>{
+ const h=await setup('guest'),replacement='r'.repeat(22);let rejectOld!:(reason:Error)=>void;
+ try{
+  h.setSend(command=>command.type==='gameCheckpointReady'&&command.transferId===transferId
+   ?new Promise<void>((_resolve,reject)=>{rejectOld=reject;}):Promise.resolve());
+  h.game.handle(h.spec);assert.equal(typeof rejectOld,'function');
+  h.game.handle({...h.spec,transferId:replacement});await flush();
+  const cancels=h.stats().cancels,latest=h.updates.at(-1);
+  rejectOld(Error('Old readiness request failed'));await flush();
+  assert.equal(h.stats().cancels,cancels,'old rejection cancelled the replacement transfer');
+  assert.deepEqual(h.updates.at(-1),latest,'old rejection changed replacement status');
+  assert.equal(h.commands.some(command=>command.type==='gameAbort'),false);
+  await deliver(h,{transferId:replacement});
+  assert.equal(h.stats().imports,1);
+  assert.deepEqual(h.commands.filter(command=>command.type==='gameCheckpointAck'),[
+   {type:'gameCheckpointAck',epoch,transferId:replacement,frame:917,hash},
+  ]);
  }finally{h.game.dispose();}
 });
