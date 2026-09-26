@@ -1,5 +1,5 @@
 import {CheckpointReceiver,CheckpointSender,checkpointDigest} from './checkpoint.ts';
-import {parseCheckpointMetadata,CHECKPOINT_TIMEOUT_MS,CHECKPOINT_BUFFER_BYTES,CHECKPOINT_CHUNK_BYTES,CHECKPOINT_MAX_BYTES,type CheckpointMetadata} from '../../../packages/contracts/src/checkpoint.ts';
+import {parseCheckpointMetadata,decodeCheckpointChunk,CHECKPOINT_TIMEOUT_MS,CHECKPOINT_BUFFER_BYTES,CHECKPOINT_CHUNK_BYTES,CHECKPOINT_MAX_BYTES,type CheckpointMetadata} from '../../../packages/contracts/src/checkpoint.ts';
 import {defaultControllers,gameplayLimits,parseGamePacket,type ControllerAssignment,type GameCommand,type GameEvent,type GamePacket,type GameReason} from '../../../packages/contracts/src/gameplay.ts';
 import {matchesFile,type Fingerprint,type RoomView} from '../../../packages/contracts/src/rooms.ts';
 import type {LocalPlayer} from './player.ts';
@@ -104,18 +104,20 @@ export class GameClient {
   this.cancelCheckpoint();this.checkpointTransport=channel;this.checkpointPeerEpoch=peerEpoch;channel.binaryType='arraybuffer';channel.bufferedAmountLowThreshold=CHECKPOINT_BUFFER_BYTES/2;
   channel.onbufferedamountlow=()=>{if(this.checkpointTransport===channel)this.pumpCheckpoint();};
   channel.onmessage=({data})=>{if(this.checkpointTransport!==channel||this.checkpointPeerEpoch!==peerEpoch)return;
+   const receivedSpec=this.checkpointSpec;if(!receivedSpec)return;
    const bytes=typeof data==='string'?data.length*2:data instanceof ArrayBuffer?data.byteLength:Infinity;
    if(bytes>(typeof data==='string'?2048:CHECKPOINT_CHUNK_BYTES)||this.checkpointQueuedBytes+bytes>CHECKPOINT_MAX_BYTES+64*1024||this.checkpointQueuedMessages>=256){this.fail('Checkpoint receive queue exceeded its limit.','network');return;}
+   try{const transfer=typeof data==='string'?parseCheckpointMetadata(data)?.transferId:decodeCheckpointChunk(data).transferId;if(transfer&&transfer!==receivedSpec.transferId)return;}catch(error){this.fail(String(error),'network');return;}
    this.checkpointQueuedBytes+=bytes;this.checkpointQueuedMessages++;
    this.checkpointSerial=this.checkpointSerial.then(async()=>{
-    if(this.checkpointTransport!==channel||this.checkpointPeerEpoch!==peerEpoch)return;
+    if(this.checkpointTransport!==channel||this.checkpointPeerEpoch!==peerEpoch||this.checkpointSpec!==receivedSpec)return;
     if(typeof data==='string'){const metadata=parseCheckpointMetadata(data);if(!metadata||this.room?.role!=='guest')throw Error('Invalid checkpoint metadata');this.checkpointReceiver.begin(metadata,m=>this.authorizedCheckpoint(m));return;}
     if(!(data instanceof ArrayBuffer))throw Error('Invalid checkpoint bytes');
     const result=await this.checkpointReceiver.accept(data,m=>this.authorizedCheckpoint(m));if(!result)return;
     const spec=this.checkpointSpec!,current=()=>this.checkpointSpec===spec&&this.authorizedCheckpoint(result.metadata);
     const restored=await this.player()!.importPeerCheckpoint(spec.epoch,spec.frame,result.bytes,result.metadata.identity,spec.hash,current);
     if(!current())return;await this.send({type:'gameCheckpointAck',epoch:spec.epoch,transferId:spec.transferId,frame:restored.frame,hash:restored.hash});
-   }).catch(error=>{if(this.checkpointTransport===channel&&this.checkpointSpec)this.fail(String(error),'mismatch');}).finally(()=>{this.checkpointQueuedBytes-=bytes;this.checkpointQueuedMessages--;});
+   }).catch(error=>{if(this.checkpointTransport===channel&&this.checkpointSpec===receivedSpec)this.fail(String(error),'mismatch');}).finally(()=>{this.checkpointQueuedBytes-=bytes;this.checkpointQueuedMessages--;});
   };
  }
  private authorizedCheckpoint(metadata:CheckpointMetadata){

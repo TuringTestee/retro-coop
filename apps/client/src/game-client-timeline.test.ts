@@ -89,3 +89,13 @@ test('oversized checkpoint channel messages fail before allocation or worker imp
   assert.equal(h.stats().imports,0);assert.equal(h.commands.at(-1)?.type,'gameAbort');
  }finally{h.game.dispose();}
 });
+
+test('failed old import and old transfer packets cannot cancel a newer checkpoint',async()=>{
+ const h=await setup('guest');let reject!:(error:Error)=>void;
+ try{
+  h.setImport(()=>new Promise((_resolve,fail)=>{reject=fail;}));h.game.handle(h.spec);await deliver(h);
+  const next={...h.spec,transferId:'n'.repeat(22)};h.game.handle(next);reject(Error('Old checkpoint was cancelled'));await flush();
+  assert.equal(h.commands.some(command=>command.type==='gameAbort'),false);
+  await deliver(h);assert.equal(h.commands.some(command=>command.type==='gameAbort'),false,'old transfer bytes cancelled the new authorization');
+ }finally{h.game.dispose();}
+});
