@@ -9,7 +9,8 @@ export class GameSession {
  private host='';private members=new Map<string,Member>();private offers=new Map<string,Offer>();private acks=new Set<string>();private required:string[]=[];
  private transfers=new Map<string,Transfer>();private deadline=0;private hash?:string;private frame=0;private proposed?:ControllerAssignment;
  private state:GameView={controllers:{owners:[null,null],revision:0},ready:[],startRequested:false,status:'waiting'};
- constructor(private now:()=>number,private send:(member:string,event:GameEvent)=>void,private commitRoles:(pending:RoleTransaction)=>ControllerAssignment){}
+ private now:()=>number;private send:(member:string,event:GameEvent)=>void;private commitRoles:(pending:RoleTransaction)=>ControllerAssignment;
+ constructor(now:()=>number,send:(member:string,event:GameEvent)=>void,commitRoles:(pending:RoleTransaction)=>ControllerAssignment){this.now=now;this.send=send;this.commitRoles=commitRoles;}
  view():GameView{return {...this.state,ready:[...this.offers.keys()],frame:this.frame};}
  private all(event:GameEvent){for(const member of this.members.keys())this.send(member,event);}
  private owners(assignment=this.state.controllers){return [...new Set([this.host,...assignment.owners.filter((owner):owner is string=>!!owner)])];}
