@@ -104,6 +104,10 @@ def run(playwright, url, mode, output, headed):
             tab.get_by_role('button', name='Enable voice', exact=True).click()
             tab.wait_for_function('captures.at(-1)?.getAudioTracks()[0].enabled')
 
+        # The identical generated inputs can cancel each other through echo cancellation.
+        # Keep the receiver explicitly muted while measuring the background sender.
+        guest.get_by_role('button', name='Mute microphone', exact=True).click()
+
         # With separate processes, background the sender using an unrelated page in its own browser.
         focus_target = guest
         if mode == 'independent-processes':
@@ -156,7 +160,7 @@ def run(playwright, url, mode, output, headed):
         for tab in [host, guest]:
             tab.locator('.voice-card').wait_for()
             tab.bring_to_front()
-            tab.locator('.voice-card').get_by_role('button', name='Mute microphone', exact=True).wait_for()
+            tab.locator('.voice-card').get_by_role('button', name='Mute microphone' if tab == host else 'Unmute microphone', exact=True).wait_for()
         host.bring_to_front()
         frame = int(host.get_by_test_id('game-frame').inner_text().split()[0])
         background_host()
