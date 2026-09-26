@@ -24,6 +24,7 @@ export class GameClient {
  private publish(patch:Partial<GameplayState>){this.state={...this.state,...patch};this.update(this.state);}
  private self(){return this.room?.chatMembership??'';}
  private authority(){return !!this.room&&this.self()===this.room.hostMembership;}
+ private observerSlot(){return this.room?.slots.find(slot=>slot.member?.id===this.self())?.role==='observer';}
  private ownsInput(controllers=this.controllers){return controllers.owners.includes(this.self());}
  private loaded(){return !!this.room&&!!this.file&&this.room.matches&&matchesFile(this.room.fingerprint,this.file)&&!!this.player()?.isLoaded(this.file);}
  enter(room?:RoomView){
@@ -32,11 +33,12 @@ export class GameClient {
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
   if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;}
   if(room.game.status==='resume_ready'&&this.incoming?.purpose==='controller'){this.cancelIncoming();this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}
-  if(room.game.status==='playing'&&!room.game.controllers.owners.includes(this.self())&&!this.authority()&&this.loaded()&&!this.scheduler&&!this.incoming&&!this.observeRequested)this.observe();
+  if(this.scheduler&&room.game.epoch!==this.scheduler.epoch&&!this.authority()&&!room.game.controllers.owners.includes(this.self()))this.clear('Game roles changed. Synchronizing the current game.');
+  if(room.game.status==='playing'&&this.observerSlot()&&!this.authority()&&this.loaded()&&!this.scheduler&&!this.incoming&&!this.observeRequested)this.observe();
   if(this.intent&&!room.started)void this.offer();
  }
- selected(file:Fingerprint){this.file=file;this.offered=undefined;if(this.room?.started&&!this.authority()&&!this.room.game.controllers.owners.includes(this.self()))this.observe();else if(this.intent)void this.offer();}
- playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true});if(this.room?.started&&!this.authority()&&!this.room.game.controllers.owners.includes(this.self()))this.observe();else void this.offer();}
+ selected(file:Fingerprint){if(this.file&&this.room&&(this.offered||this.offering||this.incoming||this.scheduler)){const revision=this.room.game.controllers.revision;this.clear('Game selection changed. Prepare the matching game again.');void this.send({type:'gameUnready',revision}).catch(()=>{});}this.file=file;this.offered=undefined;if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else if(this.intent)void this.offer();}
+ playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else void this.offer();}
  retry(){this.playIntent();}
  retryConnection(){}
  async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
@@ -56,7 +58,7 @@ export class GameClient {
  ready(member:string,channel:RTCDataChannel,epoch:string,roundTripMs=0){
   const checkpoint=this.checkpointLinks.get(member);this.links.set(member,{epoch,channel,roundTripMs,checkpoint:checkpoint?.epoch===epoch?checkpoint.channel:undefined,live:false});channel.bufferedAmountLowThreshold=16*1024;
   channel.onmessage=({data})=>{if(this.links.get(member)?.channel===channel)this.receive(member,data);};channel.onbufferedamountlow=()=>{for(const outgoing of this.outgoing.values())if(outgoing.request.recipient===member)this.catchup(outgoing);};
-  if(this.intent)void this.offer();if(this.room?.game.status==='playing'&&!this.scheduler&&!this.authority()&&!this.ownsInput(this.room.game.controllers))this.observe();
+  if(this.intent)void this.offer();if(this.room?.game.status==='playing'&&!this.scheduler&&!this.authority()&&this.observerSlot())this.observe();
  }
  closed(member:string,epoch?:string){const link=this.links.get(member);if(epoch&&link?.epoch!==epoch)return;this.links.delete(member);this.checkpointLinks.delete(member);
   for(const outgoing of [...this.outgoing.values()])if(outgoing.request.recipient===member)this.failOutgoing(outgoing,'Observer connection changed.');
