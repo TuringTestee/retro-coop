@@ -1,7 +1,7 @@
 """Exercise real paused checkpoint recovery through the production worker and channel."""
 import time
 
-def run(host,guest,mode,relay):
+def run(host,guest,mode,relay,out):
  pages=[host,guest]
  def worker(page,command):
   return page.evaluate('''command=>new Promise((resolve,reject)=>{const requestId=window.checkpointProofRequest=(window.checkpointProofRequest??910000)+1;const timer=setTimeout(()=>{currentWorker.removeEventListener('message',receive);reject(Error('Worker proof timed out'))},5000);function receive({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',receive);if(data.type==='error')reject(Error(data.message));else resolve(data);}currentWorker.addEventListener('message',receive);currentWorker.postMessage({...command,requestId});})''',command)
@@ -22,6 +22,7 @@ def run(host,guest,mode,relay):
   assert worker(guest,{'type':'state-hash'})['info']==divergent
   return {'mode':mode,'result':'pass','host_preserved':original,'guest_preserved':divergent}
  for page in pages:page.wait_for_function("proof.room.game.status==='resume_ready'",polling=20)
+ host.screenshot(path=str(out.with_suffix('.recovered.png')),mask=[host.locator('input[aria-label="Room invitation"]:visible')])
  recovered=[worker(page,{'type':'state-hash'})['info'] for page in pages]
  assert all(state['frame']==original['frame'] and state['hash']==original['hash'] for state in recovered),recovered
  host.get_by_role('button',name='Resume together',exact=True).click()

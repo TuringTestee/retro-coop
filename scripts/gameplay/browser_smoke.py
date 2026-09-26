@@ -157,7 +157,7 @@ try:
     tab.evaluate("currentWorker.postMessage({type:'state-history',requestId:900002})");tab.wait_for_function('proof.localHistory',polling=50);history=tab.evaluate('proof.localHistory');assert history['inputs']==0 and history['checkpoints']==0 and history['retainedBytes']==0
    if args.checkpoint:
     from checkpoint_smoke import run
-    result=run(h,g,args.checkpoint,bool(args.relay or args.standard_fallback));result.update({'source':source,'build_files':build_files,'page_errors':errors});assert not errors
+    result=run(h,g,args.checkpoint,bool(args.relay or args.standard_fallback),out);result.update({'source':source,'build_files':build_files,'page_errors':errors});assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.controllers:
     from controller_smoke import run
