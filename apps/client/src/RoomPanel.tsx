@@ -147,7 +147,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   if(sentMemberFile.current !== key) {sentMemberFile.current = key;void client.current?.act({type:'file',fingerprint});}
  },[fingerprint,state.room?.id,state.room?.role]);
  const room = state.room;
- const inviteUrl = room ? `${location.origin}${location.pathname}#invite=${room.invite}`:'';
+ const inviteUrl = room ? `${location.origin}/#invite=${room.invite}`:'';
  const selfSlot=room?.slots.find(slot=>slot.member?.id===room.chatMembership);
  const gameplayPeers=room?.peers.filter(peer=>peer.gameplay&&(room.role!=='host'||room.slots.some(slot=>slot.role!=='observer'&&slot.member?.id===peer.member)))??[];
  const peersReady=gameplayPeers.every(peer=>peer.status==='connected');
