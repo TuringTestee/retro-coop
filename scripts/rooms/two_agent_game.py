@@ -66,7 +66,8 @@ def verify():
     assert host["store_verified_before_reload"] is True
     assert host["saved_row_selected_after_reload"] is True
     assert host["file_input_count_after_reload"] == 0
-    assert host["remote_input_packets"] > 0 and guest["remote_input_packets"] > 0
+    assert host["received_gameplay"]["input"] > 0 and host["received_gameplay"]["frame"] == 0
+    assert guest["received_gameplay"]["frame"] > 0 and guest["received_gameplay"]["input"] == 0
     assert host["last_hash"] and host["last_hash"] == guest["last_hash"]
     assert host["controller_ram"] == guest["controller_ram"]
     if expected_ram is not None:
@@ -86,8 +87,8 @@ def verify():
         "rom_sha256": host["rom_sha256"],
         "host_frames": host["frames"],
         "guest_frames": guest["frames"],
-        "host_received_inputs": host["remote_input_packets"],
-        "guest_received_inputs": guest["remote_input_packets"],
+        "host_received_inputs": host["received_gameplay"]["input"],
+        "guest_received_committed_frames": guest["received_gameplay"]["frame"],
         "matching_paused_hash": host["last_hash"],
         "controller_ram": host["controller_ram"],
         "store_verified_before_reload": host["store_verified_before_reload"],
@@ -306,8 +307,9 @@ with sync_playwright() as playwright:
         page.wait_for_function("role => proof.room?.game?.ready?.includes(role)", arg=args.role, timeout=15000)
         page.locator("canvas").focus()
         assert page.locator("canvas").evaluate("node => node === document.activeElement")
-        remote_inputs = page.evaluate("Object.values(proof.admission.lead).reduce((count, packets) => count + packets, 0)")
-        assert remote_inputs > 0, "No remote controller input reached this browser"
+        received = page.evaluate("proof.admission.received")
+        expected_packet = "input" if args.role == "host" else "frame"
+        assert received[expected_packet] > 0, f"No authoritative gameplay traffic reached this {args.role}: {received}"
         evidence = {
             "result": "pass",
             "role": args.role,
@@ -319,7 +321,7 @@ with sync_playwright() as playwright:
             "game_status": room["game"]["status"],
             "established": room["established"],
             "frames": page.evaluate("proof.frameCount"),
-            "remote_input_packets": remote_inputs,
+            "received_gameplay": received,
             "last_hash": page.evaluate("proof.hashes.at(-1)"),
             "controller_ram": controller_ram,
             "direct_without_notice": direct_without_notice,
