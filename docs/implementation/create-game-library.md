@@ -4,6 +4,8 @@ Audience: Agent
 
 # Create Game and local ROM library delivery plan
 
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+
 ## Sources and review snapshot
 
 The [human direction](../design/create-game-library-direction.md), [current ASCII design](../design/create-game-library-wireframe-v4.md), [v4 critique](../design/create-game-library-critique-v4.md), [journeys](../design/create-game-library-journeys.md), [scenarios](../design/create-game-library-scenarios.md), and [reference study](../design/create-game-library-references.md) define the proposed experience. The separate Create Game/library scope was approved in PR #101 and merged as `5a6bf2b`; the later Warcraft III slot and fixed-layout direction is a behavior/constraint amendment requiring this reviewed approval. The approved [room transfer](room-rom-transfer.md) still governs private upload, guest acquisition, and host Start. At this planning PR's base, `main` is `5a6bf2b`; `RoomPanel.tsx` still renders the inline host bar and automatically calls `host()` after `LocalPlayer.load`, while `saves.ts` stores only downloaded verified ROM bytes by SHA-256. CG1 is being delivered separately under its prior approval; no slot/layout implementation is in this planning PR.

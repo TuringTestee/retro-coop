@@ -2,6 +2,8 @@ Audience: Agent
 
 # Browser NES platform delivery plan
 
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+
 Build and test the browser's ability to run the same game in sync before building the full lobby experience. Then connect local play, public discovery, two-player networking, and chat into one tested journey. This plan is revisable; the companion design defines the intended behavior.
 
 ## Governing design and readiness

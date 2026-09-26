@@ -4,6 +4,8 @@ Audience: Agent
 
 # Lobby refactor: architecture and delivery amendment
 
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+
 **Status:** Approved and merged in planning PR #72. This is the governing delivery plan for [the human direction](../design/lobby-refactor.md); the issue descriptions and gate #66 track live implementation and acceptance.
 
 The approved [room game transfer plan](room-rom-transfer.md) supersedes this earlier local-only custom-room acquisition rule; RT1–RT5 in issues #87–#91 are integrated. PR #101 approved CG1/CG2 in the [Create Game plan](create-game-library.md), changing R3's immediate-create behavior after implementation. That plan's CG3/CG4 Guest-place and stable-page changes are pending PR #103 approval. The inline host bar remains current runtime until CG2 integrates. Included-game first-host and host Start behavior remain.
