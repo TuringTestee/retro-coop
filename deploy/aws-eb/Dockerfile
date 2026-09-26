@@ -35,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends coturn python3 
 COPY scripts/aws_eb/render_turn.py /opt/retro-coop/render_turn.py
 COPY scripts/aws_eb/run_turn.sh /opt/retro-coop/run_turn.sh
 USER 10001:10001
-EXPOSE 3478/udp 49160-49175/udp
+EXPOSE 3478/udp 49160-49183/udp
 ENTRYPOINT ["/bin/sh", "/opt/retro-coop/run_turn.sh"]
 
 FROM node:24.13.1-bookworm-slim@sha256:a81a03dd965b4052269a57fac857004022b522a4bf06e7a739e25e18bce45af2 AS coordinator

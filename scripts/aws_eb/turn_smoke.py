@@ -8,6 +8,8 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from render_turn import (RELAY_PAIRS, RELAY_ALLOCATIONS, RELAY_MIN_PORT, RELAY_MAX_PORT,
+                         RELAY_BANDWIDTH, RELAY_ALLOCATION_BANDWIDTH)
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--turnserver")
@@ -27,9 +29,20 @@ with tempfile.TemporaryDirectory(prefix="retro-turn-render-") as temporary:
     config = output.read_text()
     assert output.stat().st_mode & 0o077 == 0
     for expected in ["external-ip=54.1.2.3/127.0.0.1", "static-auth-secret=" + "a" * 64,
-                     "total-quota=16", "bps-capacity=1600000", "min-port=49160", "max-port=49175",
+                     f"total-quota={RELAY_ALLOCATIONS}", f"bps-capacity={RELAY_BANDWIDTH}",
+                     f"min-port={RELAY_MIN_PORT}", f"max-port={RELAY_MAX_PORT}",
+                     f"max-bps={RELAY_ALLOCATION_BANDWIDTH}",
                      "denied-peer-ip=169.254.0.0-169.254.255.255"]:
         assert expected in config
+    # Check workload capacity and unchanged budget independently of rendering.
+    assert RELAY_PAIRS >= 5 * 4 // 2
+    assert RELAY_ALLOCATIONS >= 2 * RELAY_PAIRS + 4
+    assert RELAY_MAX_PORT - RELAY_MIN_PORT + 1 >= RELAY_ALLOCATIONS
+    assert RELAY_ALLOCATION_BANDWIDTH * RELAY_ALLOCATIONS <= RELAY_BANDWIDTH == 1_600_000
+    deployment = render.parents[2] / "deploy/aws-eb"
+    assert f'TURN_PAIR_LIMIT: "{RELAY_PAIRS}"' in (deployment / "docker-compose.yml").read_text()
+    assert f'FromPort: {RELAY_MIN_PORT}, ToPort: {RELAY_MAX_PORT}' in (deployment / "foundation.yaml").read_text()
+    assert f'{RELAY_MIN_PORT}-{RELAY_MAX_PORT}/udp' in (deployment / "Dockerfile").read_text()
     for broken in [
         command,
         [*command[:2], "--public-ip", "127.0.0.1", *command[4:]],

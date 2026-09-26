@@ -8,6 +8,16 @@ import re
 from pathlib import Path
 
 
+# Ten room pairs use twenty allocations; four spare allocations permit bounded
+# overlap during pair retries. Keep the existing aggregate bandwidth budget.
+RELAY_PAIRS = 10
+RELAY_ALLOCATIONS = RELAY_PAIRS * 2 + 4
+RELAY_MIN_PORT = 49160
+RELAY_MAX_PORT = RELAY_MIN_PORT + RELAY_ALLOCATIONS - 1
+RELAY_BANDWIDTH = 1_600_000
+RELAY_ALLOCATION_BANDWIDTH = RELAY_BANDWIDTH // RELAY_ALLOCATIONS
+
+
 def ipv4(value, public):
     try:
         address = ipaddress.IPv4Address(value)
@@ -42,16 +52,16 @@ def main():
 relay-ip={args.private_ip}
 external-ip={args.public_ip}/{args.private_ip}
 listening-port={args.listen_port}
-min-port=49160
-max-port=49175
+min-port={RELAY_MIN_PORT}
+max-port={RELAY_MAX_PORT}
 realm=retro-coop.atobot.cloud
 use-auth-secret
 static-auth-secret={secret}
 user-quota=4
-total-quota=16
+total-quota={RELAY_ALLOCATIONS}
 relay-threads=1
-max-bps=100000
-bps-capacity=1600000
+max-bps={RELAY_ALLOCATION_BANDWIDTH}
+bps-capacity={RELAY_BANDWIDTH}
 no-multicast-peers
 denied-peer-ip=0.0.0.0-0.255.255.255
 denied-peer-ip=10.0.0.0-10.255.255.255

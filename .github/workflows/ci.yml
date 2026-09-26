@@ -141,6 +141,7 @@ jobs:
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/aws_eb/container_smoke.sh
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/turn_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 -m unittest discover -s scripts/aws_eb -p test_relay_capacity.py
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - name: Save exact native ARM64 images for a reviewed main release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -333,6 +334,8 @@ jobs:
           echo "previous=$previous" >> "$GITHUB_OUTPUT"
           echo "bucket=$bucket" >> "$GITHUB_OUTPUT"
           echo "version=main-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - name: Reconcile reviewed TURN ingress
+        run: python3 scripts/aws_eb/relay_capacity.py --apply
       - name: Deploy to EB
         uses: einaregilsson/beanstalk-deploy@v21
         with:

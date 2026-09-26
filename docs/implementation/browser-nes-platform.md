@@ -1,10 +1,12 @@
+Deliver five-member lobbies on one authoritative local gameplay timeline. The five-slot amendment governs current membership and role changes; the verification strategy below remains authoritative.
+
 Audience: Agent
 
 # Browser NES platform delivery plan
 
-The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
+The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. Governing PR #160 is merged. Five-slot execution and integrated acceptance are tracked in [feature #157](https://github.com/TuringTestee/retro-coop/issues/157); the historical two-person evidence below does not prove those journeys. The amendment also owns observer isolation, ten voice pairs, per-member acquisition and membership, and current checkpoint limits. Unaffected requirements and historical evidence remain.
 
-Build and test the browser's ability to run the same game in sync before building the full lobby experience. Then connect local play, public discovery, two-player networking, and chat into one tested journey. This plan is revisable; the companion design defines the intended behavior.
+Build and test the browser's ability to run the same game in sync before building the full lobby experience. Then connect local play, public discovery, game-specific controllers, observers, and chat into one tested journey. This plan is revisable; the companion design defines the intended behavior.
 
 ## Governing design and readiness
 
@@ -80,7 +82,7 @@ Start a limited beta only after AC-01–16 evidence, both catalog artifacts' pro
 | Anonymous abuse | Server authority, revocation, rate limits, operator takedown and modest beta capacity; accounts require later alignment. |
 | Schedule exceeds one developer's capacity | Reassess after P1/P4; preserve the accepted journey or explicitly renegotiate scope. |
 
-Future iteration plans remain coarse: rollback after deterministic correctness and latency measurements; further compatibility expansion after the first reviewed hardware matrix; spectators after a topology/cost study; accounts/cloud saves after demand and data-lifecycle review. None are prerequisites silently added to this release.
+Future iteration plans remain coarse: rollback after deterministic correctness and latency measurements; further compatibility expansion after the first reviewed hardware matrix; accounts/cloud saves after demand and data-lifecycle review. None are prerequisites silently added to this release.
 
 ## Gap audit and proposed issue coverage
 
