@@ -62,6 +62,7 @@ export class GameSession {
  }
  requestRoles(pending:RoleTransaction,owners:ControllerAssignment){
   if(this.state.pending)throw Error('role_change_pending');
+  if(!this.state.epoch)throw Error('game_not_playing');
   this.state.pending=pending;this.proposed=owners;this.freeze('Changing roles at the last completed frame.');
  }
  private failTransaction(reason:string){

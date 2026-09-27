@@ -214,7 +214,7 @@ export class RoomClient {
  selectedGame(file:Fingerprint){this.selectedFile=file;this.game.selected(file);this.reportLoadedGame();}
  isMember(){return this.state.room?.role==='member';}
  observe(){this.game.observe();}
- retryGame(){this.game.retry();}
+ retryGame(){const room=this.state.room;if(room?.role==='host'&&!room.established&&this.selectedFile){void this.startRoom(this.selectedFile);return;}this.game.retry();}
  cancelSynchronization(){this.game.cancelIntent();}
  readyToResume(){void this.game.resumeReady();}
  resumeTogether(){void this.game.resumeTogether();}

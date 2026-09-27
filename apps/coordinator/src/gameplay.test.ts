@@ -147,3 +147,20 @@ test('ordinary pause retains bounded observer catch-up while a fresh epoch cance
  t.ready(0,{frame:150,fresh:false});t.ready(1,{frame:150,fresh:false});assert.equal(t.view().game.status,'resume_ready','observer cannot delay controller readiness');
  t.act(0,{type:'gameResume',epoch});assert.notEqual(t.view().game.epoch,epoch);assert.ok(t.events[2].some(e=>e.type==='gameSyncStop'&&e.transferId===transfer.transferId));
 });
+
+test('pre-epoch role rejection is transactional during host inspection and after its timeout',()=>{
+ for(const expired of [false,true]){
+  const t=setup(3);t.role('slot-1','observer');t.load(0);t.load(1);t.ready(1);t.start();
+  assert.equal(t.view().game.epoch,undefined);if(expired)t.advance(10000);
+  const before=t.view();assert.throws(()=>t.role('slot-3','player1'),/game_not_playing/);
+  assert.equal(t.view().game.pending,undefined);assert.deepEqual(t.view().game.controllers,before.game.controllers);assert.deepEqual(t.view().slots,before.slots);
+  if(expired)t.ready(1);t.ready(0);if(!t.view().game.epoch)t.start();const epoch=t.view().game.epoch!;
+  for(const who of [0,1])t.act(who,{type:'gameAck',epoch,hash});
+  assert.equal(t.view().game.status,'playing');assert.equal(t.view().slots[0].role,'observer');assert.equal(t.view().game.pending,undefined);
+ }
+});
+test('observing host remains an authority readiness owner when retrying the first barrier',()=>{
+ const t=setup(2);t.role('slot-1','observer');t.load(0);t.load(1);t.ready(0);t.ready(1);const prior=t.start().room!.game.epoch!;t.advance(10000);
+ assert.equal(t.view().established,false);t.ready(0);t.ready(1);const epoch=t.view().game.epoch!;assert.notEqual(epoch,prior);
+ t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().slots[0].role,'observer');
+});
