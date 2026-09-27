@@ -99,7 +99,13 @@ def directory_and_release(browser, host, url, output):
     viewer.get_by_role('searchbox').fill(long_name)
     record.allow_user_scroll(False)
     viewer.get_by_text(long_name, exact=True).wait_for()
-    record.mark('long-name-live')
+    host.get_by_text('Nickname settings', exact=True).click()
+    long_nickname = 'Host with a very long nickname!!'
+    assert len(long_nickname) == 32
+    host.get_by_label('Nickname', exact=True).fill(long_nickname)
+    host.get_by_role('button', name='Save nickname', exact=True).click()
+    viewer.get_by_text(long_nickname, exact=True).wait_for()
+    record.mark('long-name-and-host-live')
     viewer.screenshot(path=str(output / 'directory-long-name.png'))
     invite = host.get_by_label('Room invitation', exact=True).input_value()
     visitor = browser.new_page(viewport={'width': 390, 'height': 700})
@@ -281,7 +287,7 @@ def main():
             assert provenance['artifacts'] == artifact_provenance(ROOT, STATIC)['artifacts'], 'Build changed during proof'
             result = {'result': 'pass', 'provenance': provenance, 'browser': browser.version, 'geometry': results,
                       'upload_retry_reaches_room': True, 'injected_storage_errors': errors.count('Geometry storage quota injection'), 'elapsed_seconds': time.monotonic() - started,
-                      'unverified': ['long host nickname', '320px keyboard endpoints on every page']}
+                      'unverified': ['320px keyboard endpoints on every page (stable_pages matrix)']}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()

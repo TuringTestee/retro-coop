@@ -7,7 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from layout_geometry import GeometryRecorder, control_visibility, zoom_context, browser_zoom, verify_zoom, artifact_provenance
+from layout_geometry import GeometryRecorder, control_visibility, zoom_context, browser_zoom, verify_zoom, artifact_provenance, keyboard_access
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -44,6 +44,7 @@ def navigation_matrix(page, output, profile):
     record.allow_user_scroll(False)
     record.mark('search-cleared')
     results.append(record.finish(output / f'{profile}-directory.json'))
+    results.append(keyboard_access(page, f'{profile}-directory-keyboard', output / f'{profile}-directory-keyboard.json'))
     page.get_by_role('button', name='Settings', exact=True).click()
     page.wait_for_function("document.activeElement?.id === 'settings-title'")
     record = GeometryRecorder(page, f'{profile}-settings-confirmation')
@@ -60,6 +61,7 @@ def navigation_matrix(page, output, profile):
     page.get_by_role('button', name='Keep mappings', exact=True).wait_for(state='detached')
     record.mark('cancelled')
     results.append(record.finish(output / f'{profile}-settings.json'))
+    results.append(keyboard_access(page, f'{profile}-settings-keyboard', output / f'{profile}-settings-keyboard.json'))
     page.get_by_role('button', name='Local data', exact=True).click()
     page.wait_for_function("document.activeElement?.id === 'local-data-title'")
     record = GeometryRecorder(page, f'{profile}-local-data-confirmation')
@@ -76,12 +78,40 @@ def navigation_matrix(page, output, profile):
     page.get_by_role('button', name='Confirm', exact=True).wait_for(state='detached')
     record.mark('cancelled')
     results.append(record.finish(output / f'{profile}-local-data.json'))
+    results.append(keyboard_access(page, f'{profile}-local-data-keyboard', output / f'{profile}-local-data-keyboard.json'))
     page.get_by_role('button', name='Back', exact=True).click()
     page.wait_for_function("document.activeElement?.textContent === 'Local data'")
     control_visibility(page.get_by_role('button', name='Local data', exact=True), require_focus=True)
     page.get_by_role('button', name='Back', exact=True).click()
     page.wait_for_function("document.activeElement?.textContent === 'Settings'")
     control_visibility(page.get_by_role('button', name='Settings', exact=True), require_focus=True)
+    page.get_by_role('button', name='Create game', exact=True).click()
+    page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+    page.wait_for_function("!document.querySelector('.create-actions button')?.disabled")
+    results.append(keyboard_access(page, f'{profile}-create-keyboard', output / f'{profile}-create-keyboard.json'))
+    page.get_by_role('button', name='Play locally', exact=True).click()
+    page.get_by_role('button', name='Resume', exact=True).click()
+    page.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=120", timeout=30000)
+    results.append(keyboard_access(page, f'{profile}-local-play-keyboard', output / f'{profile}-local-play-keyboard.json'))
+    for name, heading in [('Saves', 'Saves on this device'), ('Rewind', 'Rewind local game'), ('Game help', 'Game help')]:
+        page.locator('.panel').get_by_role('button', name=name, exact=True).click()
+        page.get_by_role('heading', name=heading, exact=True).wait_for()
+        if name == 'Saves':
+            page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(n=>n.textContent==='Save current point')?.disabled")
+            if not page.get_by_role('button', name='Delete Slot 1', exact=True).count():
+                page.get_by_role('button', name='Save current point', exact=True).click()
+                page.get_by_role('button', name='Delete Slot 1', exact=True).wait_for()
+        elif name == 'Rewind':
+            page.get_by_test_id('rewind-history').wait_for()
+        else:
+            page.get_by_text('Technical details', exact=True).click()
+        slug = name.lower().replace(' ', '-')
+        results.append(keyboard_access(page, f'{profile}-{slug}-keyboard', output / f'{profile}-{slug}-keyboard.json'))
+        page.get_by_role('button', name='Back', exact=True).click()
+        page.wait_for_function('name=>document.activeElement?.textContent===name', arg=name)
+        control_visibility(page.locator('.panel').get_by_role('button', name=name, exact=True), require_focus=True)
+    page.get_by_role('button', name='Public rooms', exact=True).click()
+    page.get_by_test_id('directory').wait_for()
     return results
 
 

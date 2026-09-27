@@ -165,3 +165,69 @@ def artifact_provenance(root, static):
             'static_root': str(static),
             'artifacts': {str(path.relative_to(static)): hashlib.sha256(path.read_bytes()).hexdigest()
                           for path in sorted(Path(static).rglob('*')) if path.is_file() and path.suffix in ('.js', '.css', '.wasm')}}
+
+
+def keyboard_access(page, label, output):
+    """Traverse a complete keyboard focus cycle, including text scroll endpoints.
+
+    Browser keyboard input alone reveals controls. No scrollIntoView, direct
+    focus, scroll reset or DOM focusability changes are used by this check.
+    """
+    page.evaluate('window.keyboardProbe={ids:new WeakMap(),serial:0}')
+    visited, seen, failures = [], set(), []
+    for _ in range(250):
+        page.keyboard.press('Tab')
+        page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(resolve))')
+        active = page.evaluate('''()=>{const n=document.activeElement;if(!n||n===document.body||n===document.documentElement)return null;
+          const p=keyboardProbe;if(!p.ids.has(n))p.ids.set(n,++p.serial);const s=getComputedStyle(n);
+          return {id:p.ids.get(n),tag:n.tagName,type:n.type||'',text:n.textContent?.trim().slice(0,120),
+            name:n.getAttribute('aria-label')||n.getAttribute('aria-labelledby')||'',
+            region:n.dataset.layoutRegion||'',scrollable:/(auto|scroll)/.test(s.overflowY)&&n.scrollHeight>n.clientHeight+1,
+            native:n.matches('button,input,select,textarea,summary,a[href]'),top:n.scrollTop,max:n.scrollHeight-n.clientHeight};}''')
+        if active is None:
+            continue
+        if active['id'] in seen:
+            break
+        seen.add(active['id'])
+        if active['native']:
+            try:
+                active['visibility'] = control_visibility(page.locator(':focus'), require_focus=True)
+            except AssertionError as error:
+                if not failures: page.screenshot(path=str(Path(output).with_name(Path(output).stem + '-first-failure.png')))
+                failures.append({'focus': active, 'failure': str(error)})
+        elif active['scrollable']:
+            if not active['name']:
+                failures.append({'focus': active, 'failure': 'scrollable focus stop has no accessible name'})
+            page.keyboard.press('End')
+            try:
+                page.wait_for_function('document.activeElement.scrollTop>=document.activeElement.scrollHeight-document.activeElement.clientHeight-1', timeout=3000)
+                active['end'] = page.evaluate('document.activeElement.scrollTop')
+                page.keyboard.press('Home')
+                page.wait_for_function('document.activeElement.scrollTop<=1', timeout=3000)
+                active['home'] = page.evaluate('document.activeElement.scrollTop')
+            except Exception as error:
+                failures.append({'focus': active, 'failure': f'keyboard scroll endpoint: {error}'})
+        elif active['tag'] not in ('LI', 'CANVAS') and (not active['text'] or not active['name']):
+            failures.append({'focus': active, 'failure': 'empty or unnamed non-control focus stop'})
+        visited.append(active)
+    else:
+        failures.append({'failure': 'keyboard cycle exceeded 250 focus stops'})
+    # Reverse traversal must reveal the same enabled controls completely too.
+    reverse_seen = set()
+    for _ in range(250):
+        page.keyboard.press('Shift+Tab')
+        page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(resolve))')
+        identity = page.evaluate('keyboardProbe.ids.get(document.activeElement)||null')
+        if identity is None: continue
+        if identity in reverse_seen: break
+        reverse_seen.add(identity)
+        if page.locator(':focus').count() and page.locator(':focus').evaluate("n=>n.matches('button,input,select,textarea,summary,a[href]')"):
+            try: control_visibility(page.locator(':focus'), require_focus=True)
+            except AssertionError as error: failures.append({'failure': f'reverse: {error}'})
+    if reverse_seen != seen: failures.append({'failure': 'reverse traversal did not reach every forward focus stop'})
+    result = {'label': label, 'visited': visited, 'reverse_focus_stops': len(reverse_seen), 'failures': failures}
+    Path(output).write_text(json.dumps(result, indent=2) + '\n')
+    if failures:
+        page.screenshot(path=str(Path(output).with_suffix('.png')))
+    assert visited and not failures, (label, failures)
+    return {'label': label, 'focus_stops': len(visited), 'scroll_regions': sum(bool(v.get('end')) for v in visited)}
