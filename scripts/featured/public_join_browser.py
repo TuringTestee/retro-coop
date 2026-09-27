@@ -53,8 +53,8 @@ try:
             for tab in (host, guest):
                 tab.evaluate('releaseFrames()')
             for tab in (host, guest):
-                tab.wait_for_function('proof.frameCount>=120', timeout=30000, polling=50)
-            hashes = [tab.evaluate('proof.hashes.at(-1)') for tab in (host, guest)]
+                tab.wait_for_function('proof.frameCount>=120 && proof.hashes.some(hash=>hash.frame===120)', timeout=30000, polling=50)
+            hashes = [tab.evaluate('proof.hashes.find(hash=>hash.frame===120)') for tab in (host, guest)]
             assert hashes[0] and hashes[0] == hashes[1]
             return {'frames': [tab.evaluate('proof.frameCount') for tab in (host, guest)], 'matching_hash': hashes[0]}
         host = page()

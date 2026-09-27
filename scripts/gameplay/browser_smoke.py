@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 from workload import active_seconds as measured_active_seconds
 from verify import normalized_periodic_hashes
 from browser_errors import classify_page_errors
-parser=argparse.ArgumentParser();parser.add_argument('--runtime-root',type=Path,default=Path(__file__).resolve().parents[2]);parser.add_argument('--checkpoint',choices=['success','corrupt','cancel']);parser.add_argument('--initial-manual-frames',type=int,choices=[240,508],default=240,help='Retain the manual-input phase to exercise slow qualification setup');parser.add_argument('--controllers',action='store_true');parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--standard-fallback',action='store_true',help='Keep the app on Standard while the browser allows only relay ICE, modeling unavailable direct transport');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--short-viewport',action='store_true');parser.add_argument('--leave-interaction',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args();assert not(args.relay and args.standard_fallback)
+parser=argparse.ArgumentParser();parser.add_argument('--runtime-root',type=Path,default=Path(__file__).resolve().parents[2]);parser.add_argument('--checkpoint',choices=['success','corrupt','cancel']);parser.add_argument('--initial-manual-frames',type=int,choices=[240,508],default=240,help='Retain the manual-input phase to exercise slow qualification setup');parser.add_argument('--controllers',action='store_true');parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--standard-fallback',action='store_true',help='Keep the app on Standard while the browser allows only relay ICE, modeling unavailable direct transport');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--delay-final-hash',action='store_true',help='Delay one final native hash response to exercise pause proof synchronization');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--short-viewport',action='store_true');parser.add_argument('--leave-interaction',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args();assert not(args.relay and args.standard_fallback)
 root=args.runtime_root.resolve();static=Path(os.environ.get('RETRO_COOP_STATIC_ROOT',root/'apps/client/dist'));build_files={str(p.relative_to(static)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (static).rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
@@ -44,6 +44,13 @@ try:
    if args.relay:install_script(tab,"sessionStorage.setItem('retro-coop-connection-policy','relay')")
    tab.goto(url)
    return tab
+  def paused_hashes():
+   for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
+   frame=h.evaluate('proof.room.game.frame')
+   for tab in [h,g]:tab.wait_for_function("frame=>proof.room.game.frame===frame && proof.hashes.at(-1)?.frame===frame",arg=frame,timeout=15000,polling=50)
+   states=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]]
+   assert states[0]==states[1],states
+   return states
   def open_room(tab):
    panel=tab.locator('.room-panel')
    panel.wait_for(state='visible');return panel
@@ -244,9 +251,7 @@ try:
    if args.screenshots:
     for role,tab in [('host',h),('guest',g)]:tab.screenshot(path=str(out.with_name(f'{role}.paused.png')),full_page=True,mask=[tab.locator('input[aria-label="Room invitation"]:visible')])
     h.set_viewport_size({'width':390,'height':844});h.screenshot(path=str(out.with_name('paused-mobile.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')]);h.set_viewport_size({'width':1280,'height':1050})
-   pause_frame=h.evaluate('proof.room.game.frame')
-   for tab in [h,g]:tab.wait_for_function('frame=>proof.hashes.at(-1)?.frame===frame',arg=pause_frame,timeout=15000,polling=50)
-   before=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert before[0]==before[1],before
+   before=paused_hashes()
    if args.fault=='device':
     open_room(h).get_by_role('button',name='Ready to resume',exact=True).click()
     assert h.evaluate('proof.room.game.status')=='paused'
@@ -258,6 +263,7 @@ try:
    open_room(g).get_by_role('button',name='Ready to resume',exact=True).click()
    # Arm while paused: every resumed frame belongs to the scripted workload.
    h.evaluate("window.scriptKey='KeyX'");g.evaluate("window.scriptKey='KeyZ'")
+   if args.delay_final_hash:g.evaluate('frame=>proof.finalHashDelay={armedFrame:frame,periodic:[]}',before[1]['frame'])
    h.get_by_role('button',name='Resume together',exact=True).click()
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='playing'",timeout=15000,polling=50)
    resumed=time.monotonic()
@@ -299,9 +305,15 @@ try:
     assert h.evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Mobile room overflows horizontally'
     h.screenshot(path=str(out.with_suffix('.mobile.shared-playing.png')),full_page=True)
     h.set_viewport_size({'width':1366 if args.short_viewport else 1280,'height':682 if args.short_viewport else 1050})
+   if args.delay_final_hash:assert g.evaluate('proof.finalHashDelay.periodic.length')>0,'An actual periodic hash must pass between arming and final pause'
    h.get_by_role('button',name='Pause',exact=True).click()
-   for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
-   final=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert final[0]==final[1],final
+   final=paused_hashes()
+   if args.delay_final_hash:
+    delayed=g.evaluate('proof.finalHashDelay')
+    assert g.evaluate('proof.delayedHashes')==1
+    assert delayed['requestId']==delayed['response']['requestId'] and delayed['frame']==final[1]['frame']==delayed['response']['frame'],delayed
+    assert delayed['response']['hash']==final[1]['hash'],delayed
+    assert all(record['requestId']!=delayed['requestId'] and record['frame']<delayed['frame'] for record in delayed['periodic']),delayed
    hashes=[normalized_periodic_hashes(tab.evaluate('proof.sentHashes'),pause,completed) for tab,pause,completed in zip([h,g],before,final)];assert hashes[0]==hashes[1], 'Every interior epoch/frame hash must be present and identical on both peers';assert len(hashes[0])>=2
    route='relay' if args.relay or args.standard_fallback else 'direct'
    for tab in [h,g]:
