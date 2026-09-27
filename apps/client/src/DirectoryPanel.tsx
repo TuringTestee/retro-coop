@@ -1,4 +1,4 @@
-import {ScrollRegion} from './ScrollRegion.tsx';
+import {ScrollRegion,useOverflowFocus} from './ScrollRegion.tsx';
 import {catalogEntry,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import type {ReactNode} from 'react';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
@@ -16,6 +16,7 @@ function roomState(room:RoomPreview) {
 
 export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection}:{state:RoomState;connection?:ReactNode;onCreate:()=>void;onJoin:(code:string)=>void;onClaim:(code:string,id:CatalogId)=>void;onRetry:()=>void}) {
  const[query,setQuery]=useState(''),[page,setPage]=useState(0),[pageSize,setPageSize]=useState(()=>innerHeight<700?2:innerHeight<820?3:4);
+ const list=useRef<HTMLUListElement>(null),listTabIndex=useOverflowFocus(list);
  const search=useRef<HTMLInputElement>(null),focusedRoom=useRef<string|undefined>(undefined);
  useEffect(()=>{const resize=()=>setPageSize(innerHeight<700?2:innerHeight<820?3:4);visualViewport?.addEventListener('resize',resize);addEventListener('resize',resize);return()=>{visualViewport?.removeEventListener('resize',resize);removeEventListener('resize',resize);};},[]);
  const rooms=matchingRooms(state.directory??[],query),live=state.directoryStatus==='live',view=pageRows(rooms,page,pageSize);
@@ -31,7 +32,7 @@ export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection
   {live&&!rooms.length&&<p role="status">{query.trim()?'No matching public rooms.':'No public rooms right now.'}</p>}
   {publicCode(query)&&live&&!rooms.length&&<p>Unlisted rooms open through invitations.</p>}
   {state.room&&<p>Leave your current room before joining another.</p>}
-  </ScrollRegion><ul className="room-list" data-layout-region="directory-list" tabIndex={0} aria-label="Public rooms" onBlur={event=>{if(event.relatedTarget&&!event.currentTarget.contains(event.relatedTarget as Node))focusedRoom.current=undefined;}}>
+  </ScrollRegion><ul className="room-list" data-layout-region="directory-list" ref={list} tabIndex={listTabIndex} aria-label="Public rooms" onBlur={event=>{if(event.relatedTarget&&!event.currentTarget.contains(event.relatedTarget as Node))focusedRoom.current=undefined;}}>
    {view.rows.map(room=>{const known=room.catalogId?catalogEntry(room.catalogId):undefined,available=live&&!state.room&&room.status!=='unavailable'&&('openSlots' in room?room.openSlots>0:true)&&!state.busy;
     const claim=available&&room.occupancy===0,join=available&&room.occupancy>0;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>

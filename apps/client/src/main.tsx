@@ -1,4 +1,4 @@
-import {ScrollRegion} from './ScrollRegion.tsx';
+import {ScrollRegion,useFocusVisibility} from './ScrollRegion.tsx';
 import {PlayControls} from './PlayControls.tsx';
 import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceState} from './voice.ts';
@@ -30,6 +30,7 @@ import {catalogAvailability} from 'virtual:catalog';
 import type {Fingerprint,Visibility} from '../../../packages/contracts/src/rooms.ts';
 
 function App() {
+ useFocusVisibility();
  const canvas = useRef<HTMLCanvasElement>(null), picker = useRef<HTMLInputElement>(null);
  const runtime = useRef<LocalPlayer | null>(null);
  const panel = useRef<HTMLElement>(null);
