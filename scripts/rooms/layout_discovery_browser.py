@@ -5,13 +5,14 @@ Network and browser APIs are held or failed at their real boundaries. No DOM or
 application state is fabricated. The room transition itself begins a new page.
 """
 import argparse
+import contextlib
 import json
 import os
 import subprocess
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from layout_geometry import GeometryRecorder, INSTALL, artifact_provenance, control_visibility
+from layout_geometry import GeometryRecorder, INSTALL, artifact_provenance, control_visibility, keyboard_access, zoom_context, browser_zoom, verify_zoom
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -99,12 +100,15 @@ def directory_and_release(browser, host, url, output):
     viewer.get_by_role('searchbox').fill(long_name)
     record.allow_user_scroll(False)
     viewer.get_by_text(long_name, exact=True).wait_for()
+    nickname_before = host.get_by_test_id('guest').bounding_box()
     host.get_by_text('Nickname settings', exact=True).click()
     long_nickname = 'Host with a very long nickname!!'
     assert len(long_nickname) == 32
     host.get_by_label('Nickname', exact=True).fill(long_nickname)
     host.get_by_role('button', name='Save nickname', exact=True).click()
     viewer.get_by_text(long_nickname, exact=True).wait_for()
+    host.get_by_test_id('guest').filter(has_text=long_nickname).wait_for()
+    (output / 'nickname-header.json').write_text(json.dumps({'before': nickname_before, 'after': host.get_by_test_id('guest').bounding_box()}, indent=2))
     record.mark('long-name-and-host-live')
     viewer.screenshot(path=str(output / 'directory-long-name.png'))
     invite = host.get_by_label('Room invitation', exact=True).input_value()
@@ -152,6 +156,49 @@ def directory_and_release(browser, host, url, output):
     visitor.close()
     viewer.close()
     return result
+
+
+def invitation_release_keyboard(playwright, browser, url, output):
+    results = []
+    for backing in (None, 1280, 640):
+        host = browser.new_page(viewport={'width': 1440, 'height': 900})
+        host.goto(url)
+        host.get_by_role('button', name='Create game', exact=True).click()
+        host.set_input_files('input[type=file]', STATIC / 'generated/diagnostic.nes')
+        host.get_by_role('button', name='Create room', exact=True).click()
+        host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+        invite = host.get_by_label('Room invitation', exact=True).input_value()
+        with contextlib.ExitStack() as stack:
+            if backing:
+                context, worker = stack.enter_context(zoom_context(playwright, {'width': backing, 'height': 720}))
+                visitor = context.pages[0]
+                profiles = [(f'zoom-{backing}', None)]
+            else:
+                visitor = browser.new_page(viewport={'width': 1440, 'height': 900})
+                stack.callback(visitor.close)
+                profiles = [(f'{width}x{height}', {'width': width, 'height': height})
+                            for width, height in ((1440, 900), (1366, 682), (1024, 600), (390, 700))]
+            visitor.goto(invite)
+            visitor.get_by_role('button', name='Join room', exact=True).wait_for()
+            zoom = browser_zoom(visitor, worker) if backing else None
+            for label, viewport in profiles:
+                if viewport: visitor.set_viewport_size(viewport)
+                results.append(keyboard_access(visitor, f'{label}-invitation', output / f'{label}-invitation-keyboard.json'))
+            visitor.get_by_role('button', name='Join room', exact=True).click()
+            visitor.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
+            visitor.wait_for_function("!Array.from(document.querySelectorAll('button')).find(n=>n.textContent==='Prepare to play')?.disabled", timeout=30000)
+            host.get_by_role('button', name='Leave room', exact=True).click()
+            host.get_by_role('button', name='Confirm leave', exact=True).click()
+            visitor.locator('.release-notice').wait_for()
+            for label, viewport in profiles:
+                if viewport: visitor.set_viewport_size(viewport)
+                results.append(keyboard_access(visitor, f'{label}-release', output / f'{label}-release-keyboard.json'))
+                visitor.screenshot(path=str(output / f'{label}-release.png'))
+            if zoom: verify_zoom(worker, zoom)
+            visitor.locator('.release-notice button').click()
+            visitor.locator('.release-notice').wait_for(state='detached')
+        host.close()
+    return results
 
 
 def main():
@@ -284,10 +331,11 @@ def main():
             assert not unexpected_errors, unexpected_errors
             results.extend(directory_and_release(browser, page, url, args.output))
             results.extend(included_preview(browser, url, args.output))
+            keyboard = invitation_release_keyboard(p, browser, url, args.output)
             assert provenance['artifacts'] == artifact_provenance(ROOT, STATIC)['artifacts'], 'Build changed during proof'
-            result = {'result': 'pass', 'provenance': provenance, 'browser': browser.version, 'geometry': results,
+            result = {'result': 'pass', 'provenance': provenance, 'browser': browser.version, 'geometry': results, 'keyboard': keyboard,
                       'upload_retry_reaches_room': True, 'injected_storage_errors': errors.count('Geometry storage quota injection'), 'elapsed_seconds': time.monotonic() - started,
-                      'unverified': ['320px keyboard endpoints on every page (stable_pages matrix)']}
+                      'unverified': []}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()

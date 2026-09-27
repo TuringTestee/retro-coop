@@ -48,6 +48,9 @@ class GeometryRecorder:
 
     def allow_user_scroll(self, enabled=True):
         """Bracket actual keyboard/wheel/click input, never asynchronous feedback."""
+        if not enabled:
+            # Product focus restoration/reveal is scheduled by the input handler.
+            self.page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
         self.page.evaluate('enabled=>{layoutProbe.sample();layoutProbe.intentionalScroll=enabled;}', enabled)
 
     def finish(self, output, required=()):
