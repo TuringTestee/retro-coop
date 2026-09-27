@@ -263,6 +263,7 @@ try:
    open_room(g).get_by_role('button',name='Ready to resume',exact=True).click()
    # Arm while paused: every resumed frame belongs to the scripted workload.
    h.evaluate("window.scriptKey='KeyX'");g.evaluate("window.scriptKey='KeyZ'")
+   if args.delay_final_hash:g.evaluate('frame=>proof.finalHashDelay={armedFrame:frame,periodic:[]}',before[1]['frame'])
    h.get_by_role('button',name='Resume together',exact=True).click()
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='playing'",timeout=15000,polling=50)
    resumed=time.monotonic()
@@ -304,10 +305,15 @@ try:
     assert h.evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Mobile room overflows horizontally'
     h.screenshot(path=str(out.with_suffix('.mobile.shared-playing.png')),full_page=True)
     h.set_viewport_size({'width':1366 if args.short_viewport else 1280,'height':682 if args.short_viewport else 1050})
-   if args.delay_final_hash:g.evaluate('window.delayNextHash=true')
+   if args.delay_final_hash:assert g.evaluate('proof.finalHashDelay.periodic.length')>0,'An actual periodic hash must pass between arming and final pause'
    h.get_by_role('button',name='Pause',exact=True).click()
    final=paused_hashes()
-   if args.delay_final_hash:assert g.evaluate('proof.delayedHashes')==1
+   if args.delay_final_hash:
+    delayed=g.evaluate('proof.finalHashDelay')
+    assert g.evaluate('proof.delayedHashes')==1
+    assert delayed['requestId']==delayed['response']['requestId'] and delayed['frame']==final[1]['frame']==delayed['response']['frame'],delayed
+    assert delayed['response']['hash']==final[1]['hash'],delayed
+    assert all(record['requestId']!=delayed['requestId'] and record['frame']<delayed['frame'] for record in delayed['periodic']),delayed
    hashes=[normalized_periodic_hashes(tab.evaluate('proof.sentHashes'),pause,completed) for tab,pause,completed in zip([h,g],before,final)];assert hashes[0]==hashes[1], 'Every interior epoch/frame hash must be present and identical on both peers';assert len(hashes[0])>=2
    route='relay' if args.relay or args.standard_fallback else 'direct'
    for tab in [h,g]:
