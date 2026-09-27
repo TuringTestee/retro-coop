@@ -55,6 +55,7 @@ def navigation_matrix(page, output, profile):
     page.screenshot(path=str(output / f'{profile}-settings-confirm.png'))
     record.allow_user_scroll()
     page.keyboard.press('Escape')
+    page.wait_for_function("document.activeElement?.textContent === 'Restore keyboard defaults'")
     record.allow_user_scroll(False)
     page.get_by_role('button', name='Keep mappings', exact=True).wait_for(state='detached')
     record.mark('cancelled')
@@ -70,6 +71,7 @@ def navigation_matrix(page, output, profile):
     page.screenshot(path=str(output / f'{profile}-local-data-confirm.png'))
     record.allow_user_scroll()
     page.keyboard.press('Escape')
+    page.wait_for_function("document.activeElement?.textContent === 'Delete all local data'")
     record.allow_user_scroll(False)
     page.get_by_role('button', name='Confirm', exact=True).wait_for(state='detached')
     record.mark('cancelled')
@@ -88,6 +90,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    provenance = artifact_provenance(ROOT, STATIC)
     service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
                                env={**os.environ, 'COORDINATOR_EMPTY_OFFERS': 'super-tilt-bro-pal,from-below-1.0'},
                                stdout=subprocess.PIPE, text=True)
@@ -139,11 +142,13 @@ def main():
             host.set_viewport_size({'width': 390, 'height': 844})
             assert host.evaluate('document.documentElement.scrollWidth <= innerWidth')
             assert host.evaluate('document.documentElement.scrollHeight <= innerHeight + 1')
+            host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+            host.get_by_role('button', name='Create room', exact=True).wait_for()
+            host.wait_for_function("!document.querySelector('.create-actions button')?.disabled")
             host.get_by_role('button', name='Create room', exact=True).focus()
             control_visibility(host.get_by_role('button', name='Create room', exact=True), require_focus=True)
             host.screenshot(path=str(args.output / 'create-narrow.png'), full_page=True)
             host.set_viewport_size({'width': 1280, 'height': 720})
-            host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             start_style = host.get_by_role('button', name='Start game', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
@@ -270,8 +275,9 @@ def main():
             assert host.locator('.release-notice').count() == 0
             host.screenshot(path=str(args.output / 'failed-close.png'), full_page=True)
             assert not errors, errors
+            assert artifact_provenance(ROOT, STATIC)['artifacts'] == provenance['artifacts'], 'Build changed during browser proof'
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                      'browser': browser.version, 'provenance': artifact_provenance(ROOT, STATIC), 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
+                      'browser': browser.version, 'provenance': provenance, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
                       'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
                       'inline_confirmations': True, 'dialogs': 0, 'create_explicit_scroll_regions': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
