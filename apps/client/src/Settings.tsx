@@ -70,8 +70,8 @@ export function Settings(props:Props) {
   <div className="input-test" tabIndex={0} aria-label="Test mapped input" onKeyDown={event=>{if(event.code!=='Tab' && event.code!=='Escape'){event.preventDefault();held.current.add(event.code);}}} onBlur={()=>held.current.clear()}>
    Focus here to test {source} input: <span data-testid="input-test">{actions.slice(0,8).filter((_,index)=>tested & (1<<index)).map(action=>labels[action]).join(', ') || 'None'}</span>
   </div>
-  {props.voice}
-  {props.connection && <fieldset><legend>Connection</legend>{props.connection}</fieldset>}
+  <ScrollRegion className="settings-voice-region" data-layout-region="settings-voice" aria-label="Voice settings">{props.voice}</ScrollRegion>
+  <ScrollRegion className="settings-connection-region" data-layout-region="settings-connection" aria-label="Connection settings">{props.connection && <fieldset><legend>Connection</legend>{props.connection}</fieldset>}</ScrollRegion>
    <fieldset><legend>Picture and sound</legend><label>Display filter <select value={props.filter} onChange={event=>props.setFilter(event.target.value as Props['filter'])}><option value="nearest">Nearest neighbor</option><option value="scanlines">Scanlines</option></select></label>
    <label>Game volume {Math.round(props.volume*100)}% <input type="range" min="0" max="100" value={Math.round(props.volume*100)} onChange={event=>props.setVolume(Number(event.target.value)/100)}/></label>
    <p>Audio: {props.audioState ?? 'not started'}. {props.muted ? 'Game output is muted. Unmute from the player when ready.' : 'Game output is enabled.'}</p>

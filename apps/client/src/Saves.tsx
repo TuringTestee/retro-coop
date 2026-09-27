@@ -69,8 +69,8 @@ export function Saves({open,player,game,shared}:{open:boolean;player:LocalPlayer
     <button disabled={busy} onClick={()=>setConfirmation({label:`Delete Slot ${row.slot}? This cannot be undone. Export a backup first if you need it.`,action:()=>run(async current=>{await deleteSave(row);if(current()){await refresh(current);setMessage(`Deleted Slot ${row.slot}.`);}})})}>Delete Slot {row.slot}</button>
    </li>)}</ul>
   </div></div>
-  <button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
-  {backup && <button disabled={busy} onClick={()=>exportBytes(backup)}>{exportFailed ? 'Retry export' : 'Export memory backup'}</button>}
+  <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
+  {backup && <button disabled={busy} onClick={()=>exportBytes(backup)}>{exportFailed ? 'Retry export' : 'Export memory backup'}</button>}</div>
  </ScrollRegion>
  </section>;
 }
