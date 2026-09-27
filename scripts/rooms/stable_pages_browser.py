@@ -7,6 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from layout_geometry import GeometryRecorder, control_visibility, zoom_context, browser_zoom, verify_zoom, artifact_provenance
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -21,11 +22,65 @@ def geometry(page, label):
     assert not overlap, (label, canvas, room)
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), label
     assert page.locator('.room-panel').evaluate("node => getComputedStyle(node).position !== 'fixed'"), label
-    if room['y'] + room['height'] > page.viewport_size['height']:
-        page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)')
-        assert page.evaluate('window.scrollY > 0'), (label, 'room is below the viewport but the page cannot scroll')
-        page.evaluate('window.scrollTo(0, 0)')
+    assert page.evaluate('document.documentElement.scrollHeight <= innerHeight + 1'), (label, 'unexpected document scroll owner')
+    assert page.locator('[data-layout-region]').count(), 'stable owner hooks are required'
     return {'viewport': label, 'canvas': canvas, 'room': room}
+
+
+def navigation_matrix(page, output, profile):
+    """Bounded public entry/secondary confirmation cases; room matrix lives elsewhere."""
+    results = []
+    page.get_by_test_id('directory').wait_for(state='visible')
+    record = GeometryRecorder(page, f'{profile}-directory-search')
+    search = page.get_by_role('searchbox', name='Search room, game, host, or code')
+    record.allow_user_scroll()
+    search.fill('no such room geometry probe')
+    record.allow_user_scroll(False)
+    page.get_by_text('No matching public rooms.', exact=True).wait_for()
+    record.mark('empty')
+    page.screenshot(path=str(output / f'{profile}-directory-empty.png'))
+    record.allow_user_scroll()
+    search.fill('')
+    record.allow_user_scroll(False)
+    record.mark('search-cleared')
+    results.append(record.finish(output / f'{profile}-directory.json'))
+    page.get_by_role('button', name='Settings', exact=True).click()
+    page.wait_for_function("document.activeElement?.id === 'settings-title'")
+    record = GeometryRecorder(page, f'{profile}-settings-confirmation')
+    record.allow_user_scroll()
+    page.get_by_role('button', name='Restore keyboard defaults').click()
+    record.allow_user_scroll(False)
+    page.get_by_role('button', name='Keep mappings', exact=True).wait_for()
+    record.mark('confirmation')
+    page.screenshot(path=str(output / f'{profile}-settings-confirm.png'))
+    record.allow_user_scroll()
+    page.keyboard.press('Escape')
+    record.allow_user_scroll(False)
+    page.get_by_role('button', name='Keep mappings', exact=True).wait_for(state='detached')
+    record.mark('cancelled')
+    results.append(record.finish(output / f'{profile}-settings.json'))
+    page.get_by_role('button', name='Local data', exact=True).click()
+    page.wait_for_function("document.activeElement?.id === 'local-data-title'")
+    record = GeometryRecorder(page, f'{profile}-local-data-confirmation')
+    record.allow_user_scroll()
+    page.get_by_role('button', name='Delete all local data').click()
+    record.allow_user_scroll(False)
+    page.get_by_role('button', name='Confirm', exact=True).wait_for()
+    record.mark('confirmation')
+    page.screenshot(path=str(output / f'{profile}-local-data-confirm.png'))
+    record.allow_user_scroll()
+    page.keyboard.press('Escape')
+    record.allow_user_scroll(False)
+    page.get_by_role('button', name='Confirm', exact=True).wait_for(state='detached')
+    record.mark('cancelled')
+    results.append(record.finish(output / f'{profile}-local-data.json'))
+    page.get_by_role('button', name='Back', exact=True).click()
+    page.wait_for_function("document.activeElement?.textContent === 'Local data'")
+    control_visibility(page.get_by_role('button', name='Local data', exact=True), require_focus=True)
+    page.get_by_role('button', name='Back', exact=True).click()
+    page.wait_for_function("document.activeElement?.textContent === 'Settings'")
+    control_visibility(page.get_by_role('button', name='Settings', exact=True), require_focus=True)
+    return results
 
 
 def main():
@@ -40,11 +95,28 @@ def main():
         assert service.stdout
         url = json.loads(service.stdout.readline())['url']
         with sync_playwright() as playwright:
+            zoom_results = []
+            for backing in ({'width': 1280, 'height': 720}, {'width': 640, 'height': 720}):
+                with zoom_context(playwright, backing) as (context, worker):
+                    tab = context.pages[0]
+                    tab.goto(url)
+                    tab.get_by_test_id('directory').wait_for(state='visible')
+                    receipt = browser_zoom(tab, worker)
+                    receipt['matrix'] = navigation_matrix(tab, args.output, f"zoom-{backing['width']}")
+                    receipt['verified_after_navigation'] = verify_zoom(worker, receipt)
+                    tab.screenshot(path=str(args.output / f"zoom-{backing['width']}.png"))
+                    zoom_results.append(receipt)
             browser = playwright.chromium.launch()
             host = browser.new_page(viewport={'width': 1280, 'height': 720})
             errors = []
             host.on('pageerror', lambda error: errors.append(str(error)))
             host.goto(url)
+            page_matrix = []
+            for width, height in ((1440, 900), (1366, 682), (1024, 600), (390, 700)):
+                host.set_viewport_size({'width': width, 'height': height})
+                page_matrix.append(navigation_matrix(host, args.output, f'{width}x{height}'))
+            host.set_viewport_size({'width': 1280, 'height': 720})
+
             host.get_by_role('button', name='Settings', exact=True).click()
             host.wait_for_function("document.activeElement?.id === 'settings-title'")
             assert host.locator('dialog').count() == 0
@@ -65,11 +137,10 @@ def main():
             host.wait_for_function("document.activeElement?.textContent === 'Settings'")
             host.get_by_role('button', name='Create game', exact=True).click()
             host.set_viewport_size({'width': 390, 'height': 844})
-            host.wait_for_function("document.querySelector('.create-game')?.scrollHeight > innerHeight")
-            assert host.locator('.create-game').evaluate("node => getComputedStyle(node).overflowY === 'visible'"), host.locator('.create-game').evaluate("node => ({overflow:getComputedStyle(node).overflowY,parent:node.parentElement.className})")
             assert host.evaluate('document.documentElement.scrollWidth <= innerWidth')
-            host.get_by_role('button', name='Create room', exact=True).scroll_into_view_if_needed()
-            assert host.evaluate('window.scrollY > 0'), 'Create room should be reached by page scroll'
+            assert host.evaluate('document.documentElement.scrollHeight <= innerHeight + 1')
+            host.get_by_role('button', name='Create room', exact=True).focus()
+            control_visibility(host.get_by_role('button', name='Create room', exact=True), require_focus=True)
             host.screenshot(path=str(args.output / 'create-narrow.png'), full_page=True)
             host.set_viewport_size({'width': 1280, 'height': 720})
             host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
@@ -163,7 +234,7 @@ def main():
             narrow = geometry(host, '390x700')
             host.screenshot(path=str(args.output / 'playing-narrow.png'), full_page=True)
             host.set_viewport_size({'width': 640, 'height': 360})
-            zoom = geometry(host, '640x360 (200% zoom equivalent)')
+            compact = geometry(host, '640x360 viewport (not browser zoom)')
             host.screenshot(path=str(args.output / 'playing-zoom.png'), full_page=True)
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).wait_for()
@@ -200,11 +271,11 @@ def main():
             host.screenshot(path=str(args.output / 'failed-close.png'), full_page=True)
             assert not errors, errors
             result = {'result': 'pass', 'head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                      'browser': browser.version, 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
+                      'browser': browser.version, 'provenance': artifact_provenance(ROOT, STATIC), 'pages': ['Settings', 'Local data', 'Saves', 'Rewind', 'Game help', 'Invitation'],
                       'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
-                      'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
+                      'inline_confirmations': True, 'dialogs': 0, 'create_explicit_scroll_regions': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
-                      'layout': [wide, narrow, zoom], 'page_errors': errors}
+                      'layout': [wide, narrow, compact], 'zoom_matrix': zoom_results, 'page_matrix': page_matrix, 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()
