@@ -40,6 +40,7 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
     timeout --foreground 45s python3 scripts/voice/multi_member_smoke.py --relay --output spikes/d02/five-members.local/voice-relay.json
     timeout --foreground 30s python3 scripts/gameplay/late_controller_smoke.py --output spikes/d02/five-members.local/late-controller.json
     timeout --foreground 60s python3 scripts/gameplay/observer_failure_smoke.py --output spikes/d02/five-members.local/observer-failure.json
+    timeout --foreground 60s python3 scripts/gameplay/initial_observer_recovery_smoke.py --output spikes/d02/five-members.local/initial-observer-recovery.json
     exit
   fi
   timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
