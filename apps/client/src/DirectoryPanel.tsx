@@ -36,9 +36,9 @@ export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection
    {view.rows.map(room=>{const known=room.catalogId?catalogEntry(room.catalogId):undefined,available=live&&!state.room&&room.status!=='unavailable'&&('openSlots' in room?room.openSlots>0:true)&&!state.busy;
     const claim=available&&room.occupancy===0,join=available&&room.occupancy>0;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
-     <strong>{room.label}</strong>
-     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'Player 1 controller; observer slots':'P1/P2 controllers'} · included`:`Host-shared NES · ${'romBytes' in room&&room.romBytes?`${gameSize(room.romBytes)} download`:'download size unavailable'}`}</span>
-     <span>{room.host}</span><code>{room.code}</code><span>{roomState(room)}</span>
+     <strong aria-label="Room name">{room.label}</strong>
+     <span aria-label="Game details">{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'Player 1 controller; observer slots':'P1/P2 controllers'} · included`:`Host-shared NES · ${'romBytes' in room&&room.romBytes?`${gameSize(room.romBytes)} download`:'download size unavailable'}`}</span>
+     <span aria-label="Host nickname">{room.host}</span><code aria-label="Room code">{room.code}</code><span aria-label="Room availability">{roomState(room)}</span>
      {claim&&room.catalogId&&<button onClick={()=>onClaim(room.code!,room.catalogId!)}>Join as host</button>}
      {join&&<button onClick={()=>onJoin(room.code!)}>Join</button>}
     </li>;

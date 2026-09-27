@@ -12,10 +12,11 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
    <ScrollRegion className="voice-feedback" aria-label="Voice feedback">{mic.error&&<p>{mic.error} {mic.error.includes('denied')&&'Review microphone permission in your browser’s site settings, then try again.'}</p>}
    {state.connectionError&&<p>{state.connectionError} <button className="text-action" onClick={()=>voice.retryBinding()}>Retry voice connection</button></p>}
    {state.playbackError&&<p>{state.playbackError} <button className="text-action" onClick={()=>voice.retrySound()}>Enable voice sound</button></p>}
+   <p className="talk-binding">{mic.mode==='push'&&<>Push to talk · {talkBinding}</>}</p>
    </ScrollRegion><div className="voice-actions">{mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
    <button className="text-action voice-settings" onClick={onSettings}>Voice settings</button>
    <span className="voice-talk-action">{mic.phase==='ready'&&mic.mode==='push'&&talk}</span>
-   <p className="talk-binding">{mic.mode==='push'&&<>Push to talk · {talkBinding}</>}</p></div>
+</div>
   </section>;
  }
 
