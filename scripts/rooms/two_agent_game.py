@@ -19,12 +19,14 @@ from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--role", choices=("host", "guest", "verify", "run"), required=True)
+parser.add_argument("--runtime-root", type=Path, default=ROOT, help="Checkout providing the built runtime and fixture")
 parser.add_argument("--url", help="URL printed by scripts/rooms/browser-server.ts")
 parser.add_argument("--rom", type=Path, help="Host NES file; never supplied to the guest")
 parser.add_argument("--visibility", choices=("public", "unlisted"), default="public")
 parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
 args = parser.parse_args()
+ROOT = args.runtime_root.resolve()
 expected_ram = [int(value) for value in args.expect_controller_ram.split(",")] if args.expect_controller_ram else None
 if expected_ram is not None and (len(expected_ram) != 2 or any(value < 0 or value > 255 for value in expected_ram)):
     parser.error("--expect-controller-ram needs two byte values")
@@ -69,6 +71,7 @@ def verify():
     assert host["received_gameplay"]["input"] > 0 and host["received_gameplay"]["frame"] == 0
     assert guest["received_gameplay"]["frame"] > 0 and guest["received_gameplay"]["input"] == 0
     assert host["last_hash"] and host["last_hash"] == guest["last_hash"]
+    assert host["frames"] == guest["frames"] == host["last_hash"]["frame"]
     assert host["controller_ram"] == guest["controller_ram"]
     if expected_ram is not None:
         assert host["controller_ram"] == expected_ram
@@ -133,7 +136,7 @@ if args.role == "run":
                     role_arguments = ["--rom", str(args.rom.resolve())] if role == "host" else []
                     worker = subprocess.Popen(
                         [sys.executable, __file__, "--role", role, "--url", url,
-                         *role_arguments, "--session-dir", str(session),
+                         *role_arguments, "--runtime-root", str(ROOT), "--session-dir", str(session),
                          "--visibility", args.visibility,
                          *(["--expect-controller-ram", args.expect_controller_ram] if args.expect_controller_ram else [])],
                         cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
@@ -205,13 +208,19 @@ with sync_playwright() as playwright:
                 "name": "shared-game.nes", "mimeType": "application/octet-stream", "buffer": rom,
             })
             page.locator('.create-library li').filter(has_text='shared-game.nes').wait_for()
-            store_verified_before_reload = page.wait_for_function('''async ({hash,size})=>{
+            store_check = '''async ({hash,size})=>{
               const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
               const record=await new Promise((resolve,reject)=>{const q=db.transaction('roms').objectStore('roms').get(hash);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
               db.close();if(record?.sha256!==hash||record?.size!==size||record.bytes?.byteLength!==size||record.label!=='shared-game.nes')return false;
               const digest=await crypto.subtle.digest('SHA-256',record.bytes);
               return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('')===hash;
-            }''', arg={"hash": rom_hash, "size": len(rom)}, polling=50).json_value()
+            }'''
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                store_verified_before_reload = page.evaluate(store_check, {"hash": rom_hash, "size": len(rom)})
+                if store_verified_before_reload:
+                    break
+                page.wait_for_timeout(50)
             assert store_verified_before_reload
             page.reload()
             page.get_by_test_id("create-game").wait_for(state="visible")
@@ -235,13 +244,14 @@ with sync_playwright() as playwright:
             assert page.get_by_role("button", name="Start game", exact=True).is_enabled()
             invitation=page.get_by_label("Room invitation").input_value() if args.visibility == "unlisted" else None
             save("host-ready.json", {"room_id": room["id"], "code": room.get("code"), "invitation": invitation})
-            wait_for("guest-ready.json")
+            prepared = wait_for("guest-ready.json")
             page.wait_for_function(
-                "proof.room?.guest && proof.room?.matches && proof.room?.game?.ready?.includes('guest')",
+                "member => proof.room?.slots.some(slot => slot.member?.id === member) && proof.room?.matches && proof.room?.game?.ready?.includes(member)",
+                arg=prepared["member_id"],
                 timeout=30000,
                 polling=50,
             )
-            page.get_by_text("Guest is prepared. Start together when you are ready.", exact=True).wait_for()
+            page.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').filter(has_text="Ready").wait_for()
             page.get_by_role("button", name="Start game", exact=True).click()
         else:
             expected = wait_for("host-ready.json")
@@ -255,14 +265,14 @@ with sync_playwright() as playwright:
                 row = page.locator(f'.room-list li[data-room-id="{expected["room_id"]}"]')
                 row.get_by_role("button", name="Join", exact=True).click()
             page.get_by_test_id("room-view").wait_for(state="attached")
-            page.wait_for_function("proof.room?.role==='guest'", polling=50)
+            page.wait_for_function("proof.room?.role==='member'", polling=50)
             assert page.evaluate("proof.room.id") == expected["room_id"]
             assert page.evaluate("!('catalogId' in proof.room) && proof.room.romBytes > 0")
             rom_hash = page.evaluate("proof.room.fingerprint.romSha256")
             page.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30000)
             page.wait_for_function("proof.room?.matches===true", timeout=30000, polling=50)
             page.get_by_role("button", name="Prepare to play", exact=True).click()
-            save("guest-ready.json", {"room_id": expected["room_id"], "rom_sha256": rom_hash})
+            save("guest-ready.json", {"room_id": expected["room_id"], "rom_sha256": rom_hash, "member_id": page.evaluate("proof.room.chatMembership")})
 
         page.wait_for_function(
             "proof.room?.established && proof.room?.started==='shared' && proof.room?.game?.status==='playing'",
@@ -280,6 +290,8 @@ with sync_playwright() as playwright:
             page.wait_for_function("Array.isArray(proof.controllerRam)", timeout=10000, polling=50)
             controller_ram = page.evaluate("proof.controllerRam")
             assert controller_ram == expected_ram, f"Both controllers did not change diagnostic game memory: {controller_ram}"
+        save(f"{args.role}-sampled.json", {"controller_ram": controller_ram})
+        wait_for(f"{'guest' if args.role == 'host' else 'host'}-sampled.json", 15)
         page.keyboard.up("x" if args.role == "host" else "z")
         page.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent.match(/^FPS [1-9][0-9]*$/)", timeout=5000)
         page.wait_for_function("document.querySelector('[data-testid=game-ping]')?.textContent.match(/^Ping [0-9]+ ms$/)", timeout=5000)
@@ -304,7 +316,7 @@ with sync_playwright() as playwright:
         assert page.get_by_role("button", name="Choose another file", exact=True).count() == 0
         page.get_by_role("button", name="Ready to resume", exact=True).focus()
         page.keyboard.press("Enter")
-        page.wait_for_function("role => proof.room?.game?.ready?.includes(role)", arg=args.role, timeout=15000)
+        page.wait_for_function("proof.room?.game?.ready?.includes(proof.room.chatMembership)", timeout=15000)
         page.locator("canvas").focus()
         assert page.locator("canvas").evaluate("node => node === document.activeElement")
         received = page.evaluate("proof.admission.received")
