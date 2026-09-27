@@ -18,7 +18,7 @@ services:
       COORDINATOR_EMPTY_OFFERS: super-tilt-bro-pal,from-below-1.0
       TURN_URLS: ${TURN_URLS:?TURN URL required}
       TURN_SECRET: ${TURN_SECRET:?managed TURN secret required}
-      TURN_ROOM_LIMIT: "8"
+      TURN_PAIR_LIMIT: "10"
   edge:
     image: __EDGE_IMAGE__
     network_mode: host

@@ -13,6 +13,7 @@ pub(crate) struct Codec {
     template: Value,
     hardware: Value,
     region: NesRegion,
+    initialized: bool,
 }
 impl Codec {
     pub(crate) fn new(deck: &ControlDeck, rom: &[u8; 32], core: &[u8; 32]) -> Result<Self, String> {
@@ -27,6 +28,11 @@ impl Codec {
             template,
             hardware: validation::dynamic(deck),
             region: deck.region(),
+            // The seven reset cycles execute before any cartridge instruction.
+            // A lazy codec created later must never bless its current mid-frame state.
+            initialized: deck.bus().cpu.cycle == 7
+                && deck.bus().ppu.frame_number() == 0
+                && deck.bus().ppu.scanline == 0,
         })
     }
     fn value(&self, deck: &ControlDeck) -> Value {
@@ -41,7 +47,7 @@ impl Codec {
         Ok(payload)
     }
     /// Hash trusted live state, including power-on before the first committed frame.
-    /// Import/export committed-boundary validation remains unchanged.
+    /// Import/export accepts committed boundaries or the exact trusted initialized state.
     pub(crate) fn hash(&self, deck: &ControlDeck) -> Result<[u8; 32], String> {
         let payload = Self::payload(&self.value(deck))?;
         let mut digest = Sha256::new();
@@ -63,6 +69,15 @@ impl Codec {
     fn validate(&self, value: &Value) -> Result<(), String> {
         if value.as_object().is_none_or(|o| o.len() != 2) {
             return Err("Unknown local state fields".into());
+        }
+        // Power-on is a real F0 freeze boundary, before clock_frame has synchronized
+        // clocks. Accept only byte-equivalent trusted hardware AND mapper dynamics;
+        // frame/cycle counters alone must not admit an arbitrary early scanline.
+        if self.initialized
+            && value["hardware"] == self.hardware
+            && value["mapper"] == self.template["mapper"]
+        {
+            return Ok(());
         }
         validation::hardware(&self.hardware, &value["hardware"], self.region)?;
         // clock_frame synchronizes after the instruction crossing the frame end;
@@ -190,7 +205,7 @@ mod tests {
         Codec::new(deck, &Sha256::digest(rom).into(), &[3; 32]).unwrap()
     }
     #[test]
-    fn live_hash_covers_power_on_mapper_and_identity_without_relaxing_restore() {
+    fn exact_power_on_and_committed_states_restore_with_matching_hashes() {
         for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {
             for mapper in [0, 1, 2, 3, 4, 7] {
                 let (rom, mut first) = cartridge(mapper, region);
@@ -198,10 +213,12 @@ mod tests {
                 let codec = codec(&rom, &first);
                 let initial = codec.hash(&first).unwrap();
                 assert_eq!(initial, codec.hash(&second).unwrap());
-                assert!(
-                    codec.export(&first).is_err(),
-                    "power-on does not become an importable checkpoint"
-                );
+                let power_on = codec.export(&first).unwrap();
+                codec.validate_file(&power_on).unwrap();
+                let _ = second.clock_frame().unwrap();
+                codec.restore(&mut second, &power_on).unwrap();
+                assert_eq!(initial, codec.hash(&second).unwrap());
+                assert_eq!(second.bus().ppu.frame_number(), 0);
                 let other = Codec::new(&first, &Sha256::digest(&rom).into(), &[4; 32]).unwrap();
                 assert_ne!(
                     initial,
@@ -225,6 +242,34 @@ mod tests {
                 assert_eq!(codec.hash(&first).unwrap(), codec.hash(&second).unwrap());
             }
         }
+    }
+    #[test]
+    fn power_on_exception_rejects_tampering_and_lazy_midframe_templates() {
+        let (rom, mut deck) = cartridge(1, NesRegion::Ntsc);
+        let initial = codec(&rom, &deck);
+        let saved = initial.export(&deck).unwrap();
+        deck.clock_instr().unwrap();
+        assert_eq!(deck.bus().ppu.frame_number(), 0);
+        let lazy = codec(&rom, &deck);
+        assert!(!lazy.initialized);
+        assert!(initial.export(&deck).is_err());
+        assert!(lazy.export(&deck).is_err());
+        let _ = deck.clock_frame().unwrap();
+        let advanced = initial.hash(&deck).unwrap();
+        for bad in [
+            alter(&saved, |v| v["hardware"]["cpu"]["cycle"] = json!(9)),
+            alter(&saved, |v| v["hardware"]["ppu"]["scanline"] = json!(100)),
+            alter(&saved, |v| v["hardware"]["memory"]["ram"][0] = json!(1)),
+            alter(&saved, |v| v["hardware"]["ppu"]["spr_count"] = json!(9)),
+            alter(&saved, |v| {
+                v["mapper"]["Sxrom"]["mmc1"]["shift_count"] = json!(1)
+            }),
+        ] {
+            assert!(initial.restore(&mut deck, &bad).is_err());
+            assert_eq!(initial.hash(&deck).unwrap(), advanced);
+        }
+        initial.restore(&mut deck, &saved).unwrap();
+        assert_eq!(initial.export(&deck).unwrap(), saved);
     }
     #[test]
     fn changed_banks_partial_serial_irq_and_regions_restore_then_replay() {
@@ -299,6 +344,162 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn admitted_board_variants_restore_transactionally_and_replay_absolute_frames() {
+        use crate::{local_player::clock_inputs, test_support::nes2_cartridge};
+        let mut cases = Vec::new();
+        for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {
+            for mapper in [76, 88, 95, 154, 155, 206] {
+                cases.push((mapper, 0, 4, 16, region));
+            }
+            cases.push((1, 5, 2, 0, region));
+        }
+        cases.push((2, 1, 32, 0, NesRegion::Pal));
+        for (mapper, submapper, prg, chr, region) in cases {
+            let (rom, mut deck) = nes2_cartridge(mapper, submapper, prg, chr, region);
+            let codec = codec(&rom, &deck);
+            let power_on = codec.export(&deck).unwrap();
+            let power_on_hash = codec.hash(&deck).unwrap();
+            clock_inputs(&mut deck, 1, 2).unwrap();
+            codec.restore(&mut deck, &power_on).unwrap();
+            assert_eq!(codec.hash(&deck).unwrap(), power_on_hash);
+            assert_eq!(deck.bus().ppu.frame_number(), 0);
+            for _ in 0..5 {
+                clock_inputs(&mut deck, 1, 2).unwrap();
+            }
+            let initial = codec.hash(&deck).unwrap();
+            match mapper {
+                1 | 155 => {
+                    for bit in [1, 0, 0, 0, 0] {
+                        write(&mut deck, 0xe000, bit);
+                    }
+                    write(&mut deck, 0xa000, 1);
+                    write(&mut deck, 0xa000, 0); // Deliberately partial MMC1 serial word.
+                }
+                2 => write(&mut deck, 0x8000, 19), // Exercise a high 512 KiB PRG bank.
+                _ => {
+                    write(&mut deck, 0x8000, 2);
+                    write(&mut deck, 0x8001, 3); // 76 uses 2 KiB CHR; 88/154 force bit 6.
+                    write(&mut deck, 0x8000, 0);
+                    write(&mut deck, 0x8001, 0x20); // 95 derives nametable selection here.
+                    write(&mut deck, 0x8000, 0x46); // 154 sets single-screen mirroring.
+                    write(&mut deck, 0x8001, 2);
+                }
+            }
+            assert_ne!(
+                initial,
+                codec.hash(&deck).unwrap(),
+                "mapper writes must change state"
+            );
+            let saved = codec.export(&deck).unwrap();
+            let value: Value = serde_json::from_slice(&saved[HEADER..]).unwrap();
+            match mapper {
+                1 | 155 => {
+                    assert_eq!(value["mapper"]["Sxrom"]["submapper_num"], submapper);
+                    assert_eq!(value["mapper"]["Sxrom"]["mmc1"]["shift_count"], 2);
+                    assert_eq!(
+                        value["mapper"]["Sxrom"]["mmc1"]["revision"],
+                        if mapper == 155 { "A" } else { "BC" }
+                    );
+                }
+                2 => {
+                    assert_eq!(rom.len(), 16 + 512 * 1024);
+                    assert_eq!(value["mapper"]["Uxrom"]["prg_bank"], 19);
+                }
+                _ => {
+                    assert_eq!(value["mapper"]["Txrom"]["mapper_num"], mapper);
+                    assert_eq!(
+                        value["mapper"]["Txrom"]["mmc3"]["bank_values"][2],
+                        if matches!(mapper, 88 | 154) { 67 } else { 3 }
+                    );
+                    if mapper == 154 {
+                        assert_eq!(value["mapper"]["Txrom"]["mirroring"], "SingleScreenA");
+                    }
+                }
+            }
+            let frame = deck.bus().ppu.frame_number();
+            let hash = codec.hash(&deck).unwrap();
+            let pages = deck.bus().memory.prg_pages().to_vec();
+            let chr_pages = deck.bus().memory.chr_pages().to_vec();
+            let mut damaged = saved.clone();
+            *damaged.last_mut().unwrap() ^= 1;
+            let mut wrong_identity = saved.clone();
+            wrong_identity[8] ^= 1;
+            let malformed = alter(&saved, |v| v["hardware"]["ppu"]["spr_count"] = json!(9));
+            let wrong_board = alter(&saved, |v| {
+                let (name, state) = v["mapper"]
+                    .as_object_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .next()
+                    .unwrap();
+                if name == "Uxrom" {
+                    state["mirroring"] = json!("FourScreen");
+                } else {
+                    state["submapper_num"] = json!(15);
+                }
+            });
+            for _ in 0..3 {
+                clock_inputs(&mut deck, 4, 8).unwrap();
+            }
+            let advanced = codec.export(&deck).unwrap();
+            let advanced_hash = codec.hash(&deck).unwrap();
+            let advanced_frame = deck.bus().ppu.frame_number();
+            for bad in [damaged, wrong_identity, malformed, wrong_board] {
+                assert!(
+                    codec.restore(&mut deck, &bad).is_err(),
+                    "{mapper}/{submapper} {region:?}"
+                );
+                assert_eq!(
+                    codec.export(&deck).unwrap(),
+                    advanced,
+                    "rejection changed progress"
+                );
+                assert_eq!(codec.hash(&deck).unwrap(), advanced_hash);
+                assert_eq!(deck.bus().ppu.frame_number(), advanced_frame);
+            }
+            codec.restore(&mut deck, &saved).unwrap();
+            assert_eq!(deck.bus().ppu.frame_number(), frame);
+            assert_eq!(codec.hash(&deck).unwrap(), hash);
+            assert_eq!(pages, deck.bus().memory.prg_pages());
+            assert_eq!(chr_pages, deck.bus().memory.chr_pages());
+            assert!(deck.audio_samples().is_empty());
+            let mut audio = Vec::new();
+            for mask in [1, 2, 4, 8] {
+                clock_inputs(&mut deck, mask, mask << 1).unwrap();
+                audio.extend_from_slice(deck.audio_samples());
+            }
+            assert_eq!(
+                &deck.bus().wram()[..2],
+                &[16, 8],
+                "CPU consumed both controller inputs"
+            );
+            let expected = codec.export(&deck).unwrap();
+            let expected_hash = codec.hash(&deck).unwrap();
+            let pixels = deck.frame_buffer_raw().to_vec();
+            assert_eq!(deck.bus().ppu.frame_number(), frame + 4);
+            assert!(
+                audio.iter().any(|sample| sample.abs() > 0.001),
+                "original audio workload"
+            );
+            codec.restore(&mut deck, &saved).unwrap();
+            let mut replay = Vec::new();
+            for mask in [1, 2, 4, 8] {
+                clock_inputs(&mut deck, mask, mask << 1).unwrap();
+                replay.extend_from_slice(deck.audio_samples());
+            }
+            assert_eq!(codec.export(&deck).unwrap(), expected);
+            assert_eq!(codec.hash(&deck).unwrap(), expected_hash);
+            assert_eq!(deck.bus().ppu.frame_number(), frame + 4);
+            assert_eq!(pixels, deck.frame_buffer_raw());
+            assert_eq!(audio, replay);
+            eprintln!(
+                "checkpoint profile {mapper}/{submapper} {region:?}: frame {frame}, {} bytes, transactional replay",
+                saved.len()
+            );
+        }
+    }
+
     #[test]
     fn validation_only_uses_restore_decoder_without_replacing_progress() {
         let (rom, mut deck) = cartridge(1, NesRegion::Pal);

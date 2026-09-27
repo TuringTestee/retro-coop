@@ -34,12 +34,26 @@ test('chat is membership-scoped, works before a guest ROM and never replays pre-
 });
 test('latest retry receipt survives other members messages without rebroadcasting uncertain delivery',()=>{
  const chat=new RoomChat(),member=randomUUID(),id=randomUUID();
- const first=chat.send(member,id,'hello','guest','Guest',1);
+ const first=chat.send(member,id,'hello','member','Guest',1);
  for(let i=0;i<150;i++) chat.send('host',randomUUID(),'later','host','Host',i+2);
- const retry=chat.send(member,id,'hello','guest','Guest',200);assert.equal(retry.message,undefined);assert.deepEqual(retry.ack,first.ack);
+ const retry=chat.send(member,id,'hello','member','Guest',200);assert.equal(retry.message,undefined);assert.deepEqual(retry.ack,first.ack);
 });
 test('chat wire format enforces Unicode character bound and rejects attachments or forged fields',()=>{
  assert.ok(validChatText('🕹'.repeat(500)));assert.equal(validChatText('🕹'.repeat(501)),false);assert.equal(validChatText(' \n '),false);assert.equal(validChatText('bad\u0000'),false);
  const command={type:'chat',requestId:randomUUID(),roomId:randomUUID(),membership:randomUUID(),clientId:randomUUID(),text:'hello\nfriend'};
  assert.ok(parseRoomCommand(command));for(const extra of [{nickname:'forged'},{attachment:'base64'},{text:'a'.repeat(501)}]) assert.equal(parseRoomCommand({...command,...extra}),undefined);
+});
+
+test('five-member broadcasts use recipient membership and never leak to outsiders or departed members',()=>{
+ const rooms=new Rooms(()=>1000),events:RoomEvent[][]=Array.from({length:6},()=>[]),sessions=events.map(list=>rooms.attach(undefined,event=>list.push(event),()=>{}));
+ const act=(who:number,command:Command)=>rooms.handle(sessions[who].token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
+ const intent=randomUUID();act(0,{type:'create',intent,visibility:'unlisted',fingerprint});const host=act(0,{type:'confirmCreate',intent}).room!;
+ const members=[host];for(let i=1;i<5;i++)members.push(act(i,{type:'join',intent:randomUUID(),invite:host.invite}).room!);
+ const command={type:'chat' as const,roomId:host.id,membership:members[3].chatMembership,clientId:randomUUID(),text:'All five can hear this'};
+ act(3,command);
+ for(let i=0;i<5;i++){const delivered=events[i].filter(event=>event.type==='chat');assert.equal(delivered.length,1);assert.equal(delivered[0].membership,members[i].chatMembership);assert.equal(delivered[0].message.sender,'member');}
+ assert.equal(events[5].filter(event=>event.type==='chat').length,0);
+ act(4,{type:'leave',intent:members[4].reservationIntent});act(3,{...command,clientId:randomUUID(),text:'Only current members'});
+ assert.equal(events[4].filter(event=>event.type==='chat').length,1);
+ assert.throws(()=>act(5,command),/not_in_room/);
 });

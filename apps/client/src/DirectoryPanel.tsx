@@ -8,14 +8,9 @@ import {clampPage,pageRows} from './directory-page.ts';
 const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/1000))} KB`:`${(bytes/1_000_000).toFixed(1)} MB`;
 
 function roomState(room:RoomPreview) {
- if(room.occupancy===0)return room.status==='unavailable'?'0/2 · Room capacity full':'0/2 · Waiting for host';
- if(room.guestPlace==='closed' && room.status==='waiting')return '1/2 · Guest place closed';
- if(room.status==='reserved')return '2/2 · Guest preparing';
- if(room.status==='reconnecting')return `${room.occupancy}/2 · Reconnecting; Join unavailable`;
- if(room.status==='playing')return `${room.occupancy}/2 · Playing; Join unavailable`;
- if(room.status==='paused')return `${room.occupancy}/2 · Paused; Join unavailable`;
- if(room.occupancy===2)return '2/2 · Full';
- return '1/2 · Waiting for guest';
+ if(room.occupancy===0)return room.status==='unavailable'?'0/5 · Room capacity full':'0/5 · Waiting for host';
+ const admission='openSlots' in room&&room.openSlots>0?`${room.openSlots} open slots`:'No open slots';
+ return `${room.occupancy}/5 · ${room.status} · ${admission}`;
 }
 
 export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection}:{state:RoomState;connection?:ReactNode;onCreate:()=>void;onJoin:(code:string)=>void;onClaim:(code:string,id:CatalogId)=>void;onRetry:()=>void}) {
@@ -36,11 +31,11 @@ export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection
   {publicCode(query)&&live&&!rooms.length&&<p>Unlisted rooms open through invitations.</p>}
   {state.room&&<p>Leave your current room before joining another.</p>}
   <ul className="room-list" aria-label="Public rooms" onBlur={event=>{if(event.relatedTarget&&!event.currentTarget.contains(event.relatedTarget as Node))focusedRoom.current=undefined;}}>
-   {view.rows.map(room=>{const known=room.catalogId?catalogEntry(room.catalogId):undefined,available=live&&!state.room&&room.status==='waiting'&&('guestPlace' in room?room.guestPlace==='open':true)&&!state.busy;
-    const claim=available&&room.occupancy===0,join=available&&room.occupancy===1;
+   {view.rows.map(room=>{const known=room.catalogId?catalogEntry(room.catalogId):undefined,available=live&&!state.room&&room.status!=='unavailable'&&('openSlots' in room?room.openSlots>0:true)&&!state.busy;
+    const claim=available&&room.occupancy===0,join=available&&room.occupancy>0;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
      <strong>{room.label}</strong>
-     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'One controller; share turns':'P1/P2 controllers'} · included`:`Host-shared NES · ${'romBytes' in room&&room.romBytes?`${gameSize(room.romBytes)} download`:'download size unavailable'}`}</span>
+     <span>{known?`${known.title!==room.label?`${known.title} · `:''}${room.catalogId==='from-below-1.0'?'Player 1 controller; observer slots':'P1/P2 controllers'} · included`:`Host-shared NES · ${'romBytes' in room&&room.romBytes?`${gameSize(room.romBytes)} download`:'download size unavailable'}`}</span>
      <span>{room.host}</span><code>{room.code}</code><span>{roomState(room)}</span>
      {claim&&room.catalogId&&<button onClick={()=>onClaim(room.code!,room.catalogId!)}>Join as host</button>}
      {join&&<button onClick={()=>onJoin(room.code!)}>Join</button>}

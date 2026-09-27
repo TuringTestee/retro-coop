@@ -26,8 +26,8 @@ for(const terminal of ['failed','channel-close','channel-error'])test(`transient
  globalThis.RTCPeerConnection=FakePeer as unknown as typeof RTCPeerConnection;
  const peer=new PeerConnection(async command=>{sent.push(command);},state=>updates.push(state),{ready:(_channel,_epoch,rtt)=>{ready++;observedRtt=rtt;},closed:()=>closed++});
  try {
-  peer.handle({type:'peerPrepare',epoch:'epoch',role:'host',policy:'standard',iceServers:[]});
-  peer.handle({type:'peerStart',epoch:'epoch'});await setImmediate();
+  peer.handle({type:'peerPrepare',epoch:'epoch',pairId:'pair',member:'remote',gameplay:true,offerer:true,policy:'standard',iceServers:[]});
+  peer.handle({type:'peerStart',pairId:'pair',epoch:'epoch'});await setImmediate();
   pc.connectionState='connected';pc.channel.onopen();
   const nonce=wire[0].nonce;
   pc.channel.onmessage({data:JSON.stringify({type:'transportProbe',nonce:'r'.repeat(36)})});
@@ -57,9 +57,9 @@ test('a replaced connection cannot deliver its delayed readiness or RTT',async()
  globalThis.RTCPeerConnection=FakePeer as unknown as typeof RTCPeerConnection;
  const peer=new PeerConnection(command=>command.type==='peerConnected'?new Promise<void>(resolve=>{release=resolve;}):Promise.resolve(),()=>{},{ready:(_channel,_epoch,rtt)=>ready.push(rtt)});
  try {
-  peer.handle({type:'peerPrepare',epoch:'old',role:'host',policy:'standard',iceServers:[]});peer.handle({type:'peerStart',epoch:'old'});await setImmediate();
+  peer.handle({type:'peerPrepare',epoch:'old',pairId:'pair',member:'remote',gameplay:true,offerer:true,policy:'standard',iceServers:[]});peer.handle({type:'peerStart',pairId:'pair',epoch:'old'});await setImmediate();
   const channel=pc.channel;channel.onopen();const nonce=channel.last.nonce;
   channel.onmessage({data:JSON.stringify({type:'transportProbe',nonce:'r'.repeat(36)})});channel.onmessage({data:JSON.stringify({type:'transportReply',nonce})});await setImmediate();
-  assert.equal(typeof release,'function');peer.handle({type:'peerPrepare',epoch:'new',role:'host',policy:'standard',iceServers:[]});release();await setImmediate();assert.deepEqual(ready,[]);
+  assert.equal(typeof release,'function');peer.handle({type:'peerPrepare',epoch:'new',pairId:'pair',member:'remote',gameplay:true,offerer:true,policy:'standard',iceServers:[]});release();await setImmediate();assert.deepEqual(ready,[]);
  } finally {peer.close();globalThis.RTCPeerConnection=original;}
 });

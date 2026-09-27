@@ -143,6 +143,14 @@ pub unsafe extern "C" fn local_bind_core(ptr: *mut u8, len: usize) -> u32 {
             return Err("Core identity already bound".into());
         }
         player.core_sha256 = Some(hash);
+        // Retain the trusted pre-frame hardware for exact F0 checkpoints even when
+        // the first save/import occurs much later. Unsupported codecs stay an
+        // operation error: binding identity must not become a ROM-loading gate.
+        player.state_codec = Some(crate::local_state::Codec::new(
+            &player.deck,
+            &player.rom_sha256,
+            &hash,
+        ));
         Ok(())
     }))
 }
@@ -198,7 +206,7 @@ pub unsafe extern "C" fn local_battery_import(ptr: *mut u8, len: usize) -> u32 {
         Ok(())
     }))
 }
-// Build only on a save operation, never as a condition for loading/playing a ROM.
+// Fallback for native callers; codec failure never gates loading/playing a ROM.
 fn prepare_state(player: &mut LocalPlayer) -> Result<(), String> {
     if player.state_codec.is_none() {
         let core = player
@@ -405,6 +413,54 @@ pub extern "C" fn local_output_len() -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn core_binding_retains_initial_checkpoint_before_first_state_operation() {
+        let rom = std::fs::read("fixture.local.nes").unwrap();
+        PLAYER.with_borrow_mut(|slot| *slot = Some(load(&rom).unwrap()));
+        unsafe {
+            assert_eq!(local_bind_core(local_battery_alloc(32), 32), 1);
+        }
+        let (initial, hash) = PLAYER.with_borrow(|slot| {
+            let player = slot.as_ref().unwrap();
+            let codec = player.state_codec.as_ref().unwrap().as_ref().unwrap();
+            (
+                codec.export(&player.deck).unwrap(),
+                codec.hash(&player.deck).unwrap(),
+            )
+        });
+        assert_eq!(local_frame(1, 2), 1);
+        unsafe {
+            let ptr = local_state_alloc(initial.len());
+            std::ptr::copy_nonoverlapping(initial.as_ptr(), ptr, initial.len());
+            assert_eq!(local_state_import(ptr, initial.len()), 1);
+        }
+        PLAYER.with_borrow(|slot| {
+            let player = slot.as_ref().unwrap();
+            assert_eq!(player.deck.bus().ppu.frame_number(), 0);
+            assert_eq!(
+                player
+                    .state_codec
+                    .as_ref()
+                    .unwrap()
+                    .as_ref()
+                    .unwrap()
+                    .hash(&player.deck)
+                    .unwrap(),
+                hash
+            );
+        });
+    }
+    #[test]
+    fn early_codec_cache_failure_does_not_gate_core_binding_or_play() {
+        let (rom, _) = crate::test_support::cartridge(157, NesRegion::Ntsc);
+        PLAYER.with_borrow_mut(|slot| *slot = Some(load(&rom).unwrap()));
+        unsafe {
+            assert_eq!(local_bind_core(local_battery_alloc(32), 32), 1);
+        }
+        assert_eq!(local_state_export(), 0);
+        assert_eq!(local_frame(0, 0), 1);
+        assert_eq!(local_battery_export(), 1);
+    }
     #[test]
     fn battery_abi_bounds_binding_and_failure_preserve_loaded_game() {
         let mut rom = std::fs::read("fixture.local.nes").unwrap();

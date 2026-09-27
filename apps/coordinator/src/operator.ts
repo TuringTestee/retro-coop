@@ -24,7 +24,7 @@ export function operatorHandler(owners:OperatorOwners,now=Date.now) {
   if(value.type==='remove-room' && keys(value,['type','roomId']) && token(value.roomId)) {
    const room=owners.rooms().find(room=>room.id===value.roomId);
    if(!room)throw Error('Room is no longer available');
-   description=`Remove room ${JSON.stringify(room.label)} (${room.id}) for both players`;
+   description=`Remove room ${JSON.stringify(room.label)} (${room.id}) for all room members`;
    apply=()=>owners.remove(room.id);
   } else if(value.type==='block-address' && keys(value,['type','subjectId','seconds']) && token(value.subjectId) && integer(value.seconds,1,3600)) {
    const subject=owners.subjects().find(subject=>subject.id===value.subjectId && subject.connections>0);

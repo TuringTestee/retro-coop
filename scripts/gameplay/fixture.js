@@ -2,7 +2,7 @@ const raf=requestAnimationFrame.bind(window),cancel=cancelAnimationFrame.bind(wi
     window.requestAnimationFrame=fn=>held?(pending.set(++id,fn),id):raf(fn);
     window.cancelAnimationFrame=n=>held?pending.delete(n):cancel(n);
     window.releaseFrames=()=>{held=false;for(const fn of pending.values())raf(fn);pending.clear()};
-    window.proof={hashes:[],rooms:[],frames:[],frameCount:0,sentHashes:[],timing:{workerMs:0,workerMax:0,frameGaps:[],waitMs:0,waitCount:0,delays:[]}};
+    window.proof={hashes:[],rooms:[],frames:[],frameCount:0,sentHashes:[],timing:{workerMs:0,workerMax:0,frameGaps:[],delays:[]}};
     proof.events=[];proof.pacing=[];let epochAt=0,epochFrames=0,epochStartFrame=0;
     const note=(kind,detail={})=>{proof.events.push({at:Math.round(performance.now()),kind,...detail});if(proof.events.length>128)proof.events.shift()};
     setInterval(()=>{if(epochAt){proof.pacing.push({at:Math.round(performance.now()-epochAt),frames:epochFrames});if(proof.pacing.length>64)proof.pacing.shift()}},1000);
@@ -20,8 +20,7 @@ const raf=requestAnimationFrame.bind(window),cancel=cancelAnimationFrame.bind(wi
       if(d.kind==='input'&&window.gameFault==='future-input'){d={...d,frame:d.frame+121};data=JSON.stringify(d);window.gameFault=undefined;}
       if(d.kind==='input'&&window.gameFault==='duplicate-input'){ds.call(this,data);window.gameFault=undefined;}
       if(d.kind==='hash')proof.sentHashes.push(d);}return ds.call(this,data)};
-    let waitStart=0,lastFrame=0,workerStart=0;
-    new MutationObserver(()=>{const waiting=document.querySelector('[data-testid=game-status]')?.textContent.includes('Waiting for the other player’s input');if(waiting&&!waitStart){waitStart=performance.now();proof.timing.waitCount++}else if(!waiting&&waitStart){proof.timing.waitMs+=performance.now()-waitStart;waitStart=0}}).observe(document,{subtree:true,childList:true,characterData:true});
+    let lastFrame=0,workerStart=0;
     const W=Worker;window.Worker=class extends W{postMessage(data,...rest){if(data.type==='state-hash')hashAt=performance.now();if(data.type==='frame'&&data.epoch){workerStart=performance.now();workerPending=true;}return super.postMessage(data,...rest)}constructor(...a){super(...a);window.currentWorker=this;this.addEventListener('message',event=>{const {data}=event;
 // Diagnostic delivery delay leaves the native frame and its inputs unchanged.
 if(data.type==='frame'&&data.epoch&&window.workerFloorMs&&!event.floorDelivered){const remaining=window.workerFloorMs-(performance.now()-workerStart);if(remaining>0){event.stopImmediatePropagation();setTimeout(()=>{const delayed=new MessageEvent('message',{data});Object.defineProperty(delayed,'floorDelivered',{value:true});this.dispatchEvent(delayed)},remaining);return;}}

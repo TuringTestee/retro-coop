@@ -1,4 +1,4 @@
-"""Prove a guest with a loaded ROM sees and can recover from solo release."""
+"""Prove a disconnected observer stays in the room and can leave for local play."""
 import argparse
 from hashlib import sha256
 import json
@@ -29,7 +29,7 @@ def main():
                 tab.set_default_timeout(15_000)
                 tab.on("pageerror", lambda error: errors.append(str(error)))
                 if block_peer:
-                    tab.add_init_script("window.RTCPeerConnection=class{constructor(){throw Error('Peer unavailable for release proof')}}")
+                    tab.add_init_script("window.RTCPeerConnection=class{constructor(){throw Error('Peer unavailable for observer isolation proof')}}")
                 tab.add_init_script(path=root / "scripts/gameplay/fixture.js")
                 tab.goto(url)
                 tab.get_by_test_id("directory").wait_for()
@@ -44,8 +44,12 @@ def main():
             code = re.search(r"Public · (\S+)", host.get_by_test_id("room-view").text_content()).group(1)
             guest = page(block_peer=True)
             guest.locator(".room-list [data-room-id]").filter(has_text=code).get_by_role("button", name="Join", exact=True).click()
-            guest.get_by_text("Game ready in this browser. Waiting for peer connection", exact=False).wait_for(timeout=30_000)
-            assert guest.get_by_role("button", name="Prepare to play", exact=True).count() == 0
+            try:
+                guest.wait_for_function("proof.room?.slots.find(s=>s.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'", timeout=30_000, polling=50)
+            except Exception:
+                print(json.dumps(guest.evaluate('({room:proof.room,text:document.body.innerText})')),flush=True)
+                raise
+            assert guest.get_by_role("button", name="Prepare to play", exact=True).is_disabled()
             assert guest.get_by_role("button", name="Choose matching NES file").count() == 0
             guest.wait_for_function("proof.room?.matches === true", timeout=30_000, polling=50)
             auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,token:sessionStorage.getItem('retro-coop-guest')})""")
@@ -54,20 +58,26 @@ def main():
                 bytes_received=response.read()
                 download={"status":response.status,"bytes":len(bytes_received),"sha256":sha256(bytes_received).hexdigest()}
             assert download == {"status": 200, "bytes": len(diagnostic), "sha256": sha256(diagnostic).hexdigest()}, download
+            host.get_by_label("Slot 2 role", exact=True).select_option("observer")
+            guest.wait_for_function("proof.room?.slots.find(s=>s.member?.id===proof.room.chatMembership)?.role==='observer'", polling=50)
             host.get_by_role("button", name="Start game", exact=True).click()
-            host.wait_for_function("proof.room?.started === 'solo'", timeout=30_000, polling=50)
-            host.get_by_test_id("player-status").filter(has_text="Playing locally. The game runs in this browser.").wait_for()
-            notice = guest.get_by_role("alert").filter(has_text="The host started alone")
-            notice.wait_for(timeout=30_000)
-            resume = notice.get_by_role("button", name="Resume local game")
-            assert resume.is_visible()
-            guest.screenshot(path=str(args.output / "loaded-guest-solo-release.png"), full_page=True)
-            resume.click()
-            notice.wait_for(state="detached")
+            host.wait_for_function("proof.room?.game.status==='playing'", timeout=30_000, polling=50)
+            host.evaluate('releaseFrames()')
+            host.wait_for_function('proof.frameCount>=30', timeout=15_000, polling=50)
+            assert guest.evaluate('proof.room.id') == auth['roomId']
+            assert guest.evaluate('proof.room.chatMembership') == auth['membership']
+            assert guest.get_by_test_id("room-slot").count() == 5
+            guest.screenshot(path=str(args.output / "loaded-observer-connection-failed.png"), full_page=True)
+            guest.get_by_role("button", name="Leave room", exact=True).click()
+            if guest.get_by_role("button", name="Confirm leave", exact=True).is_visible():
+                guest.get_by_role("button", name="Confirm leave", exact=True).click()
+            guest.get_by_test_id("room-view").wait_for(state='detached')
+            guest.get_by_role("button", name="Resume local game", exact=True).click()
+            guest.get_by_role("button", name="Resume", exact=True).click()
             guest.get_by_test_id("player-status").filter(has_text="Playing locally. The game runs in this browser.").wait_for(timeout=15_000)
             assert not errors, errors
-            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "automatically loaded guest -> peer unavailable -> host starts solo -> guest sees release -> resumes local game", "errors": errors}
-            (args.output / "solo-release.json").write_text(json.dumps(result, indent=2) + "\n")
+            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "loaded member -> peer unavailable -> host assigns observer and starts -> member stays -> explicit leave -> resume local game", "errors": errors}
+            (args.output / "observer-isolation.json").write_text(json.dumps(result, indent=2) + "\n")
             print(json.dumps(result, indent=2))
             browser.close()
     finally:

@@ -9,6 +9,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
+STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
 
 
 def geometry(page, label):
@@ -71,7 +72,7 @@ def main():
             assert host.evaluate('window.scrollY > 0'), 'Create room should be reached by page scroll'
             host.screenshot(path=str(args.output / 'create-narrow.png'), full_page=True)
             host.set_viewport_size({'width': 1280, 'height': 720})
-            host.locator('input[type=file]').set_input_files(ROOT / 'apps/client/dist/generated/diagnostic.nes')
+            host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             start_style = host.get_by_role('button', name='Start game', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
@@ -107,9 +108,20 @@ def main():
             host.locator('main.playing.with-room').wait_for(timeout=15000)
             wide = geometry(host, '1280x720')
             host.screenshot(path=str(args.output / 'playing-wide.png'))
+            # A room always owns a shared timeline now. Rewind remains a local-play
+            # tool; preserve its fullscreen/focus journey in an independent local tab.
+            room_host = host
+            local = browser.new_page(viewport={'width': 1280, 'height': 720})
+            local.on('pageerror', lambda error: errors.append(str(error)))
+            local.goto(url)
+            local.get_by_role('button', name='Create game', exact=True).click()
+            local.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+            local.get_by_role('button', name='Play locally', exact=True).click()
+            local.get_by_role('button', name='Resume', exact=True).click()
             for label, heading, filename in [('Saves', 'Saves on this device', 'saves.png'),
                                              ('Rewind', 'Rewind local game', 'rewind.png'),
                                              ('Game help', 'Game help', 'help.png')]:
+                host = local if label == 'Rewind' else room_host
                 host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
                 host.wait_for_function('!!document.fullscreenElement')
                 slug = label.lower().replace(' ', '-')
@@ -123,13 +135,15 @@ def main():
                 assert host.locator('dialog').count() == 0
                 if label == 'Game help':
                     host.get_by_text('Technical details', exact=True).click()
-                    expected = hashlib.sha256((ROOT / 'apps/client/dist/generated/diagnostic.nes').read_bytes()).hexdigest()
+                    expected = hashlib.sha256((STATIC / 'generated/diagnostic.nes').read_bytes()).hexdigest()
                     assert expected in host.get_by_test_id('fingerprint').inner_text()
                 host.screenshot(path=str(args.output / filename))
                 host.get_by_role('button', name='Back', exact=True).click()
                 host.wait_for_function("label => document.activeElement?.textContent === label", arg=label)
                 assert host.locator('.panel').is_visible()
                 host.screenshot(path=str(args.output / f'fullscreen-return-{slug}.png'))
+            host = room_host
+            local.close()
             host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
             host.wait_for_function('!!document.fullscreenElement')
             host.evaluate("()=>{window.savedExitFullscreen=document.exitFullscreen.bind(document);document.exitFullscreen=()=>Promise.reject(Error('Exit refused'));}")
@@ -160,7 +174,7 @@ def main():
             host.get_by_role('button', name='Confirm leave', exact=True).click()
             host.get_by_test_id('directory').wait_for(state='visible')
             assert host.locator('.release-notice').count() == 0
-            offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/2 · Waiting for host').first
+            offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · Waiting for host').first
             offer.get_by_role('button', name='Join as host').click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             host.get_by_role('button', name='Leave room', exact=True).click()
@@ -173,7 +187,7 @@ def main():
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             host.set_viewport_size({'width': 1280, 'height': 720})
             host.route('**/catalog/from-below*.nes', lambda route: route.abort())
-            offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/2 · Waiting for host').first
+            offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/5 · Waiting for host').first
             offer.get_by_role('button', name='Join as host').click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             host.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=15000)

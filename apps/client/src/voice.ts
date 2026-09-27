@@ -1,11 +1,11 @@
 import {defaults,padInputs,type Controls} from './controls.ts';
 import {Microphone,type MicrophoneState} from './microphone.ts';
 export type VoiceState={microphone:MicrophoneState;connected:boolean;listening:boolean;remoteMuted:boolean;volume:number;devices:{id:string;label:string}[];deviceError?:string;playbackError?:string;connectionError?:string};
-/** One audio transceiver shares the authenticated peer transport; capture is always an explicit action. */
+type VoicePeer={pc:RTCPeerConnection;audio:HTMLAudioElement;connected:boolean;binding?:number;connectionError?:string;playbackError?:string};
+/** One explicit microphone capture shares up to four authenticated peer transports. */
 export class VoiceSession {
  readonly microphone:Microphone;
- private audio=new Audio();
- private pc?:RTCPeerConnection;
+ private peers=new Map<string,VoicePeer>();
  private disposed=false;
  private controls:Controls=defaults();private keys=new Set<string>();private animation=0;private padArmed=false;private pointerHeld=false;
  private state:VoiceState={microphone:{phase:'off',mode:'open',muted:true,transmitting:false,device:'default'},connected:false,listening:false,remoteMuted:false,volume:1,devices:[]};
@@ -40,43 +40,62 @@ export class VoiceSession {
   try{const devices=await navigator.mediaDevices.enumerateDevices();this.publish({devices:devices.filter(device=>device.kind==='audioinput' && device.deviceId && device.deviceId!=='default').map((device,index)=>({id:device.deviceId,label:device.label||`Microphone ${index+1}`})),deviceError:undefined});}
   catch{this.publish({deviceError:'Microphone devices could not be listed. Retry or use the default device.'});}
  }
- prepare(pc:RTCPeerConnection,role:'host'|'guest'){
-  this.close();this.pc=pc;
-  pc.addEventListener('track',event=>{if(this.pc===pc && event.track.kind==='audio'){this.audio.srcObject=new MediaStream([event.track]);if(this.state.listening)void this.play();}});
-  try{if(role==='host')this.microphone.endpoint(pc.addTransceiver('audio',{direction:'sendrecv'}).sender);}
-  catch{this.publish({connectionError:'Voice negotiation is unavailable. Text and gameplay can still connect.'});}
+ private summarize(){this.publish({connected:[...this.peers.values()].some(peer=>peer.connected),connectionError:[...this.peers.values()].find(peer=>peer.connectionError)?.connectionError,playbackError:[...this.peers.values()].find(peer=>peer.playbackError)?.playbackError});}
+ private closePeer(id:string,peer:VoicePeer){
+  if(this.peers.get(id)!==peer)return;
+  this.peers.delete(id);this.microphone.unbind(id);peer.audio.pause();peer.audio.srcObject=null;this.summarize();
  }
- answer(pc:RTCPeerConnection){
-  if(this.pc!==pc)return;
-  try{
-   const audio=pc.getTransceivers().find(item=>item.receiver.track.kind==='audio');
-   if(!audio)throw Error('Audio was not offered');
-   audio.direction='sendrecv';this.microphone.endpoint(audio.sender);
-  }catch{this.publish({connectionError:'Voice negotiation is unavailable. Text and gameplay can still connect.'});}
+ private bind(id:string,peer:VoicePeer,sender:RTCRtpSender){
+  const binding=peer.binding=(peer.binding??0)+1;
+  void this.microphone.bind(id,sender).then(()=>{if(this.peers.get(id)===peer&&peer.binding===binding){peer.connectionError=undefined;this.summarize();}}).catch(()=>{if(this.peers.get(id)===peer&&peer.binding===binding){peer.connectionError='Voice negotiation is unavailable for a participant. Text and gameplay can still connect.';this.summarize();}});
+ }
+ forPeer(id:string){
+  let peer:VoicePeer|undefined;
+  return {
+   prepare:(pc:RTCPeerConnection,offerer:boolean)=>{
+    if(this.disposed)return;
+    if(peer)this.closePeer(id,peer);
+    const old=this.peers.get(id);if(old)this.closePeer(id,old);
+    if(this.peers.size>=4)throw Error('Voice supports at most four remote peers.');
+    const current:VoicePeer={pc,audio:new Audio(),connected:false};peer=current;this.peers.set(id,current);
+    current.audio.muted=this.state.remoteMuted;current.audio.volume=this.state.volume;
+    pc.addEventListener('track',event=>{if(this.peers.get(id)===current&&event.track.kind==='audio'){current.audio.srcObject=new MediaStream([event.track]);if(this.state.listening)void this.playPeer(id,current);}});
+    try{if(offerer)this.bind(id,current,pc.addTransceiver('audio',{direction:'sendrecv'}).sender);}
+    catch{current.connectionError='Voice negotiation is unavailable for a participant. Text and gameplay can still connect.';this.summarize();}
+   },
+   answer:(pc:RTCPeerConnection)=>{
+    if(!peer||peer.pc!==pc||this.peers.get(id)!==peer)return;
+    try{const audio=pc.getTransceivers().find(item=>item.receiver.track.kind==='audio');if(!audio)throw Error('Audio was not offered');audio.direction='sendrecv';this.bind(id,peer,audio.sender);}
+    catch{peer.connectionError='Voice negotiation is unavailable for a participant. Text and gameplay can still connect.';this.summarize();}
+   },
+   connected:()=>{if(peer&&this.peers.get(id)===peer){peer.connected=true;this.summarize();}},
+   close:()=>{if(peer)this.closePeer(id,peer);},
+  };
  }
  retryBinding(){
-  const pc=this.pc;if(!pc)return;
-  const audio=pc.getTransceivers().find(item=>item.receiver.track.kind==='audio' && item.currentDirection && item.currentDirection!=='inactive');
-  if(!audio){this.publish({connectionError:'Voice was not negotiated on this connection. Text and gameplay remain available.'});return;}
-  this.microphone.endpoint(audio.sender);this.publish({connectionError:undefined});
+  for(const [id,peer] of this.peers){
+   const audio=peer.pc.getTransceivers().find(item=>item.receiver.track.kind==='audio'&&item.currentDirection&&item.currentDirection!=='inactive');
+   if(!audio){peer.connectionError='Voice was not negotiated with a participant. Text and gameplay remain available.';continue;}
+   this.bind(id,peer,audio.sender);
+  }
+  this.summarize();
  }
- connected(){this.publish({connected:true});}
- close(){this.pc=undefined;this.blur();this.microphone.endpoint();this.audio.pause();this.audio.srcObject=null;this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
+ close(){for(const [id,peer] of this.peers)this.closePeer(id,peer);this.blur();this.microphone.close();this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
  async enable(){
-  if(!this.state.connected||this.state.connectionError)return;
+  if(!this.state.connected)return;
   this.publish({listening:true});void this.play();await this.microphone.enable();await this.listDevices();
  }
  async device(id:string){if(this.state.microphone.phase==='ready')await this.microphone.enable(id,false);else this.microphone.selectDevice(id);await this.listDevices();}
- async play(){
-  if(!this.state.listening)return;
-  this.audio.muted=this.state.remoteMuted;this.audio.volume=this.state.volume;
-  if(!this.audio.srcObject)return;
-  const pc=this.pc;
-  try{await this.audio.play();if(this.pc===pc && this.state.listening)this.publish({playbackError:undefined});}
-  catch{if(this.pc===pc && this.state.listening)this.publish({playbackError:'Remote voice playback was blocked.'});}
+ private async playPeer(id:string,peer:VoicePeer){
+  if(!this.state.listening||this.peers.get(id)!==peer)return;
+  peer.audio.muted=this.state.remoteMuted;peer.audio.volume=this.state.volume;
+  if(!peer.audio.srcObject)return;
+  try{await peer.audio.play();if(this.peers.get(id)===peer&&this.state.listening){peer.playbackError=undefined;this.summarize();}}
+  catch{if(this.peers.get(id)===peer&&this.state.listening){peer.playbackError='Remote voice playback was blocked.';this.summarize();}}
  }
+ async play(){await Promise.all([...this.peers].map(([id,peer])=>this.playPeer(id,peer)));}
  retrySound(){this.publish({listening:true});void this.play();}
- remoteMute(remoteMuted:boolean){this.audio.muted=remoteMuted;this.publish({remoteMuted});if(!remoteMuted)void this.play();}
- volume(volume:number){if(!Number.isFinite(volume)||volume<0||volume>1)return;this.audio.volume=volume;this.publish({volume});}
+ remoteMute(remoteMuted:boolean){for(const peer of this.peers.values())peer.audio.muted=remoteMuted;this.publish({remoteMuted});if(!remoteMuted)void this.play();}
+ volume(volume:number){if(!Number.isFinite(volume)||volume<0||volume>1)return;for(const peer of this.peers.values())peer.audio.volume=volume;this.publish({volume});}
  dispose(){this.close();this.disposed=true;window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.visibility);navigator.mediaDevices?.removeEventListener('devicechange',this.devicesChanged);window.removeEventListener('keydown',this.down);window.removeEventListener('keyup',this.up);cancelAnimationFrame(this.animation);}
 }

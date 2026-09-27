@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from package import ROOT, IMAGE
+from render_turn import RELAY_MIN_PORT, RELAY_MAX_PORT
 
 
 ACCOUNT = os.environ.get("RETRO_AWS_ACCOUNT_ID")
@@ -332,7 +333,7 @@ def instance_and_eip(outputs: dict[str, str], resources: dict) -> tuple[str, str
     actual = {(row["IpProtocol"], row.get("FromPort"), row.get("ToPort"),
                tuple(item["CidrIp"] for item in row.get("IpRanges", []))) for row in group["IpPermissions"]}
     expected = {("tcp", 80, 80, ("0.0.0.0/0",)), ("tcp", 443, 443, ("0.0.0.0/0",)),
-                ("udp", 3478, 3478, ("0.0.0.0/0",)), ("udp", 49160, 49175, ("0.0.0.0/0",))}
+                ("udp", 3478, 3478, ("0.0.0.0/0",)), ("udp", RELAY_MIN_PORT, RELAY_MAX_PORT, ("0.0.0.0/0",))}
     if actual != expected or any(row.get("Ipv6Ranges") or row.get("UserIdGroupPairs") for row in group["IpPermissions"]):
         raise ValueError("The single instance has unexpected public ingress")
     return instance_id, ip

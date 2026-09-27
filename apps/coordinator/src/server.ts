@@ -7,7 +7,7 @@ import { createServer } from 'node:http';
 import {createReadStream} from 'node:fs';
 import { WebSocket, WebSocketServer } from 'ws';
 import { health } from '../../../packages/contracts/src/index.ts';
-import { parseRoomCommand, ROOM_METADATA_BYTES, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
+import { parseRoomCommand, ROOM_METADATA_BYTES, ROOM_WIRE_BURST, type RoomEvent } from '../../../packages/contracts/src/rooms.ts';
 import { Rooms, RoomError, limits, type Sender } from './rooms.ts';
 import {catalog,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {RomStore,type RomLimits} from './rom-store.ts';
@@ -119,7 +119,7 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
   ws.on('message',(raw,binary) => {
    if(ws.readyState!==WebSocket.OPEN)return;
    if(Date.now()-windowStarted >= 10_000) {windowStarted = Date.now();received = 0;}
-   if(++received > 120) {ws.close(1008,'Message rate exceeded');return;}
+   if(++received > ROOM_WIRE_BURST) {ws.close(1008,'Message rate exceeded');return;}
    let command;
    try {if(!binary) command = parseRoomCommand(JSON.parse(raw.toString()));}catch{}
    if(Buffer.byteLength(raw.toString())>ROOM_METADATA_BYTES && command?.type!=='peerSignal') {ws.close(1009,'Message too large');return;}

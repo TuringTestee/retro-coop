@@ -1,5 +1,6 @@
 """Verify public discovery, exact room identity, privacy, and stale recovery in browsers."""
 import argparse
+import os
 import json
 import subprocess
 import time
@@ -16,7 +17,7 @@ started = time.monotonic()
 service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=root, stdout=subprocess.PIPE, text=True)
 try:
     url = json.loads(service.stdout.readline())['url']
-    rom = (root / 'apps/client/dist/generated/diagnostic.nes').read_bytes()
+    rom = (Path(os.environ.get('RETRO_COOP_STATIC_ROOT', root/'apps/client/dist')) / 'generated/diagnostic.nes').read_bytes()
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(ignore_default_args=['--mute-audio'], **({'channel': 'chrome'} if args.chrome else {}))
         errors, received, sent = [], [], []
@@ -74,13 +75,30 @@ try:
         join.click()
         viewer.get_by_role('button', name='Leave room', exact=True).wait_for()
         assert viewer.get_by_test_id('frames').inner_text() == '0 frames'
-        assert 'Player 2 (reserved)' in viewer.get_by_test_id('room-view').text_content()
+        assert 'You are Player 2.' in viewer.get_by_test_id('room-view').text_content()
         observed = observer.locator('.room-list li').filter(has_text=codes[0])
-        observed.get_by_text('2/2 · Guest preparing', exact=True).wait_for()
-        assert observed.get_by_role('button', name='Join', exact=True).count() == 0
+        observed.get_by_text('2/5', exact=False).wait_for()
+        assert '3 open slots' in observed.inner_text()
+        assert observed.get_by_role('button', name='Join', exact=True).count() == 1
         assert 'Host-shared NES' in observed.inner_text()
         viewer.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
-        viewer.get_by_test_id('room-view').get_by_text('Game verified. Preparing the shared-play connection.', exact=False).wait_for(state='attached')
+        viewer.locator('[data-slot-id=slot-2] [data-slot-region=status]').get_by_text('Game loaded · prepare to play',exact=True).wait_for()
+        # All five physical slots admit members; only the sixth visitor is excluded.
+        invite = hosts[0].get_by_label('Room invitation', exact=True).input_value()
+        extra = []
+        for _ in range(3):
+            member = page();member.goto(invite)
+            member.get_by_role('button', name='Join room', exact=True).click()
+            member.get_by_test_id('room-view').wait_for(state='attached')
+            assert member.get_by_test_id('room-slot').count() == 5
+            extra.append(member)
+        observed.get_by_text('5/5', exact=False).wait_for()
+        assert 'No open slots' in observed.inner_text()
+        assert observed.get_by_role('button', name='Join', exact=True).count() == 0
+        for member in extra:
+            member.get_by_role('button', name='Leave room', exact=True).click()
+            member.get_by_test_id('room-view').wait_for(state='detached')
+            member.close()
         viewer.get_by_role('button', name='Leave room', exact=True).click()
         viewer.locator('.room-panel').wait_for(state='detached')
         observer.get_by_role('button', name='Join', exact=True).wait_for()
@@ -103,10 +121,10 @@ try:
         public = [event['rooms'] for event in received if event.get('type') == 'directory']
         public += [event['data']['directory'] for event in received if event.get('type') == 'result' and event.get('ok') and 'directory' in event['data']]
         assert public
-        allowed = {'id', 'label', 'host', 'visibility', 'code', 'status', 'occupancy', 'catalogId', 'romBytes', 'guestPlace', 'guestPlaceVersion'}
+        allowed = {'id', 'label', 'host', 'visibility', 'code', 'status', 'occupancy', 'catalogId', 'romBytes', 'openSlots'}
         assert all(set(room) <= allowed and room['visibility'] == 'public' for snapshot in public for room in snapshot)
         assert not any('PRIVATE-DIRECTORY' in json.dumps(frame) for frame in sent)
-        result = {'result': 'pass', 'duplicate_codes': codes, 'search_and_live_focus': True, 'reserved_room_has_no_join': True, 'exact_guest_file': True, 'unlisted_removed': True, 'stale_rows_have_no_actions_and_retry': True, 'metadata_only': True, 'private_filenames_not_sent': True, 'page_errors': errors, 'elapsedSeconds': round(time.monotonic() - started, 2)}
+        result = {'result': 'pass', 'duplicate_codes': codes, 'search_and_live_focus': True, 'reserved_member_leaves_three_joinable_slots': True, 'five_members_fill_capacity_without_sixth_join': True, 'exact_guest_file': True, 'unlisted_removed': True, 'stale_rows_have_no_actions_and_retry': True, 'metadata_only': True, 'private_filenames_not_sent': True, 'page_errors': errors, 'elapsedSeconds': round(time.monotonic() - started, 2)}
         output.write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result))
         browser.close()

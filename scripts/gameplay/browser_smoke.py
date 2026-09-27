@@ -5,8 +5,8 @@ from playwright.sync_api import sync_playwright
 from workload import active_seconds as measured_active_seconds
 from verify import normalized_periodic_hashes
 from browser_errors import classify_page_errors
-parser=argparse.ArgumentParser();parser.add_argument('--checkpoint',choices=['success','corrupt','cancel']);parser.add_argument('--initial-manual-frames',type=int,choices=[240,508],default=240,help='Retain the manual-input phase to exercise slow qualification setup');parser.add_argument('--controllers',action='store_true');parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--standard-fallback',action='store_true',help='Keep the app on Standard while the browser allows only relay ICE, modeling unavailable direct transport');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--short-viewport',action='store_true');parser.add_argument('--leave-interaction',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args();assert not(args.relay and args.standard_fallback)
-root=Path(__file__).resolve().parents[2];build_files={str(p.relative_to(root/'apps/client/dist')):hashlib.sha256(p.read_bytes()).hexdigest() for p in (root/'apps/client/dist').rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
+parser=argparse.ArgumentParser();parser.add_argument('--runtime-root',type=Path,default=Path(__file__).resolve().parents[2]);parser.add_argument('--checkpoint',choices=['success','corrupt','cancel']);parser.add_argument('--initial-manual-frames',type=int,choices=[240,508],default=240,help='Retain the manual-input phase to exercise slow qualification setup');parser.add_argument('--controllers',action='store_true');parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--standard-fallback',action='store_true',help='Keep the app on Standard while the browser allows only relay ICE, modeling unavailable direct transport');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--short-viewport',action='store_true');parser.add_argument('--leave-interaction',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args();assert not(args.relay and args.standard_fallback)
+root=args.runtime_root.resolve();static=Path(os.environ.get('RETRO_COOP_STATIC_ROOT',root/'apps/client/dist'));build_files={str(p.relative_to(static)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (static).rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
 from fixture import LocalTurn
@@ -16,7 +16,7 @@ firefox_evidence=firefox_driver.evidence(args.firefox_executable) if args.firefo
 stack=contextlib.ExitStack();operator_dir=stack.enter_context(tempfile.TemporaryDirectory(prefix='retro-game-op-')) if args.operator_playing else None;turn=stack.enter_context(LocalTurn(args.turnserver)) if args.relay or args.standard_fallback else None
 service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env={**os.environ,**({'COORDINATOR_OPERATOR_DIR':operator_dir} if operator_dir else {}),**(turn.environment() if turn else {'TURN_URLS':'','TURN_SECRET':''})},stdout=subprocess.PIPE,text=True)
 try:
- url=json.loads(service.stdout.readline())['url'];rom=(root/'apps/client/dist/generated/diagnostic.nes').read_bytes()
+ url=json.loads(service.stdout.readline())['url'];rom=(static/'generated/diagnostic.nes').read_bytes()
  with sync_playwright() as p, contextlib.ExitStack() as browser_stack:
   browsers=[]
   for kind in args.pair.split('-'):
@@ -38,7 +38,7 @@ try:
    if args.firefox_executable:
     def document(route):
      scripts=''.join('<script>(()=>{'+script.replace('</script','<\\/script')+'\n})();</script>' for script in fixtures[tab])
-     route.fulfill(status=200,content_type='text/html',body=(root/'apps/client/dist/index.html').read_text().replace('<head>','<head>'+scripts,1))
+     route.fulfill(status=200,content_type='text/html',body=(static/'index.html').read_text().replace('<head>','<head>'+scripts,1))
     tab.route(url+'/',document)
    install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}" if not args.standard_fallback else "window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(config){super({...config,iceTransportPolicy:'relay'});gamePeers.push(this)}}")
    if args.relay:install_script(tab,"sessionStorage.setItem('retro-coop-connection-policy','relay')")
@@ -60,62 +60,69 @@ try:
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
    h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
-    # Progress-preserving late Join is deferred: an active room offers no admission path.
-    invite=h.get_by_label('Room invitation',exact=True).input_value();h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()');h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>=30",polling=50)
+    # The public host chooses an observer slot before starting alone.
+    h.get_by_label('Slot 2 role',exact=True).select_option('observer')
+    h.wait_for_function("proof.room.slots[1].role==='observer'")
+    invite=h.get_by_label('Room invitation',exact=True).input_value()
+    h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()')
+    h.wait_for_function('proof.frameCount>=120',polling=50)
+    prior_frame=h.evaluate('proof.frames.at(-1).frame');prior_epoch=h.evaluate('proof.activeEpoch')
     g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
-    preview=g.locator('.room-panel.invitation');preview.get_by_text('playing',exact=False).wait_for()
-    assert preview.get_by_role('button',name='Join room',exact=True).count()==0
-    assert preview.get_by_role('button',name='View public rooms',exact=True).is_visible()
-    denial=g.evaluate('''invite=>new Promise((resolve,reject)=>{
-      const socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);
-      const helloId=crypto.randomUUID(),joinId=crypto.randomUUID();
-      const timeout=setTimeout(()=>{socket.close();reject(Error('late join probe timed out'))},5000);
-      socket.onerror=()=>{clearTimeout(timeout);reject(Error('late join probe failed'))};
-      socket.onopen=()=>socket.send(JSON.stringify({type:'hello',requestId:helloId}));
-      socket.onmessage=event=>{const result=JSON.parse(event.data);if(result.type!=='result')return;
-        if(result.requestId===helloId){if(!result.ok){clearTimeout(timeout);socket.close();reject(Error('late join hello failed'));return;}
-          socket.send(JSON.stringify({type:'join',requestId:joinId,intent:crypto.randomUUID(),invite:new URLSearchParams(new URL(invite).hash.slice(1)).get('invite')}));}
-        if(result.requestId===joinId){clearTimeout(timeout);socket.close();resolve({ok:result.ok,error:result.error});}
-      };
-    })''',invite)
-    assert denial=={'ok':False,'error':'room_started'},denial
-    host_after_denial=int(h.get_by_test_id('frames').inner_text().split()[0])
-    preview.get_by_role('button',name='View public rooms',exact=True).click();g.get_by_role('heading',name='Public rooms',exact=True).wait_for()
-    playing_row=g.locator('.room-list li').filter(has_text='Playing; Join unavailable');playing_row.wait_for()
-    assert playing_row.get_by_role('button',name='Join',exact=True).count()==0
-    assert g.get_by_test_id('room-view').count()==0
-    h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=host_after_denial,polling=50)
-    result={'result':'pass','scenario':'late guest denied after solo Start','host_frames':h.get_by_test_id('frames').inner_text(),'invitation_join_hidden':True,'server_denied':'room_started','public_row_join_unavailable':True,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    g.get_by_role('button',name='Join room',exact=True).click()
+    g.get_by_test_id('room-view').wait_for(state='attached');g.evaluate('releaseFrames()')
+    g.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for(timeout=20000)
+    h.wait_for_function('frame=>proof.frames.at(-1).frame>frame+60',arg=prior_frame,polling=50)
+    assert h.evaluate('proof.activeEpoch')==prior_epoch,'Observer admission changed the host timeline'
+    assert g.evaluate("proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership).role")== 'observer'
+    assert g.evaluate('proof.gameReadies??0')==0,'Passive observer offered controller readiness'
+    h.get_by_role('button',name='Pause',exact=True).click()
+    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",polling=20)
+    from checkpoint_smoke import worker
+    states=[worker(tab,{'type':'state-hash'})['info'] for tab in [h,g]]
+    deadline=time.monotonic()+5
+    while states[0]!=states[1] and time.monotonic()<deadline:
+     time.sleep(.05);states=[worker(tab,{'type':'state-hash'})['info'] for tab in [h,g]]
+    assert states[0]==states[1] and states[0]['frame']>prior_frame,states
+    result={'result':'pass','source':source,'build_files':build_files,'scenario':'late observer joins running host','host_frame_before_join':prior_frame,'epoch_preserved':True,'native_states':states,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
-    install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='guest'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
+    install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='member'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
    invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === "function"');g.evaluate('releaseJoin()')
    g.get_by_test_id('room-view').wait_for(state='attached')
    assert h.get_by_test_id('frames').inner_text()=='0 frames'
    g.get_by_role('button',name='Prepare to play',exact=True).wait_for(timeout=30000)
+   g.wait_for_function("proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'",polling=20)
    lease=g.evaluate('proof.room.reservationUntil')
+   initial_members=g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
    g.get_by_role('button',name='Prepare to play',exact=True).click()
-   h.wait_for_function("proof.room?.game?.ready?.includes('guest')",timeout=15000,polling=50)
+   h.wait_for_function("member=>proof.room?.game?.ready?.includes(member)",arg=g.evaluate('proof.room.chatMembership'),timeout=15000,polling=50)
    h.get_by_role('button',name='Start game',exact=True).click()
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
     open_room(g).get_by_role('button',name='Leave room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
-    h.wait_for_function("!proof.room.guest && proof.room.reservationUntil===undefined",polling=50)
+    h.wait_for_function("proof.room.occupancy===1 && proof.room.slots.filter(slot=>slot.member).length===1",polling=50)
     assert not h.evaluate('proof.room.established') and h.get_by_test_id('frames').inner_text()=='0 frames'
-    h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
-    result={'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    # The absent owner's mapping is preserved; explicit Leave releases local play.
+    open_room(h).get_by_role('button',name='Leave room',exact=True).click()
+    h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
+    h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume local game',exact=True).click()
+    # Voluntary Leave returns to the directory; this header action only opens the local player.
+    assert h.get_by_test_id('frames').inner_text()=='0 frames'
+    h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
+    result={'source':source,'build_files':build_files,'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'navigation_preserved_frames':0,'resumed_local_frames':int(h.get_by_test_id('frames').inner_text().split()[0]),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.barrier_timeout or args.retry_barrier:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='failed'",timeout=15000,polling=50)
     assert g.evaluate('proof.droppedAcks')==1
     assert all(not tab.evaluate('proof.room.established') for tab in [h,g])
     assert g.evaluate('proof.room.reservationUntil')==lease
+    assert g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')==initial_members
     assert h.get_by_test_id('frames').inner_text()=='0 frames'
-    result={'result':'pass','injection':'drop guest initial barrier acknowledgement','lease_preserved':True,'host_frames':0,'seconds':round(time.monotonic()-started,2),'statuses':[tab.get_by_test_id('game-status').inner_text() for tab in [h,g]],'page_errors':errors};assert not errors
+    result={'result':'pass','injection':'drop guest initial barrier acknowledgement','lease_preserved':True,'membership_preserved':True,'host_frames':0,'seconds':round(time.monotonic()-started,2),'statuses':[tab.get_by_test_id('game-status').inner_text() for tab in [h,g]],'page_errors':errors};assert not errors
     if not args.retry_barrier:
      out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
     g.evaluate('window.dropGameAck=false')
@@ -168,10 +175,10 @@ try:
    if args.kick_playing or args.operator_playing:
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     if args.kick_playing:
-     # The waiting-room Remove guest control intentionally disappears after Start.
-     # Keep the established-play teardown regression through the host protocol.
-     assert open_room(h).get_by_role('button',name='Remove guest',exact=True).count()==0
-     h.evaluate("""()=>{const room=proof.room;proof.roomSocket.send(JSON.stringify({type:'kick',requestId:crypto.randomUUID(),roomId:room.id,guestMembership:room.guestMembership}))}""")
+     # Remove this precise member through the current host slot control.
+     slot=h.get_by_test_id('room-slot').filter(has=h.get_by_role('button',name='Remove member',exact=True))
+     slot.get_by_role('button',name='Remove member',exact=True).click()
+     h.get_by_role('button',name='Confirm removal',exact=True).click()
      g.get_by_test_id('room-view').wait_for(state='detached')
     else:
      cli=['node','apps/coordinator/src/operator-cli.ts',operator_dir]
@@ -191,7 +198,11 @@ try:
     assert local==[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
     assert min(local)>=240
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.after.png')),full_page=True)
-    h.get_by_role('button',name='Resume' if args.kick_playing else 'Resume local game',exact=True).click()
+    if args.kick_playing:
+     open_room(h).get_by_role('button',name='Leave room',exact=True).click()
+     h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
+    h.get_by_role('button',name='Resume local game',exact=True).click()
+    if args.kick_playing:h.get_by_role('button',name='Resume',exact=True).click()
     h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
     result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
@@ -233,15 +244,17 @@ try:
    if args.screenshots:
     for role,tab in [('host',h),('guest',g)]:tab.screenshot(path=str(out.with_name(f'{role}.paused.png')),full_page=True,mask=[tab.locator('input[aria-label="Room invitation"]:visible')])
     h.set_viewport_size({'width':390,'height':844});h.screenshot(path=str(out.with_name('paused-mobile.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')]);h.set_viewport_size({'width':1280,'height':1050})
+   pause_frame=h.evaluate('proof.room.game.frame')
+   for tab in [h,g]:tab.wait_for_function('frame=>proof.hashes.at(-1)?.frame===frame',arg=pause_frame,timeout=15000,polling=50)
    before=[tab.evaluate('proof.hashes.at(-1)') for tab in [h,g]];assert before[0]==before[1],before
    if args.fault=='device':
     open_room(h).get_by_role('button',name='Ready to resume',exact=True).click()
     assert h.evaluate('proof.room.game.status')=='paused'
     h.get_by_role('button',name='Use keyboard',exact=True).click()
    open_room(h).get_by_role('button',name='Ready to resume',exact=True).click()
-   h.wait_for_function("proof.room.game.ready?.includes('host')",polling=50)
+   h.wait_for_function("proof.room.game.ready?.includes(proof.room.chatMembership)",polling=50)
    assert h.get_by_role('button',name='Resume together',exact=True).is_disabled()
-   h.get_by_text(f"Waiting for {h.evaluate('proof.room.guest')} to resume.",exact=True).wait_for()
+   h.get_by_text('Waiting for the assigned players to prepare.',exact=True).wait_for()
    open_room(g).get_by_role('button',name='Ready to resume',exact=True).click()
    # Arm while paused: every resumed frame belongs to the scripted workload.
    h.evaluate("window.scriptKey='KeyX'");g.evaluate("window.scriptKey='KeyZ'")

@@ -107,6 +107,33 @@ jobs:
       - name: Complete the focused pull-request gate within the original deadline
         if: github.event_name == 'pull_request'
         run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
+  five-members:
+    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: d02-build
+          path: spikes/d02
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version-file: .node-version
+      - name: Verify five-member play, recovery and relay voice
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh slots
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: five-member-journeys
+          path: spikes/d02/five-members.local/**
+          if-no-files-found: warn
+          retention-days: 7
   images:
     needs: build
     runs-on: ubuntu-24.04-arm
@@ -141,6 +168,7 @@ jobs:
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- npm ci
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- sh scripts/aws_eb/container_smoke.sh
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/turn_smoke.py
+          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 -m unittest discover -s scripts/aws_eb -p test_relay_capacity.py
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - name: Save exact native ARM64 images for a reviewed main release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -212,7 +240,7 @@ jobs:
           retention-days: 7
   preflight:
     if: ${{ always() && (github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof')) }}
-    needs: [build, entrypoint, images, network]
+    needs: [build, entrypoint, images, network, five-members]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -223,6 +251,7 @@ jobs:
       D02_ENTRYPOINT: ${{ needs.entrypoint.result }}
       D02_IMAGES: ${{ needs.images.result }}
       D02_NETWORK: ${{ needs.network.result }}
+      D02_FIVE_MEMBERS: ${{ needs.five-members.result }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 1
@@ -236,6 +265,7 @@ jobs:
           test "$D02_ENTRYPOINT" = success
           test "$D02_IMAGES" = success
           test "$D02_NETWORK" = success
+          test "$D02_FIVE_MEMBERS" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
@@ -253,6 +283,7 @@ jobs:
         run: |
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
+          test "$D02_FIVE_MEMBERS" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - name: Mark passing main release gate
         id: main_gate
@@ -333,6 +364,8 @@ jobs:
           echo "previous=$previous" >> "$GITHUB_OUTPUT"
           echo "bucket=$bucket" >> "$GITHUB_OUTPUT"
           echo "version=main-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - name: Reconcile reviewed TURN ingress
+        run: python3 scripts/aws_eb/relay_capacity.py --apply
       - name: Deploy to EB
         uses: einaregilsson/beanstalk-deploy@v21
         with:

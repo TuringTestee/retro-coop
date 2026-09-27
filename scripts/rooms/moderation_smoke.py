@@ -1,4 +1,4 @@
-"""Delay an actual confirmed removal across guest replacement, then verify teardown."""
+"""Delay an actual confirmed removal across member replacement, then verify teardown."""
 import argparse
 import json
 import os
@@ -21,7 +21,7 @@ service = subprocess.Popen(
 )
 try:
     url = json.loads(service.stdout.readline())['url']
-    rom = (root / 'apps/client/dist/generated/diagnostic.nes').read_bytes()
+    rom = (Path(os.environ.get('RETRO_COOP_STATIC_ROOT', root/'apps/client/dist')) / 'generated/diagnostic.nes').read_bytes()
     with sync_playwright() as p:
         browser = p.chromium.launch(channel='chromium', ignore_default_args=['--mute-audio'],
                                     args=['--use-fake-device-for-media-stream'])
@@ -32,9 +32,10 @@ try:
             tab.add_init_script((root / 'scripts/voice/fixtures.js').read_text())
             tab.add_init_script('''const SendSocket=WebSocket;
               window.WebSocket=class extends SendSocket {
+                constructor(...args){super(...args);this.addEventListener('message',({data})=>{const event=JSON.parse(data);if(event.type==='room')window.moderationRoom=event.room;})}
                 send(raw){const command=JSON.parse(raw);
-                  if(window.holdKick && command.type==='kick'){
-                    window.releaseKick=()=>super.send(raw);return;
+                  if(window.holdRemoval && command.type==='memberRemove'){
+                    window.delayedMembership=command.membership;window.releaseRemoval=()=>super.send(raw);return;
                   }
                   return super.send(raw);
                 }
@@ -46,7 +47,7 @@ try:
             tab.get_by_test_id('room-view').wait_for(state='attached')
             open_room(tab)
         def connected(tab):
-            tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Route: direct')")
+            tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('direct route.')")
         def open_room(tab):
             panel = tab.locator('.room-panel')
             panel.wait_for(state='visible')
@@ -61,7 +62,7 @@ try:
         def voice(tab):
             panel = open_room(tab)
             panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
-            panel.get_by_label('Remote voice volume', exact=False).fill('0')
+            panel.get_by_label('Remote voice volume', exact=False).fill('10')
             panel.get_by_role('button', name='Enable voice', exact=True).click()
             tab.wait_for_function("captures.length>0 && captures.at(-1).getAudioTracks().some(t=>t.enabled&&t.readyState==='live')")
         host = page(url)
@@ -77,34 +78,47 @@ try:
         joined(first)
         connected(host)
         open_room(host)
-        host.evaluate('window.holdKick=true')
-        host.locator('.room-panel').get_by_role('button', name='Remove guest', exact=True).click()
+        host.evaluate('window.holdRemoval=true')
+        host.locator('[data-slot-id=slot-2]').get_by_role('button', name='Remove member', exact=True).click()
         host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()
-        host.wait_for_function("typeof releaseKick==='function'")
+        host.wait_for_function("typeof releaseRemoval==='function'")
         open_room(first).get_by_role('button', name='Leave room', exact=True).click()
         first.get_by_test_id('room-view').wait_for(state='detached')
         replacement = page(invitation)
         joined(replacement)
+        host.wait_for_function("moderationRoom?.slots[1].member?.id&&moderationRoom.slots[1].member.id!==delayedMembership")
+        replacement_membership=host.evaluate('moderationRoom.slots[1].member.id')
         for tab in [host, replacement]:
             connected(tab)
             voice(tab)
+        # Await the actual getStats promise; wait_for_function treats a Promise as truthy.
         for tab in [host, replacement]:
-            tab.wait_for_function("async()=>{const stats=await pcs.at(-1).getStats();return [...stats.values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.totalAudioEnergy>0)}")
+            deadline = time.monotonic() + 8
+            while True:
+                audible = tab.evaluate("""async()=>{const stats=await pcs.at(-1).getStats();
+                  return [...stats.values()].some(s=>s.type==='inbound-rtp'&&s.kind==='audio'&&s.totalAudioEnergy>0)
+                    && voiceAudio.some(audio=>!audio.paused&&!audio.muted&&audio.volume===0.1);}""")
+                if audible: break
+                assert time.monotonic() < deadline, 'No received audio energy with audible playback'
+                time.sleep(.05)
         host.screenshot(path=str(output.with_suffix('.before.png')), full_page=True,
                         mask=[host.get_by_label('Room invitation', exact=True)])
-        host.evaluate('releaseKick();window.holdKick=false')
-        open_connection(host).get_by_test_id('room-status').filter(has_text='That guest has left or rejoined').wait_for()
+        host.evaluate('releaseRemoval();window.holdRemoval=false')
+        open_connection(host).get_by_test_id('room-status').filter(has_text='That room has changed').wait_for()
         assert replacement.get_by_test_id('room-view').count() == 1
+        assert host.evaluate('moderationRoom.slots[1].member.id')==replacement_membership
         for tab in [host, replacement]:
             assert tab.evaluate("pcs.at(-1).connectionState==='connected' && captures.at(-1).getAudioTracks().some(t=>t.readyState==='live')")
         host.screenshot(path=str(output.with_suffix('.stale.png')), full_page=True,
                         mask=[host.get_by_label('Room invitation', exact=True)])
         writes = host.evaluate('timelineWrites')
-        open_room(host).get_by_role('button', name='Remove guest', exact=True).click()
+        host.locator('[data-slot-id=slot-2]').get_by_role('button', name='Remove member', exact=True).click()
         host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()
         replacement.get_by_test_id('room-view').wait_for(state='detached')
         for tab in [host, replacement]:
-            tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+            tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed')")
+        replacement.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+        assert host.evaluate("captures.at(-1).getAudioTracks().some(t=>t.readyState==='live'&&t.enabled)")
         release = replacement.get_by_role('alert').filter(has_text='The host removed you from this room.')
         release.wait_for(state='visible')
         replacement.screenshot(path=str(output.with_suffix('.removed.png')), full_page=True)
@@ -118,14 +132,14 @@ try:
         joined(first)
         connected(host)
         assert host.evaluate('timelineWrites') == writes
-        assert host.evaluate("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+        assert host.evaluate("captures.length===1&&captures[0].getAudioTracks().some(t=>t.readyState==='live'&&t.enabled)")
         assert not errors, errors
         result = {'browser':browser.version, 'stale_confirmation_preserves_replacement':True,
-                  'current_removal_closes_both_peers_and_microphones':True,
+                  'removed_pair_closed_and_removed_microphone_ended':True,'host_microphone_survives_member_removal':True,
                   'removed_guest_sees_release_and_resumes_local_game':True,
                   'removed_session_cannot_rejoin':True, 'former_guest_can_rejoin':True,
-                  'voice_requires_new_opt_in':True, 'host_worker_timeline_unchanged':writes,
-                  'game_muted_in_app':True, 'remote_voice_volume_zero_in_app':True,
+                  'removed_member_voice_requires_new_opt_in':True, 'host_worker_timeline_unchanged':writes,
+                  'game_muted_in_app':True, 'remote_voice_volume_ten_percent_and_audio_received':True,
                   'page_errors':errors, 'seconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result, indent=2)+'\n')
         print(json.dumps(result))

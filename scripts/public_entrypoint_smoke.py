@@ -63,6 +63,14 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
       window.dispatchEvent(new Event('blur'));
       document.dispatchEvent(new Event('visibilitychange'));
     }"""
+    def prepared(member, host):
+        try:
+            member.get_by_text("Ready to play. Waiting for the host.", exact=True).wait_for(timeout=30000)
+            host.locator("[data-slot-id=slot-2] [data-slot-region=status]").filter(has_text="Ready").wait_for(timeout=15000)
+        except PlaywrightTimeoutError as error:
+            state = [page.locator('.room-start, [data-slot-region=status], [data-testid=player-status], [data-testid=game-status]').all_text_contents() for page in (host, member)]
+            raise AssertionError(f"Member preparation did not reach Ready: {state}") from error
+
     result = {}
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()
@@ -71,7 +79,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.goto(url)
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
         rows = host.locator(".room-list li")
-        assert rows.filter(has_text="0/2 · Waiting for host").count() == 2
+        assert rows.filter(has_text="0/5 · Waiting for host").count() == 2
         assert host.get_by_role("button", name="Create game", exact=True).count() == 1
         if screenshot_dir:
             screenshot_dir.mkdir(parents=True, exist_ok=True)
@@ -79,7 +87,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Join as host").first.click()
         host.get_by_role("button", name="Start game", exact=True).wait_for()
         host.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)
-        assert "Player 1 · Host" in host.locator(".room-slots").inner_text()
+        assert host.get_by_test_id("room-slot").count() == 5
+        assert "Player 1" in host.locator("[data-slot-id=slot-1]").inner_text()
+        assert "Host" in host.locator("[data-slot-id=slot-1]").inner_text()
         assert host.get_by_role("button", name="Leave room", exact=True).count() == 1
         if screenshot_dir:
             host.screenshot(path=str(screenshot_dir / "waiting-room.png"))
@@ -101,15 +111,14 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         result["duplicate_tab_gets_independent_guest_session"] = True
         guest.get_by_role("searchbox", name="Search room, game, host, or code").fill(code)
         target = guest.locator(".room-list li").filter(has_text=code)
-        assert target.count() == 1 and "1/2 · Waiting for guest" in target.inner_text()
+        assert target.count() == 1 and "1/5 · waiting · 4 open slots" in target.inner_text()
         target.get_by_role("button", name="Join", exact=True).click()
         guest.get_by_role("button", name="Leave room", exact=True).wait_for()
         guest.get_by_label("Chat message").fill("Ready when you are")
         guest.get_by_role("button", name="Send message").click()
         host.get_by_text("Ready when you are", exact=True).wait_for(timeout=15000)
         guest.get_by_role("button", name="Prepare to play", exact=True).click()
-        guest.get_by_text("Ready to play. Waiting for the host to start.", exact=True).wait_for(timeout=30000)
-        host.get_by_text("Guest is prepared. Start together when you are ready.", exact=True).wait_for(timeout=30000)
+        prepared(guest, host)
         if screenshot_dir:
             guest.screenshot(path=str(screenshot_dir / "guest-ready.png"))
             host.screenshot(path=str(screenshot_dir / "host-ready.png"))
@@ -121,6 +130,12 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Start game", exact=True).click()
         host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10", timeout=30000)
         result["host_start_solo_after_guest_left"] = True
+        # One-member rooms use the shared timeline too. Leave explicitly to verify local playback.
+        host.get_by_role("button", name="Leave room", exact=True).click()
+        host.get_by_role("button", name="Confirm leave", exact=True).click()
+        host.get_by_test_id("room-view").wait_for(state="detached")
+        host.get_by_role("button", name="Resume local game", exact=True).click()
+        host.get_by_role("button", name="Resume", exact=True).click()
         solo_before = int(host.get_by_test_id("frames").inner_text().split(" ")[0])
         host.evaluate(throttle_window)
         assert not host.evaluate("document.hidden")
@@ -164,7 +179,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert not file_choosers
         assert shared_guest.get_by_role("button", name="Choose matching NES file").count() == 0
         shared_guest.get_by_role("button", name="Prepare to play", exact=True).click()
-        shared_host.get_by_text("Guest is prepared. Start together when you are ready.", exact=False).wait_for(timeout=15000)
+        prepared(shared_guest, shared_host)
         shared_guest.evaluate("Object.defineProperty(document, 'hidden', {configurable: true, value: true}); window.dispatchEvent(new Event('blur')); document.dispatchEvent(new Event('visibilitychange'))")
         shared_host.get_by_role("button", name="Start game", exact=True).click()
         for tab in (shared_host, shared_guest):
@@ -462,11 +477,14 @@ def runtime_check(with_browser=False, screenshot_dir=None):
 
 
 def main():
+    global ROOT
     parser = argparse.ArgumentParser()
+    parser.add_argument("--runtime-root", type=Path, default=ROOT)
     parser.add_argument("--source-only", action="store_true")
     parser.add_argument("--browser", action="store_true")
     parser.add_argument("--screenshot-dir", type=Path)
     args = parser.parse_args()
+    ROOT = args.runtime_root.resolve()
     source_check()
     result = {"result": "pass", "source_ownership": True}
     if not args.source_only:

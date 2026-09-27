@@ -57,8 +57,12 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
    } finally { loading = false; }
   } else if (!core) throw Error('Load the emulator first');
   else if (isPeerCheckpointOperation(data)) {
-   if(data.type==='peer-checkpoint-export') {
-    if(frame!==data.frame || sharedEpoch!==data.epoch)throw Error('Checkpoint boundary is stale');
+   if(data.type==='peer-checkpoint-bind'){
+    if(frame!==data.frame)throw Error('Prepared frame changed');check(core.local_state_hash());const hash=hex(copy(0));if(hash!==data.hash)throw Error('Prepared state changed');
+    clearCandidate();core.local_rewind_clear();sharedEpoch=data.epoch;rewindIssue=undefined;
+    send({type:'peer-checkpoint-bound',requestId:data.requestId,epoch:data.epoch,frame,hash});
+   } else if(data.type==='peer-checkpoint-export') {
+    if(data.frame!==undefined&&frame!==data.frame || sharedEpoch!==data.epoch)throw Error('Checkpoint boundary is stale');
     check(core.local_state_export());const bytes=copy(0);
     check(core.local_state_hash());const hash=hex(copy(0));
     check(core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));

@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {WebSocket} from 'ws';
 import {Rooms,limits,RoomError} from './rooms.ts';
 import {createCoordinator,shutdown} from './server.ts';
-import {parseRoomCommand,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+import {parseRoomCommand,ROOM_METADATA_BYTES,ROOM_COMMAND_BURST,ROOM_WIRE_BURST,type Fingerprint,type HumanRoomPreview,type RoomCommand,type RoomEvent,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 const human=(preview:RoomPreview|undefined):HumanRoomPreview=>{assert.ok(preview&&preview.occupancy!==0);return preview as HumanRoomPreview;};
 import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
 import {LOCAL_SCHEMA,LOCAL_SETTINGS} from '../../../packages/contracts/src/fingerprint.ts';
@@ -36,63 +36,49 @@ test('unlisted preview excludes hashes and codes, host alone controls room mutat
  const preview = t.act(guest.token,{type:'preview',invite:room.invite}).preview!;
  assert.equal(preview.code,undefined);assert.equal(JSON.stringify(preview).includes(fingerprint.romSha256),false);
  const joined=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
- for(const command of [{type:'close',roomId:room.id},{type:'kick',roomId:room.id,guestMembership:joined.chatMembership},{type:'rename',roomId:room.id,label:'stolen'},{type:'visibility',roomId:room.id,visibility:'public'}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
+ for(const command of [{type:'close',roomId:room.id},{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:joined.revision},{type:'rename',roomId:room.id,label:'stolen'},{type:'visibility',roomId:room.id,visibility:'public'}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
  const publicRoom = t.act(host.token,{type:'visibility',roomId:room.id,visibility:'public'}).room!;assert.ok(publicRoom.code);
  assert.equal(t.act(host.token,{type:'visibility',roomId:room.id,visibility:'unlisted'}).room!.code,undefined);
- t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
+ t.act(host.token,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:joined.revision});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
 });
-test('host closes and reopens an empty Guest place across directory and invitation',()=>{
- const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token,'unlisted');
- assert.equal(room.guestPlace,'open');assert.equal(room.guestPlaceVersion,0);
- assert.equal(human(t.act(viewer.token,{type:'preview',invite:room.invite}).preview).guestPlace,'open');
- assert.throws(()=>t.act(guest.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/not_in_room/);
- const closed=t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}).room!;
- assert.equal(closed.guestPlace,'closed');assert.equal(closed.guestPlaceVersion,1);
- assert.equal(human(viewer.events.filter(event=>event.type==='preview').at(-1)?.preview).guestPlace,'closed');
- assert.equal(human(t.act(viewer.token,{type:'preview',invite:room.invite}).preview).guestPlace,'closed');
- assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/guest_place_closed/);
- assert.equal(t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}).room!.guestPlaceVersion,1,'exact retry is idempotent');
- assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'open',expectedVersion:0}),/room_changed/);
- const open=t.act(host.token,{type:'guestPlace',roomId:room.id,place:'open',expectedVersion:1}).room!;
- assert.equal(open.guestPlaceVersion,2);assert.equal(human(viewer.events.filter(event=>event.type==='preview').at(-1)?.preview).guestPlace,'open');
- assert.equal(t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!.slot,2);
+// Empty Guest-place cases migrate to explicit stable slots. Revision checks remain
+// mandatory; an old revision does not authorize an idempotent-looking mutation.
+test('host closes and reopens empty slots across directory and private invitation',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token,'unlisted');let current=room;
+ assert.equal(room.openSlots,4);assert.equal(room.revision,0);
+ assert.equal(human(t.act(viewer.token,{type:'preview',invite:room.invite}).preview).openSlots,4);
+ assert.throws(()=>t.act(guest.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:false,expectedRevision:0}),/not_in_room/);
+ for(const slotId of ['slot-2','slot-3','slot-4','slot-5'] as const)current=t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId,open:false,expectedRevision:current.revision}).room!;
+ assert.equal(current.openSlots,0);assert.equal(human(viewer.events.filter(event=>event.type==='preview').at(-1)?.preview).openSlots,0);
+ assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/room_full/);
+ assert.throws(()=>t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:true,expectedRevision:0}),/room_changed/);
+ const revision=current.revision;current=t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:false,expectedRevision:revision}).room!;assert.equal(current.revision,revision,'current-revision exact retry is idempotent');
+ current=t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:true,expectedRevision:revision}).room!;
+ assert.equal(human(viewer.events.filter(event=>event.type==='preview').at(-1)?.preview).openSlots,1);assert.equal(t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!.slot,'slot-2');
 });
-test('public Closed room remains listed and rejects stale code and invite joins',()=>{
- const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token);
- t.act(viewer.token,{type:'directory',includeEmptyOffers:true});
- t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0});
- const row=t.act(viewer.token,{type:'directory'}).directory!.find(item=>item.id===room.id)!;
- assert.equal(human(row).guestPlace,'closed');assert.equal(row.status,'waiting');assert.equal(row.occupancy,1);
- assert.equal(human(viewer.events.filter(event=>event.type==='directory').at(-1)?.rooms.find(item=>item.id===room.id)).guestPlace,'closed');
- assert.throws(()=>t.act(guest.token,{type:'joinCode',code:room.code!,intent:randomUUID()}),/guest_place_closed/);
- assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/guest_place_closed/);
- t.act(host.token,{type:'guestPlace',roomId:room.id,place:'open',expectedVersion:1});
- assert.equal(t.act(guest.token,{type:'joinCode',code:room.code!,intent:randomUUID()}).room!.slot,2);
+test('public closed slots remain listed and reject stale code and invite joins',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token);let current=room;t.act(viewer.token,{type:'directory'});
+ for(const slotId of ['slot-2','slot-3','slot-4','slot-5'] as const)current=t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId,open:false,expectedRevision:current.revision}).room!;
+ const row=human(t.act(viewer.token,{type:'directory'}).directory!.find(item=>item.id===room.id));assert.equal(row.openSlots,0);assert.equal(row.occupancy,1);assert.equal(row.status,'waiting');
+ assert.equal(human(viewer.events.filter(event=>event.type==='directory').at(-1)?.rooms.find(item=>item.id===room.id)).openSlots,0);
+ for(const command of [{type:'joinCode',code:room.code!},{type:'join',invite:room.invite}] as const)assert.throws(()=>t.act(guest.token,{...command,intent:randomUUID()}),/room_full/);
+ t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:true,expectedRevision:current.revision});assert.equal(t.act(guest.token,{type:'joinCode',code:room.code!,intent:randomUUID()}).room!.slot,'slot-2');
 });
-test('Close loses to an occupied reservation, then succeeds only after removal revokes reconnect',()=>{
- const t=setup(),host=t.guest(),guest=t.guest(),other=t.guest(),room=t.host(host.token);
- const joined=t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;
- assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/guest_place_occupied/);
- assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestPlace,'open');
- const sent=()=>{};t.rooms.attach(guest.token,sent,()=>{});t.rooms.detach(guest.token,sent);
- assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/guest_place_occupied/);
- t.act(host.token,{type:'kick',roomId:room.id,guestMembership:joined.chatMembership});
- const closed=t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}).room!;
- assert.equal(closed.guestPlace,'closed');
- assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
- assert.throws(()=>t.act(other.token,{type:'join',invite:room.invite,intent:randomUUID()}),/guest_place_closed/);
- assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/room_unavailable/);
+test('occupied reservation blocks closing until exact removal revokes reconnect authority',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),other=t.guest(),room=t.host(host.token);const joined=t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!;
+ const close=()=>t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:false,expectedRevision:joined.revision});assert.throws(close,/slot_occupied/);
+ const send=()=>{};t.rooms.attach(guest.token,send,()=>{});t.rooms.detach(guest.token,send);assert.throws(close,/slot_occupied/);
+ const removed=t.act(host.token,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:joined.revision}).room!;
+ const closed=t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:false,expectedRevision:removed.revision}).room!;assert.equal(closed.slots[1].open,false);assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
+ assert.equal(t.act(other.token,{type:'join',invite:room.invite,intent:randomUUID()}).room!.slot,'slot-3');assert.throws(()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),/room_unavailable/);
 });
-test('Join and Close resolve atomically in both orders; Start removes Guest place eligibility',()=>{
- for(const order of ['close-first','join-first'] as const){
-  const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token),join=()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),close=()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0});
-  if(order==='close-first'){close();assert.throws(join,/guest_place_closed/);}else{join();assert.throws(close,/guest_place_occupied/);}
+test('Join and Close resolve atomically for the final available slot in both orders',()=>{
+ for(const order of ['close-first','join-first']){
+  const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token);let current=room;
+  for(const slotId of ['slot-3','slot-4','slot-5'] as const)current=t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId,open:false,expectedRevision:current.revision}).room!;
+  const join=()=>t.act(guest.token,{type:'join',invite:room.invite,intent:randomUUID()}),close=()=>t.act(host.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:false,expectedRevision:current.revision});
+  if(order==='close-first'){close();assert.throws(join,/room_full/);}else{join();assert.throws(close,/room_changed/);}
  }
- const t=setup(),host=t.guest(),room=t.host(host.token);
- t.act(host.token,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint});
- t.act(host.token,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});
- assert.throws(()=>t.act(host.token,{type:'guestPlace',roomId:room.id,place:'closed',expectedVersion:0}),/room_started/);
- assert.throws(()=>t.act(t.guest().token,{type:'join',invite:room.invite,intent:randomUUID()}),/room_started/);
 });
 test('uploaded catalog-identical bytes stay host-shared while a claimed offer stays included',()=>{
  const rooms=new Rooms(()=>1000,undefined,undefined,['super-tilt-bro-pal']);
@@ -118,24 +104,25 @@ test('uploaded catalog-identical bytes stay host-shared while a claimed offer st
 test('guest acquisition phase belongs to the current reservation and clears on leave',()=>{
  const t=setup(),host=t.guest(),guest=t.guest(),room=t.host(host.token);
  const first=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
- t.act(guest.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'downloading'});
- assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestAcquisition,'downloading');
- assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestConnected,true);
+ t.act(guest.token,{type:'memberAcquisition',roomId:room.id,membership:first.chatMembership,phase:'downloading'});
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.slots[1].member?.acquisition,'downloading');
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.slots[1].member?.connected,true);
  const send=()=>{};t.rooms.attach(guest.token,send,()=>{});t.rooms.detach(guest.token,send);
- assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestConnected,false);
- assert.throws(()=>t.act(host.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed|host_only/);
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.slots[1].member?.connected,false);
+ assert.throws(()=>t.act(host.token,{type:'memberAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed|host_only/);
  t.act(guest.token,{type:'leave',intent:first.reservationIntent!});
- assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.guestAcquisition,undefined);
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.slots[1].member?.acquisition,undefined);
  const second=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
- assert.throws(()=>t.act(guest.token,{type:'guestAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed/);
- assert.equal(second.guestAcquisition,undefined);
+ assert.throws(()=>t.act(guest.token,{type:'memberAcquisition',roomId:room.id,membership:first.chatMembership,phase:'loaded'}),/membership_changed/);
+ assert.equal(second.slots[1].member?.acquisition,'checking');
 });
 test('two concurrent contenders have one winner and cancellation frees the slot immediately',async()=>{
  const t = setup(), host = t.guest(), a = t.guest(), b = t.guest(), room = t.host(host.token);
+ for(let i=0;i<3;i++)t.act(t.guest().token,{type:'join',invite:room.invite,intent:randomUUID()});
  const results = await Promise.allSettled([a,b].map(guest=>Promise.resolve().then(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}))));
  assert.equal(results.filter(result=>result.status === 'fulfilled').length,1);
  assert.equal(results.filter(result=>result.status === 'rejected').length,1);
- t.act(a.token,{type:'leave',intent:t.rooms.attach(a.token,()=>{},()=>{}).data.room!.reservationIntent!});assert.equal(t.act(b.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!.slot,2);
+ t.act(a.token,{type:'leave',intent:t.rooms.attach(a.token,()=>{},()=>{}).data.room!.reservationIntent!});assert.equal(t.act(b.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!.slot,'slot-5');
 });
 test('mismatch, reconnect and retries do not extend the initial 120-second reservation',()=>{
  const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token);
@@ -144,12 +131,12 @@ test('mismatch, reconnect and retries do not extend the initial 120-second reser
  const mismatch = t.act(guest.token,{type:'file',fingerprint:{...fingerprint,romSha256:'c'.repeat(64)}}).room!;assert.equal(mismatch.matches,false);assert.equal(mismatch.reservationUntil,reserved.reservationUntil);
  const restored = t.rooms.attach(guest.token,()=>{},()=>{}).data.room!;assert.equal(restored.reservationUntil,reserved.reservationUntil);
  assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/already_in_room/);
- for(let i=0;i<4;i++) {t.advance(24_000);t.act(host.token,{type:'heartbeat'});}
+ for(let i=0;i<4;i++) {t.advance(24_000);t.act(host.token,{type:'heartbeat'});if(i<3)t.act(guest.token,{type:'heartbeat'});}
  assert.throws(()=>t.act(guest.token,{type:'file',fingerprint}),/not_in_room/);
  assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
  const retry = t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;assert.ok(retry.reservationUntil! > reserved.reservationUntil!);
 });
-test('only host membership receives heartbeat detection and 60-second recovery grace',()=>{
+test('host heartbeat loss blocks admission and retains the 60-second recovery grace',()=>{
  const t = setup(), host = t.guest(), watcher = t.guest(), room = t.host(host.token);
  t.advance(30_000);assert.equal(t.act(watcher.token,{type:'preview',invite:room.invite}).preview!.status,'reconnecting');
  assert.throws(()=>t.act(watcher.token,{type:'join',intent:randomUUID(),invite:room.invite}),/host_reconnecting/);
@@ -172,8 +159,8 @@ test('strict metadata schema rejects uploads, arbitrary fields and malformed val
  assert.ok(parseRoomCommand({...claim,visibility:'unlisted'}));
  assert.equal(parseRoomCommand({...claim,visibility:'private'}),undefined);
  const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));assert.ok(parseRoomCommand({...start,type:'prepareHost'}));
- const place={type:'guestPlace',requestId,roomId:randomUUID(),place:'closed',expectedVersion:0};assert.ok(parseRoomCommand(place));
- assert.equal(parseRoomCommand({...place,place:'reserved'}),undefined);assert.equal(parseRoomCommand({...place,expectedVersion:-1}),undefined);
+ const place={type:'slotAvailability',requestId,roomId:randomUUID(),slotId:'slot-2',open:false,expectedRevision:0};assert.ok(parseRoomCommand(place));
+ assert.equal(parseRoomCommand({...place,open:'reserved'}),undefined);assert.equal(parseRoomCommand({...place,expectedRevision:-1}),undefined);
  for(const invalid of [{...command,filename:'secret.nes'},{...command,rom:[1,2,3]},{...command,fingerprint:{...fingerprint,extra:'x'}},{...command,fingerprint:{...fingerprint,romSha256:'bad'}},{...claim,filename:'secret.nes'},{...claim,fingerprint:{...claim.fingerprint,romSha256:'bad'}},{...start,filename:'private.nes'},{...start,fingerprint:{...fingerprint,romSha256:'bad'}},{type:'rename',roomId:randomUUID(),requestId,label:'\u0000hello'},{type:'file',requestId,fingerprint:{...fingerprint,cartridge:{...fingerprint.cartridge,mapper:-1}}}]) assert.equal(parseRoomCommand(invalid),undefined);
 });
 
@@ -193,12 +180,13 @@ test('real WebSockets enforce origin/auth/schema and atomic reservations across 
   for(const client of [host,a,b]) assert.equal((await request(client,{type:'hello'})).ok,true);
   const intent = randomUUID();const created = await request(host,{type:'create',intent,visibility:'public',fingerprint});assert.ok(created.ok);
   await request(host,{type:'confirmCreate',intent});const invite = created.data.room!.invite;
+  for(let i=0;i<3;i++){const filler=await connect();await request(filler,{type:'hello'});await request(filler,{type:'join',invite,intent:randomUUID()});}
   const race = await Promise.all([a,b].map(socket=>request(socket,{type:'join',intent:randomUUID(),invite})));assert.equal(race.filter(result=>result.ok).length,1);
   const attacker = await connect(), closed = once(attacker,'close');attacker.send(Buffer.from('binary ROM'));assert.equal((await closed)[0],1008);
   const forged = await connect(), invalid = once(forged,'close');forged.send(JSON.stringify({type:'hello',requestId:randomUUID(),filename:'private.nes'}));assert.equal((await invalid)[0],1008);
-  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<121;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
-  const large = await connect(), over = once(large,'close');large.send('x'.repeat(5000));assert.equal((await over)[0],1009);
-  const padded=await connect(),paddingClosed=once(padded,'close');padded.send(JSON.stringify({type:'nickname',requestId:randomUUID(),nickname:'peerSignal'})+' '.repeat(4500));assert.equal((await paddingClosed)[0],1009);
+  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<=ROOM_WIRE_BURST;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
+  const large = await connect(), over = once(large,'close');large.send('x'.repeat(ROOM_METADATA_BYTES+1));assert.equal((await over)[0],1009);
+  const padded=await connect(),paddingClosed=once(padded,'close');padded.send(JSON.stringify({type:'nickname',requestId:randomUUID(),nickname:'peerSignal'})+' '.repeat(ROOM_METADATA_BYTES+1));assert.equal((await paddingClosed)[0],1009);
  } finally {for(const client of clients) client.terminate();await shutdown(server);}
 });
 
@@ -223,7 +211,7 @@ test('directory publishes admitted public metadata through reservation, visibili
  t.act(host.token,{type:'confirmCreate',intent});
  const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms;
  assert.equal(latest().length,1);assert.equal(latest()[0].id,provisional.id);
- assert.deepEqual(Object.keys(latest()[0]).sort(),['code','guestPlace','guestPlaceVersion','host','id','label','occupancy','romBytes','status','visibility']);
+ assert.deepEqual(Object.keys(latest()[0]).sort(),['code','host','id','label','occupancy','openSlots','romBytes','status','visibility']);
  const preview=latest()[0];assert.equal('romBytes' in preview && preview.romBytes,fingerprint.cartridge.bytes);
  const code=provisional.code!;
  assert.equal(t.act(joiner.token,{type:'lookupCode',code}).preview!.id,provisional.id);
@@ -243,6 +231,7 @@ test('directory publishes admitted public metadata through reservation, visibili
 
 test('public-code admission shares invitation slot ownership, deadline and invalid-attempt limits',async()=>{
  const t=setup(),host=t.guest(),a=t.guest(),b=t.guest(),room=t.host(host.token);
+ for(let i=0;i<3;i++)t.act(t.guest().token,{type:'join',invite:room.invite,intent:randomUUID()});
  const results=await Promise.allSettled([
   Promise.resolve().then(()=>t.act(a.token,{type:'joinCode',code:room.code!,intent:randomUUID()})),
   Promise.resolve().then(()=>t.act(b.token,{type:'join',invite:room.invite,intent:randomUUID()})),
@@ -280,7 +269,7 @@ test('empty offers are opt-in, first claim is atomic, and the same room becomes 
  assert.equal(race.filter(result=>result.status==='fulfilled').length,1);
  const winnerIndex=race.findIndex(result=>result.status==='fulfilled'),winner=[a,b][winnerIndex],loser=[a,b][1-winnerIndex];
  const claimed=(race[winnerIndex] as PromiseFulfilledResult<ReturnType<typeof act>>).value.room!;
- assert.equal(claimed.id,first.id);assert.equal(claimed.code,first.code);assert.equal(claimed.role,'host');assert.equal(claimed.slot,1);assert.equal(claimed.occupancy,1);
+ assert.equal(claimed.id,first.id);assert.equal(claimed.code,first.code);assert.equal(claimed.role,'host');assert.equal(claimed.slot,'slot-1');assert.equal(claimed.occupancy,1);
  assert.equal(act(winner.token,command).room!.id,claimed.id);
  const rows=act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory!;
  assert.equal(rows.filter(row=>row.occupancy===0&&row.catalogId==='super-tilt-bro-pal').length,1);
@@ -288,7 +277,7 @@ test('empty offers are opt-in, first claim is atomic, and the same room becomes 
  assert.equal(act(old.token,{type:'directory'}).directory!.length,1);
  assert.equal(rooms.operatorRooms().length,1);
  const joined=act(loser.token,{type:'joinCode',code:first.code!,intent:randomUUID()}).room!;
- assert.equal(joined.role,'guest');assert.equal(joined.id,first.id);
+ assert.equal(joined.role,'member');assert.equal(joined.id,first.id);
  act(winner.token,{type:'close',roomId:first.id});
  assert.equal(act(watcher.token,{type:'directory',includeEmptyOffers:true}).directory!.length,2);
  assert.equal(rooms.operatorRooms().length,0);
@@ -401,7 +390,7 @@ test('real WebSocket clients opt into offers and race for one first-host claim',
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
 });
 
-test('separate WebSocket browsers see host Start close an unready guest place',async()=>{
+test('separate WebSocket browsers retain unready observers and admit late members after Start',async()=>{
  const origin='http://127.0.0.1:5173',server=createCoordinator({origins:[origin]});server.listen(0,'127.0.0.1');await once(server,'listening');
  const url=`ws://127.0.0.1:${(server.address() as {port:number}).port}/ws`,sockets:WebSocket[]=[];
  const connect=async()=>{const socket=new WebSocket(url,{origin});sockets.push(socket);await once(socket,'open');return socket;};
@@ -414,14 +403,21 @@ test('separate WebSocket browsers see host Start close an unready guest place',a
   const room=data(await request(host,{type:'confirmCreate',intent})).room!;
   const joined=data(await request(guest,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;
   assert.equal(joined.occupancy,2);
-  const beforeReady=await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});assert.equal(beforeReady.ok,false);if(!beforeReady.ok)assert.equal(beforeReady.error,'host_not_ready');
+  const changed=data(await request(host,{type:'slotRole',roomId:room.id,slotId:'slot-2',role:'observer',expectedRevision:joined.revision})).room!;
   data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
+  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
   const started=data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!;
-  assert.equal(started.started,'solo');assert.equal(started.status,'playing');assert.equal(started.occupancy,1);
-  const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;
-  assert.equal(preview.status,'playing');assert.equal(preview.occupancy,1);
-  const denied=await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()});
-  assert.equal(denied.ok,false);if(!denied.ok)assert.equal(denied.error,'room_started');
+  const epoch=started.game.epoch!;data(await request(host,{type:'gameAck',epoch,hash:'c'.repeat(64)}));
+  assert.equal(started.started,'shared');assert.equal(started.occupancy,2);
+  const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;assert.equal(preview.status,'playing');assert.equal(preview.occupancy,2);
+  const late=data(await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;assert.equal(late.slot,'slot-3');assert.equal(late.occupancy,3);assert.equal(late.game.epoch,epoch);
   assert.equal(data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!.id,room.id);
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
+});
+
+test('five-member command headroom remains finite and expires at the existing window',()=>{
+ const t=setup(),host=t.guest();t.host(host.token);
+ for(let i=0;i<ROOM_COMMAND_BURST-2;i++)t.act(host.token,{type:'heartbeat'});
+ assert.throws(()=>t.act(host.token,{type:'heartbeat'}),error=>error instanceof RoomError&&error.code==='rate_limited'&&error.retryAfterMs===10000);
+ t.advance(10000);assert.doesNotThrow(()=>t.act(host.token,{type:'heartbeat'}));
 });

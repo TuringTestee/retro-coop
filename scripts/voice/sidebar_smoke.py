@@ -10,7 +10,7 @@ def run(host, guest, output):
     guest.goto(host.get_by_label('Room invitation', exact=True).input_value())
     guest.get_by_role('button', name='Join room', exact=True).click()
     guest.get_by_role('button', name='Prepare to play', exact=True).click()
-    host.get_by_text('Guest is prepared. Start together when you are ready.', exact=True).wait_for()
+    host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=30000)
     host.get_by_role('button', name='Start game', exact=True).click()
     for tab in [host, guest]:
         tab.locator('.voice-card').wait_for()
@@ -104,9 +104,12 @@ def run(host, guest, output):
     host.screenshot(path=str(output.with_suffix('.sidebar-narrow.png')), full_page=True)
     guest.get_by_role('button', name='Leave room', exact=True).click()
     guest.get_by_role('button', name='Confirm leave', exact=True).click()
-    for tab in [host,guest]:
-        tab.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'pending_cancel_survives_playback_failure':True,'two_way_audio_during_game':True,'focus_preserves_mute_and_open_track':True,'leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
+    guest.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+    assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&!t.enabled)")
+    host.get_by_role('button', name='Leave room', exact=True).click()
+    host.get_by_role('button', name='Confirm leave', exact=True).click()
+    host.wait_for_function("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
+    return {'started_shared_play':True,'live_remap_and_help':True,'visible_pending_error_retry_live_mute_push':True,'simultaneous_microphone_and_playback_recovery':True,'pending_cancel_survives_playback_failure':True,'two_way_audio_during_game':True,'focus_preserves_mute_and_open_track':True,'departing_member_releases_tracks':True,'remaining_member_keeps_capture_and_push_mute':True,'host_leave_releases_tracks':True,'wide_and_narrow_no_overlay':True}
 
 
 def solo(browser, url, rom, output, root):

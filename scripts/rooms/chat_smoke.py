@@ -1,5 +1,6 @@
 """Exercise temporary chat, explicit retry and input isolation in real browser tabs."""
 import argparse
+import os
 import json
 import subprocess
 import time
@@ -10,13 +11,13 @@ parser=argparse.ArgumentParser();parser.add_argument('--chrome',action='store_tr
 root=Path(__file__).resolve().parents[2];output=Path(args.output);started=time.monotonic()
 service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,stdout=subprocess.PIPE,text=True)
 try:
-    url=json.loads(service.stdout.readline())['url'];rom=(root/'apps/client/dist/generated/diagnostic.nes').read_bytes()
+    url=json.loads(service.stdout.readline())['url'];rom=(Path(os.environ.get('RETRO_COOP_STATIC_ROOT', root/'apps/client/dist'))/'generated/diagnostic.nes').read_bytes()
     with sync_playwright() as p:
         browser=p.chromium.launch(ignore_default_args=['--mute-audio'],**({'channel':'chrome'} if args.chrome else {}))
         errors=[]
         def page(address=url):
             page=browser.new_page(viewport={'width':1280,'height':1000});page.on('pageerror',lambda error:errors.append(str(error)))
-            page.add_init_script('''window.chatProof={errors:[],requests:{},events:[],sent:[]};window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);chatProof.events.push(data.type==='result'&&data.data?.chatAck?'chatAck':data.type);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}send(raw){const data=JSON.parse(raw);chatProof.sent.push(data.type);chatProof.requests[data.requestId]=data.type;return super.send(raw)}};
+            page.add_init_script('''window.chatProof={errors:[],requests:{},events:[],sent:[]};window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(data.type==='room')chatProof.room=data.room;chatProof.events.push(data.type==='result'&&data.data?.chatAck?'chatAck':data.type);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}send(raw){const data=JSON.parse(raw);chatProof.sent.push(data.type);chatProof.requests[data.requestId]=data.type;return super.send(raw)}};
 window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...rest){if(message.type==='frame')inputProof.push(message.p1);return post.call(this,message,...rest)};''')
             page.goto(address);return page
         def open_room(tab):
@@ -40,8 +41,8 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
                 print(json.dumps({'failed':'send action','value':message.input_value(),'buttons':page.get_by_role('button').all_text_contents(),'panelVisible':page.locator('.room-panel').is_visible(),'chatVisible':page.locator('.chat-panel').is_visible(),'mainClass':page.locator('main').get_attribute('class'),'statuses':page.locator('[role=status]').all_text_contents(),'sent':page.evaluate('chatProof.sent')}),flush=True);raise
             page.locator('.chat-panel li p').filter(has_text=text).wait_for(state='attached')
         send(host,'only before join')
-        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("document.querySelector('[data-testid=room-view]')?.textContent.includes('has the reserved guest place')")
-        for tab in [host,guest]:tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent.includes('Route: direct')")
+        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("chatProof.room?.slots[1].member?.id&&document.querySelectorAll('[data-testid=room-slot]').length===5")
+        for tab in [host,guest]:tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent.includes('direct route.')")
         open_chat(guest)
         assert guest.get_by_test_id('frames').inner_text()=='0 frames'
         assert guest.locator('.chat-panel li').count()==0
@@ -96,7 +97,7 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         assert guest.evaluate('document.documentElement.scrollWidth<=innerWidth')
         # Relay service is intentionally absent here; failed peer setup cannot disable text.
         open_connection(guest).get_by_label('Connection privacy',exact=True).select_option('relay');open_chat(guest)
-        guest.get_by_text('Relay service is unavailable.',exact=False).first.wait_for()
+        guest.get_by_text('relay service unavailable',exact=False).first.wait_for()
         guest.get_by_label('Chat message',exact=True).fill('text survives peer denial')
         guest.get_by_role('button',name='Send message',exact=True).click()
         host.locator('.chat-panel').get_by_text('text survives peer denial',exact=True).wait_for(state='attached')

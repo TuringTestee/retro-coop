@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ChatClient,type ChatState,type ChatRoom} from './chat-client.ts';
 import type {RoomData} from '../../../packages/contracts/src/rooms.ts';
-const room:ChatRoom={id:'room',chatMembership:'member',role:'guest'};
+const room:ChatRoom={id:'room',chatMembership:'member',role:'member'};
 test('explicit retry preserves message identity and draft, and membership changes reject late responses',async()=>{
  let state:ChatState={messages:[],draft:'',sending:false},calls=0;
  const sent:string[]=[];let resolve:((data:RoomData)=>void)|undefined;
@@ -14,7 +14,7 @@ test('explicit retry preserves message identity and draft, and membership change
 test('received own message confirms delivery once; stale membership events cannot leak into a rejoin',async()=>{
  let state:ChatState={messages:[],draft:'',sending:false};let reject:((error:Error)=>void)|undefined;
  const client=new ChatClient(value=>state=value,()=>new Promise((_,fail)=>reject=fail));client.enter(room);client.draft('hello');const pending=client.send('Me');
- const message={id:'server-id',clientId:state.outbox!.command.clientId,sender:'guest' as const,nickname:'Me',text:'hello',at:1};
+ const message={id:'server-id',clientId:state.outbox!.command.clientId,sender:'member' as const,nickname:'Me',text:'hello',at:1};
  client.receive({type:'chat',roomId:room.id,membership:'member',message});assert.equal(state.messages.length,1);assert.equal(state.outbox,undefined);
  reject!(Error('ack lost'));await pending;assert.equal(state.outbox,undefined);
  client.receive({type:'chat',roomId:room.id,membership:'member',message});assert.equal(state.messages.length,1);
