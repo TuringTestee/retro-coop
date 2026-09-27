@@ -18,7 +18,7 @@ INSTALL = r"""({selector, label}) => {
   const id = n => { if (!ids.has(n)) ids.set(n, ++serial); return ids.get(n); };
   const rect = n => { const r=n.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; };
   const name = n => n.dataset.layoutRegion || (n.dataset.slotRegion ?
-    `${n.closest('[data-slot-id]').dataset.slotId}/${n.dataset.slotRegion}` : n.dataset.slotId);
+    `${n.closest('[data-slot-id]').dataset.slotId}/${n.dataset.slotRegion}` : n.dataset.slotId) || n.id || n.className || n.tagName;
   const probe = window.layoutProbe = {label, running:true, samples:[], marks:[], intentionalScroll:false, limit:false};
   probe.sample = () => {
     const nodes = [...document.querySelectorAll(selector)].filter(n=>n.getClientRects().length && getComputedStyle(n).visibility!=='hidden');
@@ -31,7 +31,7 @@ INSTALL = r"""({selector, label}) => {
     });
     probe.samples.push({time:performance.now(),state:probe.state||'armed',intentionalScroll:probe.intentionalScroll,
       viewport:{width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale},
-      document:{left:scrollX,top:scrollY,width:document.documentElement.scrollWidth},regions});
+      document:{left:scrollX,top:scrollY,width:document.documentElement?.scrollWidth||innerWidth},regions});
   };
   const tick=()=>{if(!probe.running)return;if(probe.samples.length>=10000){probe.limit=true;probe.running=false;return;}probe.sample();requestAnimationFrame(tick);};
   probe.sample(); requestAnimationFrame(tick);

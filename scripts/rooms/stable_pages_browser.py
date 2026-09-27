@@ -194,6 +194,8 @@ def main():
             local.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
             local.get_by_role('button', name='Play locally', exact=True).click()
             local.get_by_role('button', name='Resume', exact=True).click()
+            tool_geometry = []
+            local.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=120")
             for label, heading, filename in [('Saves', 'Saves on this device', 'saves.png'),
                                              ('Rewind', 'Rewind local game', 'rewind.png'),
                                              ('Game help', 'Game help', 'help.png')]:
@@ -202,6 +204,7 @@ def main():
                 host.wait_for_function('!!document.fullscreenElement')
                 slug = label.lower().replace(' ', '-')
                 host.screenshot(path=str(args.output / f'fullscreen-before-{slug}.png'))
+                tool_record = GeometryRecorder(host, f'{slug}-loading-and-recovery', selector='.tool-page [data-layout-region]')
                 host.locator('.panel').get_by_role('button', name=label, exact=True).click()
                 host.wait_for_function('!document.fullscreenElement')
                 host.get_by_role('heading', name=heading, exact=True).wait_for(state='visible')
@@ -209,10 +212,44 @@ def main():
                 assert host.get_by_role('button', name='Back', exact=True).is_visible()
                 assert not host.locator('.room-panel').is_visible()
                 assert host.locator('dialog').count() == 0
+                tool_record.mark('tool-visible')
+                if label == 'Saves':
+                    host.get_by_role('button', name='Save current point', exact=True).wait_for()
+                    host.wait_for_function("!Array.from(document.querySelectorAll('button')).find(n=>n.textContent==='Save current point')?.disabled")
+                    tool_record.mark('saves-ready')
+                    tool_record.allow_user_scroll()
+                    host.get_by_label('Save file', exact=True).set_input_files({'name': 'empty.rcstate', 'mimeType': 'application/octet-stream', 'buffer': b''})
+                    tool_record.allow_user_scroll(False)
+                    host.get_by_test_id('save-status').filter(has_text='empty or exceeds').wait_for()
+                    tool_record.mark('invalid-save-error')
+                    tool_record.allow_user_scroll()
+                    host.get_by_role('button', name='Save current point', exact=True).click()
+                    tool_record.allow_user_scroll(False)
+                    host.get_by_test_id('save-status').filter(has_text='Saved in Slot 1').wait_for()
+                    tool_record.mark('saved-after-error')
+                    tool_record.allow_user_scroll()
+                    host.get_by_role('button', name='Delete Slot 1', exact=True).click()
+                    host.get_by_role('button', name='Cancel', exact=True).click()
+                    host.wait_for_function("document.activeElement?.textContent==='Delete Slot 1'")
+                    tool_record.allow_user_scroll(False)
+                    tool_record.mark('delete-cancelled')
+                if label == 'Rewind':
+                    host.get_by_test_id('rewind-history').wait_for()
+                    tool_record.mark('history-ready')
+                    tool_record.allow_user_scroll()
+                    host.get_by_role('button', name='Rewind 1 second', exact=True).click()
+                    host.get_by_role('button', name='Cancel', exact=True).click()
+                    host.wait_for_function("document.activeElement?.textContent==='Rewind 1 second'")
+                    tool_record.allow_user_scroll(False)
+                    tool_record.mark('rewind-cancelled')
                 if label == 'Game help':
+                    tool_record.allow_user_scroll()
                     host.get_by_text('Technical details', exact=True).click()
+                    tool_record.allow_user_scroll(False)
+                    tool_record.mark('details-expanded')
                     expected = hashlib.sha256((STATIC / 'generated/diagnostic.nes').read_bytes()).hexdigest()
                     assert expected in host.get_by_test_id('fingerprint').inner_text()
+                tool_geometry.append(tool_record.finish(args.output / f'{slug}-geometry.json'))
                 host.screenshot(path=str(args.output / filename))
                 host.get_by_role('button', name='Back', exact=True).click()
                 host.wait_for_function("label => document.activeElement?.textContent === label", arg=label)
@@ -281,7 +318,7 @@ def main():
                       'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
                       'inline_confirmations': True, 'dialogs': 0, 'create_explicit_scroll_regions': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
-                      'layout': [wide, narrow, compact], 'zoom_matrix': zoom_results, 'page_matrix': page_matrix, 'page_errors': errors}
+                      'layout': [wide, narrow, compact], 'zoom_matrix': zoom_results, 'page_matrix': page_matrix, 'tool_geometry': tool_geometry, 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()
