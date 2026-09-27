@@ -123,7 +123,7 @@ def control_visibility(locator, require_focus=False):
 
 
 @contextlib.contextmanager
-def zoom_context(playwright, viewport):
+def zoom_context(playwright, viewport, launch_args=()):
     """Chromium extension API changes real browser zoom, including layout DPR."""
     with tempfile.TemporaryDirectory(prefix='layout-zoom-') as directory:
         root = Path(directory)
@@ -133,7 +133,7 @@ def zoom_context(playwright, viewport):
             'version': '1.0', 'permissions': ['tabs'], 'background': {'service_worker': 'worker.js'}}))
         (ext / 'worker.js').write_text('chrome.runtime.onInstalled.addListener(()=>{});')
         context = playwright.chromium.launch_persistent_context(str(root / 'profile'), channel='chromium',
-            headless=True, viewport=viewport, args=[f'--disable-extensions-except={ext}', f'--load-extension={ext}'])
+            headless=True, viewport=viewport, args=[f'--disable-extensions-except={ext}', f'--load-extension={ext}', *launch_args])
         try:
             worker = context.service_workers[0] if context.service_workers else context.wait_for_event('serviceworker')
             yield context, worker
