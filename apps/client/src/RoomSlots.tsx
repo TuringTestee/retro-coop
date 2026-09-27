@@ -38,7 +38,7 @@ export function RoomSlots({room,connected,act}:{room:RoomView;connected:boolean;
   finally{if(attempt===generation.current)setPending(false);}
  };
  const locked=pending||!connected||!!room.game.pending;
- return <div ref={panel} className="room-slots" aria-label="Room slots">
+ return <div ref={panel} className="room-slots" tabIndex={-1} aria-label="Room slots">
   {SLOT_IDS.map((id,index)=>{const slot=room.slots.find(value=>value.id===id);if(!slot)throw Error(`Missing room slot ${id}`);const member=slot.member,confirm=removing?.slotId===id&&removing.membership===member?.id;return <section key={id} data-testid="room-slot" data-slot-id={id} aria-label={`Slot ${index+1}`}>
    <ScrollRegion data-slot-region="identity" aria-label={`Slot ${index+1} identity`}><strong>Slot {index+1} · {slotRoleLabel(slot.role)}</strong><span>{member?`${member.nickname}${member.id===room.chatMembership?' · You':''}${member.id===room.hostMembership?' · Host':''}`:'Empty'}</span></ScrollRegion>
    <ScrollRegion data-slot-region="status" role="status" aria-label={`Slot ${index+1} status`}>{status(room,slot)}</ScrollRegion>
