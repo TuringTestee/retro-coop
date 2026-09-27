@@ -119,6 +119,7 @@ def main():
                     break
                 assert time.monotonic() < deadline, states
                 host.wait_for_timeout(30)
+            host.get_by_label('Slot 1 identity', exact=True).scroll_into_view_if_needed()
             host.screenshot(path=str(args.output.with_suffix('.' + case + '-recovered.png')))
             assert states[0]['frame'] >= 120
             host.get_by_role('button', name='Leave room', exact=True).click()
