@@ -153,7 +153,7 @@ test('pre-epoch role rejection is transactional during host inspection and after
   const t=setup(3);t.role('slot-1','observer');t.load(0);t.load(1);t.ready(1);t.start();
   assert.equal(t.view().game.epoch,undefined);if(expired)t.advance(10000);
   const before=t.view();assert.throws(()=>t.role('slot-3','player1'),/game_not_playing/);
-  assert.equal(t.view().game.pending,undefined);assert.deepEqual(t.view().game.controllers,before.game.controllers);assert.deepEqual(t.view().slots,before.slots);
+  const after=t.role('slot-1','observer').room!;assert.equal(after.game.pending,undefined);assert.deepEqual(after.game.controllers,before.game.controllers);assert.deepEqual(after.slots,before.slots);
   if(expired)t.ready(1);t.ready(0);if(!t.view().game.epoch)t.start();const epoch=t.view().game.epoch!;
   for(const who of [0,1])t.act(who,{type:'gameAck',epoch,hash});
   assert.equal(t.view().game.status,'playing');assert.equal(t.view().slots[0].role,'observer');assert.equal(t.view().game.pending,undefined);
