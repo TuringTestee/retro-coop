@@ -2,6 +2,8 @@
 """Reconcile only the existing site's reviewed TURN ingress through CloudFormation."""
 import argparse
 import json
+import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -12,8 +14,23 @@ REGION = 'us-east-1'
 
 
 def aws(*args):
-    result = subprocess.run(['aws', *args, '--region', REGION, '--output', 'json'],
-                            check=True, capture_output=True, text=True)
+    try:
+        result = subprocess.run(['aws', *args, '--region', REGION, '--output', 'json'],
+                                check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as error:
+        # Report the service diagnosis, never the command, stdout or environment.
+        match = re.search(r'An error occurred \(([^)\r\n]+)\) when calling the ([A-Za-z0-9]+) operation: ([^\r\n]*)', error.stderr or '')
+        detail = 'No AWS service error was returned.'
+        if match:
+            detail = f'{match[1]} ({match[2]}): {match[3]}'
+            for name in ('AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN'):
+                secret = os.environ.get(name)
+                if secret:
+                    detail = detail.replace(secret, '[redacted]')
+            detail = re.sub(r'arn:[^\s,;]+', '[resource ARN]', detail)
+            detail = re.sub(r'\b(?:AKIA|ASIA)[A-Z0-9]{16}\b|\b\d{12}\b', '[redacted]', detail)
+            detail = ' '.join(detail.split())[:1000]
+        raise RuntimeError(f'AWS {args[0]} {args[1]} failed (exit {error.returncode}): {detail}') from None
     return json.loads(result.stdout or '{}')
 
 

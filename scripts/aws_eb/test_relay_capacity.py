@@ -1,4 +1,5 @@
 import copy
+import subprocess
 import unittest
 from unittest.mock import patch
 import relay_capacity
@@ -15,6 +16,40 @@ class RelayMigrationTests(unittest.TestCase):
             'IpRanges': [{'CidrIp': '0.0.0.0/0'}]} for protocol, first, last in
             [('tcp', 80, 80), ('tcp', 443, 443), ('udp', 3478, 3478),
              ('udp', RELAY_MIN_PORT, RELAY_MAX_PORT)]]}
+
+    def test_service_error_is_visible_without_command_or_credentials(self):
+        stderr = ('An error occurred (AccessDenied) when calling the CreateChangeSet operation: '
+                  'User arn:aws:sts::123456789012:assumed-role/private/session is not authorized '
+                  'to perform cloudformation:CreateChangeSet; token=private-token')
+        failure = subprocess.CalledProcessError(254, ['aws', '--secret-command-value'],
+                                               output='private-stdout', stderr=stderr)
+        with patch.dict('os.environ', {'AWS_SESSION_TOKEN': 'private-token'}), patch.object(relay_capacity.subprocess, 'run', side_effect=failure):
+            with self.assertRaises(RuntimeError) as caught:
+                relay_capacity.aws('cloudformation', 'create-change-set', '--private-argument')
+        message = str(caught.exception)
+        self.assertIn('AccessDenied (CreateChangeSet)', message)
+        self.assertIn('cloudformation:CreateChangeSet', message)
+        self.assertIn('exit 254', message)
+        for private in ['123456789012', 'private/session', 'private-token', 'private-stdout', 'secret-command-value', 'private-argument']:
+            self.assertNotIn(private, message)
+        self.assertTrue(caught.exception.__suppress_context__)
+
+    def test_non_service_stderr_is_not_dumped(self):
+        failure = subprocess.CalledProcessError(1, ['aws'], stderr='debug secret text')
+        with patch.object(relay_capacity.subprocess, 'run', side_effect=failure):
+            with self.assertRaisesRegex(RuntimeError, 'No AWS service error was returned') as caught:
+                relay_capacity.aws('cloudformation', 'describe-stacks')
+        self.assertNotIn('debug secret text', str(caught.exception))
+
+    def test_validation_reason_is_bounded_and_success_still_parses(self):
+        failure = subprocess.CalledProcessError(254, ['aws'], stderr=
+            'An error occurred (ValidationError) when calling the CreateChangeSet operation: ' + 'bad ' * 1000)
+        with patch.object(relay_capacity.subprocess, 'run', side_effect=failure):
+            with self.assertRaisesRegex(RuntimeError, 'ValidationError') as caught:
+                relay_capacity.aws('cloudformation', 'create-change-set')
+        self.assertLess(len(str(caught.exception)), 1100)
+        with patch.object(relay_capacity.subprocess, 'run', return_value=subprocess.CompletedProcess(['aws'], 0, '{"Id":"existing-change"}')):
+            self.assertEqual(relay_capacity.aws('cloudformation', 'create-change-set'), {'Id': 'existing-change'})
 
     def test_only_ingress_update_accepted(self):
         validate_changes([self.change])
