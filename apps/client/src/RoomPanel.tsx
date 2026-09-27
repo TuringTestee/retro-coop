@@ -24,6 +24,9 @@ export type RoomPanelHandle = {voice():VoiceSession|undefined;localPlayIntent():
 export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;voiceCard?:React.ReactNode;renderFps?:number;showDiscovery:boolean;releaseInFullscreen:boolean;onChoose():void;onCreate():void;onBrowse():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void}>(function RoomPanel({playCards,voiceCard,renderFps,showDiscovery,releaseInFullscreen,onChoose,onCreate,onBrowse,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange,onState},ref) {
  const [state,setState] = useState<RoomState>({status:'No room selected.',busy:false,connected:false});
  const [staying,setStaying] = useState<string>();
+ // Entering play changes the page profile; begin its detail viewport at the slots.
+ // Pauses, retries, messages and confirmations retain the user's scroll position.
+ useEffect(()=>{if(state.room?.started)document.querySelector('.room-content')?.scrollTo(0,0);},[state.room?.id,state.room?.started]);
  const [invite,setInvite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
  const [confirmLeave,setConfirmLeave]=useState(false),[confirmPublic,setConfirmPublic]=useState(false),[leaveError,setLeaveError]=useState('');
@@ -169,10 +172,10 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   </ScrollRegion>
   {room&&<ScrollRegion className="room-leave-region" data-layout-region="room-actions" aria-label="Leave room actions">{leaveControl}</ScrollRegion>}
   {room?.started&&<div className="room-voice-region" data-layout-region="room-voice">{voiceCard}</div>}
+  {room&&<ScrollRegion className="room-connection-region" data-layout-region="room-connection" aria-label="Connection feedback">{connectionNode}</ScrollRegion>}
   <div className="room-content" data-layout-region="room-content">
   {room&&<RoomSlots room={room} connected={state.connected} act={command=>client.current!.act(command)}/>}
   {playCards}
-  <ScrollRegion className="room-connection-region" data-layout-region="room-connection" aria-label="Connection feedback">{connectionNode}</ScrollRegion>
   <ScrollRegion className="room-acquisition-region" data-layout-region="room-acquisition" aria-label="Game preparation">
   {invite&&!room&&state.preview&&<p>{state.preview.label} · {state.preview.host} · {state.preview.occupancy}/5 slots · {state.preview.status}. {'openSlots' in state.preview?`${state.preview.openSlots} open slots.`:''} {state.preview.catalogId?`${catalogEntry(state.preview.catalogId).title} is included; Join downloads its verified copy.`:'Host-shared NES; Join downloads the verified game.'}</p>}
   {invite&&!room&&<div className="invite-action">{state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&<><ConnectionPolicyControl compact policy={policy} change={changePolicy}/><button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Join room</button></>}{!state.busy&&!state.preview&&<button onClick={()=>void client.current?.preview(invite)}>Retry invitation</button>}<button onClick={clearInvitation}>View public rooms</button></div>}
