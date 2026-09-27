@@ -84,22 +84,23 @@ export class GameClient {
    void this.player()!.holdForGame(false).then(info=>{if(serial!==this.serial)return;this.player()?.releaseControllers();return this.send({type:'gameFrozen',epoch:event.epoch,frame:info.frame,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'network');});return;
   }
   if(event.type==='gamePauseAt'){
-   if(this.scheduler?.epoch!==event.epoch)return;this.fence=event.frame;this.frozen=false;this.publish({status:event.reason,busy:true});if(this.scheduler.frame===event.frame)void this.finishPause();else this.player()?.drainGame();return;
+   if(this.scheduler?.epoch!==event.epoch&&this.incoming?.epoch!==event.epoch)return;this.fence=event.frame;this.frozen=false;this.publish({status:event.reason,busy:true});if(this.scheduler?.frame===event.frame)void this.finishPause();else this.player()?.drainGame();return;
   }
   if(!this.room||!this.loaded())return;
   if(event.type==='gamePrepare'){
-   this.cancelAllTransfers();++this.serial;this.offering=false;const serial=this.serial;this.prepared=event;this.controllers=event.controllers;this.scheduler=undefined;this.frozen=true;this.historyHashes.clear();
+   this.cancelAllTransfers();++this.serial;this.offering=false;const serial=this.serial;this.prepared=event;this.controllers=event.controllers;this.scheduler=this.makeScheduler(event.epoch,event.frame,event.delay,event.controllers,false);this.frozen=true;this.historyHashes.clear();
    this.publish({busy:true,status:'Preparing assigned players…'});
    void this.player()!.holdForGame(this.ownsInput()).then(async info=>{if(serial!==this.serial)return;if(info.frame!==event.frame||info.hash!==event.hash)throw Error('State changed before shared start');await this.player()!.bindGameEpoch(event.epoch,event.frame,event.hash);if(serial!==this.serial)return;return this.send({type:'gameAck',epoch:event.epoch,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'mismatch');});return;
   }
   if(event.type==='gameStart'){
-   if(this.prepared?.epoch!==event.epoch)return;this.install(event.epoch,event.frame,event.delay,event.controllers,false);
-   for(const [member,link] of this.links)link.live=event.controllers.owners.includes(member);
+   if(this.prepared?.epoch!==event.epoch)return;for(const [member,link] of this.links)link.live=event.controllers.owners.includes(member);
+   this.install(event.epoch,event.frame,event.delay,event.controllers,false);
   }
  }
+ private makeScheduler(epoch:string,frame:number,delay:number,controllers:ControllerAssignment,observer:boolean){return new GameScheduler(epoch,delay,{local:this.self(),authority:this.room!.hostMembership,controllers:controllers.owners.map(owner=>owner??undefined) as [string|undefined,string|undefined],observer},packet=>this.sendPacket(packet),frame);}
  private install(epoch:string,frame:number,delay:number,controllers:ControllerAssignment,observer:boolean){
-  this.controllers=controllers;this.scheduler=new GameScheduler(epoch,delay,{local:this.self(),authority:this.room!.hostMembership,controllers:controllers.owners.map(owner=>owner??undefined) as [string|undefined,string|undefined],observer},packet=>this.sendPacket(packet),frame);
-  this.frozen=false;this.fence=undefined;this.hashing=false;this.pausedSent=false;this.missingSince=0;
+  this.controllers=controllers;if(observer||this.scheduler?.epoch!==epoch)this.scheduler=this.makeScheduler(epoch,frame,delay,controllers,observer);
+  this.frozen=false;if(!observer)this.fence=undefined;this.hashing=false;this.pausedSent=false;this.missingSince=0;
   this.player()!.startGame({epoch,next:mask=>this.next(mask),committed:frame=>this.committed(frame),pause:reason=>this.pause(reason),draining:()=>this.catchingUp||this.fence!==undefined,silent:()=>this.catchingUp,ownsInput:!observer&&this.ownsInput()});
   this.publish({status:observer?'Catching up with the current game…':'Playing together.',busy:observer,synchronizing:observer,observing:observer,frame,delay});
  }
@@ -113,7 +114,7 @@ export class GameClient {
   if(typeof raw==='string'&&raw.length<256){try{const marker=JSON.parse(raw);if(marker.kind==='live'&&member===this.room?.hostMembership&&this.incoming?.transferId===marker.transferId&&marker.epoch===this.scheduler?.epoch&&Number.isSafeInteger(marker.frame)){this.catchupTarget=marker.frame;this.finishCatchup();return;}}catch{}}
   const packet=parseGamePacket(raw);if(!packet){if(this.controllers.owners.includes(member)||member===this.room?.hostMembership)this.fail('Invalid gameplay packet.','network');return;}
   const scheduler=this.scheduler;if(!scheduler||packet.epoch!==scheduler.epoch)return;
-  try{scheduler.receive(packet,member);if(!scheduler.authority&&packet.kind==='frame'&&!this.catchingUp&&this.fence===undefined)scheduler.sample(this.player()?.sampleGameInput()??0);this.player()?.wakeGame(packet.epoch);}catch(error){if(this.authority()&&!this.controllers.owners.includes(member)){this.links.get(member)!.live=false;return;}this.fail(String(error),'mismatch');}
+  try{scheduler.receive(packet,member);if(!scheduler.authority&&packet.kind==='frame'&&!this.frozen&&!this.catchingUp&&this.fence===undefined)scheduler.sample(this.player()?.sampleGameInput()??0);this.player()?.wakeGame(packet.epoch);}catch(error){if(this.authority()&&!this.controllers.owners.includes(member)){this.links.get(member)!.live=false;return;}this.fail(String(error),'mismatch');}
  }
  private next(mask:number){const scheduler=this.scheduler;if(!scheduler||this.frozen||this.hashing||this.pausedSent)return;if(this.fence!==undefined&&scheduler.frame>=this.fence){void this.finishPause();return;}
   try{scheduler.sample(this.fence!==undefined?0:mask);const value=scheduler.next();if(!value){this.missingSince ||=performance.now();if(this.ownsInput()||this.authority()){if(performance.now()-this.missingSince>gameplayLimits.stallMs)this.pause('network');}else if(!this.catchingUp&&this.room?.game.status==='playing'&&performance.now()-this.missingSince>gameplayLimits.catchupMs)this.fail('Observation stopped receiving frames. Choose Observe game to synchronize again.','network');return;}this.missingSince=0;return {frame:scheduler.frame,p1:value[0],p2:value[1]};}catch(error){this.fail(String(error),'network');}}
@@ -122,7 +123,7 @@ export class GameClient {
   if(scheduler.frame%gameplayLimits.hashInterval===0){this.hashing=true;void this.player()!.stateHash().then(info=>{if(this.scheduler===scheduler){scheduler.hash(info.hash);this.publish({hash:info.hash});}}).catch(error=>{if(this.scheduler===scheduler)this.fail(String(error),'mismatch');}).finally(()=>{if(this.scheduler===scheduler){this.hashing=false;for(const outgoing of this.outgoing.values())this.catchup(outgoing);this.finishCatchup();this.player()?.wakeGame(scheduler.epoch);}});}else this.finishCatchup();
  }
  private pause(reason:GameReason){const scheduler=this.scheduler;if(!scheduler||this.frozen||this.fence!==undefined)return;if(!this.authority()&&!this.ownsInput()){this.fail('Observation interrupted. Retry synchronization.','network');return;}this.frozen=true;void this.send({type:'gamePause',epoch:scheduler.epoch,frame:scheduler.frame,reason}).catch(error=>{if(this.scheduler===scheduler)this.fail(String(error),'network');});}
- private async finishPause(){const scheduler=this.scheduler;if(!scheduler||this.pausedSent)return;this.pausedSent=true;try{const info=await this.player()!.holdForGame(false);if(this.scheduler!==scheduler)return;this.player()!.stopGame('Paused. Prepare to resume.');this.publish({busy:false,status:'Paused. Prepare to resume.'});await this.send({type:'gamePaused',epoch:scheduler.epoch,frame:info.frame,hash:info.hash});}catch(error){if(this.scheduler===scheduler)this.fail(String(error),'mismatch');}}
+ private async finishPause(){const scheduler=this.scheduler;if(!scheduler||this.pausedSent)return;this.pausedSent=true;try{const info=await this.player()!.holdForGame(false);if(this.scheduler!==scheduler)return;this.finishCatchup();this.player()!.stopGame('Paused. Prepare to resume.');this.publish({busy:false,status:'Paused. Prepare to resume.'});await this.send({type:'gamePaused',epoch:scheduler.epoch,frame:info.frame,hash:info.hash});}catch(error){if(this.scheduler===scheduler)this.fail(String(error),'mismatch');}}
  checkpointChannel(member:string,channel:RTCDataChannel,epoch:string){
   this.checkpointLinks.set(member,{epoch,channel});const link=this.links.get(member);if(link?.epoch===epoch)link.checkpoint=channel;channel.binaryType='arraybuffer';channel.bufferedAmountLowThreshold=CHECKPOINT_BUFFER_BYTES/2;
   channel.onbufferedamountlow=()=>{for(const outgoing of this.outgoing.values())if(outgoing.request.recipient===member&&outgoing.sending)this.pump(outgoing);};

@@ -114,3 +114,16 @@ test('observer retries a new epoch even when prior synchronization stopped befor
   assert.equal(h.commands.filter(c=>c.type==='gameObserve').length,before+1);assert.equal(h.updates.at(-1)?.synchronizing,true);
  }finally{h.game.dispose();}
 });
+
+test('pause arriving during observer import retains its fence and drains the same epoch to the exact boundary',async()=>{
+ const h=await setup('observer');let finish!:(value:{frame:number;hash:string})=>void;
+ try{
+  h.setImport(()=>new Promise(resolve=>{finish=resolve;}));h.game.handle(h.spec);await deliver(h);
+  h.game.handle({type:'gamePauseAt',epoch,frame:919,reason:'User pause'});
+  finish({frame:917,hash});await flush();
+  for(let frame=917;frame<919;frame++)h.data.receive(JSON.stringify({kind:'frame',epoch,frame,p1:1,p2:2}));
+  h.data.receive(JSON.stringify({kind:'live',epoch,transferId,frame:919}));
+  for(let frame=917;frame<919;frame++){assert.deepEqual(h.driver.next(255),{frame,p1:1,p2:2});h.complete(frame);}await flush();
+  assert.equal(h.driver.next(255),undefined);assert.ok(h.commands.some(c=>c.type==='gamePaused'&&c.frame===919));assert.ok(h.commands.some(c=>c.type==='gameObserved'&&c.frame===919));assert.equal(h.commands.some(c=>c.type==='gameCheckpointFailed'),false);
+ }finally{h.game.dispose();}
+});

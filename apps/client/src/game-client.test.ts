@@ -13,7 +13,7 @@ function setup(self=member){
  const game=new GameClient(()=>player,async command=>{commands.push(command);await sendHook?.(command);},state=>updates.push(state));
  const channel={readyState:'open',bufferedAmount:0,send(){},onmessage:undefined} as unknown as RTCDataChannel;
  game.enter(room(self));game.selected(fingerprint);game.ready(self===host?member:host,channel,peerEpoch);
- return {game,commands,updates,channel,holds,defer:()=>{deferHold=true;},send:(hook:typeof sendHook)=>{sendHook=hook;}};
+ return {game,player,commands,updates,channel,holds,defer:()=>{deferHold=true;},send:(hook:typeof sendHook)=>{sendHook=hook;}};
 }
 const tick=()=>setImmediate();
 test('replaced peer channel cannot mutate current game through delayed malformed message',()=>{
@@ -48,4 +48,19 @@ test('file replacement during worker hold invalidates stale readiness before it 
 });
 test('late configured controller offers readiness for activation rather than requesting observer sync',async()=>{
  const t=setup();try{const late=room();late.started='shared';late.established=true;late.game={...late.game,status:'playing',epoch,controllers:{owners:[host,null],revision:2}};t.game.enter(late);t.commands.length=0;t.game.playIntent();await tick();assert.equal(t.commands.some(c=>c.type==='gameObserve'),false);assert.ok(t.commands.some(c=>c.type==='gameReady'&&c.revision===2));}finally{t.game.dispose();}
+});
+
+test('prepared timeline retains ordered peer packets arriving before the local Start event',async()=>{
+ for(const self of [host,member]){
+  const t=setup(self);let clock:Parameters<LocalPlayer['startGame']>[0]|undefined;
+  t.player.bindGameEpoch=async()=>{};t.player.startGame=value=>{clock=value;};t.player.wakeGame=()=>{};
+  try{
+   const controllers=room(self).game.controllers,context={epoch,authority:host,frame:0,hash,delay:6,controllers};
+   t.game.handle({type:'gamePrepare',...context});await tick();assert.equal(t.commands.at(-1)?.type,'gameAck');
+   const packet=self===host?{kind:'input',epoch,frame:0,mask:0}:{kind:'frame',epoch,frame:0,p1:0,p2:0};
+   t.channel.onmessage!.call(t.channel,new MessageEvent('message',{data:JSON.stringify(packet)}));
+   assert.equal(clock,undefined,'early transport cannot execute a frame before Start');
+   t.game.handle({type:'gameStart',...context});assert.ok(clock);assert.deepEqual((clock as Parameters<LocalPlayer['startGame']>[0]).next(0),{frame:0,p1:0,p2:0});
+  }finally{t.game.dispose();}
+ }
 });

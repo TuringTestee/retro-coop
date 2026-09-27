@@ -41,13 +41,14 @@ export class GameSession {
    if(required.some(member=>{const offer=this.offers.get(member)!;return !offer.fresh||offer.frame!==0||offer.hash!==authority.hash;})){this.stop('Initial states differ. Prepare fresh matching games; existing progress is preserved.','failed');return;}
    this.begin(authority.frame,authority.hash);return;
   }
-  if(this.transfers.size)return;
+  if([...this.transfers.values()].some(transfer=>transfer.purpose==='controller'))return;
   this.frame=authority.frame;this.hash=authority.hash;
   const mismatched=required.filter(member=>member!==this.host&&(this.offers.get(member)!.frame!==authority.frame||this.offers.get(member)!.hash!==authority.hash));
   if(mismatched.length){for(const member of mismatched)this.capture(member,'controller');return;}
   this.state={...this.state,status:'resume_ready',reason:'The paused game is synchronized. The host can resume.'};
  }
  private begin(frame:number,hash:string){
+  for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Game epoch is changing. Synchronize again.');
   this.frame=frame;this.hash=hash;this.required=this.owners();this.acks.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
   this.state={...this.state,status:'starting',reason:undefined,epoch:id(),delay:Math.max(gameplayLimits.delayDefault,...this.required.map(member=>this.offers.get(member)?.delay??gameplayLimits.delayDefault))};
   const context={epoch:this.state.epoch!,authority:this.host,frame,hash,delay:this.state.delay!,controllers:this.state.controllers};
@@ -55,7 +56,7 @@ export class GameSession {
  }
  private freeze(reason:string){
   if(!this.state.epoch)throw Error('game_not_playing');
-  for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Game epoch is changing. Synchronize again.');
+  if(this.state.pending)for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Game roles are changing. Synchronize again.');
   this.offers.clear();this.acks.clear();this.state={...this.state,status:'pausing',reason};this.deadline=this.now()+gameplayLimits.barrierMs;
   this.send(this.host,{type:'gameFreeze',epoch:this.state.epoch!,reason});
  }

@@ -139,3 +139,11 @@ test('expired initial barrier retries from explicit fresh offers without becomin
  assert.throws(()=>t.act(1,{type:'gameAck',epoch:old,hash}),/stale_game/);
  t.act(0,{type:'gameAck',epoch:next,hash});t.act(1,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);assert.equal(t.view().game.frame,0);
 });
+
+test('ordinary pause retains bounded observer catch-up while a fresh epoch cancels it without a barrier',()=>{
+ const t=setup(3),epoch=t.begin();t.act(2,{type:'gameObserve',revision:t.view().game.controllers.revision});const transfer=t.captures().at(-1)!;const who=t.authorize(transfer,100);t.ack(transfer,who,100);
+ t.act(0,{type:'gamePause',epoch,frame:150,reason:'user'});t.act(0,{type:'gameFrozen',epoch,frame:150,hash});
+ assert.equal(t.events[2].some(e=>e.type==='gameSyncStop'&&e.transferId===transfer.transferId),false);
+ t.ready(0,{frame:150,fresh:false});t.ready(1,{frame:150,fresh:false});assert.equal(t.view().game.status,'resume_ready','observer cannot delay controller readiness');
+ t.act(0,{type:'gameResume',epoch});assert.notEqual(t.view().game.epoch,epoch);assert.ok(t.events[2].some(e=>e.type==='gameSyncStop'&&e.transferId===transfer.transferId));
+});
