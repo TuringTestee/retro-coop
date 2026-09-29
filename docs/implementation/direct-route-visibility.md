@@ -2,6 +2,8 @@ The current WebRTC ICE negotiation already offers Standard clients direct and TU
 
 # Implementation
 
+The [minimal room journey plan](minimal-room-journey.md) supersedes persistent route, FPS and ping content in ordinary play. Route instrumentation may remain for developer diagnostics and failure recovery, but the sidebar obligations below are historical after #169 integrates.
+
 - Keep Standard on `iceTransportPolicy: all` and Relay only on `relay`; rely on the selected ICE candidate pair, which the existing `connectionRoute` classifies for Chrome and Firefox. The ICE standard recommends higher priority for host, peer-reflexive and server-reflexive candidates than relayed candidates. Do not add a speculative direct-only timeout: it could add connection delay and force fallback before a direct candidate succeeds.
 - When a browser confirms a selected route, send only `direct` or `relay` with the current peer epoch and membership. The coordinator validates the enum and epoch, then emits one structured route log per member per epoch. Log room ID, role, policy and route, without candidate strings, addresses, SDP, credentials or ROM bytes. A route observed after the initial channel-ready event must still be reported. Stale epochs and duplicate reports do not produce logs.
 - Reuse `connectionStatus` for the fixed in-game side panel. Render its relay result as a distinct notice when the actual selected route is relay; preserve the current failure text and recovery controls. A direct route must not show relay text.

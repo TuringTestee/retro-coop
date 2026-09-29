@@ -4,6 +4,8 @@ Audience: Human
 
 # Stable lobby layout
 
+The [minimal room journey](minimal-room-journey.md) changes which content appears in these regions. This document continues to own their fixed geometry; older wireframe, journey and scenario links below are historical where #169 removes a control or preview. The current privacy control stays in its reserved region until a separate routing amendment.
+
 ## Source and scope
 
 This proposal governs [feature #158](https://github.com/TuringTestee/retro-coop/issues/158). The user's exact request is: “enhance the UI so the UI component is FIXED on slots, never allow any component to push other down/up espeically during loading. Everything should have a deterministic fixd postion.” Review and merge this direction and its [implementation plan](../implementation/stable-lobby-layout.md) before affected implementation.

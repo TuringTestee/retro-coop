@@ -4,6 +4,8 @@ Audience: Agent
 
 # Five-slot lobby implementation
 
+The [minimal room journey implementation](minimal-room-journey.md) supersedes any assigned-controller-only **initial Start** check. All occupied members gate the first Start; only assigned controller owners gate subsequent gameplay frames. Later observer acquisition remains independent.
+
 ## Authority and dependencies
 
 [The five-slot design](../design/five-slot-lobby.md) owns requested behavior and journeys F1–F4 for [#157](https://github.com/TuringTestee/retro-coop/issues/157). Independently review and merge both plans before implementation. This plan supersedes two-member room/topology and late-join limitations in [the platform implementation plan](browser-nes-platform.md), while retaining its verification strategy and local-emulation architecture. Preserve the independently delivered background-voice behavior; [#158](https://github.com/TuringTestee/retro-coop/issues/158) subsequently owns whole-application layout stabilization.

@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game wireframe v4 — current
 
+The [minimal room journey](minimal-room-journey.md) is the current target for directory, Create Game, five-slot waiting, ordinary play and exit. This v4 page remains historical for those screens except its current pre-peer privacy control, which stays until a separate routing amendment. Its unaffected secondary-task flows and recovery still apply.
+
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
 
 The [stable layout amendment](stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.

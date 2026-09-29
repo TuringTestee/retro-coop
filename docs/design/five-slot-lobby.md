@@ -4,6 +4,8 @@ Audience: Human
 
 # Five-slot lobbies
 
+The [minimal room journey](minimal-room-journey.md) supersedes this document's assigned-players-only **initial Start** gate: every occupied member, including observers and the host, must prepare and choose Ready. Midgame observer isolation and late joins below remain current.
+
 ## Source and scope
 
 This is the governing proposal for [feature #157](https://github.com/TuringTestee/retro-coop/issues/157). The user's request is: “do NOT assume there are only 2 players for any games. support multiple slots like war3, and host can choise to change roles like observer, player1 player2 etc, or close slots. make max 5 slots.” Implementation starts only after independent review and merge of this document and its [technical plan](../implementation/five-slot-lobby.md).

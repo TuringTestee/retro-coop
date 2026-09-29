@@ -1,6 +1,8 @@
 # Relay route status: direction
 
-Players should see a short, accurate message when their shared game is using a relay. The message belongs beside the game and stays visible while that route is active. **This file is the sole current definition of exact connected-route copy (D1 and D2).** Journeys, scenarios and ASCII screens refer to those IDs; earlier wireframe copies are historical.
+The [minimal room journey](minimal-room-journey.md) supersedes persistent connected-route messages in ordinary play. Show plain connection failure and recovery when needed; the exact messages below remain historical evidence for the earlier requested design.
+
+The current shipped game shows a short route message beside play. **Until the minimal room journey is implemented, this file defines the exact connected-route copy (D1 and D2).** After #169 removes routine connected-route copy, these messages are historical. Failure and recovery feedback remains required. Journeys, scenarios and ASCII screens below refer to those IDs for the shipped behavior.
 
 | ID / behavior | Source | Existing behavior it changes |
 | --- | --- | --- |

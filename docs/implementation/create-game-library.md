@@ -4,6 +4,8 @@ Audience: Agent
 
 # Create Game and local ROM library delivery plan
 
+The [minimal room journey plan](minimal-room-journey.md) governs the next Create Game controls, five-slot initial Start and session exit. Conflicting preview and old guest-place instructions below are historical after that plan merges; existing pre-peer privacy controls, file ownership, acquisition and recovery remain.
+
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
 
 The [stable layout amendment](../design/stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.

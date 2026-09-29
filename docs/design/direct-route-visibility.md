@@ -4,6 +4,8 @@ Players should see live FPS and peer ping while playing together. The game shoul
 
 The user requested on September 25, 2026: “learn from war3 or aoe, try not to rely -- only when absolutely needed, and flag logs for debugging, and make sure the game shows what we added as warning message”; then “make sure you do exactly how war3 or aoe2 to handle direct game connection, and show FPS and network ping on the sidebar”; then “also show if rely (don't mention rely if not, because its uncommon”. These are the governing requests for this change.
 
+The later [minimal room journey](minimal-room-journey.md) preserves automatic direct-first routing but supersedes routine FPS/ping and route warnings in the ordinary play view. This page records the earlier requested design.
+
 The [existing relay direction](relay-route-status-direction.md) owns the exact relay messages and their placement. The [existing relay journeys](relay-route-status-journeys.md) own route change and recovery. This document adds only the metric journey below. The browser uses the same player-hosted model—server discovery, direct gameplay when possible—through WebRTC ICE. It cannot reuse a native game's network protocol.
 
 # Game sidebar metric journey

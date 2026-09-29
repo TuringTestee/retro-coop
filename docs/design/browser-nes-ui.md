@@ -4,6 +4,8 @@ Audience: Human
 
 # Retro Coop UI design
 
+The [minimal room journey](minimal-room-journey.md) governs the next ordinary directory, creation, waiting, play and exit path. Conflicting two-person Start, routine metric and background-room passages below are historical; existing connection privacy controls and unaffected task-specific and recovery journeys remain.
+
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
 
 This document records the earlier U1–U9 UI design and its interaction inventory. The approved [lobby experience amendment](lobby-refactor.md) and [room-preparation sketch](lobby-wireframe-v6.md) govern the implemented directory, room entry and Start behavior. The [Create Game v2](create-game-library-wireframe-v2.md) is the approved but not yet implemented host-entry baseline; [v4](create-game-library-wireframe-v4.md) is the pending PR #103 proposal for Guest-place and no-overlay pages. The older launcher, automatic-start, and later-join passages below remain historical design evidence; unaffected consent, accessibility and recovery requirements still apply.
