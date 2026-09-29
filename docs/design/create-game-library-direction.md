@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game direction
 
+The [minimal room journey](minimal-room-journey.md) supersedes the technical route selector, routine preview and competing actions in this earlier Create Game direction. Game selection, file validation, access and recovery remain applicable.
+
 The [stable layout amendment](stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.
 
 | Source | Behavior and replacement |

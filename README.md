@@ -1,5 +1,7 @@
 # Retro Coop
 
+The [planned minimal room journey](docs/design/minimal-room-journey.md) for [issue #169](https://github.com/TuringTestee/retro-coop/issues/169) will simplify the controls and require everyone in a room to be ready. The Play steps below describe the current application until that work is implemented.
+
 Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. Public and unlisted rooms have five slots. The host assigns the game’s supported player roles or Observer, and can close empty slots. Each member runs a matching local copy; observers and new controller owners synchronize to the current game without restarting it.
 
 ## Play
