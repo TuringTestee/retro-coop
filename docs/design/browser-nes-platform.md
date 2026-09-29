@@ -4,7 +4,7 @@ Audience: Human
 
 # Browser NES lobby platform
 
-The [minimal room journey](minimal-room-journey.md) governs the next directory, waiting, initial Start, ordinary play content and exit flow. Conflicting passages below are historical after that amendment merges; unaffected platform and release requirements remain. The privacy-routing choice is pending the owner's explicit resolution in that amendment.
+The [minimal room journey](minimal-room-journey.md) governs the next directory, waiting, initial Start, ordinary play content and exit flow. Conflicting passages below are historical after that amendment merges; unaffected platform and release requirements remain. Existing connection privacy controls and enforcement remain current until a separate reviewed amendment resolves automatic routing.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. Governing PR #160 is merged. Five-slot execution and integrated acceptance are tracked in [feature #157](https://github.com/TuringTestee/retro-coop/issues/157); the historical two-person evidence below does not prove those journeys. The amendment also owns observer isolation, ten voice pairs, per-member acquisition and membership, and current checkpoint limits. Unaffected requirements and historical evidence remain.
 
