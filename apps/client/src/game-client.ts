@@ -52,7 +52,7 @@ export class GameClient {
   const key=room.id+room.revision+room.game.controllers.revision+(room.game.epoch??'initial');if(this.offered===key)return;
   const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,status:'Checking the completed machine state…'});
   try{const info=await this.player()!.holdForGame(room.game.controllers.owners.includes(this.self()));if(serial!==this.serial)return;
-   const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
+   const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,roomRevision:room.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
    if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for the assigned players and host.'});
   }catch(error){if(serial===this.serial){this.offered=undefined;this.publish({busy:false,status:String(error)});}}finally{if(serial===this.serial)this.offering=false;}
  }

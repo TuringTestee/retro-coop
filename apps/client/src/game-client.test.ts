@@ -38,7 +38,7 @@ test('host explicit retry works regardless of previous stop and does not duplica
  const t=setup(host);try{t.game.handle({type:'gameStop',reason:'Timed out'});t.game.retry();await tick();t.game.enter(room(host));await tick();assert.equal(t.commands.filter(c=>c.type==='gameReady').length,1);}finally{t.game.dispose();}
 });
 test('wrong selected file cannot prepare until matching file and explicit intent are supplied',async()=>{
- const t=setup();try{t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});t.game.playIntent();await tick();assert.equal(t.commands.length,0);t.game.cancelIntent();t.game.selected(fingerprint);await tick();assert.deepEqual(t.commands.map(c=>c.type),['gameUnready']);t.game.playIntent();await tick();assert.equal(t.commands.at(-1)?.type,'gameReady');}finally{t.game.dispose();}
+ const t=setup();try{t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});t.game.playIntent();await tick();assert.equal(t.commands.length,0);t.game.cancelIntent();t.game.selected(fingerprint);await tick();assert.deepEqual(t.commands.map(c=>c.type),['gameUnready']);t.game.playIntent();await tick();assert.equal(t.commands.at(-1)?.type,'gameReady');assert.equal(t.commands.at(-1)?.roomRevision,1);}finally{t.game.dispose();}
 });
 test('changing an already prepared member file explicitly revokes its readiness',async()=>{
  const t=setup();try{t.game.playIntent();await tick();assert.equal(t.commands.at(-1)?.type,'gameReady');t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});await tick();assert.deepEqual(t.commands.map(c=>c.type),['gameReady','gameUnready']);}finally{t.game.dispose();}
