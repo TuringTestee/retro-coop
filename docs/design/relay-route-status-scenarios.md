@@ -1,5 +1,7 @@
 # Relay route status: scenario inventory
 
+The [minimal room journey](minimal-room-journey.md) removes routine connected-route messages from ordinary play after implementation. The connected-result rows below record currently shipped behavior; failure and recovery rows remain applicable.
+
 The current room side panel owns the visible route status. These scenarios refine its existing connection story without changing how players join, play or leave.
 
 | ID / journey | Trigger | Visible result | Recovery or exit |

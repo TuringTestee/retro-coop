@@ -1,5 +1,7 @@
 # Relay route status: affected journeys
 
+The [minimal room journey](minimal-room-journey.md) removes routine connected-route messages from ordinary play after implementation. J1–J3 below record the currently shipped flow; retain route failure/retry and the existing privacy choice until a separate routing amendment.
+
 The room's connection status follows the real peer route through preparation, play and recovery.
 
 | Journey | Arrival → decision → action → feedback → outcome → recovery |

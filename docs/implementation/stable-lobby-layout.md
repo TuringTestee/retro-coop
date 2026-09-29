@@ -4,6 +4,8 @@ Audience: Agent
 
 # Stable lobby layout implementation
 
+The [minimal room journey plan](minimal-room-journey.md) changes content inside these fixed regions. This document continues to own geometry; old wireframe/scenario controls that #169 removes are historical after that feature integrates. Preserve the current privacy control until its separate routing amendment.
+
 ## Governing scope and dependencies
 
 [The layout direction](../design/stable-lobby-layout.md) owns L1–L3 and [#158](https://github.com/TuringTestee/retro-coop/issues/158). Review and merge these two documents before implementation. Reuse the [existing page structure](../design/create-game-library-wireframe-v4.md) and [scenarios C01–C17](../design/create-game-library-scenarios.md). This amendment supersedes content-driven movement allowed by their earlier narrow/page-flow sketches, without replacing their navigation or actions. Final integrated acceptance depends on #157's five-slot implementation and retains #156's microphone behavior. Resolve the existing paused-Leave defect [#131](https://github.com/TuringTestee/retro-coop/issues/131) in this delivery, rather than opening a duplicate issue.
