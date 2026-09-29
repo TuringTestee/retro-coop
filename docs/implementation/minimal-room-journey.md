@@ -1,0 +1,33 @@
+Implement one minimal room path: automatic connection routing, all-member readiness before initial Start, and session teardown before navigation to Public rooms.
+
+Audience: Agent
+
+# Minimal room journey implementation
+
+## Authority and scope
+
+The [design amendment](../design/minimal-room-journey.md) and [issue #169](https://github.com/TuringTestee/retro-coop/issues/169) own the target journey. Implement the changed directory, Create Game, waiting, play and exit states together; do not leave a second ordinary UI with technical route choices or background-room navigation. Preserve the [five-slot implementation](five-slot-lobby.md) after initial Start: only assigned controller owners gate each gameplay frame; late observers synchronize independently. The new all-occupied Ready gate applies **before the first Start only**. [#158](https://github.com/TuringTestee/retro-coop/issues/158) owns stable geometry and its active PR must integrate without content-driven movement.
+
+## Shared state and authorization
+
+- Give each occupied slot one authoritative initial-preparation state: exact game/core verified, connection usable, and explicit member Ready for the current game, role, membership and room revision. Observer readiness means it can actually display the game, without requiring controller input. The host is an occupied member and must be Ready too. Empty and closed slots are excluded.
+- Invalidate current Ready on game/role change, disconnect, failed or cancelled acquisition, membership replacement, or incompatible revision. A reconnect must re-establish prerequisites before Ready is accepted. Avoid an optimistic client-only Ready flag as Start authority.
+- `requestStart` validates host authorization and the complete current occupied-slot set atomically with membership and readiness revisions. It rejects any unprepared occupant with a current room update, including races with a new join or removal. There is no force-start path or automatic ejection of preparing members. Removal remains a separate confirmed host command; after success the host may request Start again.
+- Existing late observer admission and midgame controller transitions remain distinct from initial Start. Do not let this new gate make an observer's later download or reconnect pause established gameplay.
+- Remove the ordinary Standard/Relay-only selection from directory, creation, invitation, room and ordinary Settings. Default automatic routing tries direct first, then relay if direct fails, retaining the earlier direct-first product direction. Before peer contact, show one short address-disclosure line next to Create/Join. There is no substitute privacy route choice: this explicitly replaces the prior opt-in relay-only behavior and is a product tradeoff for independent plan review. Keep existing active-room strict policy during rollout or end those sessions cleanly. Expose plain connection failure and Retry/Leave, not route implementation terms. Validate relay capacity and five-member pair behavior before release.
+
+## Navigation and cleanup
+
+Route header Public rooms, browser Back/history, invitations and in-app directory links through one async session-exit owner. If hosted, show a consequence-specific close confirmation; if a member, explain leaving; a local-only game ends locally. Keep the active page and its controls until the close/leave result is known. On success, stop game execution and held input, voice capture and playback, room membership, peer links, chat, file transfers and local audio before showing the directory or new invitation. Do not keep a hidden room or local game behind Public rooms. On failure, keep the old view and its valid gameplay/voice state intact, with Retry/Stay; do not partially tear down locally or navigate optimistically. Browser unload is best-effort cleanup and cannot replace the in-app confirmed path.
+
+Preserve deliberate navigation to task pages such as Settings, Saves, Help and Players within the active session. These are not exits; returning restores the active page. Ensure deep links cannot create a second concurrent room while a first one is still active: finish or cancel the first exit before joining the new room.
+
+## UI replacement and delivery
+
+Use the slot rows as the only ordinary readiness/role/membership summary. Keep one contextual host Manage action per applicable slot; move role, removal and open/close controls into it. Remove duplicate status paragraphs, visible invite URL beside Copy, routine performance counters, route selectors/explanations and permanent diagnostic text from public, creation, waiting, play and ordinary Settings views. Keep progress, actionable errors, chat/voice state, and secondary-task entry points when needed. Update current README, help text, tests and older active plan pointers so they do not reintroduce Standard/Relay-only or starting past unready occupants. Historical wireframes remain labeled as historical under the new design amendment.
+
+Deliver in one reviewable feature PR after this plan merges. Coordinate its CSS with #158; changed content occupies pre-reserved page/slot/status/action regions from initial render. The feature is complete only when the server and public browser journey agree. Do not close #169 after a visual-only change.
+
+## Evidence and gates
+
+Follow the [verification strategy](browser-nes-platform.md#verification-strategy) and README pre-flight. In five independent browser members, including host-as-observer, verify game acquisition, all Ready, initial Start, and exact controller authority. Prove Start rejection for unready host, player and observer; stale Ready, concurrent join/Start, removal failure and disconnect; then recovery by wait or confirmed removal. Prove late observer arrival after Start does not block frames. Exercise Public rooms header, Back/history, invitations and local game exit; inspect no surviving membership, game execution, voice, audio or input after destination appears, plus failed close/leave retaining the active page. Inspect public entry screenshots for ordinary and recovery states and compare fixed region bounds at delayed load, long names and errors. Test normal and forced relay, relay failure without direct fallback, and privacy-safe five-member behavior. Record current-candidate commands, browser versions, screenshots/logs and any unverified cases in the PR; a planning-only PR needs document checks and makes no runtime claim.
