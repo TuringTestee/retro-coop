@@ -99,6 +99,7 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
                     page.get_by_role('button', name='Resume', exact=True).click()
                 page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
                 page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
+                page.get_by_role('button', name='Tools', exact=True).click()
                 page.get_by_role('button', name='Game help', exact=True).click()
                 page.get_by_text('Technical details', exact=True).click()
                 observed = page.get_by_test_id('fingerprint').text_content()

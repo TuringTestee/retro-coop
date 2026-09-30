@@ -31,6 +31,7 @@ def run(host, guest, output):
     host.get_by_role('button', name='Apply mapping', exact=True).click()
     host.get_by_role('button', name='Back', exact=True).click()
     assert host.locator('.play-bindings > div').filter(has=host.locator('dt', has_text='A')).first.locator('dd').inner_text() == 'Q'
+    host.get_by_role('button', name='Tools', exact=True).click()
     host.get_by_role('button', name='Game help', exact=True).click()
     assert 'Arrows move' not in host.locator('.game-help').inner_text()
     host.get_by_role('button', name='Back', exact=True).click()

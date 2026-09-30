@@ -25,6 +25,7 @@ def verify_saves(browser,url,rom,output):
             page.get_by_label('NES cartridge file').set_input_files({'name':'private-slots.nes','mimeType':'application/octet-stream','buffer':rom})
         start_solo(page,rom)
     def open_saves(wait_for_slots=True):
+        page.get_by_role('button', name='Tools', exact=True).click()
         page.get_by_role('button',name='Saves',exact=True).click()
         page.get_by_role('button',name='Save current point',exact=True).wait_for()
         if wait_for_slots: page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Save current point').disabled")
@@ -137,6 +138,7 @@ def verify_saves(browser,url,rom,output):
     page.get_by_role('button',name='Back',exact=True).click()
     page.evaluate('()=>{indexedDB.open=nativeOpen}')
     # A superseded worker's delayed reply cannot populate the replacement game's slots.
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.evaluate('holdInfo=true');page.get_by_role('button',name='Saves',exact=True).click()
     page.wait_for_function('!!window.heldInfo');page.evaluate('holdInfo=false')
     page.get_by_label('NES cartridge file').set_input_files({'name':'other-game.nes','mimeType':'application/octet-stream','buffer':rom+b'\x01'})
@@ -149,6 +151,7 @@ def verify_saves(browser,url,rom,output):
     variant=bytearray(rom);variant[4]=2;variant[16+16384:16+16384]=rom[16:16+16384];variant[6]=0xd2;variant[7]=0x90
     page.get_by_label('NES cartridge file').set_input_files({'name':'unvalidated.nes','mimeType':'application/octet-stream','buffer':bytes(variant)})
     start_solo(page,variant,require_start=True)
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.get_by_role('button',name='Saves',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('not yet validated')")
     assert tool_page.get_by_role('button',name='Save current point',exact=True).is_disabled()

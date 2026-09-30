@@ -108,9 +108,11 @@ def verify_settings(browser, url, rom, output):
     page.wait_for_function('minimum=>Number(document.querySelector("canvas").dataset.frameCount)>minimum',arg=frozen+5)
     # Browser refusal never blocks normal play, and normal fullscreen has an exit.
     page.evaluate('()=>{window.fullscreenRequest=Element.prototype.requestFullscreen;Element.prototype.requestFullscreen=()=>Promise.reject(new Error("Denied"));}')
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.get_by_role('button',name='Fullscreen',exact=True).click()
     page.get_by_text('Fullscreen was declined.',exact=False).wait_for()
     page.evaluate('()=>{Element.prototype.requestFullscreen=fullscreenRequest;}')
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.get_by_role('button',name='Fullscreen',exact=True).click()
     page.get_by_role('button',name='Exit fullscreen',exact=True).wait_for()
     assert page.evaluate('!!document.fullscreenElement')

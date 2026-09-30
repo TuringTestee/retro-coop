@@ -109,6 +109,7 @@ def journey(page, url, output, label, navigate=True, started_room=False):
         page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
         page.get_by_role('button', name='Play locally', exact=True).click()
         page.get_by_role('button', name='Resume', exact=True).click()
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.locator('.panel').get_by_role('button', name='Saves', exact=True).click()
     page.get_by_role('heading', name='Saves on this device').wait_for()
     page.wait_for_function("document.activeElement?.id === 'saves-title'")
@@ -127,6 +128,7 @@ def journey(page, url, output, label, navigate=True, started_room=False):
     page.keyboard.press('Escape')
     page.get_by_role('button', name='Back', exact=True).click()
     if not started_room:
+        page.get_by_role('button', name='Tools', exact=True).click()
         page.locator('.panel').get_by_role('button', name='Rewind', exact=True).click()
         page.get_by_role('heading', name='Rewind local game').wait_for()
         page.wait_for_function("document.activeElement?.id === 'rewind-title'")
@@ -142,6 +144,7 @@ def journey(page, url, output, label, navigate=True, started_room=False):
             path = output / f'{label}-rewind.png'
             page.screenshot(path=str(path));receipt['captures'].append(path.name)
         page.get_by_role('button', name='Back', exact=True).click()
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.locator('.panel').get_by_role('button', name='Game help', exact=True).click()
     page.get_by_role('heading', name='Game help', exact=True).wait_for()
     page.wait_for_function("document.activeElement?.id === 'game-help-title'")

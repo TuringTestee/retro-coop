@@ -10,6 +10,7 @@ def enter_create(page):
 
 def read_fingerprint(page, expected=None):
     """Read the technical identity through Game help, then return to play."""
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.get_by_role('button', name='Game help', exact=True).click()
     page.get_by_text('Technical details', exact=True).click()
     details = page.get_by_test_id('fingerprint')
