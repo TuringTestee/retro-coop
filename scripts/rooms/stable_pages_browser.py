@@ -109,10 +109,16 @@ def main():
             host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+            for action in ('Ready', 'Start game', 'Leave room'):
+                control_visibility(host.get_by_role('button', name=action, exact=True))
             host.get_by_role('button', name='Ready', exact=True).click()
             start_style = host.get_by_role('button', name='Start game', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
             invite_style = host.get_by_role('button', name='Copy invite', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
             assert start_style == 'rgb(181, 163, 255)' and start_style != invite_style, (start_style, invite_style)
+            for action in ('Not ready', 'Start game', 'Leave room'):
+                control_visibility(host.get_by_role('button', name=action, exact=True))
+            for slot in host.locator('.room-slots [data-slot-id]').all():
+                control_visibility(slot)
             invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             host.screenshot(path=str(args.output / 'waiting.png'))
             host.get_by_text('Room settings', exact=True).click()

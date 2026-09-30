@@ -53,14 +53,12 @@ Access: (●) Public  ( ) Password protected      [Create room]
 If protected: Room password [________] [Show]
 [Checking / Uploading / Retry / Cancel in this reserved area]
 
-WAITING ROOM · LILAC HARBOR                  [Copy invite] [Leave room]
-1  You · Host · Player 1              Preparing     [Manage]
-2  Guest Amber · Player 2             Preparing     [Manage]
-3  Guest Blue · Observer              Ready         [Manage]
-4  Open · Observer                                  [Manage]
-5  Closed
-Your action: [Ready]   (or Ready / [Not ready])
-Host: Waiting for you and Guest Amber. [Start game disabled]
+WAITING ROOM · LILAC HARBOR
+1  You · Host · Player 1              Preparing     [Manage]   | [Ready]
+2  Guest Amber · Player 2             Preparing     [Manage]   | [Copy invite]
+3  Guest Blue · Observer              Ready         [Manage]   | [Start game disabled]
+4  Open · Observer                                  [Manage]   | Waiting for you and Guest Amber.
+5  Closed                                                    | [Leave room]
 [Chat] [Microphone off]   (compact, with feedback when used)
 
 PLAYING · LILAC HARBOR                         [Leave room]
