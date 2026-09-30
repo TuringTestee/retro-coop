@@ -7,7 +7,7 @@ export function PlayControls({room,edit,roomSlots}:{room?:RoomView;edit():void;r
  const port=room?.started?(ownerIndex<0?null:ownerIndex+1):room?(ownSlot?.role==='player1'?1:ownSlot?.role==='player2'?2:null):1;
  return <section className="play-controls" aria-label="Your controls">
   <span className="play-role">{port===null?'Observer':`Player ${port}`}</span>
-  {room?.started&&<button onClick={roomSlots}>Players</button>}
+  {room?.started&&<button data-players-toggle onClick={roomSlots}>Players</button>}
   {port!==null&&<button className="text-action" onClick={edit}>Controls</button>}
  </section>;
 }
