@@ -2,6 +2,7 @@
 """Exercise the public-room to protected-room journey with fixed task regions."""
 import argparse
 import base64
+from contextlib import contextmanager
 import json
 import os
 import subprocess
@@ -37,22 +38,85 @@ def public_room(browser, url):
     return host
 
 
-def profile(page, browser, url, output, label, *, navigate=True):
+def watch_socket(page):
+    gate = {'hold': True, 'messages': []}
+    page.add_init_script('window.layoutSockets=[];const Native=WebSocket;window.WebSocket=class extends Native{constructor(...args){super(...args);layoutSockets.push(this)}};')
+    def route(socket):
+        server = socket.connect_to_server()
+        def message(raw):
+            if gate['hold']:
+                gate['messages'].append((socket, raw))
+            else:
+                socket.send(raw)
+        server.on_message(message)
+    page.route_web_socket('**/ws', route)
+    return gate
+
+
+def leave_room(host):
+    host.get_by_role('button', name='Leave room', exact=True).click()
+    host.get_by_role('button', name='Confirm leave', exact=True).click()
+    host.get_by_test_id('directory').wait_for()
+
+
+def close_room(host):
+    leave_room(host)
+    host.close()
+
+
+@contextmanager
+def browser_server():
+    # Keep each profile independent of the coordinator's real per-address
+    # transfer limits; each profile still exercises the complete network path.
+    service = subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=ROOT,
+                               env=os.environ.copy(),stdout=subprocess.PIPE,text=True)
+    try:
+        yield json.loads(service.stdout.readline())['url']
+    finally:
+        service.terminate()
+        service.wait(timeout=5)
+
+
+def profile(page, browser, url, output, label, gate, *, navigate=True):
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     if navigate:
         page.goto(url)
     page.get_by_test_id('directory').wait_for()
-    page.wait_for_function("document.querySelector('[data-directory-status]')?.dataset.directoryStatus==='live'")
+    page.wait_for_function('window.layoutSockets?.length>0')
+    assert page.get_by_test_id('directory').get_attribute('data-directory-status') == 'loading'
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth+1')
     proof = {'label': label, 'viewport': page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio})'),
              'states': [], 'captures': [], 'page_errors': errors}
     directory = GeometryRecorder(page, 'directory-query', '.directory-panel [data-layout-region]')
+    directory.mark('loading')
+    if label in ('wide', 'narrow', 'mid-550', 'mid-600'):
+        path = output / f'{label}-directory-loading.png'
+        capture(page, path, label)
+        proof['captures'].append(path.name)
+    gate['hold'] = False
+    for socket, raw in gate['messages']:
+        socket.send(raw)
+    gate['messages'].clear()
+    page.wait_for_function("document.querySelector('[data-directory-status]')?.dataset.directoryStatus==='live'")
     directory.mark('live')
     if label in ('wide', 'compact'):
         path = output / f'{label}-public-rooms.png'
         capture(page, path, label)
         proof['captures'].append(path.name)
+    page.evaluate('layoutSockets.at(-1).close()')
+    retry = page.get_by_role('button', name='Retry', exact=True)
+    retry.wait_for()
+    retry.focus()
+    control_visibility(retry, require_focus=True)
+    directory.mark('stale')
+    if label in ('wide', 'narrow', 'mid-550', 'mid-600'):
+        path = output / f'{label}-directory-stale.png'
+        capture(page, path, label)
+        proof['captures'].append(path.name)
+    retry.click()
+    page.wait_for_function("document.querySelector('[data-directory-status]')?.dataset.directoryStatus==='live'")
+    directory.mark('retry live')
     host = public_room(browser, url)
     host_name = host.get_by_test_id('guest').inner_text().strip()
     search = page.get_by_role('searchbox', name='Search room, game, host, or code')
@@ -73,19 +137,40 @@ def profile(page, browser, url, output, label, *, navigate=True):
     page.get_by_role('button', name='Clear search').click()
     page.get_by_text('No matching public rooms.', exact=True).wait_for(state='hidden')
     directory.mark('cleared')
+    page_size = 2 if proof['viewport']['height'] < 700 else 3 if proof['viewport']['height'] < 820 else 4
+    extra_hosts = [public_room(browser, url) for _ in range(page_size)]
+    page.get_by_text('Page 1 of 2', exact=True).wait_for()
+    directory.mark('pagination appeared')
+    if label in ('wide', 'mid-550', 'mid-600'):
+        path = output / f'{label}-pagination.png'
+        capture(page, path, label)
+        proof['captures'].append(path.name)
+    directory.allow_user_scroll(True)
+    page.get_by_role('button', name='Next', exact=True).click()
+    page.get_by_text('Page 2 of 2', exact=True).wait_for()
+    directory.mark('next page')
+    page.get_by_role('button', name='Previous', exact=True).click()
+    page.get_by_text('Page 1 of 2', exact=True).wait_for()
+    directory.mark('previous page')
+    search.focus()
+    directory.allow_user_scroll(False)
+    for extra in extra_hosts:
+        close_room(extra)
+    page.get_by_text('Page 1 of 2', exact=True).wait_for(state='hidden')
+    directory.mark('pagination disappeared')
     search.fill(host_name)
     page.locator('.room-list li').filter(has_text=host_name).wait_for()
-    host.get_by_role('button', name='Leave room', exact=True).click()
-    host.get_by_role('button', name='Confirm leave', exact=True).click()
+    close_room(host)
     page.get_by_text('No matching public rooms.', exact=True).wait_for()
     directory.mark('room removed')
     page.get_by_role('button', name='Clear search').click()
-    host.close()
     proof['directory_geometry'] = directory.finish(output / f'{label}-directory-layout.json',
         required=('directory-heading','directory-search','directory-feedback','directory-list','directory-actions'))
-    proof['states'].extend(('public rooms', 'room added', 'empty search', 'search recovery', 'room removed'))
+    proof['states'].extend(('loading', 'public rooms', 'directory stale', 'directory retry', 'room added', 'empty search', 'search recovery', 'pagination appeared', 'next page', 'previous page', 'pagination disappeared', 'room removed'))
     page.get_by_role('button', name='Create game', exact=True).click()
     page.get_by_role('heading', name='Choose a game').wait_for()
+    if label in ('mid-550', 'mid-600', 'compact', 'zoom-200', 'effective-320'):
+        assert page.evaluate('getComputedStyle(document.documentElement).overflowY') == 'auto'
     assert page.get_by_role('button', name='Create room', exact=True).is_disabled()
     create = GeometryRecorder(page, 'create-game', '.create-game [data-layout-region]')
     create.mark('choose game')
@@ -155,7 +240,7 @@ def profile(page, browser, url, output, label, *, navigate=True):
     create.mark('upload busy')
     cancel = page.get_by_role('button', name='Cancel', exact=True)
     proof['cancel_visibility'] = control_visibility(cancel)
-    if label in ('wide', 'short', 'narrow', 'zoom-200', 'effective-320'):
+    if label in ('wide', 'short', 'narrow', 'mid-550', 'mid-600', 'zoom-200', 'effective-320'):
         path = output / f'{label}-upload-busy.png'
         capture(page, path, label)
         proof['captures'].append(path.name)
@@ -173,7 +258,7 @@ def profile(page, browser, url, output, label, *, navigate=True):
     page.get_by_text('Upload connection failed', exact=False).wait_for(timeout=15000)
     create.mark('upload failed')
     assert failed
-    if label in ('wide', 'short', 'narrow', 'zoom-200', 'effective-320'):
+    if label in ('wide', 'short', 'narrow', 'mid-550', 'mid-600', 'zoom-200', 'effective-320'):
         path = output / f'{label}-upload-failed.png'
         capture(page, path, label)
         proof['captures'].append(path.name)
@@ -184,6 +269,8 @@ def profile(page, browser, url, output, label, *, navigate=True):
     page.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
     page.get_by_test_id('room-view').wait_for()
     proof['states'].extend(('upload busy', 'upload cancelled', 'upload failed', 'retry succeeded', 'waiting room'))
+    leave_room(page)
+    proof['states'].append('room closed before public page')
     assert not errors, errors
     return proof
 
@@ -194,43 +281,41 @@ def main():
     parser.add_argument('--only', help='Run one profile while investigating a failure')
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    service = subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=ROOT,
-                               env=os.environ.copy(),stdout=subprocess.PIPE,text=True)
-    try:
-        url = json.loads(service.stdout.readline())['url']
-        results = []
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch()
-            for label, size in [('wide',(1440,900)),('short',(1024,600)),('narrow',(390,700)),('compact',(320,400))]:
-                if args.only and label != args.only:
-                    continue
+    results = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        for label, size in [('wide',(1440,900)),('short',(1024,600)),('narrow',(390,700)),('mid-600',(390,600)),('mid-550',(390,550)),('compact',(320,400))]:
+            if args.only and label != args.only:
+                continue
+            with browser_server() as url:
                 context = browser.new_context(viewport={'width':size[0],'height':size[1]})
                 try:
-                    results.append(profile(context.new_page(),browser,url,args.output,label))
+                    page = context.new_page()
+                    gate = watch_socket(page)
+                    results.append(profile(page,browser,url,args.output,label,gate))
                 finally:
                     context.close()
-            for label, size in [('zoom-200',(1280,800)),('effective-320',(640,800))]:
-                if args.only and label != args.only:
-                    continue
+        for label, size in [('zoom-200',(1280,800)),('effective-320',(640,800))]:
+            if args.only and label != args.only:
+                continue
+            with browser_server() as url:
                 with zoom_context(playwright,{'width':size[0],'height':size[1]}) as (context,worker):
                     page = context.new_page()
+                    gate = watch_socket(page)
                     page.goto(url)
                     zoom = browser_zoom(page,worker,2)
-                    row = profile(page,browser,url,args.output,label,navigate=False)
+                    row = profile(page,browser,url,args.output,label,gate,navigate=False)
                     row['zoom'] = zoom
                     row['zoom_verified'] = verify_zoom(worker,zoom)
                     results.append(row)
-            browser.close()
-        result = {'head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
-                  'result':'pass','profiles':results}
-        (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
-        print(json.dumps({'head':result['head'],'result':'pass','profiles':[
-            {'label':row['label'],'viewport':row['viewport'],'states':row['states'],
-             'directory_geometry':row.get('directory_geometry'), 'create_geometry':row.get('create_geometry')}
-            for row in results]}))
-    finally:
-        service.terminate()
-        service.wait(timeout=5)
+        browser.close()
+    result = {'head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
+              'result':'pass','profiles':results}
+    (args.output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+    print(json.dumps({'head':result['head'],'result':'pass','profiles':[
+        {'label':row['label'],'viewport':row['viewport'],'states':row['states'],
+         'directory_geometry':row.get('directory_geometry'), 'create_geometry':row.get('create_geometry')}
+        for row in results]}))
 
 
 if __name__ == '__main__':
