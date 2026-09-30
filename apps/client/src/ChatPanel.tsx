@@ -1,4 +1,3 @@
-import {ScrollRegion,useOverflowFocus} from './ScrollRegion.tsx';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {CHAT_LIMITS,validChatText} from '../../../packages/contracts/src/chat.ts';
 import type {ChatState} from './chat-client.ts';
@@ -7,22 +6,20 @@ export function ChatPanel({state,connected,onDraft,onSend,onDiscard}:{state:Chat
  useEffect(()=>{setNow(Date.now());if(!state.outbox?.retryAt) return;const timer=setInterval(()=>setNow(Date.now()),250);return ()=>clearInterval(timer);},[state.outbox?.retryAt]);
  const wait=Math.max(0,Math.ceil(((state.outbox?.retryAt ?? 0)-now)/1000));
  const log=useRef<HTMLOListElement>(null),follow=useRef(true);
- const logTabIndex=useOverflowFocus(log);
  const [unread,setUnread]=useState(false);
  useLayoutEffect(()=>{if(!state.messages.length){follow.current=true;setUnread(false);}if(follow.current && log.current) log.current.scrollTop=log.current.scrollHeight;else setUnread(true);},[state.messages.at(-1)?.id]);
  const count=[...state.draft].length;
  return <section className="chat-panel" aria-labelledby="chat-heading">
   <h3 id="chat-heading">Room chat</h3>
-  <ol ref={log} onScroll={()=>{const element=log.current!;follow.current=element.scrollHeight-element.clientHeight-element.scrollTop<24;if(follow.current) setUnread(false);}} tabIndex={logTabIndex} role="log" aria-label="Room messages" aria-live="polite" aria-relevant="additions text">{state.messages.map(message=><li key={message.id}><strong>{message.nickname} ({message.sender})</strong><p>{message.text}</p></li>)}</ol>
-  <div className="chat-updates">{unread && <button onClick={()=>{follow.current=true;log.current!.scrollTop=log.current!.scrollHeight;setUnread(false);}}>New messages · Jump to latest</button>}</div>
+  <ol ref={log} onScroll={()=>{const element=log.current!;follow.current=element.scrollHeight-element.clientHeight-element.scrollTop<24;if(follow.current) setUnread(false);}} role="log" aria-label="Room messages" aria-live="polite" aria-relevant="additions text">{state.messages.map(message=><li key={message.id}><strong>{message.nickname} ({message.sender})</strong><p>{message.text}</p></li>)}</ol>
+  {unread && <button onClick={()=>{follow.current=true;log.current!.scrollTop=log.current!.scrollHeight;setUnread(false);}}>New messages · Jump to latest</button>}
   <form onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget as Node))setTyping(false);}} onSubmit={event=>{event.preventDefault();if(validChatText(state.draft) && !state.outbox){setTyping(false);onSend();}}}>
    <label htmlFor="chat-message">Chat message</label><textarea id="chat-message" value={state.draft} readOnly={!!state.outbox} onChange={event=>onDraft(event.target.value)} onFocus={()=>setTyping(true)} aria-describedby="chat-help"/>
    <p id="chat-help" className="hint">{typing ? 'Typing in chat · game input released.' : ''} {count>=450 && `${count}/${CHAT_LIMITS.characters} characters`}</p>
-   <ScrollRegion className="chat-validation" aria-label="Chat validation">{count>CHAT_LIMITS.characters && <p role="status">Messages can contain at most {CHAT_LIMITS.characters} characters.</p>}</ScrollRegion>
-   <ScrollRegion className="chat-send-region" aria-label="Message actions">{!state.outbox && <button disabled={!validChatText(state.draft)} type="submit">Send message</button>}
+   {count>CHAT_LIMITS.characters && <p role="status">Messages can contain at most {CHAT_LIMITS.characters} characters.</p>}
+   {!state.outbox && <button disabled={!validChatText(state.draft)} type="submit">Send message</button>}
    {state.outbox && <div role="status">{state.sending ? 'Sending…' : <>Not sent or delivery unconfirmed. {state.outbox.error} {wait ? `Retry in ${wait} seconds.`:''} <button type="button" disabled={!connected || wait>0} onClick={onSend}>Retry message</button> <button type="button" onClick={onDiscard}>Discard message</button></>}</div>}
-   </ScrollRegion>
   </form>
-  <div className="chat-feedback">{!connected && <p role="status">Chat disconnected. Reconnect rooms, then retry any unsent message.</p>}</div>
+  {!connected && <p role="status">Chat disconnected. Reconnect rooms, then retry any unsent message.</p>}
  </section>;
 }
