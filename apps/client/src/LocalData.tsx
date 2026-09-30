@@ -34,9 +34,7 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
  if(!open)return null;
  return <section ref={page} className="settings local-data tool-page" aria-labelledby="local-data-title">
   <h2 data-layout-region="tool-heading" id="local-data-title" tabIndex={-1}>Local data</h2><ScrollRegion className="tool-content" data-layout-region="tool-content" aria-label="LocalData content"><p>Saved games, saves, and preferences live in this browser. Export save backups before deleting data; browser eviction or site-data removal can erase it.</p>
-  <ScrollRegion className="tool-feedback" data-layout-region="tool-status" aria-label="Task feedback">{message && <p role="status" data-testid="local-data-status">{message}</p>}</ScrollRegion>
-  <ScrollRegion className="tool-confirmation" data-layout-region="tool-confirmation" aria-label="Task confirmation">{confirmation && <section role="alertdialog" aria-label="Confirm local data action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}</ScrollRegion>
-  <div className="tool-list" data-layout-region="tool-list"><div hidden={!!confirmation}>
+<div className="tool-list" data-layout-region="tool-list"><div hidden={!!confirmation}>
   {data && !data.saves.length && !data.batteries.length && !data.preferences.length && !data.roms.length && <p>No local data yet.</p>}
   <h3>Saved games</h3>{data&&!data.roms.length&&<p>No games saved in this browser.</p>}
   <ul>{data?.roms.map(row=><li key={`rom:${row.sha256}`}><span>{safeLabel(row.label??'NES game')} · {row.size<1_000_000?`${Math.max(1,Math.ceil(row.size/1000))} KB`:`${(row.size/1_000_000).toFixed(1)} MB`} · {when(row.savedAt)}</span><button disabled={busy} onClick={()=>setConfirmation({label:'Delete this saved game? Current play stays in memory. Add the file again or download it from a room to reuse it later.',action:()=>deleteRom(row.sha256,data.generation)})}>Delete game</button></li>)}</ul>
@@ -45,7 +43,9 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
   <ul>{data?.preferences.map(row=><li key={`preferences:${row.identity}`}><span>Preferences · {group(row.identity)} · {when(row.savedAt)}</span><button disabled={busy} onClick={()=>exportRecord(new TextEncoder().encode(JSON.stringify(row)).buffer,'preferences')}>Export preferences</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete preferences from ${when(row.savedAt)}? Current controls remain until you select a game again.`,action:()=>deletePreferences(row)})}>Delete preferences</button></li>)}</ul>
 
   </div></div>
-  <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all saved games, saves, battery progress and preferences? This cannot be undone. Export save backups first. Current play stays in memory. No server account is deleted.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
+  <ScrollRegion className="tool-feedback" data-layout-region="tool-status" aria-label="Task feedback">{message && <p role="status" data-testid="local-data-status">{message}</p>}</ScrollRegion>
+  <ScrollRegion className="tool-confirmation" data-layout-region="tool-confirmation" aria-label="Task confirmation">{confirmation && <section role="alertdialog" aria-label="Confirm local data action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}</ScrollRegion>
+    <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all saved games, saves, battery progress and preferences? This cannot be undone. Export save backups first. Current play stays in memory. No server account is deleted.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
   {backup && <button disabled={busy} onClick={()=>exportRecord(backup.bytes,backup.kind)}>Retry export</button>}
   </div>
  </ScrollRegion>

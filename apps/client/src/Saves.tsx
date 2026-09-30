@@ -57,8 +57,7 @@ export function Saves({open,player,game,shared,batteryAvailable,storageIssue}:{o
  return <section className="settings saves tool-page" aria-labelledby="saves-title">
   <h2 data-layout-region="tool-heading" id="saves-title" tabIndex={-1}>Saves on this device</h2><ScrollRegion className="tool-content" data-layout-region="tool-content" aria-label="Saves content"><p>Compatible saves for your current game. Save exports contain progress, not the game file.</p>
   <p>Saves can be removed by your browser. Export a backup.</p>
-  <ScrollRegion className="tool-feedback" data-layout-region="tool-status" aria-label="Save feedback">{message && <p role="status" data-testid="save-status">{message}</p>}</ScrollRegion>
-  <ScrollRegion className="tool-confirmation" data-layout-region="tool-confirmation" aria-label="Save confirmation">{confirmation && <section role="alertdialog" aria-label="Confirm save action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void confirmation.action()}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}</ScrollRegion><div className="tool-list" data-layout-region="tool-list"><div hidden={!!confirmation}>
+<div className="tool-list" data-layout-region="tool-list"><div hidden={!!confirmation}>
    <label>Save slot <select aria-label="Save slot" disabled={busy || !info} value={slot} onChange={event=>setSlot(Number(event.target.value))}>{[1,2,3].map(number=><option key={number} value={number}>Slot {number}</option>)}</select></label>
    <button disabled={busy || !info || !listed} onClick={chooseSave}>Save current point</button>
    <button disabled={busy || !info || !listed} onClick={()=>{picker.current!.value='';picker.current!.click();}}>Import save</button>
@@ -69,7 +68,8 @@ export function Saves({open,player,game,shared,batteryAvailable,storageIssue}:{o
     <button disabled={busy} onClick={()=>setConfirmation({label:`Delete Slot ${row.slot}? This cannot be undone. Export a backup first if you need it.`,action:()=>run(async current=>{await deleteSave(row);if(current()){await refresh(current);setMessage(`Deleted Slot ${row.slot}.`);}})})}>Delete Slot {row.slot}</button>
    </li>)}</ul>
   </div></div>
-  <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
+  <ScrollRegion className="tool-feedback" data-layout-region="tool-status" aria-label="Save feedback">{message && <p role="status" data-testid="save-status">{message}</p>}</ScrollRegion>
+  <ScrollRegion className="tool-confirmation" data-layout-region="tool-confirmation" aria-label="Save confirmation">{confirmation && <section role="alertdialog" aria-label="Confirm save action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void confirmation.action()}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}</ScrollRegion>  <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
   {batteryAvailable&&<button disabled={busy} onClick={()=>void run(async current=>{const bytes=await player!.exportBattery();if(current()){downloadSave(bytes,undefined,'battery');setMessage('Battery backup requested.');}})}>Export battery backup</button>}
   {batteryAvailable&&storageIssue&&<button disabled={busy} onClick={()=>void run(async current=>{await player!.retryBatteryPersistence();if(current())setMessage('Battery saving is working again.');})}>Retry battery saving</button>}
   {backup && <button disabled={busy} onClick={()=>exportBytes(backup)}>{exportFailed ? 'Retry export' : 'Export memory backup'}</button>}</div>

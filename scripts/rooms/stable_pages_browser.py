@@ -7,6 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from layout_geometry import GeometryRecorder
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -48,15 +49,35 @@ def main():
             host.wait_for_function("document.activeElement?.id === 'settings-title'")
             assert host.locator('dialog').count() == 0
             assert not host.locator('.directory-panel').is_visible()
+            tool_proofs = []
+            settings_layout = GeometryRecorder(host, 'settings-reset', '.tool-page [data-layout-region]')
+            settings_layout.mark('idle')
+            settings_layout.allow_user_scroll()
             host.get_by_role('button', name='Restore keyboard defaults').click()
+            settings_layout.mark('confirmation')
             host.keyboard.press('Escape')
+            settings_layout.mark('dismissed')
+            host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            settings_layout.allow_user_scroll(False)
             assert host.get_by_role('button', name='Keep mappings').count() == 0
+            tool_proofs.append(settings_layout.finish(args.output / 'settings-reset-layout.json',
+                                                     required=('tool-heading', 'tool-content', 'mapping-dialog')))
             host.screenshot(path=str(args.output / 'settings.png'))
             host.get_by_role('button', name='Local data', exact=True).click()
             host.wait_for_function("document.activeElement?.id === 'local-data-title'")
+            local_data_layout = GeometryRecorder(host, 'local-data-confirmation', '.tool-page [data-layout-region]')
+            local_data_layout.mark('idle')
+            local_data_layout.allow_user_scroll()
             host.get_by_role('button', name='Delete all local data').click()
+            local_data_layout.mark('confirmation')
             host.keyboard.press('Escape')
+            local_data_layout.mark('dismissed')
+            host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            local_data_layout.allow_user_scroll(False)
             assert host.get_by_role('button', name='Confirm', exact=True).count() == 0
+            tool_proofs.append(local_data_layout.finish(args.output / 'local-data-confirmation-layout.json',
+                                                       required=('tool-heading', 'tool-content', 'tool-status',
+                                                                 'tool-confirmation', 'tool-list', 'tool-actions')))
             host.screenshot(path=str(args.output / 'local-data.png'))
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Local data'")
@@ -203,7 +224,7 @@ def main():
                       'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
                       'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
-                      'layout': [wide, narrow, zoom], 'page_errors': errors}
+                      'layout': [wide, narrow, zoom], 'tool_layout': tool_proofs, 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()
