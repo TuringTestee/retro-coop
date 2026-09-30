@@ -11,10 +11,12 @@ def run(host, guest, output):
     guest.get_by_role('button', name='Join room', exact=True).click()
     guest.get_by_role('button', name='Ready', exact=True).click()
     host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=30000)
+    host.get_by_role('button', name='Ready', exact=True).click()
     host.get_by_role('button', name='Start game', exact=True).click()
     for tab in [host, guest]:
         tab.locator('.voice-card').wait_for()
-        tab.wait_for_function("document.querySelector('[data-testid=game-status]').textContent.includes('Playing together')")
+        tab.get_by_role('button', name='Pause', exact=True).wait_for()
+        tab.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount)>30")
         assert tab.evaluate("captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
         assert tab.locator('.voice-disclosure').count() == 0
     host.set_viewport_size({'width':1280,'height':900})

@@ -15,10 +15,10 @@ import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, type RoomState} from './room-client.ts';
 import {connectionStatus} from './connection-status.ts';
+import {gameSize} from './room-download.ts';
 import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../../packages/contracts/src/rooms.ts';
 type MemberOperation={roomId:string;membership:string;controller:AbortController;sawLoading:boolean};
 type MemberAcquisition={phase:'checking'|'downloading'|'loading'|'loaded'|'failed'|'expired';message:string;notice?:string};
-const gameSize=(bytes:number)=>bytes<1_000_000?`${Math.max(1,Math.ceil(bytes/1000))} KB`:`${(bytes/1_000_000).toFixed(1)} MB`;
 export type RoomPanelHandle = {voice():VoiceSession|undefined;openPlayers():void;localPlayIntent():void;readyToResume():void;recoverRelease():void;isMember():boolean;exitToDirectory(onExited:()=>void,onStayed?:()=>void):void;syncInvitation(invite:string|null):void;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void;createCustom(file:File,fingerprint:Fingerprint,visibility:Visibility,current:()=>boolean):Promise<void>;createIncluded(code:string,fingerprint:Fingerprint,visibility:Visibility):Promise<void>};
 export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;renderFps?:number;showDiscovery:boolean;releaseInFullscreen:boolean;onChoose():void;onCreate():void;onBrowse():void;onExit():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void}>(function RoomPanel({playCards,renderFps,showDiscovery,releaseInFullscreen,onChoose,onCreate,onBrowse,onExit,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange,onState},ref) {
  const [state,setState] = useState<RoomState>({status:'No room selected.',busy:false,connected:false});

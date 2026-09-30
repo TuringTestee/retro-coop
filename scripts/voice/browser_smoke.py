@@ -144,13 +144,17 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("Space")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
-    host.get_by_label("Room invitation", exact=True).focus()
+    panel.locator('details.session-settings').evaluate('(node)=>node.open=true')
+    panel.locator('details.session-settings details').evaluate('(node)=>node.open=true')
+    host.get_by_label("Room name", exact=True).focus()
     host.keyboard.down("KeyV")
     host.evaluate(
         "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
     )
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.keyboard.up("KeyV")
+    panel.locator('details.session-settings').evaluate('(node)=>node.open=false')
+    panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
     # Synthetic gamepad input goes through the real Settings selection and shared mapping.
     host.evaluate(
         """() => { window.voicePad={index:0,id:'Voice fixture controller',connected:true,buttons:Array.from({length:16},()=>({pressed:false,value:0})),axes:[0,0]};Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>voicePad.connected?[voicePad]:[]}); }"""
