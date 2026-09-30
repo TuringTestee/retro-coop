@@ -58,6 +58,13 @@ def check(page, url, output, label, zoom_worker=None):
     layout.mark('invalid-file')
     page.screenshot(path=str(output / f'{label}-recovery.png'), full_page=False)
     result = layout.finish(output / f'{label}-geometry.json', required=('player-primary-actions','player-task-actions','player-feedback'))
+    if page.viewport_size['width'] <= 780:
+        page.get_by_role('button', name='Tools', exact=True).click()
+        control_visibility(page.get_by_role('button', name='Back', exact=True), require_focus=True)
+        page.screenshot(path=str(output / f'{label}-tools.png'), full_page=False)
+        page.get_by_role('button', name='Back', exact=True).click()
+        control_visibility(page.get_by_role('button', name='Tools', exact=True), require_focus=True)
+        page.get_by_role('button', name='Tools', exact=True).click()
     for name in ('Saves','Rewind','Game help','Fullscreen'):
         action = page.get_by_role('button', name=name, exact=True)
         action.focus()
