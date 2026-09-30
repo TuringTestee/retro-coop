@@ -47,6 +47,14 @@ try:
   host.get_by_label('New room password').fill('green-hill-room')
   host.get_by_role('button',name='Save new password',exact=True).click()
   host.get_by_text('Room access: Password protected',exact=True).wait_for()
+  stale=browser.new_page()
+  stale.goto(url)
+  stale.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
+  stale.get_by_label('Room password').fill('blue-sky-room')
+  stale.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
+  stale.locator('.room-password-dialog [role=alert]').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
+  assert stale.get_by_test_id('room-view').count()==0
+  stale.close()
   changed=browser.new_page()
   changed.goto(invite)
   changed.get_by_role('button',name='Join room',exact=True).click()
@@ -58,10 +66,42 @@ try:
   try: changed.get_by_test_id('room-view').wait_for(state='attached',timeout=5000)
   except Exception:
    print('changed status:',changed.locator('.room-panel').inner_text());raise
+  hold_join="""(() => {
+    const send=WebSocket.prototype.send;
+    window.heldJoins=[];
+    WebSocket.prototype.send=function(raw){
+      let command;try{command=JSON.parse(raw)}catch{}
+      if(command?.type==='join'||command?.type==='joinCode'){
+        window.heldJoins.push(()=>send.call(this,raw));return;
+      }
+      return send.call(this,raw);
+    };
+    window.releaseHeldJoin=()=>{for(const release of window.heldJoins.splice(0))release();};
+  })();"""
+  slot_identities=host.locator('.room-slots [data-slot-region=identity]').all_inner_texts()
+  for route,exit_action in [('directory','Back'),('invite','Escape')]:
+   cancelled=browser.new_page()
+   cancelled.add_init_script(hold_join)
+   cancelled.goto(url if route=='directory' else invite)
+   if route=='directory':
+    cancelled.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
+   else: cancelled.get_by_role('button',name='Join room',exact=True).click()
+   cancelled.get_by_label('Room password').fill('green-hill-room')
+   cancelled.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
+   cancelled.wait_for_function('window.heldJoins.length===1')
+   if exit_action=='Back':cancelled.locator('.room-password-dialog').get_by_role('button',name='Back',exact=True).click()
+   else:cancelled.keyboard.press('Escape')
+   cancelled.locator('.room-password-dialog').wait_for(state='detached')
+   cancelled.evaluate('window.releaseHeldJoin()')
+   cancelled.wait_for_timeout(800)
+   assert cancelled.get_by_test_id('room-view').count()==0
+   assert cancelled.locator('.room-password-dialog').count()==0
+   assert host.locator('.room-slots [data-slot-region=identity]').all_inner_texts()==slot_identities
+   cancelled.close()
   host.get_by_role('button',name='Make public',exact=True).click()
   host.get_by_role('button',name='Confirm public access',exact=True).click()
   host.get_by_text('Room access: Public',exact=True).wait_for()
-  print(json.dumps({'protected_create':True,'listed_locked':True,'wrong_password_denied':True,'correct_password_joined':True,'invite_password_joined':True,'password_change':True,'public_change':True}))
+  print(json.dumps({'protected_create':True,'listed_locked':True,'wrong_password_denied':True,'correct_password_joined':True,'invite_password_joined':True,'password_change':True,'stale_directory_password_denied':True,'pending_join_cancelled_by_back_and_escape':True,'public_change':True}))
   browser.close()
 finally:
  service.terminate();service.wait(timeout=10)
