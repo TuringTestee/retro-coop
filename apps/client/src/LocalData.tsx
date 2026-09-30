@@ -45,7 +45,7 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
   </div></div>
   <ScrollRegion className="tool-feedback" data-layout-region="tool-status" aria-label="Task feedback">{message && <p role="status" data-testid="local-data-status">{message}</p>}</ScrollRegion>
   <ScrollRegion className="tool-confirmation" data-layout-region="tool-confirmation" aria-label="Task confirmation">{confirmation && <section role="alertdialog" aria-label="Confirm local data action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}</ScrollRegion>
-    <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all saved games, saves, battery progress and preferences? This cannot be undone. Export save backups first. Current play stays in memory. No server account is deleted.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
+    <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all local data on this device? This cannot be undone.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
   {backup && <button disabled={busy} onClick={()=>exportRecord(backup.bytes,backup.kind)}>Retry export</button>}
   </div>
  </ScrollRegion>

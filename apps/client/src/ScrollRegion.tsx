@@ -2,7 +2,7 @@ import React,{useLayoutEffect,useRef,useState,type HTMLAttributes,type RefObject
 
 export function useOverflowFocus<T extends HTMLElement>(ref:RefObject<T|null>) {
  const [overflow,setOverflow]=useState(false);
- useLayoutEffect(()=>{const node=ref.current;if(!node)return;const measure=()=>setOverflow(node.scrollHeight>node.clientHeight+1||node.scrollWidth>node.clientWidth+1);const resize=new ResizeObserver(measure);resize.observe(node);const mutation=new MutationObserver(measure);mutation.observe(node,{childList:true,subtree:true,characterData:true});measure();return()=>{resize.disconnect();mutation.disconnect();};},[ref]);
+ useLayoutEffect(()=>{const node=ref.current;if(!node)return;const measure=()=>setOverflow(node.scrollHeight>node.clientHeight+1||node.scrollWidth>node.clientWidth+1);const resize=new ResizeObserver(measure);resize.observe(node);const mutation=new MutationObserver(measure);mutation.observe(node,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['open','hidden','class','style']});measure();return()=>{resize.disconnect();mutation.disconnect();};},[ref]);
  return overflow?0:undefined;
 }
 /** Only overflowing text regions enter the keyboard order; empty space never does. */
