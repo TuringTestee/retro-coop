@@ -64,8 +64,12 @@ def main():
             host.get_by_role('button',name='Create game',exact=True).click()
             host.set_input_files('input[type=file]',str(static/'generated/diagnostic.nes'))
             host.get_by_role('button',name='Create room',exact=True).click()
-            invite = host.get_by_label('Room invitation',exact=True).input_value()
+            host.get_by_test_id('room-view').wait_for(state='attached')
+            invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+            host.locator('[data-slot-id=slot-2] [data-manage-slot]').click()
             assert host.get_by_label('Slot 2 role',exact=True).input_value() == 'player2'
+            host.get_by_role('button',name='Done',exact=True).click()
+            host.get_by_role('button',name='Ready',exact=True).click()
             host.get_by_role('button',name='Start game',exact=True).click()
             host.evaluate('releaseFrames()')
             host.wait_for_function('proof.frames.at(-1)?.frame>=240',polling=20)
@@ -79,7 +83,7 @@ def main():
                 page.evaluate('releaseFrames()')
             for page in pages:
                 page.wait_for_function("proof.room.occupancy===3&&proof.room.peers.length===2&&proof.room.peers.every(p=>p.status==='connected')",polling=20)
-            observer.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+            observer.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
             joining_member = player2.evaluate('proof.room.chatMembership')
             observer_member = observer.evaluate('proof.room.chatMembership')
             slots_before = host.evaluate('proof.room.slots.map(s=>({id:s.id,role:s.role,member:s.member?.id??null}))')
@@ -96,7 +100,7 @@ def main():
             player2.get_by_role('button',name='Prepare to play',exact=True).click()
             for page in pages:
                 page.wait_for_function("member=>proof.room.game.status==='playing'&&proof.room.game.controllers.owners[1]===member",arg=joining_member,polling=20)
-            observer.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+            observer.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
             frozen = host.evaluate('lateProof.frozen.at(-1)')
             resumed = host.evaluate("lateProof.events.filter(e=>e.type==='gameStart').at(-1)")
             imports = player2.evaluate('lateProof.imports')

@@ -49,7 +49,7 @@ def main():
             except Exception:
                 print(json.dumps(guest.evaluate('({room:proof.room,text:document.body.innerText})')),flush=True)
                 raise
-            assert guest.get_by_role("button", name="Prepare to play", exact=True).is_disabled()
+            assert guest.get_by_role("button", name="Ready", exact=True).is_disabled()
             assert guest.get_by_role("button", name="Choose matching NES file").count() == 0
             guest.wait_for_function("proof.room?.matches === true", timeout=30_000, polling=50)
             auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,token:sessionStorage.getItem('retro-coop-guest')})""")

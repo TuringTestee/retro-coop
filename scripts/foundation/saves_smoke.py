@@ -35,11 +35,11 @@ def verify_saves(browser,url,rom,output):
     page.goto(url);enter_create(page);load();open_saves()
     tool_page=page.locator('.saves.tool-page')
     page.screenshot(path=str(output.with_suffix('.saves-before.png')),full_page=False)
-    frames_before=page.locator('[data-testid=frames]').inner_text()
+    frames_before=page.locator('canvas').get_attribute('data-frame-count')
     tool_page.get_by_role('button',name='Save current point',exact=True).click();saved()
     first=rows();assert len(first)==1 and set(first[0])=={'identity','slot','savedAt','bytes'}
     assert bytes(first[0]['bytes'][:8])==b'RCSTATE1'
-    assert page.locator('[data-testid=frames]').inner_text()!=frames_before
+    assert page.locator('canvas').get_attribute('data-frame-count')!=frames_before
     tool_page.get_by_role('button',name='Save current point',exact=True).click()
     tool_page.get_by_role('button',name='Cancel',exact=True).click();assert rows()==first
     page.wait_for_function("document.activeElement.textContent==='Save current point'")

@@ -41,10 +41,10 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
                 print(json.dumps({'failed':'send action','value':message.input_value(),'buttons':page.get_by_role('button').all_text_contents(),'panelVisible':page.locator('.room-panel').is_visible(),'chatVisible':page.locator('.chat-panel').is_visible(),'mainClass':page.locator('main').get_attribute('class'),'statuses':page.locator('[role=status]').all_text_contents(),'sent':page.evaluate('chatProof.sent')}),flush=True);raise
             page.locator('.chat-panel li p').filter(has_text=text).wait_for(state='attached')
         send(host,'only before join')
-        invite=host.get_by_label('Room invitation',exact=True).input_value();guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("chatProof.room?.slots[1].member?.id&&document.querySelectorAll('[data-testid=room-slot]').length===5")
+        invite=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("chatProof.room?.slots[1].member?.id&&document.querySelectorAll('[data-testid=room-slot]').length===5")
         for tab in [host,guest]:tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent.includes('direct route.')")
         open_chat(guest)
-        assert guest.get_by_test_id('frames').inner_text()=='0 frames'
+        assert guest.locator('canvas').get_attribute('data-frame-count')=='0'
         assert guest.locator('.chat-panel li').count()==0
         send(guest,'hello before ROM')
         try:host.locator('.chat-panel').get_by_text('hello before ROM',exact=True).wait_for(state='attached',timeout=5000)

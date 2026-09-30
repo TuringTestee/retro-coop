@@ -67,7 +67,7 @@ try:
             row.get_by_role('button',name='Close slot',exact=True).click()
             row.get_by_role('button',name='Open slot',exact=True).wait_for()
         stage('host room ready')
-        invite = host.get_by_label('Room invitation', exact=True).input_value()
+        invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         code = host.locator('#room-heading').inner_text().split('·')[-1].strip()
 
         # Coordinator applies Close, but this browser misses both its room broadcast and result.

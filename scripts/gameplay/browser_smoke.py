@@ -70,14 +70,14 @@ try:
     # The public host chooses an observer slot before starting alone.
     h.get_by_label('Slot 2 role',exact=True).select_option('observer')
     h.wait_for_function("proof.room.slots[1].role==='observer'")
-    invite=h.get_by_label('Room invitation',exact=True).input_value()
+    invite=h.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
     h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()')
     h.wait_for_function('proof.frameCount>=120',polling=50)
     prior_frame=h.evaluate('proof.frames.at(-1).frame');prior_epoch=h.evaluate('proof.activeEpoch')
     g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
     g.get_by_role('button',name='Join room',exact=True).click()
     g.get_by_test_id('room-view').wait_for(state='attached');g.evaluate('releaseFrames()')
-    g.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for(timeout=20000)
+    g.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
     h.wait_for_function('frame=>proof.frames.at(-1).frame>frame+60',arg=prior_frame,polling=50)
     assert h.evaluate('proof.activeEpoch')==prior_epoch,'Observer admission changed the host timeline'
     assert g.evaluate("proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership).role")== 'observer'
@@ -94,33 +94,33 @@ try:
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='member'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
-   invite=h.get_by_label('Room invitation',exact=True).input_value();g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
+   invite=h.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === "function"');g.evaluate('releaseJoin()')
    g.get_by_test_id('room-view').wait_for(state='attached')
-   assert h.get_by_test_id('frames').inner_text()=='0 frames'
-   g.get_by_role('button',name='Prepare to play',exact=True).wait_for(timeout=30000)
+   assert h.locator('canvas').get_attribute('data-frame-count')=='0'
+   g.get_by_role('button',name='Ready',exact=True).wait_for(timeout=30000)
    g.wait_for_function("proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'",polling=20)
    lease=g.evaluate('proof.room.reservationUntil')
    initial_members=g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
-   g.get_by_role('button',name='Prepare to play',exact=True).click()
+   g.get_by_role('button',name='Ready',exact=True).click()
    h.wait_for_function("member=>proof.room?.game?.ready?.includes(member)",arg=g.evaluate('proof.room.chatMembership'),timeout=15000,polling=50)
    h.get_by_role('button',name='Start game',exact=True).click()
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
     open_room(g).get_by_role('button',name='Leave room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
     h.wait_for_function("proof.room.occupancy===1 && proof.room.slots.filter(slot=>slot.member).length===1",polling=50)
-    assert not h.evaluate('proof.room.established') and h.get_by_test_id('frames').inner_text()=='0 frames'
+    assert not h.evaluate('proof.room.established') and h.locator('canvas').get_attribute('data-frame-count')=='0'
     # The absent owner's mapping is preserved; explicit Leave releases local play.
     open_room(h).get_by_role('button',name='Leave room',exact=True).click()
     h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
     h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume local game',exact=True).click()
     # Voluntary Leave returns to the directory; this header action only opens the local player.
-    assert h.get_by_test_id('frames').inner_text()=='0 frames'
-    h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('[data-testid=frames]').textContent)>0",polling=50)
-    result={'source':source,'build_files':build_files,'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'navigation_preserved_frames':0,'resumed_local_frames':int(h.get_by_test_id('frames').inner_text().split()[0]),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    assert h.locator('canvas').get_attribute('data-frame-count')=='0'
+    h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('canvas').dataset.frameCount)>0",polling=50)
+    result={'source':source,'build_files':build_files,'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'navigation_preserved_frames':0,'resumed_local_frames':int(h.locator('canvas').get_attribute('data-frame-count').split()[0]),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.barrier_timeout or args.retry_barrier:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='failed'",timeout=15000,polling=50)
@@ -128,7 +128,7 @@ try:
     assert all(not tab.evaluate('proof.room.established') for tab in [h,g])
     assert g.evaluate('proof.room.reservationUntil')==lease
     assert g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')==initial_members
-    assert h.get_by_test_id('frames').inner_text()=='0 frames'
+    assert h.locator('canvas').get_attribute('data-frame-count')=='0'
     result={'result':'pass','injection':'drop guest initial barrier acknowledgement','lease_preserved':True,'membership_preserved':True,'host_frames':0,'seconds':round(time.monotonic()-started,2),'statuses':[tab.get_by_test_id('game-status').inner_text() for tab in [h,g]],'page_errors':errors};assert not errors
     if not args.retry_barrier:
      out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
@@ -199,10 +199,10 @@ try:
 
     for tab in [h,g]:tab.wait_for_function("gamePeers.length>0 && gamePeers.every(p=>p.connectionState==='closed')")
     stopped=[tab.evaluate('proof.frameCount') for tab in [h,g]]
-    local=[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
+    local=[int(tab.locator('canvas').get_attribute('data-frame-count').split()[0]) for tab in [h,g]]
     h.wait_for_timeout(250)
     assert stopped==[tab.evaluate('proof.frameCount') for tab in [h,g]]
-    assert local==[int(tab.get_by_test_id('frames').inner_text().split()[0]) for tab in [h,g]]
+    assert local==[int(tab.locator('canvas').get_attribute('data-frame-count').split()[0]) for tab in [h,g]]
     assert min(local)>=240
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.after.png')),full_page=True)
     if args.kick_playing:
@@ -210,7 +210,7 @@ try:
      h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
     h.get_by_role('button',name='Resume local game',exact=True).click()
     if args.kick_playing:h.get_by_role('button',name='Resume',exact=True).click()
-    h.wait_for_function("n=>parseInt(document.querySelector('[data-testid=frames]').textContent)>n",arg=local[0])
+    h.wait_for_function("n=>parseInt(document.querySelector('canvas').dataset.frameCount)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
     result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
     assert not errors,errors

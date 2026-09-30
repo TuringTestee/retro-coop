@@ -73,7 +73,7 @@ try:
         host.get_by_test_id('room-view').wait_for(state='attached')
         unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
         assert unmute.get_attribute('aria-pressed') == 'true'
-        invitation = host.get_by_label('Room invitation', exact=True).input_value()
+        invitation = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         first = page(invitation)
         joined(first)
         connected(host)

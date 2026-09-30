@@ -32,12 +32,12 @@ def start_solo(page, rom, *, require_start=False):
     if require_start:
         start = page.get_by_role('button', name='Resume', exact=True)
         start.wait_for()
-        frames = page.get_by_test_id('frames')
-        assert frames.inner_text() == '0 frames', 'Replacement ran before local Resume'
+        frames = page.locator('canvas')
+        assert frames.get_attribute('data-frame-count') == '0', 'Replacement ran before local Resume'
         page.wait_for_timeout(200)
-        assert frames.inner_text() == '0 frames', 'Loaded game advanced before Resume'
+        assert frames.get_attribute('data-frame-count') == '0', 'Loaded game advanced before Resume'
         start.click()
-        page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
+        page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>5")
         return
     page.get_by_role('button', name='Resume', exact=True).click()
-    page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>5")
+    page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>5")

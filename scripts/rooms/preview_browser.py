@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
         page.set_input_files('input[type=file]', str(rom))
         page.get_by_role('button', name='Play locally', exact=True).click()
         page.get_by_role('button', name='Resume', exact=True).click()
-        page.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=90", timeout=30000)
+        page.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount||0)>=90", timeout=30000)
         diagnostic = page.evaluate('''async()=>{
           const db=await new Promise((resolve,reject)=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});
           const rows=await new Promise((resolve,reject)=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});db.close();
@@ -71,7 +71,7 @@ with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
         page.locator('.create-library li').filter(has_text='Super Tilt Bro').get_by_role('button').click()
         page.get_by_role('button',name='Play locally',exact=True).click()
         page.get_by_role('button',name='Resume',exact=True).click()
-        page.wait_for_function("Number(document.querySelector('[data-testid=frames]')?.textContent?.match(/\\d+/)?.[0]||0)>=180", timeout=30000)
+        page.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount||0)>=180", timeout=30000)
         page.wait_for_function('''async()=>{const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const rows=await new Promise(r=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>r(q.result)});db.close();return rows.some(row=>row.label==='Super Tilt Bro'&&row.preview)}''', timeout=30000)
         page.evaluate('''async()=>{const canvas=document.createElement('canvas');canvas.width=128;canvas.height=120;const context=canvas.getContext('2d');context.fillStyle='#818181';context.fillRect(0,0,128,120);context.fillStyle='#fff';context.fillRect(0,0,1,1);const preview=canvas.toDataURL('image/webp',0.5);const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const tx=db.transaction('roms','readwrite'),store=tx.objectStore('roms');const rows=await new Promise(r=>{const q=store.getAll();q.onsuccess=()=>r(q.result)});const diagnostic=rows.find(row=>row.label==='original-preview.nes');store.put({...diagnostic,preview,lastUsedAt:Date.now()+10000});await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()}''')
         page.get_by_role('button',name='Public rooms',exact=True).click()

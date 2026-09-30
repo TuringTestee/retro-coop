@@ -48,14 +48,14 @@ with sync_playwright() as playwright:
     guest.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=30000)
     if args.output:
         guest.screenshot(path=str(args.output / 'guest-download-failed.png'))
-    expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_disabled()
+    expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_disabled()
     host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Game preparation failed', exact=True).wait_for(timeout=15000)
     guest.get_by_role('button', name='Retry download', exact=True).click()
-    expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_enabled(timeout=30000)
+    expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
     if args.output:
         guest.screenshot(path=str(args.output / 'guest-game-ready.png'))
     assert guest.get_by_role('button', name='Choose matching NES file').count() == 0
-    guest.get_by_role('button', name='Prepare to play', exact=True).click()
+    guest.get_by_role('button', name='Ready', exact=True).click()
     host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=15000)
     # A second admission of the same exact game must use verified browser bytes.
     guest.get_by_role('button', name='Leave room', exact=True).click()
@@ -68,10 +68,10 @@ with sync_playwright() as playwright:
     guest.route('**/rooms/*/rom', reject_cached_network)
     guest.get_by_role('searchbox').fill(code)
     guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
-    expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_enabled(timeout=30000)
+    expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
     assert not cache_requests, 'Repeat join downloaded instead of reusing the verified game'
     guest.unroute('**/rooms/*/rom', reject_cached_network)
-    guest.get_by_role('button', name='Prepare to play', exact=True).click()
+    guest.get_by_role('button', name='Ready', exact=True).click()
     host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=15000)
     guest.get_by_role('button', name='Settings', exact=True).click()
     guest.get_by_role('button', name='Local data', exact=True).click()
@@ -109,17 +109,17 @@ with sync_playwright() as playwright:
     def clear_during_download(route):
         # An old matching in-memory game must not expose preparation before this
         # membership's held download has completed and been verified.
-        expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_disabled()
+        expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_disabled()
         clearer.get_by_role('button', name='Delete all local data', exact=True).click()
         clearer.get_by_role('button', name='Confirm', exact=True).click()
         clearer.get_by_test_id('local-data-status').filter(has_text='Local data updated.').wait_for()
-        expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_disabled()
+        expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_disabled()
         cleared.append(True)
         route.continue_()
     guest.route('**/rooms/*/rom', clear_during_download)
     guest.get_by_role('searchbox').fill(code)
     guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
-    expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_enabled(timeout=30000)
+    expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
     assert cleared, 'The cross-tab Clear did not race with the room download'
     assert 'download again next time' in guest.locator('.member-acquisition').inner_text().lower()
     if args.output:
@@ -137,7 +137,7 @@ with sync_playwright() as playwright:
     guest.route('**/rooms/*/rom', count_redownload)
     guest.get_by_role('searchbox').fill(code)
     guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
-    expect(guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_enabled(timeout=30000)
+    expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
     assert len(redownloads) == 1, 'Join after cross-tab Clear did not fetch the game again'
     guest.unroute('**/rooms/*/rom', count_redownload)
     guest.get_by_role('button', name='Leave room', exact=True).click()
@@ -154,13 +154,13 @@ with sync_playwright() as playwright:
     altered.get_by_role('searchbox').fill(code)
     altered.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
     altered.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=30000)
-    expect(altered.get_by_role('button', name='Prepare to play', exact=True)).to_be_disabled()
+    expect(altered.get_by_role('button', name='Ready', exact=True)).to_be_disabled()
     assert 'did not match' in altered.locator('.member-acquisition').inner_text()
     if args.output:
         altered.screenshot(path=str(args.output / 'altered-download-rejected.png'))
     altered.unroute('**/rooms/*/rom', corrupt_download)
     altered.get_by_role('button', name='Retry download', exact=True).click()
-    expect(altered.get_by_role('button', name='Prepare to play', exact=True)).to_be_enabled(timeout=30000)
+    expect(altered.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
     altered.get_by_role('button', name='Leave room', exact=True).click()
     altered.get_by_test_id('directory').wait_for()
     # A denied reservation is a new admission journey, not a retry of its GET.
@@ -172,7 +172,7 @@ with sync_playwright() as playwright:
     expired.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
     expired.get_by_role('button', name='Return to rooms', exact=True).wait_for(timeout=30000)
     assert expired.get_by_role('button', name='Retry download', exact=True).count() == 0
-    expect(expired.get_by_role('button', name='Prepare to play', exact=True)).to_be_disabled()
+    expect(expired.get_by_role('button', name='Ready', exact=True)).to_be_disabled()
     assert expired.get_by_role('button', name='Leave room', exact=True).count() == 0
     if args.output:
         expired.screenshot(path=str(args.output / 'reservation-expired.png'))
@@ -194,11 +194,11 @@ with sync_playwright() as playwright:
     quota_guest.goto(args.url)
     quota_guest.get_by_role('searchbox').fill(code)
     quota_guest.locator('.room-list li').filter(has_text=code).get_by_role('button', name='Join', exact=True).click()
-    expect(quota_guest.get_by_role('button', name='Prepare to play', exact=True)).to_be_enabled(timeout=30000)
+    expect(quota_guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
     assert 'download again next time' in quota_guest.locator('.member-acquisition').inner_text().lower()
     if args.output:
         quota_guest.screenshot(path=str(args.output / 'storage-full-memory-only.png'))
-    quota_guest.get_by_role('button', name='Prepare to play', exact=True).click()
+    quota_guest.get_by_role('button', name='Ready', exact=True).click()
     host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=15000)
     quota_guest.get_by_role('button', name='Leave room', exact=True).click()
     quota_guest.get_by_test_id('directory').wait_for()

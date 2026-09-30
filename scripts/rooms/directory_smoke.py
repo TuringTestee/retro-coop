@@ -74,14 +74,14 @@ try:
         observer.locator('.room-list li').get_by_role('button', name='Join').wait_for()
         join.click()
         viewer.get_by_role('button', name='Leave room', exact=True).wait_for()
-        assert viewer.get_by_test_id('frames').inner_text() == '0 frames'
+        assert viewer.locator('canvas').get_attribute('data-frame-count') == '0'
         assert 'You are Player 2.' in viewer.get_by_test_id('room-view').text_content()
         observed = observer.locator('.room-list li').filter(has_text=codes[0])
         observed.get_by_text('2/5', exact=False).wait_for()
         assert '3 open slots' in observed.inner_text()
         assert observed.get_by_role('button', name='Join', exact=True).count() == 1
         assert 'Host-shared NES' in observed.inner_text()
-        viewer.get_by_role('button', name='Prepare to play', exact=True).wait_for(timeout=30000)
+        viewer.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         viewer.locator('[data-slot-id=slot-2] [data-slot-region=status]').get_by_text('Game loaded · prepare to play',exact=True).wait_for()
         # All five physical slots admit members; only the sixth visitor is excluded.
         invite = hosts[0].get_by_label('Room invitation', exact=True).input_value()

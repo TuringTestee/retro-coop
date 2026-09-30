@@ -78,7 +78,7 @@ def main():
             start_style = host.get_by_role('button', name='Start game', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
             invite_style = host.get_by_role('button', name='Copy invite', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
             assert start_style == 'rgb(181, 163, 255)' and start_style != invite_style, (start_style, invite_style)
-            invite = host.get_by_label('Room invitation', exact=True).input_value()
+            invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             host.screenshot(path=str(args.output / 'waiting.png'))
             host.get_by_text('Connection and session settings', exact=True).click()
             host.get_by_text('Session settings', exact=True).click()
@@ -174,7 +174,7 @@ def main():
             host.get_by_role('button', name='Confirm leave', exact=True).click()
             host.get_by_test_id('directory').wait_for(state='visible')
             assert host.locator('.release-notice').count() == 0
-            offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · Waiting for host').first
+            offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · 5 open').first
             offer.get_by_role('button', name='Join as host').click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             host.get_by_role('button', name='Leave room', exact=True).click()
@@ -187,7 +187,7 @@ def main():
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             host.set_viewport_size({'width': 1280, 'height': 720})
             host.route('**/catalog/from-below*.nes', lambda route: route.abort())
-            offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/5 · Waiting for host').first
+            offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/5 · 5 open').first
             offer.get_by_role('button', name='Join as host').click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             host.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=15000)

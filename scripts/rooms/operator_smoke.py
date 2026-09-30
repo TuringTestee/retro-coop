@@ -60,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 host.get_by_test_id('room-view').wait_for(state='attached')
                 unmute = host.locator('.panel').get_by_role('button', name='Unmute', exact=True, include_hidden=True)
                 assert unmute.get_attribute('aria-pressed') == 'true'
-                guest = page(host.get_by_label('Room invitation', exact=True).input_value())
+                guest = page(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
                 guest.get_by_role('button', name='Join room', exact=True).click()
                 guest.get_by_test_id('room-view').wait_for(state='attached')
                 for tab in [host,guest]:
@@ -78,7 +78,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 tab.get_by_text(message, exact=False).first.wait_for()
                 tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
             def play_fullscreen(host, guest):
-                guest.get_by_role('button', name='Prepare to play', exact=True).click()
+                guest.get_by_role('button', name='Ready', exact=True).click()
                 host.get_by_role('button', name='Start game', exact=True).click()
                 host.locator('main.playing.with-room').wait_for()
                 host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()

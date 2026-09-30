@@ -72,19 +72,24 @@ def main():
             host.set_input_files('input[type=file]', str(runtime / 'apps/client/dist/generated/diagnostic.nes'))
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for()
+            host.locator('[data-slot-id=slot-1] [data-manage-slot]').click()
             host.get_by_label('Slot 1 role', exact=True).select_option('observer')
+            host.get_by_role('button', name='Done', exact=True).click()
             wait(host, "proof.room?.slots[0].role==='observer'")
-            member.goto(host.get_by_label('Room invitation', exact=True).input_value())
+            member.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
             member.get_by_role('button', name='Join room', exact=True).click()
-            member.get_by_role('button', name='Prepare to play', exact=True).click()
+            member.get_by_role('button', name='Ready', exact=True).click()
+            host.get_by_role('button', name='Ready', exact=True).click()
             wait(host, 'proof.room.game.ready.includes(proof.room.slots[1].member?.id)')
             return host, member, host.evaluate('proof.room.id')
 
         def rejected_edit(host, label):
             before = host.evaluate('({revision:proof.room.revision,roles:proof.room.slots.map(s=>s.role)})')
             count = host.evaluate('recovery.commands.length')
+            host.locator('[data-slot-id=slot-3] [data-manage-slot]').click()
             host.get_by_label('Slot 3 role', exact=True).select_option('player1')
             wait(host, "n=>recovery.commands.slice(n).some(c=>c.type==='slotRole'&&recovery.results.some(r=>r.requestId===c.requestId&&!r.ok))", count)
+            host.get_by_role('button', name='Done', exact=True).click()
             # Public nickname save forces a fresh server room snapshot, so a
             # rejected command cannot hide a mutated pending transaction.
             if not host.get_by_label('Nickname', exact=True).is_visible():
@@ -119,6 +124,7 @@ def main():
                     break
                 assert time.monotonic() < deadline, states
                 host.wait_for_timeout(30)
+            host.get_by_role('button', name='Players', exact=True).click()
             host.get_by_label('Slot 1 identity', exact=True).scroll_into_view_if_needed()
             host.screenshot(path=str(args.output.with_suffix('.' + case + '-recovered.png')))
             assert states[0]['frame'] >= 120

@@ -91,7 +91,7 @@ with contextlib.ExitStack() as stack:
             host.get_by_role('button', name=re.compile('^' + re.escape(entry['title']))).click()
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Copy invite', exact=True).wait_for()
-            invite = host.get_by_label('Room invitation', exact=True).input_value()
+            invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             for page in pages[1:]:
                 page.goto(invite)
                 page.get_by_role('button', name='Join room', exact=True).click()
@@ -106,13 +106,13 @@ with contextlib.ExitStack() as stack:
             if entry['controllers'] == 1:
                 assert host.get_by_label('Slot 3 role', exact=True).locator('option[value=player2]').count() == 0
             else:
-                pages[1].get_by_role('button', name='Prepare to play', exact=True).click()
+                pages[1].get_by_role('button', name='Ready', exact=True).click()
                 pages[1].wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
             host.get_by_role('button', name='Start game', exact=True).click()
             for page in pages:
                 page.evaluate('releaseFrames()')
             for page in pages[1 if entry['controllers'] == 1 else 2:]:
-                page.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+                page.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
             host.wait_for_function('proof.frames.at(-1)?.frame>=180', polling=20)
             host.get_by_role('button', name='Pause', exact=True).click()
             before = paused_states(pages)

@@ -127,7 +127,7 @@ window.WebSocket=class extends RoomSocket {constructor(...args){super(...args);
             static = Path(env.get('RETRO_COOP_STATIC_ROOT', runtime / 'apps/client/dist'))
             host.set_input_files('input[type=file]', str(static / 'generated/diagnostic.nes'))
             host.get_by_role('button', name='Create room', exact=True).click()
-            invitation = host.get_by_label('Room invitation', exact=True).input_value()
+            invitation = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             # A real observer download failure must not prevent its independent voice mesh.
             pages[4].route('**/coordinator/rooms/*/rom', lambda route: route.fulfill(status=503, body='proof download unavailable'))
             for page in pages[1:]:

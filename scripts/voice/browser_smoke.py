@@ -106,7 +106,7 @@ try:
     open_connection(host).get_by_label("Connection privacy", exact=True).select_option(
         "relay" if args.relay else "standard"
     )
-    guest = page(host.get_by_label("Room invitation", exact=True).input_value())
+    guest = page(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
     guest.get_by_role("button", name="Join room", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="attached")
     timeline_before = host.evaluate("timelineWrites")
@@ -132,7 +132,7 @@ try:
     for tab in [host, guest]:
         audio_arrives(tab)
     panel = host.locator(".room-panel")
-    frame_before = host.get_by_test_id("frames").inner_text()
+    frame_before = host.locator("canvas").get_attribute("data-frame-count")
     panel.get_by_label("Voice mode", exact=True).select_option("push")
     host.get_by_role("button", name="Leave room", exact=True).focus()
     host.keyboard.down("KeyV")
@@ -218,7 +218,7 @@ try:
     panel.get_by_role("button", name="Enable voice sound", exact=True).click()
     panel.get_by_text("Transmitting microphone audio", exact=True).wait_for()
     assert host.evaluate("pcs.length") == pc_count
-    assert int(host.get_by_test_id("frames").inner_text().split()[0]) >= int(
+    assert int(host.locator("canvas").get_attribute("data-frame-count").split()[0]) >= int(
         frame_before.split()[0]
     )
     # Select another actual fake-device input after permission; replacement starts muted.
@@ -305,7 +305,7 @@ try:
     host.keyboard.up("KeyV")
     host.wait_for_function("captures.at(-1).getTracks().every(t=>!t.enabled)")
     capture_count = host.evaluate("captures.length")
-    guest.goto(host.get_by_label("Room invitation", exact=True).input_value())
+    guest.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
     guest.get_by_role("button", name="Join room", exact=True).click()
     for tab in [host, guest]:
         tab.wait_for_function("pcs.at(-1)?.connectionState==='connected'")

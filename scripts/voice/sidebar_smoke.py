@@ -7,9 +7,9 @@ from playwright.sync_api import expect
 def run(host, guest, output):
     output = Path(output)
     guest.get_by_test_id('room-view').wait_for(state='detached')
-    guest.goto(host.get_by_label('Room invitation', exact=True).input_value())
+    guest.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
     guest.get_by_role('button', name='Join room', exact=True).click()
-    guest.get_by_role('button', name='Prepare to play', exact=True).click()
+    guest.get_by_role('button', name='Ready', exact=True).click()
     host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=30000)
     host.get_by_role('button', name='Start game', exact=True).click()
     for tab in [host, guest]:

@@ -242,7 +242,7 @@ with sync_playwright() as playwright:
             assert room["occupancy"] == 1 and room["visibility"] == args.visibility
             assert "catalogId" not in room and room["romBytes"] == len(rom)
             assert page.get_by_role("button", name="Start game", exact=True).is_enabled()
-            invitation=page.get_by_label("Room invitation").input_value() if args.visibility == "unlisted" else None
+            invitation=page.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite") if args.visibility == "unlisted" else None
             save("host-ready.json", {"room_id": room["id"], "code": room.get("code"), "invitation": invitation})
             prepared = wait_for("guest-ready.json")
             page.wait_for_function(
@@ -269,9 +269,9 @@ with sync_playwright() as playwright:
             assert page.evaluate("proof.room.id") == expected["room_id"]
             assert page.evaluate("!('catalogId' in proof.room) && proof.room.romBytes > 0")
             rom_hash = page.evaluate("proof.room.fingerprint.romSha256")
-            page.get_by_role("button", name="Prepare to play", exact=True).wait_for(timeout=30000)
+            page.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
             page.wait_for_function("proof.room?.matches===true", timeout=30000, polling=50)
-            page.get_by_role("button", name="Prepare to play", exact=True).click()
+            page.get_by_role("button", name="Ready", exact=True).click()
             save("guest-ready.json", {"room_id": expected["room_id"], "rom_sha256": rom_hash, "member_id": page.evaluate("proof.room.chatMembership")})
 
         page.wait_for_function(
