@@ -25,11 +25,18 @@ def profile(page, url, output, label, *, navigate=True, trace=False):
     directory = GeometryRecorder(page, 'directory-query', '.directory-panel [data-layout-region]') if trace else None
     if directory:
         directory.mark('live')
+    if label in ('wide', 'compact'):
+        path = output / f'{label}-public-rooms.png'
+        page.screenshot(path=str(path), full_page=True)
+        proof['captures'].append(path.name)
     search = page.get_by_role('searchbox', name='Search room, game, host, or code')
     search.fill('no matching game for this probe')
     page.get_by_text('No matching public rooms.', exact=True).wait_for()
     if directory:
         directory.mark('empty result')
+        path = output / f'{label}-empty-search.png'
+        page.screenshot(path=str(path), full_page=True)
+        proof['captures'].append(path.name)
     page.get_by_role('button', name='Clear search').click()
     if directory:
         directory.mark('cleared')
