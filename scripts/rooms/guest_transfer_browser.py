@@ -48,6 +48,8 @@ with sync_playwright() as playwright:
     guest.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=30000)
     acquisition_before = guest.locator('.member-acquisition').evaluate('(node)=>[node.offsetTop,node.offsetHeight]')
     slot_before = guest.locator('.room-slots [data-slot-id="slot-1"]').evaluate('(node)=>[node.offsetTop,node.offsetHeight]')
+    readiness_before = guest.locator('[data-layout-region="readiness-actions"]').evaluate('(node)=>[node.offsetTop,node.offsetHeight]')
+    leave_before = guest.locator('[data-layout-region="leave-actions"]').evaluate('(node)=>[node.offsetTop,node.offsetHeight]')
     if args.output:
         guest.screenshot(path=str(args.output / 'guest-download-failed.png'))
     expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_disabled()
@@ -57,6 +59,8 @@ with sync_playwright() as playwright:
     assert not guest.locator('.member-acquisition').is_visible(), 'Completed preparation should not repeat the slot and Ready state'
     assert guest.locator('.member-acquisition').evaluate('(node)=>[node.offsetTop,node.offsetHeight]') == acquisition_before
     assert guest.locator('.room-slots [data-slot-id="slot-1"]').evaluate('(node)=>[node.offsetTop,node.offsetHeight]') == slot_before
+    assert guest.locator('[data-layout-region="readiness-actions"]').evaluate('(node)=>[node.offsetTop,node.offsetHeight]') == readiness_before
+    assert guest.locator('[data-layout-region="leave-actions"]').evaluate('(node)=>[node.offsetTop,node.offsetHeight]') == leave_before
     if args.output:
         guest.screenshot(path=str(args.output / 'guest-game-ready.png'))
     assert guest.get_by_role('button', name='Choose matching NES file').count() == 0

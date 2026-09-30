@@ -4,6 +4,8 @@ import json,os,subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 root=Path(__file__).resolve().parents[2]
+initial_password='🦊'*100
+updated_password='🌈'*100
 screens=Path(os.environ['RETRO_COOP_ACCESS_OUTPUT']) if 'RETRO_COOP_ACCESS_OUTPUT' in os.environ else None
 if screens: screens.mkdir(parents=True,exist_ok=True)
 service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env={**os.environ,'COORDINATOR_EMPTY_OFFERS':'super-tilt-bro-pal'},stdout=subprocess.PIPE,text=True)
@@ -16,7 +18,8 @@ try:
   host.get_by_role('button',name='Create game',exact=True).click()
   host.locator('input[type=file]').set_input_files(root/'apps/client/dist/generated/diagnostic.nes')
   host.get_by_label('Room access').select_option('protected')
-  host.get_by_label('Room password').fill('blue-sky-room')
+  host.get_by_label('Room password').fill(initial_password)
+  assert host.get_by_label('Room password').input_value()==initial_password
   host.get_by_role('button',name='Create room',exact=True).click()
   host.get_by_test_id('room-view').wait_for(state='attached')
   host.get_by_role('button',name='Copy invite',exact=True).click()
@@ -31,26 +34,29 @@ try:
   guest.get_by_role('alert').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
   if screens: guest.screenshot(path=str(screens/'wrong-password.png'))
   assert guest.get_by_test_id('room-view').count()==0
-  guest.get_by_label('Room password').fill('blue-sky-room')
+  guest.get_by_label('Room password').fill(initial_password)
+  assert guest.get_by_label('Room password').input_value()==initial_password
   guest.get_by_role('button',name='Join room',exact=True).click()
   guest.get_by_test_id('room-view').wait_for(state='attached')
   assert guest.locator('#room-heading').inner_text()==host.locator('#room-heading').inner_text()
   invited=browser.new_page(viewport={'width':390,'height':800})
   invited.goto(invite)
   invited.get_by_role('button',name='Join room',exact=True).click()
-  invited.get_by_label('Room password').fill('blue-sky-room')
+  invited.get_by_label('Room password').fill(initial_password)
+  assert invited.get_by_label('Room password').input_value()==initial_password
   invited.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
   invited.get_by_test_id('room-view').wait_for(state='attached')
   if screens: invited.screenshot(path=str(screens/'joined-mobile.png'))
   host.get_by_text('Room settings',exact=True).click()
   host.get_by_role('button',name='Change password',exact=True).click()
-  host.get_by_label('New room password').fill('green-hill-room')
+  host.get_by_label('New room password').fill(updated_password)
+  assert host.get_by_label('New room password').input_value()==updated_password
   host.get_by_role('button',name='Save new password',exact=True).click()
   host.get_by_text('Room access: Password protected',exact=True).wait_for()
   stale=browser.new_page()
   stale.goto(url)
   stale.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
-  stale.get_by_label('Room password').fill('blue-sky-room')
+  stale.get_by_label('Room password').fill(initial_password)
   stale.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
   stale.locator('.room-password-dialog [role=alert]').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
   assert stale.get_by_test_id('room-view').count()==0
@@ -58,10 +64,10 @@ try:
   changed=browser.new_page()
   changed.goto(invite)
   changed.get_by_role('button',name='Join room',exact=True).click()
-  changed.get_by_label('Room password').fill('blue-sky-room')
+  changed.get_by_label('Room password').fill(initial_password)
   changed.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
   changed.locator('.room-password-dialog [role=alert]').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
-  changed.get_by_label('Room password').fill('green-hill-room')
+  changed.get_by_label('Room password').fill(updated_password)
   changed.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
   try: changed.get_by_test_id('room-view').wait_for(state='attached',timeout=5000)
   except Exception:
@@ -86,7 +92,7 @@ try:
    if route=='directory':
     cancelled.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
    else: cancelled.get_by_role('button',name='Join room',exact=True).click()
-   cancelled.get_by_label('Room password').fill('green-hill-room')
+   cancelled.get_by_label('Room password').fill(updated_password)
    cancelled.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
    cancelled.wait_for_function('window.heldJoins.length===1')
    if exit_action=='Back':cancelled.locator('.room-password-dialog').get_by_role('button',name='Back',exact=True).click()

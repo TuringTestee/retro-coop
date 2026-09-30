@@ -1,7 +1,7 @@
 import React,{useEffect,useState} from 'react';
 import {catalogAvailability} from 'virtual:catalog';
 import {catalog} from '../../../packages/contracts/src/catalog.ts';
-import type {NewVisibility,Fingerprint,RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+import {validRoomPassword,type NewVisibility,type Fingerprint,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 import {gameLibrary,type GameLibraryEntry} from './rom-library.ts';
 
 export type CreateSelection={entry:GameLibraryEntry;file:File;fingerprint:Fingerprint;current:()=>boolean;fresh?:boolean};
@@ -24,9 +24,9 @@ export function CreateGame({selected,loading,busy,status,claimFailed,persistence
   <ul>{grouped.map(entry=><li key={entry.sha256}><button className={selected?.entry.sha256===entry.sha256?'selected':''} aria-pressed={selected?.entry.sha256===entry.sha256} onClick={()=>onSelect(entry)} disabled={loading||busy||entry.kind==='included'&&!catalogAvailability[entry.catalogId]}><strong>{entry.label}</strong>{entry.kind==='included'&&!catalogAvailability[entry.catalogId]&&<span>Unavailable here</span>}</button></li>)}</ul>
   </section><div className="create-details">
    <section className="create-options" aria-label="Room options"><h2>Room options</h2><p className="selected-game" style={{visibility:selected?'visible':'hidden'}}>Selected: <strong>{selected?.entry.label??'Game'}</strong></p><label>Access <select aria-label="Room access" value={visibility} onChange={event=>setVisibility(event.target.value as NewVisibility)}><option value="public">Public</option><option value="protected">Password protected</option></select></label>
-    {visibility==='protected'&&<div className="room-password"><label>Room password <input type={showPassword?'text':'password'} autoComplete="new-password" value={password} maxLength={128} onChange={event=>setPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowPassword(value=>!value)}>{showPassword?'Hide':'Show'}</button><p className="hint">Use 8 to 128 characters. Share it separately from the invitation.</p></div>}
+    {visibility==='protected'&&<div className="room-password"><label>Room password <input type={showPassword?'text':'password'} autoComplete="new-password" value={password} onChange={event=>setPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowPassword(value=>!value)}>{showPassword?'Hide':'Show'}</button><p className="hint">Use 8 to 128 characters. Share it separately from the invitation.</p></div>}
     {selected?.entry.kind==='included'&&!includedOffer&&!claimFailed&&<p role="status">No place is available for this game. Try again or choose another game.</p>}
-    <div className="create-actions"><button onClick={onCreate} disabled={!selected||loading||busy||!includedReady||visibility==='protected'&&(Array.from(password).length<8||Array.from(password).length>128)}>Create room</button>{(loading||busy)&&<button onClick={onCancel}>Cancel</button>}</div><button className="local-play" style={{visibility:selected?'visible':'hidden'}} onClick={onLocal} disabled={!selected||loading||busy}>Play locally</button>
+    <div className="create-actions"><button onClick={onCreate} disabled={!selected||loading||busy||!includedReady||visibility==='protected'&&!validRoomPassword(password)}>Create room</button>{(loading||busy)&&<button onClick={onCancel}>Cancel</button>}</div><button className="local-play" style={{visibility:selected?'visible':'hidden'}} onClick={onLocal} disabled={!selected||loading||busy}>Play locally</button>
     <p role="status" aria-live="polite">{status}</p>{selected?.fresh&&persistenceMessage&&<p role="status">{persistenceMessage}</p>}
    </section></div></div>
  </section>;

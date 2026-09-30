@@ -1,7 +1,7 @@
 import {catalogEntry,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {matchingRooms} from '../../../packages/contracts/src/directory.ts';
-import type {RoomPreview} from '../../../packages/contracts/src/rooms.ts';
+import {validRoomPassword,type RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 import type {RoomState} from './room-client.ts';
 import {clampPage,pageRows} from './directory-page.ts';
 import {roomAdmissionMessage} from './room-admission-message.ts';
@@ -37,7 +37,7 @@ export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,onDismissJ
     </li>;
    })}
   </ul>
-  {protectedRoom&&<dialog ref={passwordDialog} className="room-password-dialog" aria-label={`Join ${protectedRoom.label}`} onClose={()=>{onDismissJoin();setProtectedRoom(undefined);setPassword('');setShowPassword(false);requestAnimationFrame(()=>document.querySelector<HTMLElement>(`[data-room-id="${CSS.escape(protectedRoom.id)}"] button`)?.focus());}}><h3>{protectedRoom.label}</h3><p>{protectedRoom.catalogId?catalogEntry(protectedRoom.catalogId)?.title:roomDownloadLabel(protectedRoom)} · Password required</p><form onSubmit={event=>{event.preventDefault();if(password)onJoin(protectedRoom.code!,password);}}><label>Room password <input type={showPassword?'text':'password'} autoComplete="off" value={password} maxLength={128} onChange={event=>setPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowPassword(value=>!value)}>{showPassword?'Hide':'Show'}</button><p role="alert">{roomAdmissionMessage(state.admissionError,state.retryAfterMs)}</p><button type="submit" disabled={!password||state.busy}>Join room</button><button type="button" onClick={()=>passwordDialog.current?.close()}>Back</button></form></dialog>}
+  {protectedRoom&&<dialog ref={passwordDialog} className="room-password-dialog" aria-label={`Join ${protectedRoom.label}`} onClose={()=>{onDismissJoin();setProtectedRoom(undefined);setPassword('');setShowPassword(false);requestAnimationFrame(()=>document.querySelector<HTMLElement>(`[data-room-id="${CSS.escape(protectedRoom.id)}"] button`)?.focus());}}><h3>{protectedRoom.label}</h3><p>{protectedRoom.catalogId?catalogEntry(protectedRoom.catalogId)?.title:roomDownloadLabel(protectedRoom)} · Password required</p><form onSubmit={event=>{event.preventDefault();if(validRoomPassword(password))onJoin(protectedRoom.code!,password);}}><label>Room password <input type={showPassword?'text':'password'} autoComplete="off" value={password} onChange={event=>setPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowPassword(value=>!value)}>{showPassword?'Hide':'Show'}</button><p className="hint">Use 8 to 128 characters.</p><p role="alert">{roomAdmissionMessage(state.admissionError,state.retryAfterMs)}</p><button data-layout-region="password-join" type="submit" disabled={!validRoomPassword(password)||state.busy}>Join room</button><button data-layout-region="password-back" type="button" onClick={()=>passwordDialog.current?.close()}>Back</button></form></dialog>}
   <div className="pagination-region">{view.pages>1&&<nav className="pagination" aria-label="Room pages"><button disabled={view.page===0} onClick={()=>move(view.page-1)}>Previous</button><span>Page {view.page+1} of {view.pages}</span><button disabled={view.page+1>=view.pages} onClick={()=>move(view.page+1)}>Next</button></nav>}</div>
  </section>;
 }

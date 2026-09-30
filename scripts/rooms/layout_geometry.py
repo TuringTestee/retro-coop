@@ -21,7 +21,7 @@ INSTALL = r"""({selector, label}) => {
     `${n.closest('[data-slot-id]').dataset.slotId}/${n.dataset.slotRegion}` : n.dataset.slotId) || n.id || n.className || n.tagName;
   const probe = window.layoutProbe = {label, running:true, samples:[], marks:[], intentionalScroll:false, limit:false};
   probe.sample = () => {
-    const nodes = [...document.querySelectorAll(selector)].filter(n=>n.getClientRects().length && getComputedStyle(n).visibility!=='hidden');
+    const nodes = [...document.querySelectorAll(selector)].filter(n=>n.getClientRects().length);
     const regions=nodes.map(n=>{
       const ancestors=[]; let p=n.parentElement;
       while(p){ const s=getComputedStyle(p); ancestors.push({id:id(p),tag:p.tagName,name:p.dataset.layoutRegion||p.id||p.className,
