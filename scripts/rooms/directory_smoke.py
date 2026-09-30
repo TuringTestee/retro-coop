@@ -109,7 +109,8 @@ try:
         observer.get_by_role('dialog', name='Join Renamed Arcade').get_by_label('Room password').wait_for()
         observer.get_by_role('dialog', name='Join Renamed Arcade').get_by_role('button', name='Back').click()
         assert observed.get_by_role('button', name='Join', exact=True).evaluate('(node)=>node===document.activeElement')
-        observer.get_by_role('button', name='Clear search', exact=True).click()
+        observer.get_by_role('searchbox').press('ControlOrMeta+A')
+        observer.get_by_role('searchbox').press('Backspace')
         assert observer.get_by_role('searchbox').input_value() == ''
         observer.screenshot(path=str(output.with_suffix('.live.png')))
         offline = page()

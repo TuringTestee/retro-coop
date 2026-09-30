@@ -19,7 +19,7 @@
 html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:100dvh;max-width:1440px;padding:14px 20px;margin:auto;overflow:hidden;display:grid;gap:10px;grid-template-rows:auto minmax(0,1fr)}header{min-height:40px}header .brand{margin-right:auto}header button{padding:6px 10px}footer{display:none}.intro{display:none!important}
 .catalog-status{background:#242638;border:1px solid #5f6281;border-radius:8px;padding:8px;margin:0}
 .directory-panel{min-height:0;margin:0;padding:12px 14px;display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto;gap:7px;overflow:hidden;background:#161722}.directory-title{display:flex;align-items:center;justify-content:space-between;gap:12px}.directory-title h2{font-size:20px;margin:0}.directory-title .eyebrow{margin:0}.directory-panel label{font-size:12px}.directory-panel input{padding:6px 9px}.room-list{min-height:0;margin:0;gap:6px;align-content:start}.room-list li{display:grid;grid-template-columns:minmax(150px,1.2fr) minmax(110px,1fr) minmax(90px,.8fr) auto auto auto;gap:8px;padding:7px 9px;min-height:42px}.room-list li strong{flex-basis:auto}.room-list li button{margin:0;padding:5px 10px}.room-list li>*{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pagination{display:flex;justify-content:center;align-items:center;gap:12px}.pagination button,.pagination button:first-child{padding:5px 10px;background:#303146;color:white;font-weight:400;border-color:#52536e}.pagination span{font-size:13px;color:#b7b9cd}
-.playing{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.playing>header{grid-column:1}.playing>.directory-panel{display:none}.playing>.panel{grid-column:1;grid-row:2;min-height:0;margin:0;padding:8px;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 9rem;gap:6px;overflow:hidden}.playing>.room-panel{display:none}.playing.with-room>.room-panel{display:grid;grid-column:2;grid-row:2;grid-template-rows:3rem 5.5rem 12.5rem 5.5rem 6rem 12rem;gap:2px;min-width:0;min-height:0;overflow:auto;margin:0;padding:14px;scroll-padding:8px}.playing .screen{grid-row:1;width:auto;height:100%;max-width:100%;max-height:100%;aspect-ratio:256/240;justify-self:center}.playing .screen canvas{width:auto;height:100%;max-width:100%;object-fit:contain}.playing .player-info{grid-row:2;min-width:0;min-height:0;display:grid;grid-template-rows:2.8rem 4rem;gap:8px;padding:8px;overflow:hidden}.playing .player-info>h2{display:none}.player-primary-actions{display:grid;grid-template-columns:9rem 7rem 4.5rem;gap:6px;min-width:0;min-height:0}.player-primary-slot{min-width:0}.player-tools-trigger,.player-tools-back{display:block}.player-primary-actions button{height:2.8rem;width:100%;padding:5px 8px;white-space:nowrap}.player-task-actions{grid-column:1;grid-row:2;min-width:0;min-height:0;display:flex;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;padding-inline:8px;scroll-padding-inline:8px}.player-task-actions button{height:2.8rem;flex:none;padding:5px 8px;white-space:nowrap}.player-feedback{grid-column:1;grid-row:2;min-width:0;min-height:0;overflow:auto;scroll-padding:8px}.playing .battery-actions{display:flex;gap:6px}.playing .room-invite{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:end}.playing .room-invite strong{grid-column:1/-1}.playing .room-invite label{min-width:0}.playing .room-invite input{width:100%}.browsing>.panel,.browsing>.room-panel{display:none}.browsing{grid-template-columns:1fr;grid-template-rows:auto auto minmax(0,1fr)}
+.playing{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.playing>header{grid-column:1}.playing>.directory-panel{display:none}.playing>.panel{grid-column:1;grid-row:2;min-height:0;margin:0;padding:8px;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 9rem;gap:6px;overflow:hidden}.playing>.room-panel{display:none}.playing.with-room>.room-panel{display:grid;grid-column:2;grid-row:2;grid-template-rows:3rem 5.5rem 4rem 5.5rem 6rem 12rem;gap:2px;min-width:0;min-height:0;overflow:auto;margin:0;padding:14px;scroll-padding:8px}.playing .screen{grid-row:1;width:auto;height:100%;max-width:100%;max-height:100%;aspect-ratio:256/240;justify-self:center}.playing .screen canvas{width:auto;height:100%;max-width:100%;object-fit:contain}.playing .player-info{grid-row:2;min-width:0;min-height:0;display:grid;grid-template-rows:2.8rem 4rem;gap:8px;padding:8px;overflow:hidden}.playing .player-info>h2{display:none}.player-primary-actions{display:grid;grid-template-columns:9rem 7rem 4.5rem;gap:6px;min-width:0;min-height:0}.player-primary-slot{min-width:0}.player-tools-trigger,.player-tools-back{display:block}.player-primary-actions button{height:2.8rem;width:100%;padding:5px 8px;white-space:nowrap}.player-task-actions{grid-column:1;grid-row:2;min-width:0;min-height:0;display:flex;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;padding-inline:8px;scroll-padding-inline:8px}.player-task-actions button{height:2.8rem;flex:none;padding:5px 8px;white-space:nowrap}.player-feedback{grid-column:1;grid-row:2;min-width:0;min-height:0;overflow:auto;scroll-padding:8px}.playing .battery-actions{display:flex;gap:6px}.playing .room-invite{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:end}.playing .room-invite strong{grid-column:1/-1}.playing .room-invite label{min-width:0}.playing .room-invite input{width:100%}.browsing>.panel,.browsing>.room-panel{display:none}.browsing{grid-template-columns:1fr;grid-template-rows:auto auto minmax(0,1fr)}
 
 @media(max-width:900px){main{padding:10px 12px}}
 @media(max-height:700px){main{gap:6px;padding-top:7px;padding-bottom:7px}.directory-panel{padding:7px 10px}.room-list li{min-height:35px;padding:4px 7px}.playing>.panel,.playing>.room-panel{padding:8px}.playing .panel p{font-size:11px;margin:4px 0}.playing .panel h2{font-size:18px}}
@@ -133,6 +133,8 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .solo-controls{display:none}
 .playing>.solo-controls{display:block;grid-column:2;grid-row:2;min-height:0;overflow:auto}
 .play-controls,.voice-card{border:1px solid #46465e;border-radius:10px;background:#202130;padding:12px;margin:0 0 12px;min-width:0;overflow-wrap:anywhere}
+.play-controls{display:flex;align-items:center;gap:6px}
+.play-role{font-size:14px;font-weight:600;margin-right:auto}
 .playing.with-room .play-controls,.playing.with-room .voice-card{height:100%;min-height:0;margin:0;overflow:auto}
 .playing.with-room .shared-gameplay-actions{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:2.8rem 2.3rem;gap:2px;min-height:0;overflow:auto;padding:8px 8px 2px;scroll-padding:8px}
 .playing.with-room .game-state-message{grid-column:1;grid-row:2;min-height:0;overflow:auto;font-size:1rem;line-height:1.125rem;scroll-padding:4px}
@@ -149,15 +151,13 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .game-metrics{display:flex;gap:12px;align-items:center;font-size:12px;font-variant-numeric:tabular-nums;color:#d9d9eb;margin:6px 0 10px!important}
 .game-metrics span+span{border-left:1px solid #56576d;padding-left:12px}
 
-.play-controls h2,.voice-card h2{font-size:14px;line-height:1.4;margin:0 0 8px}
-.play-controls h2 span,.voice-card h2 span{font-weight:400;color:#b8acd9}
-.play-controls p,.voice-card p{font-size:12px;margin:5px 0}
-.play-bindings{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;margin:8px 0}
-.play-bindings>div{display:grid;grid-template-columns:42px minmax(0,1fr);align-items:baseline;gap:4px}
-.play-bindings dt,.play-bindings dd{margin:0}
-.play-bindings dd{color:#eeeefa}
+.voice-card h2{font-size:14px;line-height:1.4;margin:0 0 8px}
+.voice-card h2 span{font-weight:400;color:#b8acd9}
+.voice-card p{font-size:12px;margin:5px 0}
 .play-controls button,.voice-card button{font-size:12px;padding:5px 8px;margin:4px 6px 0 0}
+.play-controls button{margin:0;white-space:nowrap}
 .play-controls .text-action,.voice-card .text-action{background:transparent;border-color:transparent;color:#c6b9ff;font-weight:400;padding-left:0}
+.play-controls .text-action:focus{outline:2px solid #b5a3ff;outline-offset:2px}
 .tooling>.solo-controls,.released>.solo-controls{display:none!important}
 @media(max-width:760px){
  /* Keep the existing stacked player/room arrangement within one viewport.
@@ -166,7 +166,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
  .playing>.panel{grid-column:1;grid-row:2;min-height:0;grid-template-rows:minmax(0,1fr) minmax(0,clamp(3.5rem,14dvh,6rem))}
  .playing>.solo-controls,.playing.with-room>.room-panel{grid-column:1;grid-row:3;min-height:0;max-height:100%;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scroll-padding:8px}
  .playing.with-room>.room-panel{display:block}
- .playing.with-room .play-controls{height:12.5rem}
+ .playing.with-room .play-controls{height:4rem}
  .playing.with-room .voice-card{height:6rem}
  .playing.with-room .shared-gameplay-actions{height:6rem}
  .playing.with-room .room-detail-scroll{height:36rem;overflow:auto}

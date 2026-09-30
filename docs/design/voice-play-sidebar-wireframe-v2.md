@@ -1,10 +1,10 @@
 Audience: Human
 
-The revised ASCII screens show a compact control and voice rail beside the game, including recovery and controller ownership.
+The current ASCII screens show the compact Players and Controls actions beside the game; detailed mappings appear in Settings when opened.
 
-# Voice and play sidebar: current wireframe v2
+# Voice and play sidebar: wireframe v2 amended for minimal play
 
-Players see current controls and voice status beside the game. The canvas stays dominant and no card covers it. This is a proposed design; rendered fit and operation still need implementation proof.
+Players see their role, Players and Controls actions, and voice status beside the game. The canvas stays dominant and no card covers it. The later [minimal room journey](minimal-room-journey.md) replaces this wireframe's former persistent binding list.
 
 Sources: [references](voice-play-sidebar-references.md), [direction](voice-play-sidebar-direction.md), [journeys](voice-play-sidebar-journeys.md), [scenarios](voice-play-sidebar-scenarios.md), [v1 critique](voice-play-sidebar-critique-v1.md).
 
@@ -13,14 +13,9 @@ Sources: [references](voice-play-sidebar-references.md), [direction](voice-play-
 ```text
 RETRO COOP                    Public rooms  Settings
 +--------------------------------+ +-------------------------+
-|                                | | YOUR CONTROLS · Player 2|
-|                                | | Keyboard                |
-|                                | | Move  ↑ ← ↓ →           |
-|         NES GAME               | | A  X       B  Z         |
-|                                | | Start  Enter            |
-|                                | | Select Shift            |
-|                                | | Edit controls           |
-|                                | +-------------------------+
+|                                | | Player 2                |
+|                                | | [Players]  Controls     |
+|         NES GAME               | +-------------------------+
 |                                | | VOICE · Off             |
 |                                | | [Enable voice]          |
 |                                | +-------------------------+
@@ -34,7 +29,7 @@ RETRO COOP                    Public rooms  Settings
 Pause  Mute game  Saves  Game help  Fullscreen
 ```
 
-Enable voice → P2. Edit controls → Settings/Controls; return updates this readout. Solo play omits Voice and room details. If no peer connection, voice says `Connecting` with disabled Enable; session recovery appears when available. The NES player port and source reflect the accepted assignment and selected device. Separate mode may put the guest on P1 or host on P2; the header must follow the assignment, not room role.
+Enable voice → P2. Controls → Settings mapping list; Back returns focus to Controls. Solo play omits Voice and room details. If no peer connection, voice says `Connecting` with disabled Enable; session recovery appears when available. The NES player port reflects the accepted assignment. Separate mode may put the guest on P1 or host on P2; the role must follow the assignment, not room role.
 
 ## P2 — Request, open mic, muted, push mode
 
@@ -58,14 +53,12 @@ Mic permission succeeds → applicable mode. Mute/Unmute changes state immediate
 
 ```text
 +-----------------------------------+
-| YOUR CONTROLS · Shared P1          |
-| Your input is idle.               |
-| Alex controls P1 now.             |
-| Session controllers ▸             |
+| Observer                          |
+| [Players]                         |
 +-----------------------------------+
 ```
 
-This is a readout of the accepted assignment, not a second handoff action. `Session controllers` opens the existing room control. Once both players accept a handoff and play resumes, the new owner sees P1 bindings; the other sees the idle state. A declined proposal leaves the prior card intact. In Separate P1/P2, the card shows the assigned local port regardless of Host/Guest role.
+This is the accepted assignment, not a second handoff action. Players opens the existing room slot controls. Once both players accept a handoff and play resumes, the new owner sees the assigned P1 role; the other sees Observer. A declined proposal leaves the prior role intact. In Separate P1/P2, the role shows the assigned local port regardless of Host/Guest identity.
 
 ## P3 — Voice failure and hearing partner
 
@@ -86,7 +79,7 @@ This is a readout of the accepted assignment, not a second handoff action. `Sess
 
 Use the actual failure reason: permission, missing device, attachment or connection. Browser site-permission advice appears only for permission denial. Try again re-enters Requesting. Remote mute is shown in Voice settings with one `Unmute remote voice` action. No voice failure pauses the NES game or removes text chat.
 
-## P4 — Narrow play and long mappings
+## P4 — Narrow play
 
 ```text
 RETRO COOP                        Settings
@@ -95,13 +88,7 @@ RETRO COOP                        Settings
 +----------------------------------------+
 Pause  Mute game  Saves  Game help
 +----------------------------------------+
-| YOUR CONTROLS · Player 2 · Gamepad     |
-| Move    Axis 1 − / Axis 1 + / …        |
-| A       Button 1                       |
-| B       Button 2                       |
-| Start   Button 10                      |
-| Select  Unbound                        |
-| Edit controls                          |
+| Player 2    [Players]    Controls      |
 +----------------------------------------+
 | VOICE · Off        [Enable voice]      |
 +----------------------------------------+
@@ -111,10 +98,10 @@ Pause  Mute game  Saves  Game help
 +----------------------------------------+
 ```
 
-Cards follow the game in reading and keyboard order. Binding text wraps inside the card; an unbound action still has a label and one Edit controls route. A disconnected device triggers the existing Use keyboard action, after which the readout switches to keyboard. No horizontal page overflow or overlay is permitted.
+Cards follow the game in reading and keyboard order. Controls opens Settings where long or unbound mappings have readable labels. A disconnected device triggers the existing Use keyboard action; Settings then shows keyboard as the selected device. No horizontal page overflow or overlay is permitted.
 
 ## Final design check
 
-All four pages have a next action and a recovery state for V1–V3, C1–C4 and E1. Each shown action maps to a scenario, with Voice settings restricted to detail controls and Settings/Controls to remapping. Mic permission is requested only at P1; failure information appears at P3. The same role, state and action names are used across widths. The mapped readout adapts Steam Input's action guidance; the voice card adapts Discord's status/recovery pattern. Actual visual fit, screen reader output, microphone behavior and update timing remain unproven until browser testing.
+All four pages have a next action and a recovery state for V1–V3, C1–C4 and E1. Each shown action maps to a scenario, with Voice settings restricted to detail controls and Settings/Controls to remapping. Mic permission is requested only at P1; failure information appears at P3. The same role, state and action names are used across widths. Actual visual fit, screen reader output, microphone behavior and update timing require browser proof.
 
-Recommendation: implement the side cards with small responsive rows and live mapping data first, then inspect desktop/narrow screenshots and a two-tab voice session. Remove redundant fixed-key copy from Game help while doing so.
+Keep the fixed compact play row and inspect desktop/narrow screenshots and a two-tab voice session. Game help points to Controls or Settings for current mappings.
