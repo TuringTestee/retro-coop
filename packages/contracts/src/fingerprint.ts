@@ -20,7 +20,7 @@ export function matchesFile(a:Fingerprint,b:Fingerprint) { return fileIdentity(a
 /** Structural admission shared by browser selection and coordinator upload. */
 export function inspectCartridge(bytes: Uint8Array,totalBytes=bytes.length): Cartridge {
  if (bytes.length < 16 || bytes[0] !== 0x4e || bytes[1] !== 0x45 || bytes[2] !== 0x53 || bytes[3] !== 0x1a) {
-  throw Error('This is not an NES cartridge. Choose an uncompressed .nes file; archives and disk images are not supported.');
+  throw Error('This is not an NES game. Choose a .nes file.');
  }
  const nes2 = (bytes[7] & 12) === 8;
  if (!nes2 && (bytes[7] & 12) !== 0) throw Error('This NES header format is unsupported. Choose an iNES or NES 2.0 cartridge.');
