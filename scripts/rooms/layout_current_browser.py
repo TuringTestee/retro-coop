@@ -19,7 +19,7 @@ STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'
 SLOTS = '.room-slots [data-slot-id], .room-slots [data-slot-region]'
 ROOM_ACTIONS = '[data-layout-region=readiness-actions], [data-layout-region=start-actions], [data-layout-region=invite-actions], [data-layout-region=leave-actions], [data-layout-region=connection-recovery]'
 PASSWORD = '.room-password-dialog, .room-password-dialog h3, .room-password-dialog [role=alert], [data-layout-region=password-join], [data-layout-region=password-back]'
-DIRECTORY = '.directory-panel, .directory-title, .directory-search, .directory-feedback, .room-list, .pagination-region, .directory-title button'
+DIRECTORY = '.directory-panel, .directory-panel [data-layout-region], .directory-title button'
 
 
 def record(page, output, label, selector, required):
@@ -203,7 +203,7 @@ def main():
                 viewer.get_by_test_id('directory').wait_for()
                 viewer.locator('[data-directory-status=live]').wait_for()
                 directory = record(viewer, args.output, 'desktop-directory', DIRECTORY,
-                                   ['directory-panel', 'directory-title', 'directory-search', 'directory-feedback', 'room-list', 'pagination-region', 'BUTTON'])
+                                   ['directory-panel', 'directory-heading', 'directory-search', 'directory-feedback', 'directory-list', 'directory-actions', 'BUTTON'])
                 results = check_profile(browser, url, args.output, 'desktop',
                                         {'width': 1280, 'height': 800}, (viewer, directory))
                 results += check_profile(browser, url, args.output, 'mobile', {'width': 390, 'height': 700})
@@ -222,7 +222,7 @@ def main():
                     zoom.append(browser_zoom(page, worker))
                     page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
                     directory = record(page, args.output, f'{label}-zoom-200-directory', DIRECTORY,
-                                       ['directory-panel', 'directory-title', 'directory-search', 'directory-feedback', 'room-list', 'pagination-region', 'BUTTON'])
+                                       ['directory-panel', 'directory-heading', 'directory-search', 'directory-feedback', 'directory-list', 'directory-actions', 'BUTTON'])
                     page.get_by_role('searchbox').fill('no-matching-room')
                     page.get_by_text('No matching public rooms.').wait_for()
                     directory[0].mark('empty-search')

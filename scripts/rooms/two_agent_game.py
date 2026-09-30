@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
+from layout_geometry import GeometryRecorder, control_visibility
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,6 +26,8 @@ parser.add_argument("--rom", type=Path, help="Host NES file; never supplied to t
 parser.add_argument("--visibility", choices=("public", "protected"), default="public")
 parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
+parser.add_argument("--width", type=int, default=1366)
+parser.add_argument("--height", type=int, default=682)
 args = parser.parse_args()
 ROOT = args.runtime_root.resolve()
 expected_ram = [int(value) for value in args.expect_controller_ram.split(",")] if args.expect_controller_ram else None
@@ -60,6 +63,7 @@ def verify():
     assert host["room_code"] == guest["room_code"]
     assert host["rom_sha256"] == guest["rom_sha256"]
     assert host["game_status"] == guest["game_status"] == "paused"
+    assert host["resumed_together"] and guest["resumed_together"]
     assert host["started"] == guest["started"] == "shared"
     assert host["established"] and guest["established"]
     assert host["frames"] >= 200 and guest["frames"] >= 200
@@ -91,6 +95,18 @@ def verify():
         "host_received_inputs": host["received_gameplay"]["input"],
         "guest_received_committed_frames": guest["received_gameplay"]["frame"],
         "matching_paused_hash": host["last_hash"],
+        "paused_layout": {
+            role: {
+                "play_to_pause": row["play_to_pause_layout"],
+                "pause_to_resume": row["pause_to_resume_layout"],
+                "leave": row["paused_leave_bounds"],
+                "ready": row["paused_resume_bounds"],
+            } for role, row in (("host", host), ("guest", guest))
+        },
+        "host_resume_action_max_drift_css_px": max(
+            abs(host["ready_slot_bounds"][axis] - host["resume_slot_bounds"][axis])
+            for axis in ("x", "y", "width", "height")
+        ),
         "controller_ram": host["controller_ram"],
         "store_verified_before_reload": host["store_verified_before_reload"],
         "saved_row_selected_after_reload": host["saved_row_selected_after_reload"],
@@ -135,6 +151,7 @@ if args.role == "run":
                     worker = subprocess.Popen(
                         [sys.executable, __file__, "--role", role, "--url", url,
                          *role_arguments, "--runtime-root", str(ROOT), "--session-dir", str(session),
+                         "--width", str(args.width), "--height", str(args.height),
                          "--visibility", args.visibility,
                          *(["--expect-controller-ram", args.expect_controller_ram] if args.expect_controller_ram else [])],
                         cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
@@ -177,7 +194,7 @@ started = time.monotonic()
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(ignore_default_args=["--mute-audio"])
     try:
-        page = browser.new_page(viewport={"width": 1366, "height": 682})
+        page = browser.new_page(viewport={"width": args.width, "height": args.height})
         page.set_default_timeout(15000)
         page.on("pageerror", lambda error: errors.append(str(error)))
         # Room creation and Join first arrive as command results. The gameplay
@@ -300,6 +317,9 @@ with sync_playwright() as playwright:
         page.keyboard.up("x" if args.role == "host" else "z")
         direct_without_notice = page.get_by_test_id("connection-status").count() == 0
         assert direct_without_notice, "Direct shared play should have no connection notice"
+        layout = GeometryRecorder(page, f"{args.role}-play-to-pause",
+            "#room-heading, [data-layout-region=shared-leave-actions], .room-panel .play-controls, .room-panel .voice-card, [data-layout-region=game-actions], .room-detail-scroll")
+        layout.mark("playing")
         page.screenshot(path=str(session / f"{args.role}-playing.png"), full_page=True)
         if args.role == "host":
             wait_for("guest-200.json", 30)
@@ -307,16 +327,51 @@ with sync_playwright() as playwright:
         else:
             save("guest-200.json", {"frames": page.evaluate("proof.frameCount")})
         page.wait_for_function("proof.room?.game?.status==='paused'", timeout=15000, polling=50)
+        layout.mark("paused")
+        layout_result = layout.finish(session / f"{args.role}-play-to-pause.json",
+            required=("room-heading", "shared-leave-actions", "play-controls", "voice-card", "game-actions", "room-detail-scroll"))
         assert page.get_by_test_id("connection-status").count() == 0
         page.wait_for_function("proof.hashes.length>0", timeout=15000, polling=50)
         page.locator(".room-panel").wait_for(state="visible")
+        leave = page.get_by_role("button", name="Leave room", exact=True)
+        leave_bounds = control_visibility(leave) if args.width > 760 else None
+        leave.focus()
+        page.evaluate("()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
+        leave_focus_bounds = control_visibility(leave, require_focus=True)
+        resume = page.get_by_role("button", name="Ready to resume", exact=True)
+        resume_bounds = control_visibility(resume) if args.width > 760 else None
+        resume.focus()
+        page.evaluate("()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
+        resume_focus_bounds = control_visibility(resume, require_focus=True)
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
         room = page.evaluate("proof.room")
         assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 1
         assert page.get_by_role("button", name="Choose another file", exact=True).count() == 0
+        paused_frames = page.evaluate("proof.frameCount")
+        paused_hash = page.evaluate("proof.hashes.at(-1)")
+        recovery_layout = GeometryRecorder(page, f"{args.role}-pause-to-resume",
+            "#room-heading, [data-layout-region=shared-leave-actions], .room-panel .play-controls, .room-panel .voice-card, [data-layout-region=game-actions], .room-detail-scroll")
+        recovery_layout.mark("paused")
+        ready_slot_bounds = page.get_by_role("button", name="Ready to resume", exact=True).bounding_box()
         page.get_by_role("button", name="Ready to resume", exact=True).focus()
         page.keyboard.press("Enter")
         page.wait_for_function("proof.room?.game?.ready?.includes(proof.room.chatMembership)", timeout=15000)
+        recovery_layout.mark("ready")
+        resume_slot_bounds = None
+        if args.role == "host":
+            page.wait_for_function("proof.room?.game?.status==='resume_ready'", timeout=15000)
+            resume_together = page.get_by_role("button", name="Resume together", exact=True)
+            control_visibility(resume_together)
+            assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 0
+            resume_slot_bounds = resume_together.bounding_box()
+            assert ready_slot_bounds and resume_slot_bounds
+            assert all(abs(ready_slot_bounds[axis]-resume_slot_bounds[axis]) <= 1 for axis in ("x", "y", "width", "height")), (ready_slot_bounds, resume_slot_bounds)
+            recovery_layout.mark("all ready")
+            resume_together.click()
+        page.wait_for_function("proof.room?.game?.status==='playing'", timeout=15000)
+        recovery_layout.mark("resumed")
+        recovery_layout_result = recovery_layout.finish(session / f"{args.role}-pause-to-resume.json",
+            required=("room-heading", "shared-leave-actions", "play-controls", "voice-card", "game-actions", "room-detail-scroll"))
         page.locator("canvas").focus()
         assert page.locator("canvas").evaluate("node => node === document.activeElement")
         received = page.evaluate("proof.admission.received")
@@ -332,9 +387,10 @@ with sync_playwright() as playwright:
             "started": room["started"],
             "game_status": room["game"]["status"],
             "established": room["established"],
-            "frames": page.evaluate("proof.frameCount"),
+            "frames": paused_frames,
             "received_gameplay": received,
-            "last_hash": page.evaluate("proof.hashes.at(-1)"),
+            "last_hash": paused_hash,
+            "resumed_frames": page.evaluate("proof.frameCount"),
             "controller_ram": controller_ram,
             "direct_without_notice": direct_without_notice,
             "browser": browser.version,
@@ -347,6 +403,15 @@ with sync_playwright() as playwright:
             "file_input_count_after_reload": file_input_count_after_reload,
             "single_keyboard_resume_action": True,
             "back_to_game_focuses_canvas": True,
+            "resumed_together": True,
+            "ready_slot_bounds": ready_slot_bounds,
+            "resume_slot_bounds": resume_slot_bounds,
+            "pause_to_resume_layout": recovery_layout_result,
+            "paused_leave_bounds": leave_bounds,
+            "paused_leave_focus_bounds": leave_focus_bounds,
+            "paused_resume_bounds": resume_bounds,
+            "paused_resume_focus_bounds": resume_focus_bounds,
+            "play_to_pause_layout": layout_result,
         }
         save(f"{args.role}.json", evidence)
         # Both browsers stay connected until each has checked keyboard resume,

@@ -1,4 +1,5 @@
 import {RoomSlots} from './RoomSlots.tsx';
+import {ScrollRegion} from './ScrollRegion.tsx';
 import {catalogAvailability} from 'virtual:catalog';
 import {catalogEntry,catalogId,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {catalogFingerprint} from './catalog-fingerprint.ts';
@@ -177,10 +178,16 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   {!room&&state.directoryStatus==='live'&&state.status!=='No room selected.'&&state.status!==state.directoryError&&!state.status.toLowerCase().includes('password')&&!state.retryAfterMs&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
  </>} onCreate={onCreate} onJoin={(code,password)=>void client.current?.joinCode(code,password)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()} onDismissJoin={()=>client.current?.cancelJoin()}/>}
  {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading" data-testid={room?'room-view':undefined} data-invite={room?.invite}>
-  {room?.started==='shared'&&connectionNode}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
   {room?.started==='shared'&&<div data-layout-region="shared-leave-actions" className="room-leave-actions">{leaveControl}</div>}
   {playCards}
+  {room&&!!room.started && <section className="shared-gameplay-actions" data-layout-region="game-actions" aria-label="Shared gameplay">
+   <div className="game-state-message">{connectionNode}{(room.game.status!=='playing'||state.gameplay?.synchronizing)&&<p role="status" data-testid="game-status">{state.gameplay?.synchronizing?state.gameplay.status:room.game?.reason??state.gameplay?.status}</p>}</div>
+   {state.gameplay?.synchronizing&&<button className="game-action-primary" onClick={()=>client.current?.cancelSynchronization()}>Cancel synchronization</button>}
+   {room.established&&['paused','failed','resume_ready'].includes(room.game.status)&&<>{!state.gameplay?.synchronizing&&(selfSlot?.role!=='observer'||room.role==='host')&&(room.role==='host'&&room.game.status==='resume_ready'?<button className="game-action-primary" disabled={!!room.game.pending} onClick={()=>client.current?.resumeTogether()}>Resume together</button>:<button className="game-action-primary" disabled={!!room.game.pending} onClick={()=>client.current?.readyToResume()}>Ready to resume</button>)}<p className="game-action-feedback" role="status">{room.game.status==='resume_ready'?`Assigned players are ready. Waiting for ${room.host} to resume.`:'Waiting for the assigned players to prepare.'}</p></>}
+   {room.started&&!room.established&&(room.role==='host'||selfSlot?.role!=='observer')&&['failed','paused'].includes(room.game.status)&&<button className="game-action-primary" onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
+  </section>}
+  <ScrollRegion className="room-detail-scroll" aria-label="Room details">
   {invite&&!room&&state.preview&&<p>{state.preview.label} · {state.preview.host} · {'openSlots' in state.preview?`${state.preview.openSlots} open ${state.preview.openSlots===1?'place':'places'}`:'No open places'}{inviteDownload&&` · ${inviteDownload}`}</p>}
   {invite&&!room&&<div className="invite-action">{state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&<button disabled={state.busy} onClick={()=>state.preview?.visibility==='protected'?setInvitePasswordOpen(true):void client.current?.join(invite)}>Join room</button>}{!state.busy&&!state.preview&&<button onClick={()=>void client.current?.preview(invite)}>Retry invitation</button>}<button onClick={clearInvitation}>View public rooms</button></div>}
   {invite&&!room&&invitePasswordOpen&&state.preview&&<dialog ref={invitePasswordDialog} className="room-password-dialog" aria-label={`Join ${state.preview.label}`} onClose={()=>{client.current?.cancelJoin();setInvitePasswordOpen(false);setJoinPassword('');setShowJoinPassword(false);requestAnimationFrame(()=>document.querySelector<HTMLElement>('.invite-action button')?.focus());}}><h3>{state.preview.label}</h3><p>Password required</p><form onSubmit={event=>{event.preventDefault();if(validRoomPassword(joinPassword))void client.current?.join(invite,joinPassword);}}><label>Room password <input type={showJoinPassword?'text':'password'} autoComplete="off" value={joinPassword} onChange={event=>setJoinPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowJoinPassword(value=>!value)}>{showJoinPassword?'Hide':'Show'}</button><p className="hint">Use 8 to 128 characters.</p><p role="alert">{roomAdmissionMessage(state.admissionError,state.retryAfterMs)}</p><button data-layout-region="password-join" type="submit" disabled={!validRoomPassword(joinPassword)||state.busy}>Join room</button><button data-layout-region="password-back" type="button" onClick={()=>invitePasswordDialog.current?.close()}>Back</button></form></dialog>}
@@ -210,11 +217,6 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
     {room.visibility==='protected'&&<button data-make-public onClick={()=>{setConfirmPublic(true);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.visibility-confirm button')?.focus());}}>Make public</button>}
     {confirmPublic&&<div className="room-confirm visibility-confirm" role="group" aria-label="Confirm public room"><p>Anyone can join this room after you make it public.</p><button disabled={state.busy} onClick={async()=>{if(await client.current?.act({type:'visibility',roomId:room.id,visibility:'public',expectedAccessRevision:room.accessRevision}))setConfirmPublic(false);}}>Confirm public access</button><button onClick={cancelPublic}>Keep password</button></div>}
   </details>}
-  {room&&!!room.started && <section aria-label="Shared gameplay">{(room.game.status!=='playing'||state.gameplay?.synchronizing)&&<p role="status" data-testid="game-status">{state.gameplay?.synchronizing?state.gameplay.status:room.game?.reason??state.gameplay?.status}</p>}
-   {state.gameplay?.synchronizing&&<button onClick={()=>client.current?.cancelSynchronization()}>Cancel synchronization</button>}
-   {room.established&&['paused','failed','resume_ready'].includes(room.game.status)&&<>{(selfSlot?.role!=='observer'||room.role==='host')&&<button disabled={!!room.game.pending||!!state.gameplay?.synchronizing} onClick={()=>client.current?.readyToResume()}>Ready to resume</button>}{room.role==='host'&&<button disabled={!!room.game.pending||room.game.status!=='resume_ready'} onClick={()=>client.current?.resumeTogether()}>Resume together</button>}<p role="status">{room.game.status==='resume_ready'?`Assigned players are ready. Waiting for ${room.host} to resume.`:'Waiting for the assigned players to prepare.'}</p></>}
-   {room.started&&!room.established&&(room.role==='host'||selfSlot?.role!=='observer')&&['failed','paused'].includes(room.game.status)&&<button onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
-  </section>}
   {room&&room.started&&state.chat&&<details className="chat-disclosure"><summary>Room chat</summary><ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/></details>}
   {room&&!room.started&&<details name="room-tools" className="voice-disclosure"><summary>Voice</summary><VoiceControls state={state.voice} voice={client.current?.voice}/></details>}
   <div className="controls">
@@ -222,5 +224,6 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
    {!room && !state.connected && (state.admissionBlocked || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
   </div>
   {state.needsNewGuest && <button onClick={()=>client.current?.newGuest()}>Start a new guest session</button>}
+  </ScrollRegion>
  </section>}</>;
 });
