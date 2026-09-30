@@ -391,6 +391,70 @@ with sync_playwright() as playwright, ExitStack() as resources:
             required=("room-heading", "shared-leave-actions", "play-controls", "voice-card", "game-actions", "room-detail-scroll"))
         page.locator("canvas").focus()
         assert page.locator("canvas").evaluate("node => node === document.activeElement")
+        leave_layout = GeometryRecorder(page, f"{args.role}-leave-recovery",
+            "#room-heading, [data-layout-region=shared-leave-actions], .room-panel .play-controls, .room-panel .voice-card, [data-layout-region=game-actions], .room-detail-scroll")
+        leave_layout.mark("playing")
+        leave_layout.allow_user_scroll()
+        leave = page.get_by_role("button", name="Leave room", exact=True)
+        leave.focus()
+        control_visibility(leave, require_focus=True)
+        page.keyboard.press("Enter")
+        confirm = page.get_by_role("button", name="Confirm leave", exact=True)
+        confirm.wait_for()
+        confirm.focus()
+        confirm_bounds = control_visibility(confirm, require_focus=True)
+        stay = page.get_by_role("button", name="Stay in room", exact=True)
+        stay.focus()
+        stay_bounds = control_visibility(stay, require_focus=True)
+        leave_layout.allow_user_scroll(False)
+        leave_layout.mark("confirm")
+        page.screenshot(path=str(session / f"{args.role}-confirm-leave.png"), full_page=True)
+        leave_layout.allow_user_scroll()
+        page.keyboard.press("Enter")
+        leave.wait_for()
+        page.wait_for_function("document.activeElement?.hasAttribute('data-leave-room')")
+        control_visibility(leave, require_focus=True)
+        leave_layout.allow_user_scroll(False)
+        leave_layout.mark("cancelled")
+        page.evaluate("""() => { const original = WebSocket.prototype.send;
+          WebSocket.prototype.send = function(raw) {
+            let command; try { command = JSON.parse(raw); } catch {}
+            if (command?.type === 'close' || command?.type === 'leave') {
+              WebSocket.prototype.send = original;
+              queueMicrotask(() => this.dispatchEvent(new MessageEvent('message', {
+                data: JSON.stringify({type:'result',requestId:command.requestId,ok:false,error:'room_unavailable'})
+              })));
+              return;
+            }
+            return original.call(this, raw);
+          };
+        }""")
+        leave_layout.allow_user_scroll()
+        leave.focus()
+        page.keyboard.press("Enter")
+        confirm = page.get_by_role("button", name="Confirm leave", exact=True)
+        confirm.focus()
+        page.keyboard.press("Enter")
+        error = page.locator(".room-confirm [role=alert]").filter(has_text="Could not leave. Retry or stay.")
+        error.wait_for()
+        assert error.evaluate("n => n.scrollWidth <= n.clientWidth + 1"), "Leave error does not fit its status region"
+        control_visibility(error)
+        stay = page.get_by_role("button", name="Stay in room", exact=True)
+        stay.focus()
+        control_visibility(stay, require_focus=True)
+        leave_layout.allow_user_scroll(False)
+        leave_layout.mark("failed leave")
+        page.screenshot(path=str(session / f"{args.role}-failed-leave.png"), full_page=True)
+        leave_layout.allow_user_scroll()
+        page.keyboard.press("Enter")
+        leave.wait_for()
+        page.wait_for_function("document.activeElement?.hasAttribute('data-leave-room')")
+        control_visibility(leave, require_focus=True)
+        leave_layout.allow_user_scroll(False)
+        leave_layout.mark("recovered")
+        leave_layout_result = leave_layout.finish(session / f"{args.role}-leave-recovery.json",
+            required=("room-heading", "shared-leave-actions", "play-controls", "voice-card", "game-actions", "room-detail-scroll"))
+        assert page.evaluate("proof.room?.established && proof.room?.game?.status==='playing'")
         received = page.evaluate("proof.admission.received")
         expected_packet = "input" if args.role == "host" else "frame"
         assert received[expected_packet] > 0, f"No authoritative gameplay traffic reached this {args.role}: {received}"
@@ -426,6 +490,9 @@ with sync_playwright() as playwright, ExitStack() as resources:
             "ready_slot_bounds": ready_slot_bounds,
             "resume_slot_bounds": resume_slot_bounds,
             "pause_to_resume_layout": recovery_layout_result,
+            "leave_recovery_layout": leave_layout_result,
+            "confirm_leave_bounds": confirm_bounds,
+            "stay_in_room_bounds": stay_bounds,
             "paused_leave_bounds": leave_bounds,
             "paused_leave_focus_bounds": leave_focus_bounds,
             "paused_resume_bounds": resume_bounds,
