@@ -169,10 +169,10 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  const connectionNode=room?.started==='shared'&&!state.connected?<p role="status" data-testid="connection-status">Room service disconnected. Reconnect to check membership.</p>:null;
  const connectionIssue=!state.connected||failedPeers.length>0;
  const memberAcquisitionVisible=!!memberAcquisition&&(memberAcquisition.phase!=='loaded'||!room?.started&&!!memberAcquisition.notice);
- const fileSelectionVisible=!!room&&selectionLoading&&!includedBusy&&!(room.role==='member'&&!room.catalogId);
+ const fileSelectionVisible=!!room&&!room.started&&selectionLoading&&!includedBusy&&!(room.role==='member'&&!room.catalogId);
  const roomStatusImportant=!!state.retryAfterMs||/failed|could not|cannot|lost|unavailable|expired|changed|closed|denied|leave this room/i.test(state.status);
  const gameplayRecovery=!!state.gameplay?.status&&/cancel|fail|could not|cannot|timed out|unavailable|denied/i.test(state.gameplay.status);
- const gameMessage=fileSelectionVisible&&room?.started?'Checking game…':state.gameplay?.synchronizing||gameplayRecovery?state.gameplay?.status:room?.game.status==='resume_ready'?(room.role==='host'?'Players ready to resume.':'Waiting for host to resume.'):room?.game.status==='paused'&&room.established?'Waiting for the assigned players to prepare.':room?.game.reason??state.gameplay?.status;
+ const gameMessage=state.gameplay?.synchronizing||gameplayRecovery?state.gameplay?.status:room?.game.status==='resume_ready'?(room.role==='host'?'Players ready to resume.':'Waiting for host to resume.'):room?.game.status==='paused'&&room.established?'Waiting for the assigned players to prepare.':room?.game.reason??state.gameplay?.status;
  const leaveControl=room&&(confirmLeave||!(room.role==='member'&&!room.catalogId&&['checking','downloading','loading','expired'].includes(memberAcquisition?.phase??'')))&&(confirmLeave?<div className="room-confirm" role="group" aria-label="Confirm leave">{leaveError?<p role="alert" tabIndex={0}>{leaveError}</p>:<p>{room.role==='host'?'Close room for everyone?':'Leave this room?'}</p>}<button disabled={state.busy||exiting.current} onClick={()=>void leaveRoom(room)}>Confirm leave</button><button onClick={cancelLeave}>Stay in room</button></div>:<button data-leave-room onClick={()=>requestExit(onExit)}>Leave room</button>);
  return <>{state.releaseNotice&&!releaseInFullscreen&&<div className="release-notice" role="alert"><p>{state.releaseNotice}</p><button onClick={recoverRelease}>{player()?.isLoaded()?'Resume local game':'View rooms'}</button></div>}
  {showDiscovery&&<DirectoryPanel state={{...state,busy:state.busy||!!claiming}} notices={<>
@@ -185,12 +185,10 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   {room?.started==='shared'&&<div data-layout-region="shared-leave-actions" className="room-leave-actions">{leaveControl}</div>}
   {playCards}
   {room&&!!room.started && <section className="shared-gameplay-actions" data-layout-region="game-actions" aria-label="Shared gameplay">
-   <ScrollRegion className="game-state-message" aria-label="Game status">{connectionNode}{(fileSelectionVisible||room.game.status!=='playing'||state.gameplay?.synchronizing)&&<p role="status" data-testid="game-status">{gameMessage}</p>}</ScrollRegion>
-   {fileSelectionVisible?<button className="game-action-primary" onClick={()=>{player()?.cancel();client.current?.beginSelection();}}>Cancel loading</button>:<>
+   <ScrollRegion className="game-state-message" aria-label="Game status">{connectionNode}{(room.game.status!=='playing'||state.gameplay?.synchronizing)&&<p role="status" data-testid="game-status">{gameMessage}</p>}</ScrollRegion>
    {state.gameplay?.synchronizing&&<button className="game-action-primary" onClick={()=>client.current?.cancelSynchronization()}>Cancel synchronization</button>}
    {room.established&&['paused','failed','resume_ready'].includes(room.game.status)&&!state.gameplay?.synchronizing&&(selfSlot?.role!=='observer'||room.role==='host')&&(room.role==='host'&&room.game.status==='resume_ready'?<button className="game-action-primary" disabled={!!room.game.pending} onClick={()=>client.current?.resumeTogether()}>Resume together</button>:<button className="game-action-primary" disabled={!!room.game.pending} onClick={()=>client.current?.readyToResume()}>Ready to resume</button>)}
    {room.started&&!room.established&&(room.role==='host'||selfSlot?.role!=='observer')&&['failed','paused'].includes(room.game.status)&&<button className="game-action-primary" onClick={()=>client.current?.retryGame()}>Retry shared play</button>}
-   </>}
   </section>}
   <ScrollRegion className="room-detail-scroll" aria-label="Room details">
   {invite&&!room&&state.preview&&<p>{state.preview.label} · {state.preview.host} · {'openSlots' in state.preview?`${state.preview.openSlots} open ${state.preview.openSlots===1?'place':'places'}`:'No open places'}{inviteDownload&&` · ${inviteDownload}`}</p>}

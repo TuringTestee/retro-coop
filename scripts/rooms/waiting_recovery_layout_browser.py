@@ -63,6 +63,7 @@ def check(browser, url, output, label, viewport):
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start game', exact=True).click()
         page.locator('[data-layout-region=game-actions]').wait_for(state='visible')
+        page.get_by_role('button', name='Pause', exact=True).wait_for(state='visible')
         playing = GeometryRecorder(page, f'{label}-playing',
                                    '.playing .screen, [data-layout-region=game-actions], '
                                    '[data-layout-region=shared-leave-actions]')
@@ -71,7 +72,7 @@ def check(browser, url, output, label, viewport):
         page.locator('input[type=file]').set_input_files({
             'name': 'replacement.nes', 'mimeType': 'application/octet-stream',
             'buffer': ROM.read_bytes() + b'replacement'})
-        cancel = page.locator('[data-layout-region=game-actions]').get_by_role(
+        cancel = page.locator('[data-layout-region=player-primary-actions]').get_by_role(
             'button', name='Cancel loading', exact=True)
         cancel.wait_for(state='visible')
         playing.mark('checking-file')
