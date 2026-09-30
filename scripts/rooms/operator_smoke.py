@@ -78,6 +78,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 host.get_by_role('button', name='Ready', exact=True).click()
                 host.get_by_role('button', name='Start game', exact=True).click()
                 host.locator('main.playing.with-room').wait_for()
+                host.get_by_role('button', name='Tools', exact=True).click()
                 host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
                 host.wait_for_function("document.fullscreenElement?.classList.contains('panel')")
             host,guest = pair()

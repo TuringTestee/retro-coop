@@ -53,6 +53,7 @@ def verify_persistence(browser,url,rom,worker_path,output):
     assert settings.get_by_label('Game volume').input_value()=='37'
     assert settings.get_by_role('button',name='Change Right',exact=True).locator('..').locator('span').nth(1).inner_text()=='L', {'mapping':settings.get_by_role('button',name='Change Right',exact=True).locator('..').inner_text(),'stored':data()['preferences']}
     page.get_by_role('button',name='Back',exact=True).click()
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.get_by_role('button',name='Saves',exact=True).click()
     with page.expect_download() as download:page.get_by_role('button',name='Export current save',exact=True).click()
     machine=json.loads(open(download.value.path(),'rb').read()[72:]);assert machine['hardware']['wram'][3]==0x5a
@@ -141,6 +142,7 @@ def verify_replacement(browser,url,rom):
     select()
     assert page.evaluate('exports')==0, 'Regression must precede the first periodic/lifecycle capture'
     select()
+    page.get_by_role('button', name='Tools', exact=True).click()
     page.get_by_role('button',name='Saves',exact=True).click()
     with page.expect_download() as download:page.get_by_role('button',name='Export current save',exact=True).click()
     machine=json.loads(open(download.value.path(),'rb').read()[72:])

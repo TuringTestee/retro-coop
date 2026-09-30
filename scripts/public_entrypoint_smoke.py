@@ -296,6 +296,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
                 assert changing.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite") == newer_invite
                 changing.get_by_role("button", name="Ready", exact=True).click()
                 changing.get_by_role("button", name="Start game", exact=True).click()
+                changing.get_by_role("button", name="Tools", exact=True).click()
                 changing.get_by_role("button", name="Game help", exact=True).wait_for(timeout=15000)
                 changing.get_by_role("button", name="Game help", exact=True).click()
                 changing.get_by_text("Technical details", exact=True).click()

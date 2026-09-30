@@ -159,6 +159,7 @@ def main():
                                              ('Rewind', 'Rewind local game', 'rewind.png'),
                                              ('Game help', 'Game help', 'help.png')]:
                 host = local if label == 'Rewind' else room_host
+                host.get_by_role('button', name='Tools', exact=True).click()
                 host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
                 host.wait_for_function('!!document.fullscreenElement')
                 slug = label.lower().replace(' ', '-')
@@ -202,9 +203,11 @@ def main():
                 host.screenshot(path=str(args.output / f'fullscreen-return-{slug}.png'))
             host = room_host
             local.close()
+            host.get_by_role('button', name='Tools', exact=True).click()
             host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()
             host.wait_for_function('!!document.fullscreenElement')
             host.evaluate("()=>{window.savedExitFullscreen=document.exitFullscreen.bind(document);document.exitFullscreen=()=>Promise.reject(Error('Exit refused'));}")
+            host.get_by_role('button', name='Tools', exact=True).click()
             host.locator('.panel').get_by_role('button', name='Saves', exact=True).click()
             host.get_by_text('Could not exit fullscreen. Press Esc, then try again.', exact=True).wait_for()
             assert host.evaluate('!!document.fullscreenElement') and host.locator('.tool-page:visible').count() == 0
@@ -212,6 +215,7 @@ def main():
             # Headless Chromium does not route browser-level Escape to fullscreen.
             host.evaluate('()=>document.exitFullscreen()')
             host.wait_for_function('!document.fullscreenElement')
+            host.get_by_role('button', name='Tools', exact=True).click()
             host.locator('.panel').get_by_role('button', name='Saves', exact=True).click()
             host.get_by_role('heading', name='Saves on this device', exact=True).wait_for(state='visible')
             host.get_by_role('button', name='Back', exact=True).click()
