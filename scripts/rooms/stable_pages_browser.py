@@ -156,6 +156,8 @@ def main():
                 assert host.get_by_role('button', name='Back', exact=True).is_visible()
                 assert not host.locator('.room-panel').is_visible()
                 assert host.locator('dialog').count() == 0
+                if label == 'Rewind':
+                    control_visibility(host.get_by_role('button', name='Rewind 1 second', exact=True))
                 if label == 'Saves':
                     saves_layout = GeometryRecorder(host, 'save-feedback', '.tool-page [data-layout-region]')
                     saves_layout.mark('empty slot')
