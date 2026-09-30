@@ -17,7 +17,7 @@ from layout_geometry import GeometryRecorder, browser_zoom, control_visibility, 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
 SLOTS = '.room-slots [data-slot-id], .room-slots [data-slot-region]'
-ROOM_ACTIONS = '[data-layout-region=readiness-actions], [data-layout-region=start-actions], [data-layout-region=invite-actions], [data-layout-region=leave-actions]'
+ROOM_ACTIONS = '[data-layout-region=readiness-actions], [data-layout-region=start-actions], [data-layout-region=invite-actions], [data-layout-region=leave-actions], [data-layout-region=connection-recovery]'
 PASSWORD = '.room-password-dialog, .room-password-dialog h3, .room-password-dialog [role=alert], [data-layout-region=password-join], [data-layout-region=password-back]'
 DIRECTORY = '.directory-panel, .directory-title, .directory-search, .directory-feedback, .room-list, .pagination-region, .directory-title button'
 
@@ -33,6 +33,7 @@ def finish(check):
 
 def room_host(browser, url, viewport):
     context = browser.new_context(viewport=viewport, permissions=['clipboard-read', 'clipboard-write'])
+    context.add_init_script('window.layoutSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);layoutSockets.push(this)}};')
     page = context.new_page()
     page.goto(url)
     page.get_by_role('button', name='Create game', exact=True).click()
@@ -57,10 +58,10 @@ def check_profile(browser, url, output, label, viewport, directory_check=None):
         invite = host.evaluate('navigator.clipboard.readText()')
         assert host.get_by_label('Room invitation', exact=True).count() == 0
 
-        # Slot rows and their cells must keep their bounds when a member arrives,
-        # changes readiness, and leaves. The host stays on the same room view.
+        # Host actions and slot cells survive final-slot admission, readiness,
+        # leave confirmation and connection recovery without moving.
         slot = record(host, output, f'{label}-slots', SLOTS + ', ' + ROOM_ACTIONS,
-                      ['slot-1', 'slot-2', 'slot-2/status', 'readiness-actions', 'start-actions', 'invite-actions', 'leave-actions'])
+                      ['slot-1', 'slot-2', 'slot-2/status', 'readiness-actions', 'start-actions', 'invite-actions', 'leave-actions', 'connection-recovery'])
         guest = context.new_page()
         guest.goto(invite)
         guest.get_by_role('button', name='Join room', exact=True).click()
@@ -87,7 +88,45 @@ def check_profile(browser, url, output, label, viewport, directory_check=None):
         guest_actions[0].allow_user_scroll(False)
         slot[0].mark('member-ready')
         guest_actions[0].mark('member-ready')
+        for index in range(3, 6):
+            additional = context.new_page()
+            additional.goto(invite)
+            additional.get_by_role('button', name='Join room', exact=True).click()
+            additional.get_by_label('Room password').fill('blue-sky-room')
+            additional.locator('.room-password-dialog').get_by_role('button', name='Join room', exact=True).click()
+            additional.get_by_test_id('room-view').wait_for(state='attached')
+            host.wait_for_function('count=>[...document.querySelectorAll("[data-testid=room-slot]")].filter(row=>row.querySelector("[data-slot-region=identity] span")?.textContent?.trim()).length===count', arg=index)
+            slot[0].mark(f'{index}-occupied-slots')
+        assert host.get_by_role('button', name='Copy invite', exact=True).count() == 0
+        slot[0].allow_user_scroll(True)
+        host.locator('[data-slot-id=slot-5] [data-manage-slot]').click()
+        manage = host.get_by_role('dialog', name='Manage slot 5')
+        manage.get_by_role('button', name='Remove member', exact=True).click()
+        manage.get_by_role('button', name='Confirm removal', exact=True).click()
+        host.get_by_role('button', name='Copy invite', exact=True).wait_for()
+        slot[0].mark('final-slot-reopened')
+        host.get_by_role('button', name='Leave room', exact=True).click()
+        host.get_by_role('button', name='Stay in room', exact=True).wait_for()
+        slot[0].mark('leave-confirmation')
+        host.screenshot(path=str(output / f'{label}-leave-confirmation.png'))
+        host.get_by_role('button', name='Stay in room', exact=True).click()
+        host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+        slot[0].allow_user_scroll(False)
+        slot[0].mark('stay-in-room')
         checks.append(finish(slot))
+
+        guest.evaluate('layoutSockets.forEach(socket=>socket.close())')
+        guest.get_by_role('button', name='Reconnect rooms', exact=True).wait_for()
+        guest_actions[0].mark('connection-lost')
+        guest_actions[0].allow_user_scroll(True)
+        guest.get_by_role('button', name='Reconnect rooms', exact=True).scroll_into_view_if_needed()
+        control_visibility(guest.get_by_role('button', name='Reconnect rooms', exact=True))
+        guest.screenshot(path=str(output / f'{label}-connection-recovery.png'))
+        guest.get_by_role('button', name='Reconnect rooms', exact=True).click()
+        guest.get_by_role('button', name='Ready', exact=True).wait_for()
+        guest.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+        guest_actions[0].allow_user_scroll(False)
+        guest_actions[0].mark('connection-restored')
         checks.append(finish(guest_actions))
         start = host.get_by_role('button', name='Start game', exact=True)
         start.scroll_into_view_if_needed()
@@ -108,7 +147,7 @@ def check_zoom_room(context, worker, host, url, output, label):
     room.wait_for(state='attached')
     invite = room.get_attribute('data-invite')
     actions = record(host, output, f'{label}-zoom-200-room-actions', ROOM_ACTIONS + ', ' + SLOTS,
-                     ['readiness-actions', 'start-actions', 'invite-actions', 'leave-actions', 'slot-1', 'slot-2'])
+                     ['readiness-actions', 'start-actions', 'invite-actions', 'leave-actions', 'connection-recovery', 'slot-1', 'slot-2'])
     guest = context.new_page()
     guest.goto(f'{url}#invite={invite}')
     browser_zoom(guest, worker)
@@ -131,6 +170,15 @@ def check_zoom_room(context, worker, host, url, output, label):
     guest.get_by_role('button', name='Ready', exact=True).click()
     host.wait_for_function("() => document.querySelector('[data-slot-id=slot-2] [data-slot-region=status]')?.textContent?.includes('Ready')")
     actions[0].mark('member-ready')
+    actions[0].allow_user_scroll(True)
+    host.get_by_role('button', name='Leave room', exact=True).click()
+    host.get_by_role('button', name='Stay in room', exact=True).wait_for()
+    actions[0].mark('leave-confirmation')
+    host.screenshot(path=str(output / f'{label}-zoom-200-leave-confirmation.png'))
+    host.get_by_role('button', name='Stay in room', exact=True).click()
+    host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+    actions[0].allow_user_scroll(False)
+    actions[0].mark('stay-in-room')
     result.append(finish(actions))
     guest.close()
     return result
