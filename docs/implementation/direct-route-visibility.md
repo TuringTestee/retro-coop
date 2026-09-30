@@ -2,6 +2,8 @@ The current WebRTC ICE negotiation already offers Standard clients direct and TU
 
 # Implementation
 
+The later [room access and automatic routing plan](room-access-and-routing.md) removes user-selected Standard/Relay-only for new sessions. The direct/relay metrics and route-choice checks below record the earlier shipped UI; route diagnostics remain available for tests.
+
 The [minimal room journey plan](minimal-room-journey.md) supersedes persistent route, FPS and ping content in ordinary play. Route instrumentation may remain for developer diagnostics and failure recovery, but the sidebar obligations below are historical after #169 integrates.
 
 - Keep Standard on `iceTransportPolicy: all` and Relay only on `relay`; rely on the selected ICE candidate pair, which the existing `connectionRoute` classifies for Chrome and Firefox. The ICE standard recommends higher priority for host, peer-reflexive and server-reflexive candidates than relayed candidates. Do not add a speculative direct-only timeout: it could add connection delay and force fallback before a direct candidate succeeds.

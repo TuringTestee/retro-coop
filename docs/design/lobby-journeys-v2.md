@@ -4,6 +4,8 @@ Audience: Human
 
 # Lobby journeys after the server-room direction
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes unlisted invitation, private-code omission and manual route-choice steps below. Protected rooms appear in search and ask for a password before Join.
+
 This is the journey artifact based on [direction and reference evidence](lobby-server-rooms-direction.md). It is a proposed interaction map, not a claim that the current app implements these paths.
 
 The approved [room game download journeys](room-rom-transfer.md#journeys) replace J2's matching-file recovery and J5's bring-your-own-file outcome for host-provided custom rooms; transfer issues #87–#91 are integrated. PR #101 approved Create Game J1–J6 in the [current journey file](create-game-library-journeys.md), replacing immediate host entry after CG1/CG2 implementation. J7–J10 there are pending PR #103 Guest-place/no-overlay additions. Included-game claim, host Start and friend discovery still apply.

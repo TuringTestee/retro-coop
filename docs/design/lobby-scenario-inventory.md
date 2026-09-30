@@ -4,6 +4,8 @@ Audience: Human
 
 # Complete player scenario inventory
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes unlisted/non-resolution and Standard/Relay-only scenarios below. Password admission, wrong-password Retry, throttling and automatic route recovery replace those cases. Unaffected room, game and accessibility cases remain.
+
 This is a historical interaction inventory, not proof that the application works. It covers the supported desktop browser scope and the earlier [lobby browser proposal](lobby-browser-proposal.md). The [current scenario inventory](lobby-scenarios-v2.md) and [lobby amendment](lobby-refactor.md) supersede the cases marked below once approved and merged. “Approved” records an earlier product requirement, not an implementation claim or priority over a later approved amendment. “Proposal” changes that requirement and needs alignment. “Later” means a deferred journey; it must not appear as a working promise. Operator-only actions are included only where a player sees their effect. Technical tests, pricing, and infrastructure are outside this player inventory.
 
 The approved [room game download amendment](room-rom-transfer.md) replaces this earlier inventory's host-provided matching-file and no-download scenarios. The running app still follows those earlier states until issues #87–#91 integrate; unaffected recovery and accessibility scenarios continue to apply.

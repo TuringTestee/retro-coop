@@ -4,6 +4,8 @@ Audience: Human
 
 # Lobby direction and reference evidence
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) makes protected rooms discoverable and password-gated. Unlisted-only invitation behavior and manual route choice below are historical; slot and host direction remains where consistent.
+
 This is the direction artifact for the next UI iteration. It records the user's September 22 corrections to the [earlier lobby proposal](lobby-browser-proposal.md). It describes intended behavior, not what the running application already supports.
 
 The approved [room game download amendment](room-rom-transfer.md) supersedes the local-only custom-room file rule below. The host will upload once, then admitted guests download the exact bytes. The current app still follows the earlier rule until issues #87–#91 integrate; included-game 0/2 offers and host Start remain.

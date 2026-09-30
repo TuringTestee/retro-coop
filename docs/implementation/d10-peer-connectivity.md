@@ -4,7 +4,9 @@ Audience: Agent
 
 # Peer connectivity and connection privacy
 
-The [minimal room journey plan](minimal-room-journey.md) leaves the public Standard/Relay-only control in place. A separate owner decision and reviewed routing amendment must replace it; the privacy enforcement and existing active-room policy below remain authoritative.
+The later [room access and automatic routing plan](room-access-and-routing.md) removes user-selected Standard/Relay-only policy and its Settings control for new sessions. Existing route diagnostics, bounded negotiation and active strict-session rollover remain where consistent; the old choice and stricter-preference tests below are historical for the new UI.
+
+The [minimal room journey plan](minimal-room-journey.md) initially left the public Standard/Relay-only control in place pending owner direction. The later [room access plan](room-access-and-routing.md) resolves that deferral: new sessions use automatic routing; only already active strict sessions retain their old policy until closure. The old selector and per-user privacy-choice requirements below are historical for new sessions.
 
 The merged [five-slot plan](five-slot-lobby.md) replaces D10’s original single-pair topology. Five members need at most ten voice pairs; gameplay and checkpoints use only the four host-member edges. Each pair has independent authentication, offerer, epoch and retry. One failed pair must not dispose the other pairs or recapture the local microphone. Host identity is separate from the deterministic offerer/answerer choice.
 

@@ -2,6 +2,8 @@ Audience: Agent
 
 # D16 temporary room chat
 
+This is shipped D16 evidence. The later [room access and automatic routing plan](room-access-and-routing.md) requires password admission before a protected room's chat; older Public/Unlisted examples are historical.
+
 Friends can send text before loading a matching game. Messages stay in the current room, are rendered as plain text, and disappear locally on departure. Unsent text survives a connection or rate-limit failure until the player explicitly retries or discards it.
 
 ## Rules and ownership

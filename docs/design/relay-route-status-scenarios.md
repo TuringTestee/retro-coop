@@ -1,5 +1,7 @@
 # Relay route status: scenario inventory
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes selected-policy and ordinary connected-route scenarios below for new sessions. They remain shipped-behavior history; failed connection still needs Retry/Leave.
+
 The [minimal room journey](minimal-room-journey.md) removes routine connected-route messages from ordinary play after implementation. The connected-result rows below record currently shipped behavior; failure and recovery rows remain applicable.
 
 The current room side panel owns the visible route status. These scenarios refine its existing connection story without changing how players join, play or leave.

@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game direction
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) replaces Public/Unlisted with Public/Password protected and removes the connection-policy selector described below. Game selection, validation, upload and recovery remain.
+
 The [minimal room journey](minimal-room-journey.md) supersedes the routine preview and competing actions in this earlier Create Game direction. Keep the existing connection privacy control until a separate reviewed routing amendment. Game selection, file validation, access and recovery remain applicable.
 
 The [stable layout amendment](stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below. Implementation remains pending its reviewed plan and room/voice dependencies.

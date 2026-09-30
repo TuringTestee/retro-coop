@@ -4,6 +4,8 @@ Audience: Agent
 
 # Room game transfer delivery plan
 
+The later [room access and automatic routing plan](room-access-and-routing.md) requires password verification before protected-room file access. Public/Unlisted examples below are historical; the exact-byte transfer and cleanup duties remain.
+
 **Approved snapshot:** reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, based on `fa15c99` and the user's 2026-09-23 Lilac Harbor report; merged as `c66e092`. [Independent planning review](https://github.com/TuringTestee/retro-coop/pull/86#issuecomment-5791826936) accepted the plan, and the user explicitly chose “Approve PR #86 and proceed.” [PR #85](https://github.com/TuringTestee/retro-coop/pull/85) supplies the merged two-tab, explicit guest Prepare and background-play baseline. The [epic](https://github.com/TuringTestee/retro-coop/issues/2) and delivery issues #87–#91 own the integrated transfer evidence. PR #101 approved the [Create Game CG1/CG2 plan](create-game-library.md) for host entry; CG3/CG4 in that file are pending PR #103 approval.
 
 ## Existing owners to reuse

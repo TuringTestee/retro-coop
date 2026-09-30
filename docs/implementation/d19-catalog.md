@@ -2,6 +2,8 @@ Audience: Agent
 
 # D19 two-game catalog evidence
 
+This is shipped D19 evidence. The later [room access and automatic routing plan](room-access-and-routing.md) replaces older Public/Unlisted and route-choice examples; catalog identity and verified asset obligations remain.
+
 This document records the earlier D19 catalog delivery and its browser evidence. The current [lobby refactor](lobby-refactor.md) replaces its direct Play and All lobbies controls with ordinary public room rows, host Start, and Public rooms. The exact asset and emulator evidence below remains historical proof for the supplied games.
 
 ## Candidate behavior

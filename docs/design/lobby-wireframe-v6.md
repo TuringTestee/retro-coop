@@ -4,6 +4,8 @@ Audience: Human
 
 # Lobby wireframe v6: preparation exits
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) replaces this sketch's unlisted invitation with a listed protected room and password prompt. Its guest acquisition, Cancel, Retry and Ready recovery remain where consistent.
+
 **Implemented room-preparation sketch:** Revises [v5](lobby-wireframe-v5.md) after its [critique](lobby-critique-v5.md). Approved behavior remains [room game downloads](room-rom-transfer.md); unaffected room pages remain in [v3](lobby-wireframe-v3.md). [Create Game v2](create-game-library-wireframe-v2.md) is the approved but not yet implemented public-browser/host-setup baseline. [Create Game v4](create-game-library-wireframe-v4.md) is the pending PR #103 proposal for waiting-room Guest-place controls and stable pages. This historical page still describes the current guest preparation and recovery path until the changed UI integrates.
 
 ## Public directory and unlisted invitation

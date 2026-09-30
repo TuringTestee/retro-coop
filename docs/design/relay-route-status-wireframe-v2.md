@@ -1,5 +1,7 @@
 # Relay route status: current wireframe v2
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes the Relay only selection and connected-route display here after implementation. This page records the earlier shipped UI.
+
 The [minimal room journey](minimal-room-journey.md) supersedes this connected-route display in ordinary play after implementation. This is the wireframe for the currently shipped route status; its failure/recovery requirements remain.
 
 The connected route occupies one compact status area in the existing fixed room panel. It has no new control, overlay or notification. The ASCII labels below **render** the exact D1/D2 copy governed by [direction](relay-route-status-direction.md); they are not an independent copy specification.

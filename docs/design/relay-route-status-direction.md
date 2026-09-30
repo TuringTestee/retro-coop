@@ -1,5 +1,7 @@
 # Relay route status: direction
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) removes user-selected Relay only for new sessions. D1/D2 below remain shipped-copy history; after #169, only connection failure/recovery feedback belongs in the ordinary UI.
+
 The [minimal room journey](minimal-room-journey.md) supersedes persistent connected-route messages in ordinary play. Show plain connection failure and recovery when needed; the exact messages below remain historical evidence for the earlier requested design.
 
 The current shipped game shows a short route message beside play. **Until the minimal room journey is implemented, this file defines the exact connected-route copy (D1 and D2).** After #169 removes routine connected-route copy, these messages are historical. Failure and recovery feedback remains required. Journeys, scenarios and ASCII screens below refer to those IDs for the shipped behavior.

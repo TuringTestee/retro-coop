@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game journeys
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) replaces Public/Unlisted and the route selector in these journeys. Protected creation requires a password; protected Join and invitation follow the same server admission gate.
+
 The [minimal room journey](minimal-room-journey.md) supersedes J2's routine selected-game preview and any old Start/exit path after its implementation. Keep the file-selection, validation, upload and recovery steps below where consistent. The current privacy choice remains until a separate routing amendment.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
