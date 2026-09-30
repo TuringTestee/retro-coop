@@ -52,6 +52,12 @@ with contextlib.ExitStack() as stack:
    for page in pages:
     page.wait_for_function("proof.room?.occupancy===5&&proof.room.peers.length===4&&proof.room.peers.every(peer=>peer.status==='connected')",polling=50)
     assert page.get_by_test_id('room-slot').count()==5
+   host.screenshot(path=str(out.with_suffix('.waiting-desktop.png')),full_page=True)
+   host.set_viewport_size({'width':390,'height':800})
+   host.screenshot(path=str(out.with_suffix('.waiting-mobile.png')),full_page=True)
+   host.locator('.room-panel').evaluate('node=>node.scrollTop=node.scrollHeight')
+   host.screenshot(path=str(out.with_suffix('.waiting-mobile-actions.png')),full_page=True)
+   host.set_viewport_size({'width':1440,'height':1100})
    routes=[page.evaluate("async()=>Promise.all(gamePeers.map(async pc=>{const report=await pc.getStats();const transport=[...report.values()].find(v=>v.type==='transport'&&v.selectedCandidatePairId);const pair=transport&&report.get(transport.selectedCandidatePairId);return {state:pc.connectionState,local:pair&&report.get(pair.localCandidateId)?.candidateType,remote:pair&&report.get(pair.remoteCandidateId)?.candidateType}}))") for page in pages]
    assert all(len(values)==4 for values in routes),routes
    if args.relay:assert all(value['local']=='relay' and value['remote']=='relay' for values in routes for value in values),routes
@@ -66,6 +72,7 @@ with contextlib.ExitStack() as stack:
    for page in pages:
     page.get_by_role('button',name='Ready',exact=True).click()
     page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)',polling=20)
+   host.screenshot(path=str(out.with_suffix('.everyone-ready.png')),full_page=True)
    host.get_by_role('button',name='Start game',exact=True).click()
    for page in pages:page.evaluate('releaseFrames()')
    if args.initial_stall:

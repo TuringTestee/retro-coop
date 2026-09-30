@@ -121,7 +121,7 @@ export class RoomClient {
      if(['creation_expired','upload_expired'].includes(event.reason)&&this.intent) {
       ++this.creationGeneration;this.uploadAbort?.abort();this.uploadAbort=undefined;this.intent=undefined;
       this.publish({busy:false,uploading:false,hostFailure:true,status:'Upload timed out. Retry upload to create a fresh room.',releaseNotice:undefined});
-     }else this.publish({busy:false,status:voluntaryExit&&event.reason==='host_closed'?'Room closed. Your local game is still available.':status,releaseNotice:voluntaryExit||event.reason==='left'||event.reason==='host_closed'&&priorRoom?.role==='host'?undefined:status});}
+     }else this.publish({busy:false,status:voluntaryExit&&event.reason==='host_closed'?'Room closed.':status,releaseNotice:voluntaryExit||event.reason==='left'||event.reason==='host_closed'&&priorRoom?.role==='host'?undefined:status});}
    };
    socket.onopen = () => {void this.request({type:'hello',policy:this.policy,...(this.token ? {token:this.token}:{})}).then(async data=>{
     clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token))throw Error('This browser cannot reserve a separate room session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.closePeers('No peer connection.');this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a room.'}:{})});

@@ -61,9 +61,12 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
     timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
   ) & transfer_pid=$!
   timeout --foreground 120s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages & pages_pid=$!
+  mkdir -p spikes/d02/public-entrypoint.local/exit
+  RETRO_EXIT_SCREENSHOT_DIR=spikes/d02/public-entrypoint.local/exit timeout --foreground 60s python3 scripts/rooms/exit_browser.py > spikes/d02/public-entrypoint.local/exit/result.json & exit_pid=$!
   wait "$shared_pid"
   wait "$transfer_pid"
   wait "$pages_pid"
+  wait "$exit_pid"
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv
