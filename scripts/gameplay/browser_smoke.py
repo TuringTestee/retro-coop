@@ -112,7 +112,7 @@ try:
    initial_members=g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
-   g.get_by_role('button',name='Ready',exact=True).click()
+   g.get_by_role('button',name='Ready',exact=True).click(timeout=30000)
    h.wait_for_function("member=>proof.room?.game?.ready?.includes(member)",arg=g.evaluate('proof.room.chatMembership'),timeout=15000,polling=50)
    h.get_by_role('button',name='Ready',exact=True).click()
    h.get_by_role('button',name='Start game',exact=True).click()
