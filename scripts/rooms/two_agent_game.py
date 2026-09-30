@@ -402,7 +402,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
         page.keyboard.press("Enter")
         confirm = page.get_by_role("button", name="Confirm leave", exact=True)
         confirm.wait_for()
-        question_fit = page.locator(".room-confirm p").evaluate("n => ({height:n.clientHeight,scrollHeight:n.scrollHeight,width:n.clientWidth,scrollWidth:n.scrollWidth})")
+        question_fit = page.locator(".room-leave-actions .room-confirm p").evaluate("n => ({height:n.clientHeight,scrollHeight:n.scrollHeight,width:n.clientWidth,scrollWidth:n.scrollWidth})")
         assert question_fit["scrollHeight"] <= question_fit["height"] + 1 and question_fit["scrollWidth"] <= question_fit["width"] + 1, question_fit
         confirm.focus()
         confirm_bounds = control_visibility(confirm, require_focus=True)
@@ -441,7 +441,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
         confirm = page.get_by_role("button", name="Confirm leave", exact=True)
         confirm.focus()
         page.keyboard.press("Enter")
-        error = page.locator(".room-confirm [role=alert]").filter(has_text="Could not leave. Retry or stay.")
+        error = page.locator(".room-leave-actions .room-confirm [role=alert]").filter(has_text="Could not leave. Retry or stay.")
         error.wait_for()
         assert error.evaluate("n => n.scrollWidth <= n.clientWidth + 1"), "Leave error does not fit its status region"
         control_visibility(error)
@@ -461,6 +461,42 @@ with sync_playwright() as playwright, ExitStack() as resources:
         leave_layout_result = leave_layout.finish(session / f"{args.role}-leave-recovery.json",
             required=("room-heading", "shared-leave-actions", "play-controls", "voice-card", "game-actions", "room-detail-scroll"))
         assert page.evaluate("proof.room?.established && proof.room?.game?.status==='playing'")
+        access_layout_result = None
+        if args.role == "host" and args.visibility == "protected":
+            access_layout = GeometryRecorder(page, "host-playing-public-access",
+                "#room-heading, [data-layout-region=shared-leave-actions], .room-panel .play-controls, .room-panel .voice-card, [data-layout-region=game-actions], .room-detail-scroll")
+            access_layout.mark("protected playing")
+            access_layout.allow_user_scroll()
+            page.get_by_role("button", name="Players", exact=True).click()
+            page.locator("details.session-settings summary").click()
+            public = page.get_by_role("button", name="Make public", exact=True)
+            public.focus()
+            control_visibility(public, require_focus=True)
+            page.keyboard.press("Enter")
+            group = page.get_by_role("group", name="Confirm public room")
+            group.wait_for()
+            assert "Anyone can join" in group.inner_text()
+            confirm_public = group.get_by_role("button", name="Confirm public access", exact=True)
+            confirm_public.focus()
+            control_visibility(confirm_public, require_focus=True)
+            keep_password = group.get_by_role("button", name="Keep password", exact=True)
+            keep_password.focus()
+            control_visibility(keep_password, require_focus=True)
+            page.screenshot(path=str(session / "host-confirm-public.png"), full_page=True)
+            page.keyboard.press("Enter")
+            page.wait_for_function("document.activeElement?.hasAttribute('data-make-public')")
+            control_visibility(public, require_focus=True)
+            access_layout.mark("public change cancelled")
+            page.keyboard.press("Enter")
+            confirm_public = page.get_by_role("group", name="Confirm public room").get_by_role("button", name="Confirm public access", exact=True)
+            confirm_public.focus()
+            control_visibility(confirm_public, require_focus=True)
+            page.keyboard.press("Enter")
+            page.wait_for_function("proof.room?.visibility==='public' && proof.room?.game?.status==='playing'")
+            access_layout.allow_user_scroll(False)
+            access_layout.mark("public playing")
+            access_layout_result = access_layout.finish(session / "host-playing-public-access.json",
+                required=("room-heading", "shared-leave-actions", "play-controls", "voice-card", "game-actions", "room-detail-scroll"))
         received = page.evaluate("proof.admission.received")
         expected_packet = "input" if args.role == "host" else "frame"
         assert received[expected_packet] > 0, f"No authoritative gameplay traffic reached this {args.role}: {received}"
@@ -497,6 +533,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
             "resume_slot_bounds": resume_slot_bounds,
             "pause_to_resume_layout": recovery_layout_result,
             "leave_recovery_layout": leave_layout_result,
+            "playing_public_access_layout": access_layout_result,
             "confirm_leave_bounds": confirm_bounds,
             "stay_in_room_bounds": stay_bounds,
             "paused_leave_bounds": leave_bounds,
