@@ -1,0 +1,54 @@
+{
+  "product_revision": "1e6e542620ca55a737ad48b2e0707029bfeac6e5",
+  "checks": [
+    {
+      "region": "desktop-directory",
+      "viewport": "1280\u00d7800",
+      "samples": 34,
+      "max_drift_css_px": 0,
+      "failures": 0
+    },
+    {
+      "region": "desktop-password",
+      "viewport": "1280\u00d7800",
+      "samples": 13,
+      "max_drift_css_px": 0,
+      "failures": 0
+    },
+    {
+      "region": "desktop-slots",
+      "viewport": "1280\u00d7800",
+      "samples": 63,
+      "max_drift_css_px": 0,
+      "failures": 0
+    },
+    {
+      "region": "desktop-zoom-200-directory",
+      "viewport": "640\u00d7400",
+      "samples": 6,
+      "max_drift_css_px": 0,
+      "failures": 0
+    },
+    {
+      "region": "mobile-password",
+      "viewport": "390\u00d7700",
+      "samples": 13,
+      "max_drift_css_px": 0,
+      "failures": 0
+    },
+    {
+      "region": "mobile-slots",
+      "viewport": "390\u00d7700",
+      "samples": 43,
+      "max_drift_css_px": 0,
+      "failures": 0
+    },
+    {
+      "region": "mobile-zoom-200-directory",
+      "viewport": "390\u00d7700",
+      "samples": 6,
+      "max_drift_css_px": 0,
+      "failures": 0
+    }
+  ]
+}
