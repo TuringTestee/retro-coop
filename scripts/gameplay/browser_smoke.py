@@ -68,9 +68,12 @@ try:
    h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
     # The public host chooses an observer slot before starting alone.
+    h.locator('[data-slot-id=slot-2]').get_by_role('button',name='Manage',exact=True).click()
     h.get_by_label('Slot 2 role',exact=True).select_option('observer')
     h.wait_for_function("proof.room.slots[1].role==='observer'")
+    h.get_by_role('dialog',name='Manage slot 2').get_by_role('button',name='Done',exact=True).click()
     invite=h.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+    h.get_by_role('button',name='Ready',exact=True).click()
     h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()')
     h.wait_for_function('proof.frameCount>=120',polling=50)
     prior_frame=h.evaluate('proof.frames.at(-1).frame');prior_epoch=h.evaluate('proof.activeEpoch')
@@ -107,20 +110,20 @@ try:
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
    g.get_by_role('button',name='Ready',exact=True).click()
    h.wait_for_function("member=>proof.room?.game?.ready?.includes(member)",arg=g.evaluate('proof.room.chatMembership'),timeout=15000,polling=50)
+   h.get_by_role('button',name='Ready',exact=True).click()
    h.get_by_role('button',name='Start game',exact=True).click()
    if args.cancel_barrier:
     g.wait_for_function('proof.droppedAcks===1',timeout=10000,polling=50)
     open_room(g).get_by_role('button',name='Leave room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
     h.wait_for_function("proof.room.occupancy===1 && proof.room.slots.filter(slot=>slot.member).length===1",polling=50)
     assert not h.evaluate('proof.room.established') and h.locator('canvas').get_attribute('data-frame-count')=='0'
-    # The absent owner's mapping is preserved; explicit Leave releases local play.
+    # Explicit Leave closes the room before Public rooms appears.
     open_room(h).get_by_role('button',name='Leave room',exact=True).click()
     h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
-    h.evaluate('releaseFrames()');h.get_by_role('button',name='Resume local game',exact=True).click()
-    # Voluntary Leave returns to the directory; this header action only opens the local player.
+    assert h.get_by_test_id('directory').is_visible()
+    assert h.get_by_role('button',name='Resume local game',exact=True).count()==0
     assert h.locator('canvas').get_attribute('data-frame-count')=='0'
-    h.get_by_role('button',name='Resume',exact=True).click();h.wait_for_function("parseInt(document.querySelector('canvas').dataset.frameCount)>0",polling=50)
-    result={'source':source,'build_files':build_files,'resumed_locally':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'navigation_preserved_frames':0,'resumed_local_frames':int(h.locator('canvas').get_attribute('data-frame-count').split()[0]),'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
+    result={'source':source,'build_files':build_files,'quit_before_directory':True,'result':'pass','scenario':'cancel unacknowledged initial barrier','host_frames':0,'navigation_preserved_frames':0,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.barrier_timeout or args.retry_barrier:
     for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='failed'",timeout=15000,polling=50)
@@ -183,8 +186,9 @@ try:
     if args.screenshots:h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True,mask=[h.locator('input[aria-label="Room invitation"]:visible')])
     if args.kick_playing:
      # Remove this precise member through the current host slot control.
-     slot=h.get_by_test_id('room-slot').filter(has=h.get_by_role('button',name='Remove member',exact=True))
-     slot.get_by_role('button',name='Remove member',exact=True).click()
+     h.get_by_role('button',name='Players',exact=True).click()
+     h.locator('[data-slot-id=slot-2]').get_by_role('button',name='Manage',exact=True).click()
+     h.get_by_role('dialog',name='Manage slot 2').get_by_role('button',name='Remove member',exact=True).click()
      h.get_by_role('button',name='Confirm removal',exact=True).click()
      g.get_by_test_id('room-view').wait_for(state='detached')
     else:
@@ -208,11 +212,14 @@ try:
     if args.kick_playing:
      open_room(h).get_by_role('button',name='Leave room',exact=True).click()
      h.get_by_role('button',name='Confirm leave',exact=True).click();h.get_by_test_id('room-view').wait_for(state='detached')
-    h.get_by_role('button',name='Resume local game',exact=True).click()
-    if args.kick_playing:h.get_by_role('button',name='Resume',exact=True).click()
-    h.wait_for_function("n=>parseInt(document.querySelector('canvas').dataset.frameCount)>n",arg=local[0])
+     assert h.get_by_test_id('directory').is_visible()
+     assert h.get_by_role('button',name='Resume local game',exact=True).count()==0
+     assert h.locator('canvas').get_attribute('data-frame-count')=='0'
+    else:
+     h.get_by_role('button',name='Resume local game',exact=True).click()
+     h.wait_for_function("n=>parseInt(document.querySelector('canvas').dataset.frameCount)>n",arg=local[0])
     assert g.evaluate('proof.frameCount')==stopped[1]
-    result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':True,'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
+    result={'result':'pass','source':source,'scenario':f'operator {args.operator_playing} during shared play' if args.operator_playing else 'kick during shared play','stopped_shared_frames':stopped,'preserved_local_frames':local,'explicit_host_resume':not args.kick_playing,'voluntary_exit_quits_game':bool(args.kick_playing),'both_peers_closed':True,'page_errors':errors,'seconds':round(time.monotonic()-started,2)}
     assert not errors,errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.screenshots:
@@ -286,9 +293,10 @@ try:
    while measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed)<args.seconds:h.wait_for_timeout(20)
    active_seconds=round(measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed),2)
    expected_status='Relay only is on. Connected through the relay.' if args.relay else 'Direct connection unavailable. Relay keeps you playing together.' if args.standard_fallback else None
+   route='relay' if args.relay or args.standard_fallback else 'direct'
+   route_probe="""async expected=>{for(const pc of gamePeers){if(pc.connectionState!=='connected')continue;const stats=await pc.getStats();let pair;for(const value of stats.values())if(value.type==='transport'&&value.selectedCandidatePairId)pair=stats.get(value.selectedCandidatePairId);else if(value.type==='candidate-pair'&&value.selected)pair=value;if(!pair)continue;const local=stats.get(pair.localCandidateId)?.candidateType,remote=stats.get(pair.remoteCandidateId)?.candidateType;if(!local||!remote||!pair.bytesSent||!pair.bytesReceived)continue;if(expected==='relay'?local==='relay'&&remote==='relay':local!=='relay'&&remote!=='relay')return true;}return false;}"""
    for tab in [h,g]:
-    tab.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent.match(/FPS [1-9][0-9]*/)",timeout=5000)
-    tab.wait_for_function("document.querySelector('[data-testid=game-ping]')?.textContent.match(/^Ping [0-9]+ ms$/)",timeout=5000)
+    tab.wait_for_function(route_probe,arg=route,timeout=10000)
     status_node=tab.get_by_test_id('connection-status')
     if expected_status:assert status_node.is_visible() and expected_status in status_node.inner_text(), 'A selected relay path must be explained during shared play'
     else:assert status_node.count()==0 and tab.locator('.relay-notice').count()==0, 'Direct play must have no relay warning'
@@ -301,7 +309,7 @@ try:
    if args.screenshots:
     h.set_viewport_size({'width':390,'height':844})
     if expected_status:assert h.get_by_test_id('connection-status').is_visible()
-    else:assert h.get_by_test_id('game-fps').is_visible()
+    else:assert h.locator('.room-panel').is_visible()
     assert h.evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Mobile room overflows horizontally'
     h.screenshot(path=str(out.with_suffix('.mobile.shared-playing.png')),full_page=True)
     h.set_viewport_size({'width':1366 if args.short_viewport else 1280,'height':682 if args.short_viewport else 1050})
@@ -315,11 +323,10 @@ try:
     assert delayed['response']['hash']==final[1]['hash'],delayed
     assert all(record['requestId']!=delayed['requestId'] and record['frame']<delayed['frame'] for record in delayed['periodic']),delayed
    hashes=[normalized_periodic_hashes(tab.evaluate('proof.sentHashes'),pause,completed) for tab,pause,completed in zip([h,g],before,final)];assert hashes[0]==hashes[1], 'Every interior epoch/frame hash must be present and identical on both peers';assert len(hashes[0])>=2
-   route='relay' if args.relay or args.standard_fallback else 'direct'
    for tab in [h,g]:
     if expected_status:assert expected_status in tab.get_by_test_id('connection-status').inner_text()
     else:assert tab.get_by_test_id('connection-status').count()==0
-    tab.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent==='FPS —'",timeout=3000)
+    assert tab.evaluate(route_probe,route),'Selected transport changed before pause'
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'
