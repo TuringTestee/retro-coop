@@ -31,14 +31,14 @@ try:
             assert bounds['width'] <= bounds['viewportWidth'] and bounds['height'] <= bounds['viewportHeight'], bounds
             return bounds
         def claim(tab, title):
-            row = tab.locator('.room-list li').filter(has_text=title).filter(has_text='0/5 · 5 open').first
+            row = tab.locator('.room-list li').filter(has_text=title).filter(has_text='5 places open').first
             row.get_by_role('button', name='Join as host').click()
             tab.get_by_role('button', name='Start game', exact=True).wait_for()
             tab.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)
             assert tab.get_by_test_id('room-slot').count() == 5
             assert 'Player 1' in tab.locator('[data-slot-id=slot-1]').inner_text() and 'Host' in tab.locator('[data-slot-id=slot-1]').inner_text()
         wide = page(1280, 800)
-        assert wide.locator('.room-list li').filter(has_text='0/5 · 5 open').count() == 2
+        assert wide.locator('.room-list li').filter(has_text='5 places open').count() == 2
         fit(wide)
         wide.screenshot(path=str(args.output / 'directory-wide.png'))
         claim(wide, 'Super Tilt Bro')

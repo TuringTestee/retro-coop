@@ -59,13 +59,13 @@ try:
             assert hashes[0] and hashes[0] == hashes[1]
             return {'frames': [tab.evaluate('proof.frameCount') for tab in (host, guest)], 'matching_hash': hashes[0]}
         host = page()
-        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · 5 open').first
+        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='5 places open').first
         offer.get_by_role('button', name='Join as host').click()
         host.get_by_role('button', name='Start game', exact=True).wait_for()
         included_code = code(host)
         friend = page()
         row = friend.locator('.room-list li').filter(has_text=included_code)
-        assert '1/5 · 4 open' in row.inner_text()
+        assert '4 places open' in row.inner_text()
         assert 'P1/P2 controllers · included' in row.inner_text()
         friend.screenshot(path=str(args.output / 'included-directory.png'))
         file_choosers = []

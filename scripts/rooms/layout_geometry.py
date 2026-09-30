@@ -105,7 +105,8 @@ def control_visibility(locator, require_focus=False):
       const b=n.getBoundingClientRect(),style=getComputedStyle(n),focused=n===document.activeElement;
       const outline=focused ? Math.max(0,parseFloat(style.outlineWidth)||0)+Math.max(0,parseFloat(style.outlineOffset)||0):0;
       let clip={left:0,top:0,right:innerWidth,bottom:innerHeight}; const ancestors=[];
-      for(let p=n.parentElement;p;p=p.parentElement){const s=getComputedStyle(p),r=p.getBoundingClientRect();
+      for(let p=n.parentElement;p;p=p.parentElement){if(p===document.body||p===document.documentElement)continue;
+        const s=getComputedStyle(p),r=p.getBoundingClientRect();
         const x=/(auto|scroll|hidden|clip)/.test(s.overflowX),y=/(auto|scroll|hidden|clip)/.test(s.overflowY);
         if(x){clip.left=Math.max(clip.left,r.left+p.clientLeft);clip.right=Math.min(clip.right,r.left+p.clientLeft+p.clientWidth);}
         if(y){clip.top=Math.max(clip.top,r.top+p.clientTop);clip.bottom=Math.min(clip.bottom,r.top+p.clientTop+p.clientHeight);}

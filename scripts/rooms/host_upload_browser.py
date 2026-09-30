@@ -96,7 +96,7 @@ async def main():
             await public.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
             public_code=await public.locator('#room-heading').inner_text()
             await guest.get_by_role('searchbox',name='Search room, game, host, or code').fill(public_code)
-            public_row=guest.locator('.room-list li').filter(has_text=public_code).filter(has_text='1/5 · 4 open').filter(has_not=guest.locator('.room-lock'))
+            public_row=guest.locator('.room-list li').filter(has_text=public_code).filter(has_text='4 places open').filter(has_not=guest.locator('.room-lock'))
             await public_row.wait_for()
             assert await public_row.count()==1, 'The newly created public room should have one directory row'
             invalid=await context.new_page();await invalid.goto(URL)
