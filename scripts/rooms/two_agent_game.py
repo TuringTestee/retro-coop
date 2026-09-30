@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import subprocess
+import struct
 import sys
 import time
 from pathlib import Path
@@ -44,6 +45,13 @@ def save(name, value):
     temporary = session / f".{name}.{os.getpid()}"
     temporary.write_text(json.dumps(value, indent=2) + "\n")
     temporary.replace(target)
+
+
+def capture_viewport(page, name):
+    capture = page.screenshot(path=str(session / name), full_page=False)
+    image_size = struct.unpack_from(">II", capture, 16)
+    viewport = page.viewport_size
+    assert image_size == (viewport["width"], viewport["height"]), (name, image_size, viewport)
 
 
 def wait_for(name, seconds=100):
@@ -366,7 +374,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
         assert page.get_by_test_id("game-status").evaluate("n => getComputedStyle(n).fontSize") == leave_style["font"]
         if args.width > 760:
             control_visibility(page.get_by_test_id("game-status"))
-        page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
+        capture_viewport(page, f"{args.role}-room.png")
         room = page.evaluate("proof.room")
         assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 1
         assert page.get_by_role("button", name="Choose another file", exact=True).count() == 0
@@ -422,7 +430,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
             assert style["font"] == leave_style["font"] and abs(style["height"] - leave_style["height"]) <= 1, (leave_style, style)
         leave_layout.allow_user_scroll(False)
         leave_layout.mark("confirm")
-        page.screenshot(path=str(session / f"{args.role}-confirm-leave.png"), full_page=True)
+        capture_viewport(page, f"{args.role}-confirm-leave.png")
         leave_layout.allow_user_scroll()
         page.keyboard.press("Enter")
         leave.wait_for()
@@ -458,7 +466,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
         control_visibility(stay, require_focus=True)
         leave_layout.allow_user_scroll(False)
         leave_layout.mark("failed leave")
-        page.screenshot(path=str(session / f"{args.role}-failed-leave.png"), full_page=True)
+        capture_viewport(page, f"{args.role}-failed-leave.png")
         leave_layout.allow_user_scroll()
         page.keyboard.press("Enter")
         leave.wait_for()
@@ -490,7 +498,7 @@ with sync_playwright() as playwright, ExitStack() as resources:
             keep_password = group.get_by_role("button", name="Keep password", exact=True)
             keep_password.focus()
             control_visibility(keep_password, require_focus=True)
-            page.screenshot(path=str(session / "host-confirm-public.png"), full_page=True)
+            capture_viewport(page, "host-confirm-public.png")
             page.keyboard.press("Enter")
             page.wait_for_function("document.activeElement?.hasAttribute('data-make-public')")
             control_visibility(public, require_focus=True)
