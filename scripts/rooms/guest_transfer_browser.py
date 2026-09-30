@@ -35,7 +35,7 @@ with sync_playwright() as playwright:
     code = host.locator('#room-heading').inner_text().split(' · ')[-1]
     guest.get_by_role('searchbox').fill(code)
     row = guest.locator('.room-list li').filter(has_text=code)
-    assert 'Host-shared NES' in row.inner_text() and 'download' in row.inner_text()
+    assert "Host's game file" in row.inner_text() and 'download' in row.inner_text()
     failed = {'once': False}
     def first_download(route):
         if not failed['once']:

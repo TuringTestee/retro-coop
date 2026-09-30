@@ -5,6 +5,7 @@ import {matchingRooms} from '../../../packages/contracts/src/directory.ts';
 import type {RoomPreview} from '../../../packages/contracts/src/rooms.ts';
 import type {RoomState} from './room-client.ts';
 import {clampPage,pageRows} from './directory-page.ts';
+import {roomDownloadLabel} from './room-download.ts';
 function roomState(room:RoomPreview) {
  if(room.status==='unavailable')return 'Unavailable';
  return `${room.occupancy}/5 · ${'openSlots' in room?room.openSlots:5-room.occupancy} open`;
@@ -29,7 +30,7 @@ export function DirectoryPanel({state,onCreate,onJoin,onClaim,onRetry,connection
     const claim=available&&room.occupancy===0,join=available&&room.occupancy>0;
     return <li key={room.id} data-room-id={room.id} tabIndex={-1} onFocus={()=>{focusedRoom.current=room.id;}}>
      <strong>{room.label}</strong>
-     <span>{known&&known.title!==room.label?known.title:'NES game'}</span>
+     <span>{known?known.title!==room.label?known.title:'':roomDownloadLabel(room)}</span>
      <span>{room.host||'Waiting for host'}</span><span>{roomState(room)}</span>
      {claim&&room.catalogId&&<button onClick={()=>onClaim(room.code!,room.catalogId!)}>Join as host</button>}
      {join&&<button onClick={()=>onJoin(room.code!)}>Join</button>}
