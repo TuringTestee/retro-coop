@@ -123,6 +123,7 @@ def check(page, url, output, label, zoom_worker=None):
     keyboard = page.get_by_role('button', name='Use keyboard', exact=True)
     page.wait_for_function("document.activeElement?.textContent?.trim()==='Use keyboard'")
     control_visibility(keyboard, require_focus=True)
+    assert keyboard.evaluate('node=>parseFloat(getComputedStyle(node).outlineWidth)>=3')
     page.screenshot(path=str(output / f'{label}-controller-recovery.png'), full_page=False)
     keyboard.click()
     page.get_by_role('button', name='Tools', exact=True).wait_for(state='visible')
