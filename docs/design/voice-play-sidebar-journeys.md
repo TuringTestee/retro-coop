@@ -6,6 +6,8 @@ Players can find controls, speak with a partner, recover from errors, and leave 
 
 This scope begins after a player has entered or started a game. Each path names the next action, visible feedback and a way out when it fails.
 
+The later [minimal room journey](minimal-room-journey.md) replaces the always-visible binding list in C1/C2 with a Controls action that opens Settings. Voice and input recovery paths below still apply.
+
 | ID | Player journey | Outcome and recovery |
 |---|---|---|
 | V1 | Host or guest enters shared play → sees `Voice · Off` in the side rail → chooses `Enable voice` → browser asks for microphone access → card shows pending, then `Mic on` or `Hold to talk` → speaks with the other player. | If access is denied or no device exists, card states why and offers `Try again`; detailed device choice is in Voice settings. Game and text chat continue. |

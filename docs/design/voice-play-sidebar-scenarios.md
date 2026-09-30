@@ -6,6 +6,8 @@ These states specify what the side rail shows as devices, permissions, rooms and
 
 The cards serve only active play. The table makes their state changes and recovery concrete.
 
+The later [minimal room journey](minimal-room-journey.md) supersedes the always-visible mapping readout in S6–S8; Controls opens the mapping list in Settings when needed. Voice state and recovery scenarios below remain in force.
+
 | ID | Journey | Trigger and visible result | Recovery |
 |---|---|---|---|
 | S1 | V1 | Peer connects in shared play; `Voice · Off` and `Enable voice` appear. No permission prompt yet. | If peer is not connected, show `Voice · Connecting` and no enabled capture action. |

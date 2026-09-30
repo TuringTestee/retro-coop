@@ -16,12 +16,14 @@ The [Warcraft III Custom Game list](https://classic.battle.net/war3/ladder/featu
 
 | State | Keep visible | Remove from ordinary view or reveal only for a task |
 |---|---|---|
-| Public rooms | Search, concise room/game and host identity, available places, protected-room lock, Join, Create game, and relevant loading/empty/error feedback. For host supplied games, name the file source and possible download size before Join. | Repeated status/occupancy text, decorative previews and technical route controls. Exact room code is searchable and available when sharing; it need not be repeated in every row. |
+| Public rooms | Search, concise room/game and host identity, available places, protected-room lock, Join, Create game, and relevant loading/empty/error feedback. For host supplied games, name the file source and possible download size before Join. | Repeated status/occupancy text, decorative previews, a second control to clear the search field, and technical route controls. Exact room code is searchable and available when sharing; it need not be repeated in every row. |
 | Create game | Game list/Add NES file, selected game identity, Public/Password protected, Create room, Back, and validation/upload feedback while active. | Always-on preview and technical route selector. Play locally is a secondary action where its separate journey starts, not a competing Create action. |
 | Waiting room | Five numbered slots as the single source for member name, role, game/connection preparation, and readiness; Copy invite, the member's Ready action, host Start game, Leave room. | Duplicate room/role paragraphs, visible invite URL, permanent per-slot management form, performance counters, generic connection detail. Host management opens from the affected slot; chat and optional voice stay compact and usable. |
-| Playing | Game, immediate controls, microphone state and mute, Pause/Resume when applicable, Leave room, and a compact way to open Players, chat, Saves, Help or Settings for their real tasks. | Persistent FPS/ping/frame/delay counters, repeated room summary, full five-slot management controls beside the game, technical route status when connected normally. Show connection trouble and Retry only when relevant. |
+| Playing | Game, current player role, a visible Players action, microphone state and mute, Pause/Resume when applicable, Leave room, and a compact way to open Controls, chat, Saves, Help or Settings for their real tasks. | Always-visible key mapping lists, persistent FPS/ping/frame/delay counters, repeated room summary, full five-slot management controls beside the game, technical route status when connected normally. Show connection trouble and Retry only when relevant. |
 
 The [access amendment](room-access-and-routing.md) owns the protected-room password step and automatic connection policy. Routine performance diagnostics remain out of ordinary play.
+
+The Controls action opens the existing Settings mapping list and editor. This replaces the persistent binding readout in the earlier [voice sidebar design](voice-play-sidebar-direction.md); device identity and any unbound action appear when the player asks to inspect controls. The public search field can clear its own query, so it needs no adjacent duplicate button.
 
 ## Journeys and recovery
 

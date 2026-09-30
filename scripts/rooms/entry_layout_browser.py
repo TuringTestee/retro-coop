@@ -141,7 +141,7 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
         path = output / f'{label}-empty-search.png'
         capture(page, path, label)
         proof['captures'].append(path.name)
-    page.get_by_role('button', name='Clear search').click()
+    search.fill('')
     page.get_by_text('No matching public rooms.', exact=True).wait_for(state='hidden')
     directory.allow_user_scroll(True)
     search.click()
@@ -178,7 +178,7 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
     close_room(host)
     page.get_by_text('No matching public rooms.', exact=True).wait_for()
     directory.mark('room removed')
-    page.get_by_role('button', name='Clear search').click()
+    search.fill('')
     proof['directory_geometry'] = directory.finish(output / f'{label}-directory-layout.json',
         required=('directory-heading','directory-search','directory-feedback','directory-list','directory-actions'))
     proof['states'].extend(('loading', 'public rooms', 'directory stale', 'directory retry', 'room added', 'empty search', 'search recovery', 'pagination appeared', 'next page', 'previous page', 'pagination disappeared', 'room removed'))

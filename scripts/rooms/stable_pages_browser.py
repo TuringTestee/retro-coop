@@ -144,6 +144,8 @@ def main():
             host.get_by_role('button', name='Start game', exact=True).click()
             host.locator('main.playing.with-room').wait_for(timeout=15000)
             wide = geometry(host, '1280x720')
+            control_visibility(host.get_by_role('button', name='Players', exact=True))
+            assert host.locator('.play-bindings').count() == 0
             host.screenshot(path=str(args.output / 'playing-wide.png'))
             # A room always owns a shared timeline now. Rewind remains a local-play
             # tool; preserve its fullscreen/focus journey in an independent local tab.

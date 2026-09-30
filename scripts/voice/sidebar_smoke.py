@@ -24,13 +24,14 @@ def run(host, guest, output):
     assert 'Player 1' in host.locator('.play-controls').inner_text()
     assert 'Player 2' in guest.locator('.play-controls').inner_text()
     host.screenshot(path=str(output.with_suffix('.sidebar-off.png')), full_page=True)
-    # One editor owns the mapping; the readout updates on return.
-    host.get_by_role('button', name='Edit controls', exact=True).click()
+    # The compact play card opens the one mapping editor only when needed.
+    host.get_by_role('button', name='Controls', exact=True).click()
     host.get_by_role('button', name='Change A', exact=True).click()
     host.get_by_label('Capture input', exact=True).press('q')
     host.get_by_role('button', name='Apply mapping', exact=True).click()
+    assert 'Q' in host.locator('.mapping').filter(has=host.get_by_role('button', name='Change A', exact=True)).inner_text()
     host.get_by_role('button', name='Back', exact=True).click()
-    assert host.locator('.play-bindings > div').filter(has=host.locator('dt', has_text='A')).first.locator('dd').inner_text() == 'Q'
+    assert host.evaluate('document.activeElement.textContent') == 'Controls'
     host.get_by_role('button', name='Tools', exact=True).click()
     host.get_by_role('button', name='Game help', exact=True).click()
     assert 'Arrows move' not in host.locator('.game-help').inner_text()
@@ -130,21 +131,26 @@ def solo(browser, url, rom, output, root):
     load()
     assert tab.locator('.play-controls').is_visible()
     assert tab.locator('.voice-card').count()==0
-    tab.get_by_role('button',name='Edit controls',exact=True).click()
+    tab.get_by_role('button',name='Controls',exact=True).click()
     tab.get_by_label('Input device',exact=True).select_option('0')
     tab.get_by_role('button',name='Back',exact=True).click()
-    assert tab.evaluate('document.activeElement.textContent')=='Edit controls'
+    assert tab.evaluate('document.activeElement.textContent')=='Controls'
     # A valid saved mapping can have no input or multiple long alternatives.
     tab.evaluate('''()=>new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>{const db=request.result;const tx=db.transaction('preferences','readwrite');const store=tx.objectStore('preferences');const rows=store.getAll();rows.onsuccess=()=>{for(const row of rows.result){row.value.controls.gamepad.select=[];row.value.controls.gamepad.up=['axis:10:-1','axis:11:-1','axis:12:-1'];store.put(row)}};tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>reject(tx.error)}})''')
     load()
-    card=tab.locator('.play-controls')
-    assert 'Gamepad' in card.inner_text() and 'Unbound' in card.inner_text() and 'Axis 13 −' in card.inner_text()
+    tab.get_by_role('button',name='Controls',exact=True).click()
+    expect(tab.get_by_label('Input device',exact=True)).to_have_value('0')
+    tab.get_by_label('Edit mappings',exact=True).select_option('gamepad')
+    assert 'Unbound' in tab.locator('.mapping-list').inner_text()
+    assert 'Axis 13 −' in tab.locator('.mapping-list').inner_text()
+    tab.get_by_role('button',name='Back',exact=True).click()
     tab.screenshot(path=str(Path(output).with_suffix('.sidebar-solo-pad.png')),full_page=True)
     tab.set_viewport_size({'width':400,'height':900})
     assert tab.evaluate('document.documentElement.scrollWidth<=innerWidth')
     tab.screenshot(path=str(Path(output).with_suffix('.sidebar-solo-narrow.png')),full_page=True)
     tab.evaluate('padConnected=false')
     tab.get_by_role('button',name='Use keyboard',exact=True).click()
-    assert 'Keyboard' in card.inner_text() and 'Gamepad' not in card.inner_text()
+    tab.get_by_role('button',name='Controls',exact=True).click()
+    expect(tab.get_by_label('Input device',exact=True)).to_have_value('keyboard')
     tab.close()
-    return {'solo_readout_no_voice':True,'saved_unbound_and_long_pad_mappings':True,'lost_pad_keyboard_recovery':True,'edit_controls_return_focus':True}
+    return {'solo_controls_on_demand_no_voice':True,'saved_unbound_and_long_pad_mappings':True,'lost_pad_keyboard_recovery':True,'controls_return_focus':True}
