@@ -7,6 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from layout_geometry import GeometryRecorder, control_visibility
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -40,6 +41,18 @@ def main():
         url = json.loads(service.stdout.readline())['url']
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
+            probe = browser.new_page()
+            probe.set_content('<div class="scroll-owner" style="height:50px;overflow:auto"><div data-layout-region="scroll-sentinel" style="height:200px">Scroll sentinel</div></div>')
+            scroll_check = GeometryRecorder(probe, 'unprompted-scroll-jump', '[data-layout-region=scroll-sentinel]')
+            probe.evaluate("document.querySelector('.scroll-owner').scrollTop=30")
+            try:
+                scroll_check.finish(args.output / 'scroll-jump-rejection.json', required=('scroll-sentinel',))
+            except AssertionError:
+                rejection = json.loads((args.output / 'scroll-jump-rejection.json').read_text())
+                assert any('scroll changed outside user-input interval' in failure for failure in rejection['failures']), rejection['failures']
+            else:
+                raise AssertionError('The geometry recorder accepted an unprompted scroll jump')
+            probe.close()
             host = browser.new_page(viewport={'width': 1280, 'height': 720})
             errors = []
             host.on('pageerror', lambda error: errors.append(str(error)))
@@ -48,15 +61,37 @@ def main():
             host.wait_for_function("document.activeElement?.id === 'settings-title'")
             assert host.locator('dialog').count() == 0
             assert not host.locator('.directory-panel').is_visible()
+            tool_proofs = []
+            host.get_by_role('button', name='Restore keyboard defaults').scroll_into_view_if_needed()
+            settings_layout = GeometryRecorder(host, 'settings-reset', '.tool-page [data-layout-region]')
+            settings_layout.mark('idle')
             host.get_by_role('button', name='Restore keyboard defaults').click()
+            settings_layout.mark('confirmation')
             host.keyboard.press('Escape')
+            settings_layout.mark('dismissed')
             assert host.get_by_role('button', name='Keep mappings').count() == 0
+            tool_proofs.append(settings_layout.finish(args.output / 'settings-reset-layout.json',
+                                                     required=('tool-heading', 'tool-content', 'mapping-dialog')))
             host.screenshot(path=str(args.output / 'settings.png'))
             host.get_by_role('button', name='Local data', exact=True).click()
             host.wait_for_function("document.activeElement?.id === 'local-data-title'")
+            host.get_by_role('button', name='Delete all local data').scroll_into_view_if_needed()
+            local_data_layout = GeometryRecorder(host, 'local-data-confirmation', '.tool-page [data-layout-region]')
+            local_data_layout.mark('idle')
+            local_data_layout.allow_user_scroll()
             host.get_by_role('button', name='Delete all local data').click()
+            host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            local_data_layout.allow_user_scroll(False)
+            local_data_layout.mark('confirmation')
+            local_data_layout.allow_user_scroll()
             host.keyboard.press('Escape')
+            host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            local_data_layout.allow_user_scroll(False)
+            local_data_layout.mark('dismissed')
             assert host.get_by_role('button', name='Confirm', exact=True).count() == 0
+            tool_proofs.append(local_data_layout.finish(args.output / 'local-data-confirmation-layout.json',
+                                                       required=('tool-heading', 'tool-content', 'tool-status',
+                                                                 'tool-confirmation', 'tool-list', 'tool-actions')))
             host.screenshot(path=str(args.output / 'local-data.png'))
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Local data'")
@@ -135,10 +170,31 @@ def main():
                 assert host.get_by_role('button', name='Back', exact=True).is_visible()
                 assert not host.locator('.room-panel').is_visible()
                 assert host.locator('dialog').count() == 0
+                if label == 'Rewind':
+                    control_visibility(host.get_by_role('button', name='Rewind 1 second', exact=True))
+                if label == 'Saves':
+                    saves_layout = GeometryRecorder(host, 'save-feedback', '.tool-page [data-layout-region]')
+                    saves_layout.mark('empty slot')
+                    host.get_by_role('button', name='Save current point', exact=True).click()
+                    host.get_by_text('Saved in Slot 1 on this device.', exact=True).wait_for()
+                    saves_layout.mark('saved slot')
+                    tool_proofs.append(saves_layout.finish(args.output / 'save-feedback-layout.json',
+                                                          required=('tool-heading', 'tool-content', 'tool-list',
+                                                                    'tool-status', 'tool-confirmation', 'tool-actions')))
+                    delete_save = host.get_by_role('button', name='Delete Slot 1', exact=True)
+                    delete_save.focus()
+                    host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+                    control_visibility(delete_save, require_focus=True)
                 if label == 'Game help':
+                    host.get_by_text('Technical details', exact=True).scroll_into_view_if_needed()
+                    help_layout = GeometryRecorder(host, 'help-details', '.tool-page [data-layout-region]')
+                    help_layout.mark('closed')
                     host.get_by_text('Technical details', exact=True).click()
                     expected = hashlib.sha256((STATIC / 'generated/diagnostic.nes').read_bytes()).hexdigest()
                     assert expected in host.get_by_test_id('fingerprint').inner_text()
+                    help_layout.mark('open')
+                    tool_proofs.append(help_layout.finish(args.output / 'help-details-layout.json',
+                                                         required=('tool-heading', 'tool-content')))
                 host.screenshot(path=str(args.output / filename))
                 host.get_by_role('button', name='Back', exact=True).click()
                 host.wait_for_function("label => document.activeElement?.textContent === label", arg=label)
@@ -203,7 +259,8 @@ def main():
                       'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
                       'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
-                      'layout': [wide, narrow, zoom], 'page_errors': errors}
+                      'layout': [wide, narrow, zoom], 'tool_layout': tool_proofs,
+                      'scroll_probe_rejected_jump': True, 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))
             browser.close()

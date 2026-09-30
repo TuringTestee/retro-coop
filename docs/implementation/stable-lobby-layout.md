@@ -4,7 +4,7 @@ Audience: Agent
 
 # Stable lobby layout implementation
 
-The [minimal room journey plan](minimal-room-journey.md) changes content inside these fixed regions. This document continues to own geometry; old wireframe/scenario controls that #169 removes are historical after that feature integrates. Preserve the current privacy control until its separate routing amendment.
+The [minimal room journey plan](minimal-room-journey.md) changes content inside these fixed regions. This document continues to own geometry; old wireframe/scenario controls that #169 removes are historical after that feature integrates. Room access is Public or Password protected, and connection routing stays automatic.
 
 ## Governing scope and dependencies
 

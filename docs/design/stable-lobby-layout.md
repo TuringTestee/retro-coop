@@ -4,7 +4,7 @@ Audience: Human
 
 # Stable lobby layout
 
-The [minimal room journey](minimal-room-journey.md) changes which content appears in these regions. This document continues to own their fixed geometry; older wireframe, journey and scenario links below are historical where #169 removes a control or preview. The current privacy control stays in its reserved region until a separate routing amendment.
+The [minimal room journey](minimal-room-journey.md) changes which content appears in these regions. This document continues to own their fixed geometry; older wireframe, journey and scenario links below are historical where #169 removes a control or preview. Room access is Public or Password protected; the product chooses the connection path.
 
 ## Source and scope
 
@@ -22,8 +22,8 @@ A deliberate navigation, viewport resize, zoom change, or user scroll can change
 
 | Existing screen | Regions that remain stable | Overflow and recovery |
 |---|---|---|
-| Public rooms and invitation | Heading/navigation, search/privacy controls, service status, room list or invite details, and page actions | Loading, stale, empty, and failed results use reserved status/list space. The list scrolls within its region; pagination and Join/Back do not move when results arrive. |
-| Create Game | Heading/Back, library, selected preview, access/privacy choices, validation/upload feedback, and Create/Cancel actions | Preview/no-preview/loading share one frame. Library growth and long errors scroll inside their assigned areas; selection and upload progress cannot move Create. Narrow layouts use a deterministic stacked arrangement. |
+| Public rooms and invitation | Heading/navigation, search and room access cues, service status, room list or invite details, and page actions | Loading, stale, empty, and failed results use reserved status/list space. The list scrolls within its region; pagination and Join/Back do not move when results arrive. |
+| Create Game | Heading/Back, library, selected preview, Public or Password protected access, validation/upload feedback, and Create/Cancel actions | Preview/no-preview/loading share one frame. Library growth and long errors scroll inside their assigned areas; selection and upload progress cannot move Create. Narrow layouts use a deterministic stacked arrangement. |
 | Waiting or playing room | Room heading, five numbered slot rows, each row's role/status/actions, game/controls, voice, chat, connection feedback, and room actions | Slot loading, role changes, reconnect, closure, and removal confirmation replace content within their regions. Slots never collapse. Chat growth and connection errors cannot push microphone or Leave controls out of view. |
 | Settings, Local data, Saves, Rewind, Help, and release/recovery pages | Existing heading/Back, task content, feedback, and inline confirmation/action areas | Long settings/content and errors remain scrollable. Confirm/cancel occupies reserved action space. Returning restores usable focus without changing the underlying room or microphone state. |
 
