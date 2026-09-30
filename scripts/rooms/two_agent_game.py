@@ -355,11 +355,17 @@ with sync_playwright() as playwright, ExitStack() as resources:
         leave.focus()
         page.evaluate("()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
         leave_focus_bounds = control_visibility(leave, require_focus=True)
+        leave_style = leave.evaluate("n => ({font:getComputedStyle(n).fontSize,height:n.getBoundingClientRect().height})")
         resume = page.get_by_role("button", name="Ready to resume", exact=True)
         resume_bounds = control_visibility(resume) if args.width > 760 else None
         resume.focus()
         page.evaluate("()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))")
         resume_focus_bounds = control_visibility(resume, require_focus=True)
+        ready_style = resume.evaluate("n => ({font:getComputedStyle(n).fontSize,height:n.getBoundingClientRect().height})")
+        assert ready_style["font"] == leave_style["font"] and abs(ready_style["height"]-leave_style["height"]) <= 1, (leave_style, ready_style)
+        assert page.get_by_test_id("game-status").evaluate("n => getComputedStyle(n).fontSize") == leave_style["font"]
+        if args.width > 760:
+            control_visibility(page.get_by_test_id("game-status"))
         page.screenshot(path=str(session / f"{args.role}-room.png"), full_page=True)
         room = page.evaluate("proof.room")
         assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 1
@@ -379,6 +385,8 @@ with sync_playwright() as playwright, ExitStack() as resources:
             page.wait_for_function("proof.room?.game?.status==='resume_ready'", timeout=15000)
             resume_together = page.get_by_role("button", name="Resume together", exact=True)
             control_visibility(resume_together)
+            resume_style = resume_together.evaluate("n => ({font:getComputedStyle(n).fontSize,height:n.getBoundingClientRect().height})")
+            assert resume_style["font"] == ready_style["font"] and abs(resume_style["height"]-ready_style["height"]) <= 1, (ready_style, resume_style)
             assert page.get_by_role("button", name="Ready to resume", exact=True).count() == 0
             resume_slot_bounds = resume_together.bounding_box()
             assert ready_slot_bounds and resume_slot_bounds

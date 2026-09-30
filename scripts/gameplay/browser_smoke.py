@@ -287,7 +287,7 @@ try:
     h.get_by_role('button',name='Use keyboard',exact=True).click()
    open_room(h).get_by_role('button',name='Ready to resume',exact=True).click()
    h.wait_for_function("proof.room.game.ready?.includes(proof.room.chatMembership)",polling=50)
-   assert h.get_by_role('button',name='Resume together',exact=True).is_disabled()
+   assert h.get_by_role('button',name='Resume together',exact=True).count()==0
    h.get_by_text('Waiting for the assigned players to prepare.',exact=True).wait_for()
    open_room(g).get_by_role('button',name='Ready to resume',exact=True).click()
    # Arm while paused: every resumed frame belongs to the scripted workload.
