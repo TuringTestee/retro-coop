@@ -4,7 +4,7 @@ Audience: Human
 
 # Lobby experience amendment
 
-The [minimal room journey](minimal-room-journey.md) supersedes starting past an occupied unprepared member and leaving a room active behind Public rooms. The existing pre-peer privacy control and earlier first-host/directory architecture remain where consistent.
+The [minimal room journey](minimal-room-journey.md) supersedes starting past an occupied unprepared member and leaving a room active behind Public rooms. The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes this document's Public/Unlisted and pre-peer route controls. First-host and directory architecture remain where consistent.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
 

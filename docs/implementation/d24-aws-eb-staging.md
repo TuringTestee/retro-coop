@@ -4,6 +4,8 @@ Retro Coop will run as a publicly reachable website on AWS Elastic Beanstalk wit
 
 # D24 AWS Elastic Beanstalk website plan
 
+The later [room access and automatic routing plan](room-access-and-routing.md) changes new-room access and route UI. Older Public/Unlisted or selected-policy test examples below record shipped behavior; deployment limits, secrets and cost gates remain.
+
 ## Source and current state
 
 - Source requests: “nvm GKE, remove the stack, let's deploy to aws via EB. I have it logged in” and, when asked about the prior trial restriction, “just provision EB with an actual instance, normal website setup.” The latter supersedes the six-hour/two-tester-IP trial. The user also approved a monitored public site with $50/$100 billing alerts, traffic limits and shutdown if forecast spend reaches $100, accepting residual billing risk. They then directed us to use the lowest-cost micro EC2 machine and to host the website and TURN on that one machine. The app should stay available to ordinary visitors while those controls allow it. A faithful implementation needs independent review and passing checks, not another design approval.

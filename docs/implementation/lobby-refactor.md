@@ -4,7 +4,7 @@ Audience: Agent
 
 # Lobby refactor: architecture and delivery amendment
 
-The [minimal room journey plan](minimal-room-journey.md) supersedes the old allowance to Start past a preparing occupant and to leave an active room behind Public rooms. The first-host and one-directory architecture remains where consistent.
+The [minimal room journey plan](minimal-room-journey.md) supersedes the old allowance to Start past a preparing occupant and to leave an active room behind Public rooms. The later [room access and automatic routing plan](room-access-and-routing.md) supersedes Unlisted admission and the user-selected Standard/Relay-only control below. The first-host and one-directory architecture remains where consistent.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
 

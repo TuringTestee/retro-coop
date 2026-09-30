@@ -4,6 +4,8 @@ Audience: Human
 
 # Lobby scenario coverage, iteration 2
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes N13/N20's unlisted invitation and non-discovery requirements, N14's Public/Unlisted choice, and route-choice steps in this historical iteration. Protected rooms are listed and ask for a password before reservation; public rooms join directly. Unaffected first-host, capacity and recovery scenarios remain current.
+
 The [earlier exhaustive inventory](lobby-scenario-inventory.md) still covers file validation, controls, voice, chat, saves, accessibility, moderation, and general failures. Its special included-game launcher and automatic solo-start cases are superseded by [the new direction](lobby-server-rooms-direction.md) and the scenarios below. These scenarios are design requirements, not observed product behavior.
 
 The approved [room game download amendment](room-rom-transfer.md) replaces N17's custom-room matching-file rule and any no-transfer recovery below; its issues #87–#91 are integrated. PR #101 approved Create Game C01–C12 in the [current scenario file](create-game-library-scenarios.md), replacing inline host setup after CG1/CG2 implementation. C13–C17 there are pending PR #103 Guest-place/no-overlay additions.

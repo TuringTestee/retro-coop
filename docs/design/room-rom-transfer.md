@@ -4,6 +4,8 @@ Audience: Human
 
 # Room game downloads
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) requires password admission before any protected-room game download. Public/Unlisted examples below are historical; exact-byte acquisition and recovery remain.
+
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
 
 **Status:** Approved by the user at reviewed [PR #86](https://github.com/TuringTestee/retro-coop/pull/86) head `8c3c257`, merged as `c66e092`, and integrated through issues #87–#91. It supersedes the local-file rule in `browser-nes-platform.md`, `lobby-refactor.md`, and earlier wireframes for host-provided custom rooms. PR #101 approved the [Create Game v2 baseline](create-game-library-wireframe-v2.md) for where hosting starts; [v4](create-game-library-wireframe-v4.md) is pending PR #103 approval. Both preserve upload and guest download behavior here.

@@ -2,6 +2,8 @@ Audience: Agent
 
 # Relay policy-change reliability follow-up
 
+The later [room access and automatic routing plan](room-access-and-routing.md) removes user-triggered route-policy changes for new sessions. This file records shipped reliability evidence; automatic reconnect and failure recovery still apply where consistent.
+
 Peer connections sometimes timed out after a guest’s first message was discarded below the JavaScript send call. The guest now waits for the host’s challenge before sending its own, avoiding that early-send window without extending deadlines. This follow-up retains observed failures and tests recovery while preserving the room, original reservation, local game and Relay only policy. The original policy-change CI failure lacks enough evidence to prove it had the same cause.
 
 ## Authority and investigation
