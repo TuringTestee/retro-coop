@@ -14,7 +14,6 @@ import type {RoomState} from './room-client.ts';
 import {LocalData} from './LocalData.tsx';
 import {usePreferences} from './preferences.ts';
 import {fileIdentity} from '../../../packages/contracts/src/fingerprint.ts';
-import {downloadSave} from './saves.ts';
 import { Rewind } from './Rewind.tsx';
 import { Saves } from './Saves.tsx';
 import { Settings } from './Settings.tsx';
@@ -85,7 +84,6 @@ function App() {
  const preferencesIdentity=state.fingerprint ? fileIdentity(state.fingerprint) : undefined;
  const preferences=usePreferences(preferencesIdentity,value=>{setControls(value.controls);runtime.current?.configureControls(value.controls);setFilter(value.filter);setVolume(value.volume);runtime.current?.setVolume(value.volume);});
  const openLocalData=(fromSettings=false,focus:'heading'|'voice'='heading')=>openTool('localData',fromSettings);
- const batteryAction=async(action:()=>Promise<void>)=>{try{await action();setPersistenceMessage('');}catch(error){setPersistenceMessage(error instanceof Error ? error.message : 'Battery operation failed.');}};
 
  useEffect(() => { const player = new LocalPlayer(canvas.current!,setState); runtime.current = player; return () => { player.dispose(); runtime.current = null; }; },[]);
  const choose = () => { picker.current!.value = ''; picker.current!.click(); };
@@ -95,7 +93,7 @@ function App() {
  const recoverFullscreenRelease=async()=>{if(!state.loaded&&document.fullscreenElement){try{await document.exitFullscreen();}catch{setFullscreenIssue('Could not exit fullscreen. Press Esc, then choose View rooms.');return;}}setFullscreenIssue('');rooms.current?.recoverRelease();};
  const showDiscovery=!creating&&(browsing||(!roomView&&(invitationRequested||!state.loaded))),showRoom=!!roomView&&!roomView.started&&!browsing&&!creating,known=state.fingerprint?catalogId(state.fingerprint):undefined;
  const inviting=showDiscovery&&!roomView&&invitationRequested;
- const playControls=<PlayControls controls={controls} room={roomView} edit={()=>void openTool('settings')} roomSlots={()=>{const target=document.querySelector<HTMLElement>('.room-slots [data-slot-region=identity]');target?.focus();}}/>;
+ const playControls=<PlayControls controls={controls} room={roomView} edit={()=>void openTool('settings')} roomSlots={()=>{rooms.current?.openPlayers();requestAnimationFrame(()=>document.querySelector<HTMLElement>('.room-slots [data-slot-region=identity]')?.focus());}}/>;
  return <main className={`${creating?'creating':showDiscovery?'discovery':showRoom?'waiting-room':'playing'}${browsing?' browsing':''}${inviting?' inviting':''}${state.shared?' shared-session':''}${roomView?.started?' with-room':''}${tool?' tooling':''}${roomState.releaseNotice?' released':''}`} data-coordinator={clientConfig.coordinatorUrl}>
   <header><span className="brand">RETRO COOP</span><span data-testid="guest">{guest}</span>{tool?<button onClick={backTool}>Back</button>:<>{!creating&&!inviting&&(roomView||state.loaded)&&<button onClick={()=>requestDirectory()}>Public rooms</button>}<button data-settings onClick={()=>openTool('settings')}>Settings</button></>}</header>
   <input ref={picker} type="file" accept=".nes" hidden aria-label="NES cartridge file" onChange={event => {const file=event.target.files?.[0];if(file){if(creating)addCreate(file);else load(file);}}}/>
@@ -110,22 +108,17 @@ function App() {
    <div className="controls"><button onClick={()=>openTool('saves')}>Saves</button>{!state.shared&&<button onClick={()=>openTool('rewind')}>Rewind</button>}<button onClick={()=>openTool('help')}>Game help</button><button onClick={()=>void toggleFullscreen()}>{fullscreen ? 'Exit fullscreen' : 'Fullscreen'}</button></div></>}
    {fullscreen && <p className="hint">Press Esc or Exit fullscreen to return.</p>}{fullscreenIssue && <p role="status">{fullscreenIssue}</p>}
    {state.inputIssue && <p role="alert">{state.inputIssue} <button onClick={()=>{changeControls({...controls,device:null});runtime.current?.useKeyboard();}}>Use keyboard</button></p>}
-   <p role="status" data-testid="player-status" aria-live="polite">{state.status}</p>{state.audioIssue && <p className="hint" role="status">{state.audioIssue} <button onClick={() => runtime.current?.retryAudio()}>Retry sound</button></p>}
-   <p className="hint">Uncompressed iNES / NES 2.0 cartridges. Support varies by cartridge hardware and available memory. Archives and disk images cannot load.</p>
-   <p className="hint">Experimental compatibility: a loaded game is not a guarantee that every mapper feature works.</p>
-   <span aria-label="Rendered frames" data-testid="frames">{state.frames} frames</span>
+   <p role="status" data-testid="player-status" aria-live="polite">{['Playing together.','Playing locally. The game runs in this browser.'].includes(state.status)?'':state.status}</p>{state.audioIssue && <p className="hint" role="status">{state.audioIssue} <button onClick={() => runtime.current?.retryAudio()}>Retry sound</button></p>}
    {(state.storageIssue || preferences.issue || persistenceMessage) && <p role="status" data-testid="persistence-status">{state.storageIssue || preferences.issue || persistenceMessage} <button onClick={()=>openLocalData()}>Manage local data</button></p>}
-   {state.batteryAvailable && <div className="battery-actions"><button onClick={()=>void batteryAction(async()=>{downloadSave(await runtime.current!.exportBattery(),undefined,'battery');})}>Export current battery</button>{state.storageIssue&&<button onClick={()=>void batteryAction(()=>runtime.current!.retryBatteryPersistence())}>Retry battery saving</button>}</div>}
    </div>
   </section>
   <RoomPanel playCards={roomView?.started&&!tool?<>{playControls}<VoiceControls compact onSettings={()=>void openTool('settings',false,'voice')} talkBinding={controls[controls.device?'gamepad':'keyboard'].pushToTalk.map(bindingLabel).join(' / ')||'Unbound'} state={voice} voice={rooms.current?.voice()}/></>:undefined} renderFps={state.running?state.renderFps:undefined} showDiscovery={showDiscovery} releaseInFullscreen={fullscreen} onChoose={choose} onCreate={enterCreate} onBrowse={()=>requestDirectory()} onExit={()=>void finishDirectoryExit()} onInvitationDismiss={()=>setInvitationHash('')} onAcquired={load} selectionLoading={state.loading} ref={rooms} controls={controls} onVoice={setVoice} player={()=>runtime.current} fingerprint={state.fingerprint} onNickname={setGuest} policy={policy} changePolicy={changePolicy} onConnection={setConnection} onRoomChange={syncRoom} onState={setRoomState}/>
-  {state.loaded&&!roomView?.started&&!tool&&<aside className="solo-controls">{playControls}</aside>}
+  {state.loaded&&!roomView&&!tool&&<aside className="solo-controls">{playControls}</aside>}
   <LocalData open={tool==='localData'} player={runtime.current} preferencesIdentity={preferencesIdentity} beforeClear={()=>{runtime.current?.stopPersistence();preferences.stop();}} afterClear={()=>{preferences.dismiss();setPersistenceMessage('Local data deleted. Current progress remains in memory.');}}/>
   <Rewind open={tool==='rewind' && state.loaded && !state.loading && !state.shared} player={runtime.current}/>
-  <Saves open={tool==='saves' && state.loaded && !state.loading} player={runtime.current} shared={!!state.shared} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
+  <Saves open={tool==='saves' && state.loaded && !state.loading} player={runtime.current} shared={!!state.shared} batteryAvailable={!!state.batteryAvailable} storageIssue={state.storageIssue} game={`${state.fingerprint?.romSha256}:${state.fingerprint?.coreSha256}`}/>
   <Settings voice={<VoiceControls state={voice} voice={rooms.current?.voice()}/>} localData={()=>openLocalData(true)} connection={<><ConnectionPolicyControl policy={policy} change={changePolicy}/><p>{connection}</p></>} open={tool==='settings'} controls={controls} change={changeControls} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);runtime.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} audioIssue={state.audioIssue} audioState={state.audioState} retryAudio={()=>runtime.current?.retryAudio()}/>
   {tool==='help'&&<section className="settings game-help tool-page" aria-labelledby="game-help-title"><h2 id="game-help-title" tabIndex={-1}>Game help{known?` · ${catalogEntry(known).title}`:''}</h2><p>{known?catalogEntry(known).instructions:'Game-specific instructions are not available for this file.'}</p><p>Focus the game screen to control it. The Your controls card beside the game shows your current bindings. Use Edit controls to remap them in Settings. Play continues when you switch tabs.</p><p>{known?catalogEntry(known).credits:'This local file was supplied by the player; consult its creator for game-specific instructions and credits.'}</p>{known&&<p>{catalogEntry(known).license}</p>}{state.fingerprint&&<details><summary>Technical details</summary><dl data-testid="fingerprint"><dt>Cartridge</dt><dd>{state.fingerprint.cartridge.format} · mapper {state.fingerprint.cartridge.mapper} / {state.fingerprint.cartridge.submapper} · {state.fingerprint.cartridge.region} · {state.fingerprint.cartridge.bytes} bytes</dd><dt>Exact file SHA-256</dt><dd>{state.fingerprint.romSha256}</dd><dt>Emulator build SHA-256</dt><dd>{state.fingerprint.coreSha256}</dd><dt>Local settings (schema {state.fingerprint.localSchema})</dt><dd>{state.fingerprint.settings}</dd></dl></details>}</section>}
-  <footer>Your game runs in this browser. Hosting a custom room uploads its game file to the room server while the room is open. Room details, connection signaling and temporary chat also go to the service. Optional voice goes to other room members through peer connections.</footer>
  </main>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

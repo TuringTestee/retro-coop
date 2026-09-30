@@ -19,12 +19,15 @@ def main():
         url = json.loads(service.stdout.readline())['url']
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch()
-            page = browser.new_page()
-            page.goto(url)
-            page.get_by_role('button', name='Create game', exact=True).click()
-            page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
-            page.get_by_role('button', name='Create room', exact=True).click()
-            page.get_by_test_id('room-view').wait_for(state='attached')
+            def host_room():
+                hosted = browser.new_page()
+                hosted.goto(url)
+                hosted.get_by_role('button', name='Create game', exact=True).click()
+                hosted.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+                hosted.get_by_role('button', name='Create room', exact=True).click()
+                hosted.get_by_test_id('room-view').wait_for(state='attached')
+                return hosted
+            page = host_room()
             page.get_by_role('button', name='Public rooms', exact=True).click()
             page.get_by_role('group', name='Confirm leave').wait_for()
             assert page.get_by_test_id('directory').count() == 0
@@ -35,6 +38,19 @@ def main():
             page.get_by_test_id('directory').wait_for()
             page.wait_for_function("!document.querySelector('[data-testid=room-view]') && !document.querySelector('.panel .controls button[aria-pressed]')")
             assert page.get_by_role('button', name='Resume local game', exact=True).count() == 0
+            back = host_room()
+            back.go_back()
+            back.get_by_role('group', name='Confirm leave').wait_for()
+            assert back.get_by_test_id('directory').count() == 0
+            back.get_by_role('button', name='Confirm leave', exact=True).click()
+            back.get_by_test_id('directory').wait_for()
+            assert back.get_by_test_id('room-view').count() == 0
+            invitation = host_room()
+            invitation.evaluate("location.hash = '#invite=invalid-room'")
+            invitation.get_by_role('group', name='Confirm leave').wait_for()
+            invitation.get_by_role('button', name='Confirm leave', exact=True).click()
+            invitation.get_by_test_id('directory').wait_for()
+            assert invitation.get_by_test_id('room-view').count() == 0
             local = browser.new_page()
             local.goto(url)
             local.get_by_role('button', name='Create game', exact=True).click()
@@ -44,9 +60,12 @@ def main():
             local.get_by_role('button', name='Public rooms', exact=True).click()
             local.get_by_test_id('directory').wait_for()
             assert local.get_by_role('button', name='Resume local game', exact=True).count() == 0
-            assert local.get_by_test_id('frames').inner_text() == '0 frames'
+            assert local.evaluate("""() => {
+                const canvas = document.querySelector('canvas');
+                return [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].every(value => value === 0);
+            }""")
             browser.close()
-        print(json.dumps({'host_close_before_directory': True, 'stay_retains_room': True, 'local_game_ends_before_directory': True}))
+        print(json.dumps({'host_close_before_directory': True, 'stay_retains_room': True, 'back_exits_room': True, 'invitation_exits_room': True, 'local_game_ends_before_directory': True}))
     finally:
         service.terminate()
         service.wait(timeout=10)

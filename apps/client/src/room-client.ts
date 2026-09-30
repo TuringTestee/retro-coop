@@ -171,7 +171,7 @@ export class RoomClient {
    this.publish({uploading:false,confirmingRoom:true,status:'Publishing room…'});
    const data = await this.request({type:'confirmCreate',intent});
    if(this.intent !== intent || !current() || !this.player()?.isLoaded(fingerprint)) {await this.request({type:'cancelCreate',intent});return;}
-   this.apply(data);this.intent = undefined;this.publish({busy:false,uploading:false,confirmingRoom:false,hostFailure:false,status:'Room created. Prepare the assigned players, then start together.'});
+   this.apply(data);this.intent = undefined;this.publish({busy:false,uploading:false,confirmingRoom:false,hostFailure:false,status:'Room created. Everyone can get Ready, then the host can start.'});
   }catch(error) {if(this.intent === intent) {this.intent = undefined;this.uploadAbort=undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({hostFailure:true,uploading:false,confirmingRoom:false});this.failure(error);}}
  }
  async startRoom(fingerprint:Fingerprint) {

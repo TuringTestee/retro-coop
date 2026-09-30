@@ -53,7 +53,7 @@ export class GameClient {
   const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,status:'Checking the completed machine state…'});
   try{const info=await this.player()!.holdForGame(room.game.controllers.owners.includes(this.self()));if(serial!==this.serial)return;
    const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,roomRevision:room.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
-   if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for the assigned players and host.'});
+   if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for everyone.'});
   }catch(error){if(serial===this.serial){this.offered=undefined;this.publish({busy:false,status:String(error)});}}finally{if(serial===this.serial)this.offering=false;}
  }
  ready(member:string,channel:RTCDataChannel,epoch:string,roundTripMs=0){
@@ -90,7 +90,7 @@ export class GameClient {
   if(!this.room||!this.loaded())return;
   if(event.type==='gamePrepare'){
    this.cancelAllTransfers();++this.serial;this.offering=false;const serial=this.serial;this.prepared=event;this.controllers=event.controllers;this.scheduler=this.makeScheduler(event.epoch,event.frame,event.delay,event.controllers,false);this.frozen=true;this.historyHashes.clear();
-   this.publish({busy:true,status:'Preparing assigned players…'});
+   this.publish({busy:true,status:'Starting together…'});
    void this.player()!.holdForGame(this.ownsInput()).then(async info=>{if(serial!==this.serial)return;if(info.frame!==event.frame||info.hash!==event.hash)throw Error('State changed before shared start');await this.player()!.bindGameEpoch(event.epoch,event.frame,event.hash);if(serial!==this.serial)return;return this.send({type:'gameAck',epoch:event.epoch,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'mismatch');});return;
   }
   if(event.type==='gameStart'){
