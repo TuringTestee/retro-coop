@@ -156,7 +156,7 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
     search.click()
     control_visibility(search, require_focus=True)
     directory.allow_user_scroll(False)
-    if label in ('wide', 'mid-550', 'mid-600'):
+    if label in ('wide', 'mid-550', 'mid-600', 'zoom-200', 'effective-320'):
         path = output / f'{label}-pagination.png'
         capture(page, path, label)
         proof['captures'].append(path.name)
