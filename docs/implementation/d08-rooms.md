@@ -2,6 +2,8 @@ Audience: Agent
 
 # Anonymous rooms and reservations
 
+The later [room access and automatic routing plan](room-access-and-routing.md) replaces Unlisted admission with listed password-protected rooms. Every protected Join verifies the password before a reservation, including invite and code paths; historical two-person and file duties remain where consistent.
+
 This document records the original D08 room and reservation slice. A valid local NES file creates a public or unlisted room without a naming form, and friends can reserve Player 2 before choosing their own file. The coordinator protects ownership and deadlines. Current shared-play Start behavior is governed by [D11](d11.md) and the [lobby refactor](lobby-refactor.md).
 
 ## Run and inspect

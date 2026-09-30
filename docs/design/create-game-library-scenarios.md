@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game scenarios
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes Public/Unlisted and route-choice scenarios. Keep file/storage/upload recovery where consistent; add protected password creation and failed-entry recovery from that amendment.
+
 The [minimal room journey](minimal-room-journey.md) supersedes C02/C12's always-visible preview and any duplicate ordinary room status after its implementation. Keep the selection, invalid-file, storage, upload and recovery states below where consistent. The current privacy choice remains until a separate routing amendment.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.

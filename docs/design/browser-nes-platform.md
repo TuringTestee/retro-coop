@@ -4,6 +4,8 @@ Audience: Human
 
 # Browser NES lobby platform
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes Public/Unlisted admission, password deferral, user-selected Standard/Relay-only routing and the inline route choice below. Public and password-protected rooms are both discoverable; protected admission requires a password. Historical acceptance text remains evidence of the earlier design, not a second current access rule.
+
 The [minimal room journey](minimal-room-journey.md) governs the next directory, waiting, initial Start, ordinary play content and exit flow. Conflicting passages below are historical after that amendment merges; unaffected platform and release requirements remain. Existing connection privacy controls and enforcement remain current until a separate reviewed amendment resolves automatic routing.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. Governing PR #160 is merged. Five-slot execution and integrated acceptance are tracked in [feature #157](https://github.com/TuringTestee/retro-coop/issues/157); the historical two-person evidence below does not prove those journeys. The amendment also owns observer isolation, ten voice pairs, per-member acquisition and membership, and current checkpoint limits. Unaffected requirements and historical evidence remain.

@@ -4,6 +4,8 @@ Audience: Human
 
 # Create Game wireframe v4 — current
 
+The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes the Public/Unlisted and Standard/Relay-only controls in this historical screen set. Its protected password field and Join prompt are current target states.
+
 The [minimal room journey](minimal-room-journey.md) is the current target for directory, Create Game, five-slot waiting, ordinary play and exit. This v4 page remains historical for those screens except its current pre-peer privacy control, which stays until a separate routing amendment. Its unaffected secondary-task flows and recovery still apply.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. These are implementation obligations after the amendment is reviewed and merged; current runtime support remains unverified until feature #157 is delivered. Unaffected requirements and historical evidence remain.
