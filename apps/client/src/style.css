@@ -89,7 +89,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .create-options label{display:grid;gap:5px;margin:0 0 4px}
 .create-options select{font:inherit;background:#303146;color:white;border:1px solid #77758d;border-radius:6px;padding:8px}
 .create-actions{display:grid;grid-template-columns:8.5rem minmax(0,1fr);align-items:center;gap:8px;min-height:0;overflow:auto;padding:7px}
-.create-actions button{height:44.8px;min-width:0;white-space:nowrap;margin:0;justify-self:start}
+.create-actions button{height:44.8px;min-width:0;white-space:nowrap;margin:0;justify-self:start;scroll-margin-block-end:12px}
 .create-actions button:first-child{background:#b5a3ff;color:#171323}
 .create-actions .local-play{background:transparent;border-color:transparent;color:#d4cdf4;text-decoration:underline;font-weight:400;padding-left:0}
 .create-actions .local-play:hover{background:#303146}
