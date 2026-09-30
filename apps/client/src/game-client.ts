@@ -31,6 +31,12 @@ export class GameClient {
   const prior=this.room;if(prior&&(!room||room.id!==prior.id||room.chatMembership!==prior.chatMembership))this.clear('Room membership changed. Your game is preserved.',true);
   if(room&&(!prior||room.id!==prior.id||room.chatMembership!==prior.chatMembership)){this.intent=false;this.offered=undefined;this.publish({intent:false});}
   this.room=room;if(!room)return;
+  // A room revision can change the roster or roles while a local checksum is
+  // still being prepared. That earlier click does not authorize a new offer.
+  if(prior&&prior.id===room.id&&prior.chatMembership===room.chatMembership&&prior.revision!==room.revision&&!room.started){
+   ++this.serial;this.intent=false;this.offered=undefined;this.offering=false;
+   this.publish({intent:false,busy:false,status:'Room changed. Choose Ready again.'});
+  }
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
   if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;}
   if(room.game.status==='resume_ready'&&(this.incoming?.purpose==='controller'||[...this.outgoing.values()].some(value=>value.request.purpose==='controller'))){if(this.incoming?.purpose==='controller')this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])if(outgoing.request.purpose==='controller')this.cancelOutgoing(outgoing);this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}

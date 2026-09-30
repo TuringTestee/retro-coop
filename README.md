@@ -1,6 +1,6 @@
 # Retro Coop
 
-The [planned minimal room journey](docs/design/minimal-room-journey.md) for [issue #169](https://github.com/TuringTestee/retro-coop/issues/169) will simplify the controls and require everyone in a room to be ready. Its later [access amendment](docs/design/room-access-and-routing.md) will replace Unlisted with Password protected and choose the connection route automatically. The Play steps below describe the current application until that work is implemented.
+The [minimal room journey](docs/design/minimal-room-journey.md) for [issue #169](https://github.com/TuringTestee/retro-coop/issues/169) now requires everyone in a room to be ready and ends a room or game before opening Public rooms. The [access amendment](docs/design/room-access-and-routing.md) will replace Unlisted with Password protected and choose the connection route automatically. The Play steps below describe the current application.
 
 Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. Public and unlisted rooms have five slots. The host assigns the game’s supported player roles or Observer, and can close empty slots. Each member runs a matching local copy; observers and new controller owners synchronize to the current game without restarting it.
 
@@ -22,7 +22,7 @@ The [AWS website operations guide](docs/implementation/d24-aws-eb-operations.md)
 
 1. In tab A, open the URL printed by `sh scripts/demo.sh` and choose **Join as host** on an empty Super Tilt Bro room. Wait for the game to load and note the room code.
 2. Open four more tabs at the same URL, find the code, and choose **Join**. Each member gets one of the five stable slot rows. Player 1 and Player 2 are separate from the three observer places; From Below offers only Player 1. The host can change any slot’s role, including their own, or close an empty slot.
-3. Assigned players choose **Prepare to play**, then the host chooses **Start game**. Observers choose **Observe game** once play starts. An observer joining later synchronizes to the current frame while the players continue. Focus a player’s game screen to use that player’s controls.
+3. Every occupied member, including the host and observers, chooses **Ready** after the game and connection are prepared. The host chooses **Start game** once everyone is ready. An observer joining later synchronizes to the current frame while the players continue; if that fails, choose **Observe game** to retry. Focus a player’s game screen to use that player’s controls.
 4. Change a player role after making progress. The room pauses at its completed frame, synchronizes the new controller owners, and continues from the same state. If synchronization fails, use **Retry role change** or **Cancel role change**; cancellation keeps the previous roles and progress. A disconnected player can be replaced by an observer.
 5. Choose **Enable voice** in each tab and grant microphone permission. The explicit **Mute**/**Unmute** control applies to all listeners and stays unchanged when tabs lose focus. Open-mic conversation continues in the background; optional push-to-talk releases on focus loss. Browser or operating-system suspension can still interrupt a session.
 
