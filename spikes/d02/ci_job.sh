@@ -43,8 +43,14 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
     timeout --foreground 60s python3 scripts/gameplay/initial_observer_recovery_smoke.py --output spikes/d02/five-members.local/initial-observer-recovery.json
     exit
   fi
-  timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
-  RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py
+  # These journeys launch separate demo ports and use separate evidence paths.
+  # Run both before the staging build without serializing their browser time.
+  (
+    RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py & upload_pid=$!
+    trap 'kill "$upload_pid" 2>/dev/null || true' EXIT
+    timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
+    wait "$upload_pid"
+  )
   npm run build:staging
   # Independent browser servers use free local ports and separate result paths.
   # All three groups retain their assertions under the original shared deadline.

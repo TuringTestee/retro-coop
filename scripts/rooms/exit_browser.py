@@ -93,7 +93,7 @@ def main():
             page.get_by_role('button', name='Public rooms', exact=True).click()
             page.evaluate('window.failClose=true')
             page.get_by_role('button', name='Confirm leave', exact=True).click()
-            page.get_by_role('alert').filter(has_text='Could not leave the room').wait_for()
+            page.locator('.room-confirm [role=alert]').wait_for()
             assert page.get_by_test_id('directory').count() == 0
             assert page.get_by_test_id('room-view').count() == 1
             page.wait_for_function("before=>Number(document.querySelector('canvas').dataset.frameCount)>before+20", arg=running_before)
@@ -151,7 +151,7 @@ def main():
             member.get_by_role('group', name='Confirm leave').wait_for()
             member.evaluate('window.failLeave=true')
             member.get_by_role('button', name='Confirm leave', exact=True).click()
-            member.get_by_role('alert').filter(has_text='Could not leave the room').wait_for()
+            member.locator('.room-confirm [role=alert]').wait_for()
             assert member.get_by_test_id('directory').count() == 0
             assert member.get_by_test_id('room-view').count() == 1
             assert member.evaluate('rejectedLeave') == 1

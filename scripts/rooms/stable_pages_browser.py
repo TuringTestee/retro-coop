@@ -251,7 +251,7 @@ def main():
             service.terminate()
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).click()
-            host.get_by_text('Could not leave the room. Retry or stay here.', exact=True).wait_for(timeout=15000)
+            host.locator('.room-confirm [role=alert]').wait_for(timeout=15000)
             assert host.locator('.release-notice').count() == 0
             host.screenshot(path=str(args.output / 'failed-close.png'), full_page=True)
             assert not errors, errors

@@ -147,6 +147,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         result["host_start_solo_after_guest_left"] = True
         # One-member rooms use the shared timeline too. Leave explicitly to verify local playback.
         host.get_by_role("button", name="Leave room", exact=True).click()
+        if screenshot_dir:
+            host.screenshot(path=str(screenshot_dir / "confirm-leave.png"))
         host.get_by_role("button", name="Confirm leave", exact=True).click()
         host.get_by_test_id("room-view").wait_for(state="detached")
         host.get_by_role("button", name="Create game", exact=True).click()
