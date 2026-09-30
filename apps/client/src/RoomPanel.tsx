@@ -160,7 +160,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  const inviteDownload=state.preview?roomDownloadLabel(state.preview):'';
  const selfSlot=room?.slots.find(slot=>slot.member?.id===room.chatMembership);
  const selfReady=!!room?.game.ready.includes(room.chatMembership);
- const waitingMembers=room?.slots.filter(slot=>slot.member&&!room.game.ready.includes(slot.member.id)).map(slot=>slot.member!.nickname)??[];
+ const waitingMembers=room?.slots.filter(slot=>slot.member&&!room.game.ready.includes(slot.member.id)).map(slot=>slot.member!.id===room.chatMembership?'you':slot.member!.nickname)??[];
  const gameplayPeers=room?.peers.filter(peer=>peer.gameplay&&(room.role!=='host'||room.slots.some(slot=>slot.role!=='observer'&&slot.member?.id===peer.member)))??[];
  const peersReady=gameplayPeers.every(peer=>peer.status==='connected');
  const allPeersReady=room?.peers.every(peer=>peer.status==='connected')??false;
