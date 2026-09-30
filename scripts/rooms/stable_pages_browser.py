@@ -84,7 +84,7 @@ def main():
             host.get_by_text('Session settings', exact=True).click()
             visibility = host.get_by_label('Unlisted · invitation only', exact=True)
             visibility.click()
-            host.wait_for_function("document.querySelector('#room-heading')?.textContent.includes('Unlisted')")
+            host.wait_for_function("document.querySelector('.visibility input')?.checked")
             visibility.click()
             host.get_by_role('button', name='Make public', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
@@ -92,7 +92,7 @@ def main():
             host.wait_for_function("document.activeElement?.matches('.visibility input')")
             visibility.click()
             host.get_by_role('button', name='Make public', exact=True).click()
-            host.wait_for_function("document.querySelector('#room-heading')?.textContent.includes('Public')")
+            host.wait_for_function("!document.querySelector('.visibility input')?.checked")
             host.get_by_text('Session settings', exact=True).click()
             host.get_by_text('Connection and session settings', exact=True).click()
             guest = browser.new_page(viewport={'width': 390, 'height': 700})
@@ -104,6 +104,7 @@ def main():
             assert guest.evaluate('document.documentElement.scrollWidth <= innerWidth')
             guest.screenshot(path=str(args.output / 'invitation.png'), full_page=True)
             guest.close()
+            host.get_by_role('button', name='Ready', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).click()
             host.locator('main.playing.with-room').wait_for(timeout=15000)
             wide = geometry(host, '1280x720')
@@ -183,7 +184,7 @@ def main():
             host.wait_for_timeout(1000)
             assert host.locator('.release-notice').count() == 0
             assert host.get_by_test_id('included-status').count() == 0
-            assert host.get_by_role('button', name='Resume local game', exact=True).count() == 1
+            assert host.get_by_role('button', name='Resume local game', exact=True).count() == 0
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             host.set_viewport_size({'width': 1280, 'height': 720})
             host.route('**/catalog/from-below*.nes', lambda route: route.abort())

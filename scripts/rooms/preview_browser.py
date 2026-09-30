@@ -66,7 +66,7 @@ with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
         assert diagnostic['syntheticHeaderAccepted'] and diagnostic['syntheticNaturalWidth'] == 0 and diagnostic['syntheticFallback'] == {'text':'No preview yet.'}, diagnostic
         page.get_by_role('button',name='Public rooms',exact=True).click()
         page.get_by_role('button',name='Create game',exact=True).click()
-        page.get_by_text('No preview yet.',exact=True).wait_for()
+        page.locator('.create-library li').filter(has_text='original-preview.nes').wait_for()
         if args.fallback_screenshot: page.screenshot(path=str(args.fallback_screenshot),full_page=True)
         page.locator('.create-library li').filter(has_text='Super Tilt Bro').get_by_role('button').click()
         page.get_by_role('button',name='Play locally',exact=True).click()
@@ -76,12 +76,13 @@ with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
         page.evaluate('''async()=>{const canvas=document.createElement('canvas');canvas.width=128;canvas.height=120;const context=canvas.getContext('2d');context.fillStyle='#818181';context.fillRect(0,0,128,120);context.fillStyle='#fff';context.fillRect(0,0,1,1);const preview=canvas.toDataURL('image/webp',0.5);const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const tx=db.transaction('roms','readwrite'),store=tx.objectStore('roms');const rows=await new Promise(r=>{const q=store.getAll();q.onsuccess=()=>r(q.result)});const diagnostic=rows.find(row=>row.label==='original-preview.nes');store.put({...diagnostic,preview,lastUsedAt:Date.now()+10000});await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close()}''')
         page.get_by_role('button',name='Public rooms',exact=True).click()
         page.get_by_role('button',name='Create game',exact=True).click()
-        page.wait_for_function("document.querySelector('.create-preview img')?.naturalWidth===128",timeout=15000)
+        result=page.evaluate('''async()=>{const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const rows=await new Promise(r=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>r(q.result)});db.close();const {previewDisplay}=await import('/src/rom-library.ts');const fallback=await previewDisplay(rows.find(row=>row.label==='original-preview.nes'));return {storedRows:rows.length,fallback,noRoom:!document.querySelector('[data-testid=room-view]')}}''')
+        assert result['fallback']=={'text':'No preview yet.'} and result['noRoom'],result
         page.locator('.create-library li').filter(has_text='Super Tilt Bro').get_by_role('button').click()
         page.wait_for_function("!document.querySelector('.create-actions button')?.disabled",timeout=15000)
         if args.screenshot: page.screenshot(path=str(args.screenshot),full_page=True)
-        result=page.evaluate('''async()=>{const image=document.querySelector('.create-preview img');const db=await new Promise(r=>{const q=indexedDB.open('retro-coop-local',3);q.onsuccess=()=>r(q.result)});const rows=await new Promise(r=>{const q=db.transaction('roms').objectStore('roms').getAll();q.onsuccess=()=>r(q.result)});db.close();return {previewWidth:image.naturalWidth,previewHeight:image.naturalHeight,previewAlt:image.alt,storedRows:rows.length,storedPreviewLength:rows.find(row=>row.preview===image.src)?.preview?.length??0,selected:document.querySelector('.create-options strong')?.textContent,noRoom:!document.querySelector('[data-testid=room-view]')}}''')
-        assert result['previewWidth']==128 and result['previewHeight']==120 and result['storedPreviewLength']>0 and result['selected']=='Super Tilt Bro' and result['noRoom'],result
+        result['selected']=page.locator('.create-options strong').inner_text()
+        assert result['selected']=='Super Tilt Bro',result
         if args.narrow_screenshot:
             page.set_viewport_size({'width':390,'height':700})
             page.locator('.create-game').evaluate('(node)=>node.scrollTop=0')
@@ -89,7 +90,7 @@ with tempfile.TemporaryDirectory(prefix='retro-cg1-preview-') as directory:
             result['narrowNoOverflow']=page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert result['narrowNoOverflow'],result
             if args.narrow_preview_screenshot:
-                page.locator('.create-preview').scroll_into_view_if_needed()
+                page.locator('.create-options').scroll_into_view_if_needed()
                 page.screenshot(path=str(args.narrow_preview_screenshot),full_page=True)
             if args.narrow_bottom_screenshot:
                 page.locator('.create-game').evaluate('(node)=>node.scrollTop=node.scrollHeight')

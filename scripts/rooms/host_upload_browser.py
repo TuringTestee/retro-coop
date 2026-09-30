@@ -81,8 +81,10 @@ async def main():
             await host.unroute('**/rooms/*/rom',expire_once)
             await host.get_by_role('button',name='Create room',exact=True).click()
             await host.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
-            assert 'Unlisted' in await host.locator('#room-heading').inner_text()
             assert await host.get_by_test_id('room-view').count()==1
+            assert await host.get_by_role('button',name='Start game',exact=True).is_disabled()
+            await host.get_by_role('button',name='Ready',exact=True).click()
+            await host.get_by_role('button',name='Not ready',exact=True).wait_for()
             assert await host.get_by_role('button',name='Start game',exact=True).is_enabled()
             await host.screenshot(path=str(output/'host.png'),full_page=True)
             public=await context.new_page();await public.goto(URL)
@@ -90,9 +92,9 @@ async def main():
             await public.set_input_files('input[type=file]',str(FIXTURE))
             await public.get_by_role('button',name='Create room',exact=True).click()
             await public.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
-            public_code=(await public.locator('#room-heading').inner_text()).split(' · ')[-1]
+            public_code=await public.locator('#room-heading').inner_text()
             await guest.get_by_role('searchbox',name='Search room, game, host, or code').fill(public_code)
-            await guest.locator('.room-list li').filter(has_text=public_code).wait_for()
+            await guest.locator('.room-list li').filter(has_text=public_code).filter(has_text='1/5 · 4 open').wait_for()
             invalid=await context.new_page();await invalid.goto(URL)
             await invalid.get_by_role('button',name='Create game',exact=True).click()
             await invalid.set_input_files('input[type=file]',{'name':'bad.nes','mimeType':'application/octet-stream','buffer':b'invalid'})

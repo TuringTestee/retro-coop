@@ -94,7 +94,14 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert "Host" in host.locator("[data-slot-id=slot-1]").inner_text()
         assert host.get_by_role("button", name="Leave room", exact=True).count() == 1
         if screenshot_dir:
-            host.screenshot(path=str(screenshot_dir / "waiting-room.png"))
+            host.set_viewport_size({"width": 1280, "height": 1100})
+            host.evaluate("document.querySelector('.room-panel').scrollTop=0")
+            host.screenshot(path=str(screenshot_dir / "waiting-room.png"), full_page=True)
+            host.set_viewport_size({"width": 390, "height": 800})
+            assert host.evaluate('document.documentElement.scrollWidth<=innerWidth')
+            host.evaluate("document.querySelector('.room-panel').scrollTop=0")
+            host.screenshot(path=str(screenshot_dir / "waiting-room-mobile.png"), full_page=True)
+            host.set_viewport_size({"width": 1280, "height": 800})
         code = host.locator("#room-heading").inner_text()
         # Duplicating a browser tab copies sessionStorage. The new tab must get its
         # own guest identity instead of silently taking over the host connection.

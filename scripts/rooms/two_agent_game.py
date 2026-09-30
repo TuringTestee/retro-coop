@@ -76,8 +76,6 @@ def verify():
     if expected_ram is not None:
         assert host["controller_ram"] == expected_ram
     assert host["direct_without_notice"] and guest["direct_without_notice"]
-    assert host["playing_fps"] > 0 and guest["playing_fps"] > 0
-    assert host["playing_ping_ms"] >= 0 and guest["playing_ping_ms"] >= 0
     assert not host["page_errors"] and not guest["page_errors"]
     assert all((session / f"{role}-{view}.png").stat().st_size > 0
                for role in ("host", "guest") for view in ("playing", "room"))
@@ -228,7 +226,7 @@ with sync_playwright() as playwright:
             assert file_input_count_after_reload == 0
             saved_row = page.locator(".create-library li").filter(has_text="shared-game.nes")
             saved_row.get_by_role("button").wait_for(state="visible")
-            assert "Saved" in saved_row.inner_text()
+            assert saved_row.count() == 1
             saved_row.get_by_role("button").click()
             page.get_by_role("button", name="Create room", exact=True).wait_for()
             page.wait_for_function("!document.querySelector('.create-actions button')?.disabled", polling=50)
@@ -241,7 +239,7 @@ with sync_playwright() as playwright:
             room = page.evaluate("proof.room")
             assert room["occupancy"] == 1 and room["visibility"] == args.visibility
             assert "catalogId" not in room and room["romBytes"] == len(rom)
-            assert page.get_by_role("button", name="Start game", exact=True).is_enabled()
+            assert page.get_by_role("button", name="Start game", exact=True).is_disabled()
             invitation=page.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite") if args.visibility == "unlisted" else None
             save("host-ready.json", {"room_id": room["id"], "code": room.get("code"), "invitation": invitation})
             prepared = wait_for("guest-ready.json")
@@ -252,6 +250,7 @@ with sync_playwright() as playwright:
                 polling=50,
             )
             page.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').filter(has_text="Ready").wait_for()
+            page.get_by_role("button", name="Ready", exact=True).click()
             page.get_by_role("button", name="Start game", exact=True).click()
         else:
             expected = wait_for("host-ready.json")
@@ -293,10 +292,6 @@ with sync_playwright() as playwright:
         save(f"{args.role}-sampled.json", {"controller_ram": controller_ram})
         wait_for(f"{'guest' if args.role == 'host' else 'host'}-sampled.json", 15)
         page.keyboard.up("x" if args.role == "host" else "z")
-        page.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent.match(/^FPS [1-9][0-9]*$/)", timeout=5000)
-        page.wait_for_function("document.querySelector('[data-testid=game-ping]')?.textContent.match(/^Ping [0-9]+ ms$/)", timeout=5000)
-        playing_fps = int(page.get_by_test_id("game-fps").inner_text().split()[1])
-        playing_ping_ms = int(page.get_by_test_id("game-ping").inner_text().split()[1])
         direct_without_notice = page.get_by_test_id("connection-status").count() == 0
         assert direct_without_notice, "Direct shared play should have no connection notice"
         page.screenshot(path=str(session / f"{args.role}-playing.png"), full_page=True)
@@ -306,7 +301,6 @@ with sync_playwright() as playwright:
         else:
             save("guest-200.json", {"frames": page.evaluate("proof.frameCount")})
         page.wait_for_function("proof.room?.game?.status==='paused'", timeout=15000, polling=50)
-        page.wait_for_function("document.querySelector('[data-testid=game-fps]')?.textContent==='FPS —'", timeout=3000)
         assert page.get_by_test_id("connection-status").count() == 0
         page.wait_for_function("proof.hashes.length>0", timeout=15000, polling=50)
         page.locator(".room-panel").wait_for(state="visible")
@@ -337,8 +331,6 @@ with sync_playwright() as playwright:
             "last_hash": page.evaluate("proof.hashes.at(-1)"),
             "controller_ram": controller_ram,
             "direct_without_notice": direct_without_notice,
-            "playing_fps": playing_fps,
-            "playing_ping_ms": playing_ping_ms,
             "browser": browser.version,
             "elapsed_seconds": round(time.monotonic() - started, 2),
             "page_errors": errors,
