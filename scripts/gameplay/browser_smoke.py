@@ -1,7 +1,7 @@
 """Production worker/barrier proof. The host is held at its genuine power-on state before shared start."""
 import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time,tempfile
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from workload import active_seconds as measured_active_seconds
 from verify import normalized_periodic_hashes
 from browser_errors import classify_page_errors
@@ -112,7 +112,12 @@ try:
    initial_members=g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
-   g.get_by_role('button',name='Ready',exact=True).click(timeout=30000)
+   try:
+    g.get_by_role('button',name='Ready',exact=True).click(timeout=30000)
+   except PlaywrightTimeoutError:
+    readiness=g.evaluate('''()=>{const room=proof.room,member=room?.slots.find(slot=>slot.member?.id===room.chatMembership)?.member,ready=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Ready');return {roomMatches:room?.matches,memberAcquisition:member?.acquisition,memberConnected:member?.connected,peerStatuses:room?.peers.map(peer=>({status:peer.status,gameplay:peer.gameplay})),readyDisabled:ready?.disabled,playerStatus:document.querySelector('[data-testid=player-status]')?.textContent,roomStatus:document.querySelector('[data-testid=room-status]')?.textContent,preparation:document.querySelector('[data-layout-region=preparation-recovery]')?.textContent}}''')
+    print(json.dumps({'ready_timeout':readiness}),flush=True)
+    raise
    h.wait_for_function("member=>proof.room?.game?.ready?.includes(member)",arg=g.evaluate('proof.room.chatMembership'),timeout=15000,polling=50)
    h.get_by_role('button',name='Ready',exact=True).click()
    h.get_by_role('button',name='Start game',exact=True).click()
