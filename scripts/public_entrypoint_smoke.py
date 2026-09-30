@@ -78,7 +78,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.goto(url)
         host.get_by_role("button", name="Join as host").first.wait_for(timeout=15000)
         rows = host.locator(".room-list li")
-        assert rows.filter(has_text="0/5 · 5 open").count() == 2
+        assert rows.filter(has_text="5 places open").count() == 2
         assert host.get_by_role("button", name="Create game", exact=True).count() == 1
         if screenshot_dir:
             screenshot_dir.mkdir(parents=True, exist_ok=True)
@@ -118,8 +118,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         assert host.get_by_role("button", name="Start game", exact=True).is_enabled()
         result["duplicate_tab_gets_independent_guest_session"] = True
         guest.get_by_role("searchbox", name="Search room, game, host, or code").fill(code)
-        target = guest.locator(".room-list li").filter(has_text=code).filter(has_text="1/5 · 4 open")
-        assert target.count() == 1 and "1/5 · 4 open" in target.inner_text()
+        target = guest.locator(".room-list li").filter(has_text=code).filter(has_text="4 places open")
+        assert target.count() == 1 and "4 places open" in target.inner_text()
         target.get_by_role("button", name="Join", exact=True).click()
         guest.get_by_role("button", name="Leave room", exact=True).wait_for()
         guest.locator('details.chat-disclosure summary').click()
@@ -188,8 +188,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         shared_guest = browser.new_page()
         shared_guest.goto(url)
         shared_guest.get_by_role("searchbox", name="Search room, game, host, or code").fill(shared_code)
-        shared_row = shared_guest.locator(".room-list li").filter(has_text=shared_code).filter(has_text="1/5 · 4 open")
-        assert "1/5 · 4 open" in shared_row.inner_text()
+        shared_row = shared_guest.locator(".room-list li").filter(has_text=shared_code).filter(has_text="4 places open")
+        assert "4 places open" in shared_row.inner_text()
         file_choosers = []
         shared_guest.on("filechooser", lambda chooser: file_choosers.append(chooser))
         shared_row.get_by_role("button", name="Join", exact=True).click()
@@ -277,7 +277,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             else:
                 import base64
                 changing.locator(".create-library").evaluate("(node, value) => { const bytes = Uint8Array.from(atob(value), char => char.charCodeAt(0)); const transfer = new DataTransfer(); transfer.items.add(new File([bytes], 'drop-new.nes', {type:'application/octet-stream'})); node.dispatchEvent(new DragEvent('drop', {bubbles:true,cancelable:true,dataTransfer:transfer})); }", base64.b64encode(fixture.read_bytes()).decode())
-            changing.wait_for_function("name => document.querySelector('.create-options strong')?.textContent === name && !document.querySelector('.create-actions button')?.disabled", arg=new_name, timeout=15000)
+            changing.wait_for_function("name => document.querySelector('.create-library li button.selected strong')?.textContent === name && !document.querySelector('.create-actions button')?.disabled", arg=new_name, timeout=15000)
             if screenshot_dir and mode == "add":
                 changing.screenshot(path=str(screenshot_dir / "claim-superseded-add.png"), full_page=True)
             if mode == "add":
@@ -302,7 +302,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             else:
                 assert changing.get_by_test_id("room-view").count() == 0
                 assert changing.get_by_test_id("create-game").is_visible()
-                assert changing.locator(".create-options strong").inner_text() == new_name
+                assert changing.locator(".create-library li button.selected strong").inner_text() == new_name
                 if screenshot_dir:
                     changing.screenshot(path=str(screenshot_dir / "claim-superseded-drop.png"), full_page=True)
             observer = browser.new_page()

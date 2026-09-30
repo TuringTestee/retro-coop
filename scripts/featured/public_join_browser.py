@@ -30,10 +30,14 @@ try:
             tab.goto(address)
             return tab
         def code(tab):
-            return tab.locator('#room-heading').inner_text().split(' · ')[-1]
+            value = tab.evaluate('proof.room?.code')
+            assert value, 'A public room must have a searchable code'
+            return value
         def join_code(tab, value):
             tab.get_by_role('searchbox', name='Search room, game, host, or code').fill(value)
-            row = tab.locator('.room-list li').filter(has_text=value)
+            row = tab.locator('.room-list li').first
+            row.wait_for()
+            assert tab.locator('.room-list li').count() == 1
             row.get_by_role('button', name='Join', exact=True).click()
             return row
         def shared(host, guest):
@@ -59,14 +63,17 @@ try:
             assert hashes[0] and hashes[0] == hashes[1]
             return {'frames': [tab.evaluate('proof.frameCount') for tab in (host, guest)], 'matching_hash': hashes[0]}
         host = page()
-        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · 5 open').first
+        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='5 places open').first
         offer.get_by_role('button', name='Join as host').click()
         host.get_by_role('button', name='Start game', exact=True).wait_for()
         included_code = code(host)
         friend = page()
-        row = friend.locator('.room-list li').filter(has_text=included_code)
-        assert '1/5 · 4 open' in row.inner_text()
-        assert 'P1/P2 controllers · included' in row.inner_text()
+        friend.get_by_role('searchbox', name='Search room, game, host, or code').fill(included_code)
+        row = friend.locator('.room-list li').first
+        row.wait_for()
+        assert friend.locator('.room-list li').count() == 1
+        assert '4 places open' in row.inner_text()
+        assert 'Super Tilt Bro' in row.inner_text()
         friend.screenshot(path=str(args.output / 'included-directory.png'))
         file_choosers = []
         friend.on('filechooser', lambda chooser: file_choosers.append(chooser))

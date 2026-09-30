@@ -37,8 +37,8 @@ The [access amendment](room-access-and-routing.md) owns the protected-room passw
 PUBLIC ROOMS                                    [Create game]
 Search [________________]
 Game / room                     Host          Places       Action
-Super Tilt Bro                  —             0/5          [Join as host]
-Lilac Harbor                    Guest Amber   2/5          [Join]
+Super Tilt Bro                  —             5 open       [Join as host]
+Lilac Harbor                    Guest Amber   3 open       [Join]
 [Rooms unavailable. Retry] appears here only on failure.
 
 CREATE GAME                                                [Back]

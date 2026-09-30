@@ -230,7 +230,7 @@ with sync_playwright() as playwright:
             saved_row.get_by_role("button").click()
             page.get_by_role("button", name="Create room", exact=True).wait_for()
             page.wait_for_function("!document.querySelector('.create-actions button')?.disabled", polling=50)
-            assert page.locator(".create-options strong").inner_text() == "shared-game.nes"
+            assert page.locator(".create-library li button.selected strong").inner_text() == "shared-game.nes"
             saved_row_selected_after_reload = True
             page.get_by_label("Room access").select_option(args.visibility)
             if args.visibility == "protected":

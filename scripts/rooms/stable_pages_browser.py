@@ -240,7 +240,8 @@ def main():
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             host.set_viewport_size({'width': 1280, 'height': 720})
             host.get_by_role('button', name='Create game', exact=True).click()
-            assert host.locator('.selected-game').evaluate("node => getComputedStyle(node).visibility === 'hidden'"), 'Old room selection must not survive a fresh Create Game visit'
+            assert host.get_by_role('button', name='Create room', exact=True).is_disabled(), 'Old room selection must not survive a fresh Create Game visit'
+            assert host.get_by_role('button', name='Play locally', exact=True).is_hidden()
             with host.expect_file_chooser() as chooser:
                 host.get_by_role('button', name='Add NES file', exact=True).click()
             chooser.value.set_files(STATIC / 'generated/diagnostic.nes')

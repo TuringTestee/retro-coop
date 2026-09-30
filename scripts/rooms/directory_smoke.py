@@ -78,8 +78,7 @@ try:
         assert viewer.locator('canvas').get_attribute('data-frame-count') == '0'
         assert 'You' in viewer.locator('[data-slot-id=slot-2] [data-slot-region=identity]').inner_text()
         observed = observer.locator(f'.room-list li[data-room-id="{room_ids[0]}"]')
-        observed.get_by_text('2/5', exact=False).wait_for()
-        assert '3 open' in observed.inner_text()
+        observed.get_by_text('3 places open', exact=True).wait_for()
         assert observed.get_by_role('button', name='Join', exact=True).count() == 1
         assert "Host's game file" in observed.inner_text() and 'download' in observed.inner_text()
         viewer.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
@@ -93,8 +92,7 @@ try:
             member.get_by_test_id('room-view').wait_for(state='attached')
             assert member.get_by_test_id('room-slot').count() == 5
             extra.append(member)
-        observed.get_by_text('5/5', exact=False).wait_for()
-        assert '0 open' in observed.inner_text()
+        observed.get_by_text('Full', exact=True).wait_for()
         assert observed.get_by_role('button', name='Join', exact=True).count() == 0
         for member in extra:
             member.get_by_role('button', name='Leave room', exact=True).click()
