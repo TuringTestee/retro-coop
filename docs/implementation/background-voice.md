@@ -18,7 +18,7 @@ Search all code, tests, browser fixtures and docs for blur, hidden, focus-mute a
 
 ## Proof and acceptance
 
-Use `pr-draft-review` for the implementation draft, then independent review in a separate detached checkout through `sh scripts/review-bot.sh`. Post exact candidate/base, commands, durations, observed results and inspected visuals on the PR.
+Use `pr-create-and-review` for the implementation draft, then independent review in a separate detached checkout through `sh scripts/review-bot.sh`. Post exact candidate/base, commands, durations, observed results and inspected visuals on the PR.
 
 - Focused microphone tests: open mic remains transmitting after blur; explicit mute stays silent; blur during pending consent honors latest mute; push-to-talk releases immediately and requires fresh input; device replacement, unavailable device, canceled/late permission and teardown retain their safety behavior.
 - Real public-entrypoint browser journey: join two tabs in one browser and two independent browser processes, enable fake-device audio by actual controls, change real tab/window focus, and observe increasing received RTP audio energy while backgrounded. Do not substitute synthetic blur events for the primary focus journey. Verify explicit mute stops energy after buffered media drains and unmute restores it. Fake microphones establish transport/decoding, not acoustic quality.
