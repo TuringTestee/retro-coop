@@ -45,19 +45,25 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
   fi
   timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
   RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py
-  npm run build
-  # Isolated servers and browser profiles let audio proof overlap the entry journey.
-  # The enclosing CI namespace owns cleanup if either bounded probe fails.
-  timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice &
-  D02_VOICE_PID=$!
-  timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
-  timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
-  wait "$D02_VOICE_PID"
-  timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility unlisted --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-unlisted
-  timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery
-  timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
   npm run build:staging
-  timeout --foreground 30s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages
+  # Independent browser servers use free local ports and separate result paths.
+  # All three groups retain their assertions under the original shared deadline.
+  (
+    timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice &
+    voice_pid=$!
+    timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
+    timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
+    wait "$voice_pid"
+    timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility unlisted --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-unlisted
+  ) & shared_pid=$!
+  (
+    timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery
+    timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
+  ) & transfer_pid=$!
+  timeout --foreground 120s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages & pages_pid=$!
+  wait "$shared_pid"
+  wait "$transfer_pid"
+  wait "$pages_pid"
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv
