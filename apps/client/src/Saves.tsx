@@ -4,7 +4,7 @@ import type {LocalFileInfo} from '../../../packages/contracts/src/index.ts';
 import {listSaves,putSave,deleteSave,downloadSave,type SaveSlot} from './saves.ts';
 
 type Confirmation={label:string;action:()=>Promise<void>};
-export function Saves({open,player,game,shared}:{open:boolean;player:LocalPlayer|null;game:string;shared:boolean}) {
+export function Saves({open,player,game,shared,batteryAvailable,storageIssue}:{open:boolean;player:LocalPlayer|null;game:string;shared:boolean;batteryAvailable:boolean;storageIssue?:string}) {
  const picker=useRef<HTMLInputElement>(null),epoch=useRef(0),previousGame=useRef(game),confirmFocus=useRef<HTMLElement|null>(null);
  const [info,setInfo]=useState<LocalFileInfo|null>(null),[rows,setRows]=useState<SaveSlot[]>([]),[slot,setSlot]=useState(1);
  const [listed,setListed]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[confirmation,setConfirmationState]=useState<Confirmation|null>(null);
@@ -69,6 +69,8 @@ export function Saves({open,player,game,shared}:{open:boolean;player:LocalPlayer
    </li>)}</ul>
   </div>
   <button disabled={busy || !info} onClick={()=>void run(async current=>{const bytes=await player!.exportSave();if(current())exportBytes(bytes);})}>Export current save</button>
+  {batteryAvailable&&<button disabled={busy} onClick={()=>void run(async current=>{const bytes=await player!.exportBattery();if(current()){downloadSave(bytes,undefined,'battery');setMessage('Battery backup requested.');}})}>Export battery backup</button>}
+  {batteryAvailable&&storageIssue&&<button disabled={busy} onClick={()=>void run(async current=>{await player!.retryBatteryPersistence();if(current())setMessage('Battery saving is working again.');})}>Retry battery saving</button>}
   {backup && <button disabled={busy} onClick={()=>exportBytes(backup)}>{exportFailed ? 'Retry export' : 'Export memory backup'}</button>}
  </section>;
 }

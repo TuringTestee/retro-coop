@@ -10,7 +10,7 @@ export type RoleTransaction={id:string;revision:number;roles:{slotId:SlotId;role
 export type GameView={controllers:ControllerAssignment;pending?:RoleTransaction;ready:string[];startRequested:boolean;status:'waiting'|'starting'|'playing'|'pausing'|'resume_ready'|'paused'|'failed';epoch?:string;delay?:number;frame?:number;reason?:string};
 export type CheckpointPurpose='observer'|'controller';
 export type GameCommand=
- | {type:'gameReady';requestId:string;revision:number;frame:number;fresh:boolean;hash:string;delay:number}
+ | {type:'gameReady';requestId:string;revision:number;roomRevision:number;frame:number;fresh:boolean;hash:string;delay:number}
  | {type:'gameUnready'|'gameObserve';requestId:string;revision:number}
  | {type:'gameRoleCancel'|'gameRoleRetry';requestId:string;transactionId:string}
  | {type:'gameAck';requestId:string;epoch:string;hash:string}
@@ -42,7 +42,7 @@ export type GamePacket=FramePacket|{kind:'input';epoch:string;frame:number;mask:
 export function parseGameCommand(value:unknown):GameCommand|undefined {
  if(!object(value)||!token(value.requestId))return;
  const base=['type','requestId'],frame=integer(value.frame,0,Number.MAX_SAFE_INTEGER);
- if(value.type==='gameReady'&&keys(value,[...base,'revision','frame','fresh','hash','delay'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&frame&&typeof value.fresh==='boolean'&&sha256(value.hash)&&integer(value.delay,gameplayLimits.delayMin,gameplayLimits.delayMax))return value as GameCommand;
+ if(value.type==='gameReady'&&keys(value,[...base,'revision','roomRevision','frame','fresh','hash','delay'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&integer(value.roomRevision,0,Number.MAX_SAFE_INTEGER)&&frame&&typeof value.fresh==='boolean'&&sha256(value.hash)&&integer(value.delay,gameplayLimits.delayMin,gameplayLimits.delayMax))return value as GameCommand;
  if((value.type==='gameUnready'||value.type==='gameObserve')&&keys(value,[...base,'revision'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER))return value as GameCommand;
  if((value.type==='gameRoleCancel'||value.type==='gameRoleRetry')&&keys(value,[...base,'transactionId'])&&token(value.transactionId))return value as GameCommand;
  if(!token(value.epoch))return;

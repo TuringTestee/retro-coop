@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import 'fake-indexeddb/auto';
 import {clearLocalData,deleteRom,listRoms,putRom,readRom} from './saves.ts';
-import {candidateStillStored,entry,gameLibrary,libraryEntries,meaningfulPreviewPixels,previewDisplay,rememberImport,savedCandidate,validPreview,verifiedSavedFile} from './rom-library.ts';
+import {candidateStillStored,entry,gameLibrary,libraryEntries,rememberImport,rememberUse,savedCandidate,verifiedSavedFile} from './rom-library.ts';
 
 const bytes=Uint8Array.from({length:16+16384},(_,i)=>i<4?[0x4e,0x45,0x53,0x1a][i]:i===4?1:0);
 const hash=createHash('sha256').update(bytes).digest('hex');
@@ -48,31 +48,13 @@ test('cross-tab clear and deletion prevent an old import write',async()=>{
  await assert.rejects(putRom({sha256:hash,bytes:bytes.slice().buffer,size:bytes.length,savedAt:10},next.generation,next.romGeneration),/deleted or local data was cleared/);
  assert.equal((await readRom(hash)).record,undefined);
 });
-test('stored preview and label are bounded for display',async()=>{
- const webp=new Uint8Array(30);webp.set(new TextEncoder().encode('RIFF'),0);webp[4]=22;webp.set(new TextEncoder().encode('WEBPVP8X'),8);webp[24]=127;webp[27]=119;
- const image='data:image/webp;base64,'+Buffer.from(webp).toString('base64');
- assert.equal(validPreview(image),true);
- assert.equal(validPreview('data:image/webp;base64,AAAA'),false);
- webp[24]=200;assert.equal(validPreview('data:image/webp;base64,'+Buffer.from(webp).toString('base64')),false);
- assert.equal(validPreview('data:image/svg+xml;base64,AAAA'),false);
- assert.equal(validPreview('data:image/webp;base64,'+'A'.repeat(32_001)),false);
- const row=entry({sha256:hash,bytes:bytes.buffer,size:bytes.length,savedAt:12,label:'X'.repeat(100),preview:'data:image/svg+xml;base64,AAAA'});
- assert.equal(row.label.length,80);assert.equal(row.preview,undefined);
- assert.deepEqual(await previewDisplay(row),{text:'No preview yet.'});
- const plausible=entry({sha256:hash,bytes:bytes.buffer,size:bytes.length,savedAt:12,preview:image});
- assert.deepEqual(await previewDisplay(plausible,async()=>{throw Error('Chromium cannot decode this image');}),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:0,height:0,usable:true})),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:129,height:120,usable:true})),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:128,height:120,usable:false})),{text:'No preview yet.'});
- assert.deepEqual(await previewDisplay(plausible,async()=>({width:128,height:120,usable:true})),{image,alt:'Recent game preview: NES game'});
-});
-test('final thumbnail needs visible structure, not one contrasting pixel',()=>{
- const pixels=new Uint8ClampedArray(128*120*4);
- for(let i=0;i<pixels.length;i+=4){pixels[i]=pixels[i+1]=pixels[i+2]=129;pixels[i+3]=255;}
- assert.equal(meaningfulPreviewPixels(pixels),false);
- pixels[0]=255;assert.equal(meaningfulPreviewPixels(pixels),false);
- for(let y=0;y<120;y++)for(let x=0;x<8;x++)pixels[(y*128+x)*4]=7;
- assert.equal(meaningfulPreviewPixels(pixels),false);
- for(let y=20;y<100;y++)for(let x=48;x<56;x++)pixels[(y*128+x)*4]=255;
- assert.equal(meaningfulPreviewPixels(pixels),true);
+test('reselecting a saved game updates recency without changing its bytes',async()=>{
+ await reset();const initial=await readRom(hash);
+ await putRom({sha256:hash,bytes:bytes.slice().buffer,size:bytes.length,savedAt:10,lastUsedAt:10,label:'Recent.nes',source:'import'},initial.generation,initial.romGeneration);
+ const before=(await readRom(hash)).record!;
+ await rememberUse(hash);
+ const after=(await readRom(hash)).record!;
+ assert.equal(after.label,'Recent.nes');
+ assert.deepEqual(new Uint8Array(after.bytes),bytes);
+ assert.ok(after.lastUsedAt!>before.lastUsedAt!);
 });

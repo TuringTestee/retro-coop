@@ -4,9 +4,10 @@ type Offer=Extract<GameCommand,{type:'gameReady'}>;
 type Member={id:string;connected:boolean;loaded:boolean;transport:boolean};
 type Transfer={id:string;recipient:string;purpose:CheckpointPurpose;frame?:number;hash?:string;sending:boolean;deadline:number;catchingUp?:boolean};
 const id=()=>randomBytes(24).toString('base64url');
-/** Room-owned authority and barriers. Observers never join an active-owner barrier. */
+/** Room-owned authority and barriers. Every occupant gates initial Start; owners alone gate live play. */
 export class GameSession {
  private host='';private members=new Map<string,Member>();private offers=new Map<string,Offer>();private acks=new Set<string>();private required:string[]=[];
+ private roomRevision?:number;
  private hasPlayed=false;private transfers=new Map<string,Transfer>();private deadline=0;private hash?:string;private frame=0;private proposed?:ControllerAssignment;
  private state:GameView={controllers:{owners:[null,null],revision:0},ready:[],startRequested:false,status:'waiting'};
  private now:()=>number;private send:(member:string,event:GameEvent)=>void;private commitRoles:(pending:RoleTransaction)=>ControllerAssignment;
@@ -17,6 +18,11 @@ export class GameSession {
  configure(host:string,members:Member[],controllers:ControllerAssignment,revision?:number){
   const previous=this.members;this.host=host;this.members=new Map(members.map(member=>[member.id,member]));
   if(!this.state.pending)this.state.controllers=controllers;
+  if(!this.state.epoch){
+   if(this.roomRevision!==undefined&&revision!==undefined&&revision!==this.roomRevision)this.offers.clear();
+   for(const [member,offer] of this.offers)if(!this.available(member)||offer.revision!==this.state.controllers.revision||offer.roomRevision!==(revision??this.roomRevision??0))this.offers.delete(member);
+  }
+  if(revision!==undefined)this.roomRevision=revision;
   const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.transport&&!this.members.get(old.id)!.transport);
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
   if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Membership changed. Previous roles and game progress are preserved.');
@@ -25,15 +31,17 @@ export class GameSession {
  }
  private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(member===this.host||value.transport);}
  private checkRevision(revision:number){if(revision!==this.state.controllers.revision)throw Error('stale_controllers');}
+ private initialReady(){return this.members.has(this.host)&&[...this.members.keys()].every(member=>this.available(member)&&this.offers.get(member)?.revision===this.state.controllers.revision&&this.offers.get(member)?.roomRevision===(this.roomRevision??0));}
  requestStart(){
   if(this.state.startRequested)return;
   if(this.state.epoch)throw Error('game_already_started');
-  if(this.owners().some(owner=>owner!==this.host&&!this.offers.has(owner)))throw Error('game_prerequisites');
+  if(!this.initialReady())throw Error('game_prerequisites');
   this.state.startRequested=true;this.deadline=this.now()+gameplayLimits.barrierMs;
-  if(!this.offers.has(this.host))this.send(this.host,{type:'gameInspect'});else this.prepareIfReady();
+  this.prepareIfReady();
  }
  private prepareIfReady(){
   if(this.state.pending)return;
+  if(!this.hasPlayed&&this.state.startRequested&&!this.initialReady())return;
   const required=this.owners();if(required.some(member=>!this.offers.has(member)||!this.available(member)))return;
   const authority=this.offers.get(this.host)!;
   if(!this.hasPlayed){
@@ -89,7 +97,7 @@ export class GameSession {
  handle(member:string,command:GameCommand){
   if(!this.members.has(member))throw Error('membership_changed');
   if(command.type==='gameReady'){
-   this.checkRevision(command.revision);if(this.state.pending||['playing','starting','pausing'].includes(this.state.status)||!this.available(member))throw Error('game_prerequisites');
+   this.checkRevision(command.revision);if(command.roomRevision!==(this.roomRevision??0))throw Error('room_changed');if(this.state.pending||['playing','starting','pausing'].includes(this.state.status)||!this.available(member))throw Error('game_prerequisites');
    this.offers.set(member,command);this.prepareIfReady();return;
   }
   if(command.type==='gameObserve'){
@@ -99,7 +107,7 @@ export class GameSession {
    this.checkRevision(command.revision);const transfers=[...this.transfers.values()].filter(transfer=>member===this.host||transfer.recipient===member);
    if(this.state.pending&&(member===this.host||this.owners(this.proposed).includes(member)||transfers.some(transfer=>transfer.purpose==='controller'))){this.failTransaction('Synchronization cancelled. Previous roles and game progress are preserved.');return;}
    if(transfers.some(transfer=>transfer.purpose==='controller'))this.stop('Synchronization cancelled. Game progress is preserved.');
-   else {for(const transfer of transfers)this.cancelTransfer(transfer,'Synchronization cancelled. Game progress is preserved.');this.offers.delete(member);if(this.owners().includes(member)&&(this.state.startRequested||this.state.status==='starting'))this.stop('Preparation cancelled. Assigned players must prepare again.');}return;
+   else {for(const transfer of transfers)this.cancelTransfer(transfer,'Synchronization cancelled. Game progress is preserved.');this.offers.delete(member);if((!this.state.epoch||this.owners().includes(member))&&(this.state.startRequested||this.state.status==='starting'))this.stop('Preparation cancelled. Members must prepare again.');}return;
   }
   if(command.type==='gameRoleCancel'||command.type==='gameRoleRetry'){
    if(member!==this.host||this.state.pending?.id!==command.transactionId)throw Error('stale_controllers');
@@ -146,7 +154,7 @@ export class GameSession {
   if(command.type==='gameCheckpointAck'){
    if(!transfer.sending||command.frame!==transfer.frame||command.hash!==transfer.hash)throw Error('stale_checkpoint');
    if(transfer.purpose==='observer'){if(transfer.catchingUp)return;transfer.catchingUp=true;transfer.deadline=this.now()+gameplayLimits.catchupMs;this.send(this.host,{type:'gameCatchup',epoch:command.epoch,transferId:transfer.id,recipient:member,frame:command.frame});}
-   else {this.transfers.delete(transfer.id);const offer=this.offers.get(member);this.offers.set(member,{type:'gameReady',requestId:id(),revision:this.state.controllers.revision,delay:offer?.delay??gameplayLimits.delayDefault,frame:command.frame,hash:command.hash,fresh:false});if(this.state.pending)this.finishTransaction();else this.prepareIfReady();}return;
+   else {this.transfers.delete(transfer.id);const offer=this.offers.get(member);this.offers.set(member,{type:'gameReady',requestId:id(),revision:this.state.controllers.revision,roomRevision:this.roomRevision??0,delay:offer?.delay??gameplayLimits.delayDefault,frame:command.frame,hash:command.hash,fresh:false});if(this.state.pending)this.finishTransaction();else this.prepareIfReady();}return;
   }
   if(command.type==='gameObserved'){if(!transfer.catchingUp||command.frame<transfer.frame!)throw Error('stale_checkpoint');this.transfers.delete(transfer.id);return;}
   if(command.type==='gameCheckpointFailed'){this.cancelTransfer(transfer,'Synchronization failed. Progress is preserved; retry.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Synchronization failed. Retry or cancel the role change.');else this.stop('Synchronization failed. Progress is preserved; prepare again.','failed');}}

@@ -82,7 +82,7 @@ def run(playwright, url, mode, output, headed):
         host.set_input_files('input[type=file]', str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
         host.get_by_role('button', name='Create room', exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='attached')
-        invitation = host.get_by_label('Room invitation', exact=True).input_value()
+        invitation = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         if mode == 'same-browser-tabs':
             with host.expect_popup() as popup:
                 host.evaluate("window.open('about:blank')")
@@ -157,19 +157,20 @@ def run(playwright, url, mode, output, headed):
 
         # The same session reaches shared play; focus changes preserve voice and frame progress.
         guest.bring_to_front()
-        guest.get_by_role('button', name='Prepare to play', exact=True).click()
+        guest.get_by_role('button', name='Ready', exact=True).click()
         host.bring_to_front()
         host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for(timeout=30000)
+        host.get_by_role('button', name='Ready', exact=True).click()
         host.get_by_role('button', name='Start game', exact=True).click()
         for tab in [host, guest]:
             tab.locator('.voice-card').wait_for()
             tab.bring_to_front()
             tab.locator('.voice-card').get_by_role('button', name='Mute microphone' if tab == host else 'Unmute microphone', exact=True).wait_for()
         host.bring_to_front()
-        frame = int(host.get_by_test_id('game-frame').inner_text().split()[0])
+        frame = int(host.locator('canvas[data-frame-count]').get_attribute('data-frame-count'))
         background_host()
         playing_energy = audio_arrives(guest)
-        host.wait_for_function("f => Number(document.querySelector('[data-testid=game-frame]').textContent.split(' ')[0]) >= f + 30", arg=frame)
+        host.wait_for_function("f => Number(document.querySelector('canvas[data-frame-count]')?.dataset.frameCount) >= f + 30", arg=frame)
         host.screenshot(path=str(output / f'{mode}-playing.png'))
         guest.get_by_role('button', name='Leave room', exact=True).click()
         guest.get_by_role('button', name='Confirm leave', exact=True).click()

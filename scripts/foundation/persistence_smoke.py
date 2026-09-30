@@ -76,9 +76,9 @@ def verify_persistence(browser,url,rom,worker_path,output):
     page.reload();enter_create(page);load()
     assert 'could not be restored' in page.get_by_test_id('persistence-status').inner_text()
     exports=page.evaluate("fileEvents.filter(type=>type==='battery-export').length")
-    frames=int(page.get_by_test_id('frames').inner_text().split()[0])
+    frames=int(page.locator('canvas').get_attribute('data-frame-count').split()[0])
     page.evaluate("window.dispatchEvent(new Event('pagehide'))")
-    page.wait_for_function("before=>Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>before+3",arg=frames)
+    page.wait_for_function("before=>Number(document.querySelector('canvas').dataset.frameCount)>before+3",arg=frames)
     assert page.evaluate("fileEvents.filter(type=>type==='battery-export').length")==exports
     assert page.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('batteries'),q=tx.objectStore('batteries').getAll();q.onsuccess=()=>resolve(Number.isNaN(q.result[0].savedAt));tx.oncomplete=()=>db.close()}})""")
     # Corrupt battery/preferences remain exportable and never block ROM admission.

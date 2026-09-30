@@ -1,4 +1,4 @@
-"""Recover an observing host's first start and reject pre-epoch edits atomically."""
+"""Recover an observing host's first start and a lost Ready command."""
 import argparse
 import contextlib
 import hashlib
@@ -72,35 +72,24 @@ def main():
             host.set_input_files('input[type=file]', str(runtime / 'apps/client/dist/generated/diagnostic.nes'))
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for()
+            host.locator('[data-slot-id=slot-1] [data-manage-slot]').click()
             host.get_by_label('Slot 1 role', exact=True).select_option('observer')
+            host.get_by_role('button', name='Done', exact=True).click()
             wait(host, "proof.room?.slots[0].role==='observer'")
-            member.goto(host.get_by_label('Room invitation', exact=True).input_value())
+            member.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
             member.get_by_role('button', name='Join room', exact=True).click()
-            member.get_by_role('button', name='Prepare to play', exact=True).click()
+            member.get_by_role('button', name='Ready', exact=True).click()
+            host.get_by_role('button', name='Ready', exact=True).click()
             wait(host, 'proof.room.game.ready.includes(proof.room.slots[1].member?.id)')
             return host, member, host.evaluate('proof.room.id')
 
-        def rejected_edit(host, label):
-            before = host.evaluate('({revision:proof.room.revision,roles:proof.room.slots.map(s=>s.role)})')
-            count = host.evaluate('recovery.commands.length')
-            host.get_by_label('Slot 3 role', exact=True).select_option('player1')
-            wait(host, "n=>recovery.commands.slice(n).some(c=>c.type==='slotRole'&&recovery.results.some(r=>r.requestId===c.requestId&&!r.ok))", count)
-            # Public nickname save forces a fresh server room snapshot, so a
-            # rejected command cannot hide a mutated pending transaction.
-            if not host.get_by_label('Nickname', exact=True).is_visible():
-                host.get_by_text('Nickname settings', exact=True).click()
-            host.get_by_label('Nickname', exact=True).fill('Recovery ' + label)
-            host.get_by_role('button', name='Save nickname', exact=True).click()
-            wait(host, "name=>proof.room.slots[0].member.nickname===name", 'Recovery ' + label)
-            after = host.evaluate('({revision:proof.room.revision,roles:proof.room.slots.map(s=>s.role),pending:proof.room.game.pending??null})')
-            assert after['pending'] is None, after
-            assert after['revision'] == before['revision'] and after['roles'] == before['roles'], (before, after)
-            return after
-
         def recover(host, member, room_id, case):
-            member.get_by_role('button', name='Retry shared play', exact=True).click()
-            wait(host, 'proof.room.game.ready.includes(proof.room.slots[1].member?.id)')
-            host.get_by_role('button', name='Retry shared play', exact=True).click()
+            if case == 'pre-epoch':
+                host.get_by_role('button', name='Start game', exact=True).click()
+            else:
+                member.get_by_role('button', name='Retry shared play', exact=True).click()
+                wait(host, 'proof.room.game.ready.includes(proof.room.slots[1].member?.id)')
+                host.get_by_role('button', name='Retry shared play', exact=True).click()
             for tab in (host, member):
                 wait(tab, "proof.room.game.status==='playing'&&proof.room.established")
                 assert tab.evaluate('proof.room.id') == room_id
@@ -119,6 +108,7 @@ def main():
                     break
                 assert time.monotonic() < deadline, states
                 host.wait_for_timeout(30)
+            host.get_by_role('button', name='Players', exact=True).click()
             host.get_by_label('Slot 1 identity', exact=True).scroll_into_view_if_needed()
             host.screenshot(path=str(args.output.with_suffix('.' + case + '-recovered.png')))
             assert states[0]['frame'] >= 120
@@ -131,29 +121,31 @@ def main():
         try:
             for case in ['barrier', 'pre-epoch'] if args.case == 'all' else [args.case]:
                 host, member, room_id = setup()
+                failed_at = time.monotonic()
                 if case == 'barrier':
                     host.evaluate('window.dropGameAck=true')
-                else:
-                    host.evaluate('window.dropInitialReady=true')
-                host.get_by_role('button', name='Start game', exact=True).click()
-                wait(host, 'proof.room.game.startRequested')
-                failed_at = time.monotonic()
-                edits = []
-                if case == 'barrier':
+                    host.get_by_role('button', name='Start game', exact=True).click()
+                    wait(host, 'proof.room.game.startRequested')
                     wait(host, "proof.room.game.status==='starting'&&proof.droppedAcks>0")
+                    wait(host, "['failed','paused'].includes(proof.room.game.status)&&!proof.room.established", timeout=20_000)
                 else:
+                    host.get_by_role('button', name='Not ready', exact=True).click()
+                    wait(host, '!proof.room.game.ready.includes(proof.room.chatMembership)')
+                    host.evaluate('window.dropInitialReady=true')
+                    host.get_by_role('button', name='Ready', exact=True).click()
                     wait(host, 'recovery.droppedReady>0&&!proof.room.game.epoch')
-                    edits.append(rejected_edit(host, 'during preparation'))
-                wait(host, "['failed','paused'].includes(proof.room.game.status)&&!proof.room.established", timeout=20_000)
+                    assert host.get_by_role('button', name='Start game', exact=True).is_disabled()
                 elapsed_timeout = time.monotonic() - failed_at
                 host.screenshot(path=str(args.output.with_suffix('.' + case + '-failed.png')))
                 if case == 'pre-epoch':
                     assert not host.evaluate('proof.room.game.epoch')
-                    edits.append(rejected_edit(host, 'after timeout'))
                 host.evaluate('window.dropGameAck=false;window.dropInitialReady=false')
+                if case == 'pre-epoch':
+                    host.get_by_role('button', name='Ready', exact=True).click()
+                    wait(host, 'proof.room.game.ready.includes(proof.room.chatMembership)')
                 states = recover(host, member, room_id, case)
                 results.append({'case': case, 'failure_observed_seconds': round(elapsed_timeout, 2),
-                                'rejected_edits': edits, 'same_room_recovered': True, 'host_role': 'observer',
+                                'same_room_recovered': True, 'host_role': 'observer',
                                 'native_states': states, 'host_events': host.evaluate('recovery.events')})
             assert not errors, errors
             result = {'result': 'pass', 'source': source, 'cases': results, 'browser': browser.version,

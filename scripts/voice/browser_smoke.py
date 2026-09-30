@@ -106,7 +106,7 @@ try:
     open_connection(host).get_by_label("Connection privacy", exact=True).select_option(
         "relay" if args.relay else "standard"
     )
-    guest = page(host.get_by_label("Room invitation", exact=True).input_value())
+    guest = page(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
     guest.get_by_role("button", name="Join room", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="attached")
     timeline_before = host.evaluate("timelineWrites")
@@ -132,7 +132,7 @@ try:
     for tab in [host, guest]:
         audio_arrives(tab)
     panel = host.locator(".room-panel")
-    frame_before = host.get_by_test_id("frames").inner_text()
+    frame_before = host.locator("canvas").get_attribute("data-frame-count")
     panel.get_by_label("Voice mode", exact=True).select_option("push")
     host.get_by_role("button", name="Leave room", exact=True).focus()
     host.keyboard.down("KeyV")
@@ -144,13 +144,17 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("Space")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
-    host.get_by_label("Room invitation", exact=True).focus()
+    panel.locator('details.session-settings').evaluate('(node)=>node.open=true')
+    panel.locator('details.session-settings details').evaluate('(node)=>node.open=true')
+    host.get_by_label("Room name", exact=True).focus()
     host.keyboard.down("KeyV")
     host.evaluate(
         "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
     )
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.keyboard.up("KeyV")
+    panel.locator('details.session-settings').evaluate('(node)=>node.open=false')
+    panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
     # Synthetic gamepad input goes through the real Settings selection and shared mapping.
     host.evaluate(
         """() => { window.voicePad={index:0,id:'Voice fixture controller',connected:true,buttons:Array.from({length:16},()=>({pressed:false,value:0})),axes:[0,0]};Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>voicePad.connected?[voicePad]:[]}); }"""
@@ -218,7 +222,7 @@ try:
     panel.get_by_role("button", name="Enable voice sound", exact=True).click()
     panel.get_by_text("Transmitting microphone audio", exact=True).wait_for()
     assert host.evaluate("pcs.length") == pc_count
-    assert int(host.get_by_test_id("frames").inner_text().split()[0]) >= int(
+    assert int(host.locator("canvas").get_attribute("data-frame-count").split()[0]) >= int(
         frame_before.split()[0]
     )
     # Select another actual fake-device input after permission; replacement starts muted.
@@ -305,7 +309,7 @@ try:
     host.keyboard.up("KeyV")
     host.wait_for_function("captures.at(-1).getTracks().every(t=>!t.enabled)")
     capture_count = host.evaluate("captures.length")
-    guest.goto(host.get_by_label("Room invitation", exact=True).input_value())
+    guest.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
     guest.get_by_role("button", name="Join room", exact=True).click()
     for tab in [host, guest]:
         tab.wait_for_function("pcs.at(-1)?.connectionState==='connected'")

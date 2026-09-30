@@ -9,10 +9,11 @@ export function PlayControls({controls,room,edit,roomSlots}:{controls:Controls;r
  const source=controls.device?'gamepad':'keyboard';
  return <section className="play-controls" aria-label="Your controls">
   <h2>Your controls <span>· {port===null?'Observer':`Player ${port}`}</span></h2>
-  {port===null?<><p>Observer input is off. Room slots shows the assigned players.</p><button onClick={roomSlots}>Room slots</button></>:<>
+  {port!==null&&<>
    <p className="control-source">{controls.device?`Gamepad · ${controls.device.id}`:'Keyboard'}</p>
    <dl className="play-bindings">{actions.filter(action=>action!=='pushToTalk').map(action=><div key={action}><dt>{labels[action]}</dt><dd>{controls[source][action].map(bindingLabel).join(' / ')||'Unbound'}</dd></div>)}</dl>
    <button className="text-action" onClick={edit}>Edit controls</button>
   </>}
+  {room?.started&&<button onClick={roomSlots}>Players</button>}
  </section>;
 }

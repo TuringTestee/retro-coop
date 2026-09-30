@@ -95,7 +95,7 @@ def main():
             for page in pages:
                 page.wait_for_function("proof.room?.occupancy===5&&proof.room.peers.length===4&&proof.room.peers.every(p=>p.status==='connected')", polling=50)
             for page in observers:
-                page.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+                page.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
 
         def matching_boundary(selected):
             host.get_by_role('button', name='Pause', exact=True).click()
@@ -121,7 +121,8 @@ def main():
             host.get_by_role('button', name='Create game', exact=True).click()
             host.set_input_files('input[type=file]', str(static / 'generated/diagnostic.nes'))
             host.get_by_role('button', name='Create room', exact=True).click()
-            invite = host.get_by_label('Room invitation', exact=True).input_value()
+            host.get_by_test_id('room-view').wait_for(state='attached')
+            invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             assert urlsplit(invite).path == '/', 'Displayed invitation must use the canonical room route, never /create'
             for page in pages[1:]:
                 page.goto(invite)
@@ -131,8 +132,9 @@ def main():
                 page.wait_for_function("proof.room.peers.length===4&&proof.room.peers.every(p=>p.status==='connected')", polling=50)
             members = membership(host)
             assert len(members) == 5
-            owner.get_by_role('button', name='Prepare to play', exact=True).click()
-            owner.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
+            for page in pages:
+                page.get_by_role('button', name='Ready', exact=True).click()
+                page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
             host.get_by_role('button', name='Start game', exact=True).click()
             for page in pages:
                 page.evaluate('releaseFrames()')
@@ -160,7 +162,7 @@ def main():
                 assert all(membership(page) == members for page in pages)
                 for page in pages[:4]:
                     if page in observers:
-                        page.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+                        page.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
                 # Each unaffected worker independently hashes this completed periodic frame.
                 hash_frame = ((before // 120) + 1) * 120
                 for page in pages[:4]:

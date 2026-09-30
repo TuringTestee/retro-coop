@@ -390,7 +390,7 @@ test('real WebSocket clients opt into offers and race for one first-host claim',
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
 });
 
-test('separate WebSocket browsers retain unready observers and admit late members after Start',async()=>{
+test('separate WebSocket browsers reject an unready observer, then admit a late member after confirmed removal and Start',async()=>{
  const origin='http://127.0.0.1:5173',server=createCoordinator({origins:[origin]});server.listen(0,'127.0.0.1');await once(server,'listening');
  const url=`ws://127.0.0.1:${(server.address() as {port:number}).port}/ws`,sockets:WebSocket[]=[];
  const connect=async()=>{const socket=new WebSocket(url,{origin});sockets.push(socket);await once(socket,'open');return socket;};
@@ -405,12 +405,15 @@ test('separate WebSocket browsers retain unready observers and admit late member
   assert.equal(joined.occupancy,2);
   const changed=data(await request(host,{type:'slotRole',roomId:room.id,slotId:'slot-2',role:'observer',expectedRevision:joined.revision})).room!;
   data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
-  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
+  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
+  const rejected=await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});assert.equal(rejected.ok,false);if(!rejected.ok)assert.equal(rejected.error,'game_prerequisites');
+  const removed=data(await request(host,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:changed.revision})).room!;
+  data(await request(host,{type:'gameReady',revision:removed.game.controllers.revision,roomRevision:removed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
   const started=data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!;
   const epoch=started.game.epoch!;data(await request(host,{type:'gameAck',epoch,hash:'c'.repeat(64)}));
-  assert.equal(started.started,'shared');assert.equal(started.occupancy,2);
-  const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;assert.equal(preview.status,'playing');assert.equal(preview.occupancy,2);
-  const late=data(await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;assert.equal(late.slot,'slot-3');assert.equal(late.occupancy,3);assert.equal(late.game.epoch,epoch);
+  assert.equal(started.started,'shared');assert.equal(started.occupancy,1);
+  const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;assert.equal(preview.status,'playing');assert.equal(preview.occupancy,1);
+  const late=data(await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;assert.equal(late.slot,'slot-2');assert.equal(late.occupancy,2);assert.equal(late.game.epoch,epoch);
   assert.equal(data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!.id,room.id);
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
 });

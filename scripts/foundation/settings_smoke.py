@@ -17,7 +17,7 @@ def verify_settings(browser, url, rom, output):
     enter_create(page)
     page.set_input_files('input[type=file]', {'name':'controls-fixture.nes','mimeType':'application/octet-stream','buffer':rom})
     start_solo(page,rom)
-    count = "Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])"
+    count = "Number(document.querySelector('canvas').dataset.frameCount)"
     page.wait_for_function(count+'>10')
     page.get_by_role('button',name='Settings',exact=True).click()
     tool_page = page.locator('.settings.tool-page')
@@ -105,7 +105,7 @@ def verify_settings(browser, url, rom, output):
     assert page.get_by_role('button',name='Resume',exact=True).is_enabled()
     frozen = page.evaluate(count)
     page.get_by_role('button',name='Resume',exact=True).click()
-    page.wait_for_function('minimum=>Number(document.querySelector("[data-testid=frames]").textContent.split(" ")[0])>minimum',arg=frozen+5)
+    page.wait_for_function('minimum=>Number(document.querySelector("canvas").dataset.frameCount)>minimum',arg=frozen+5)
     # Browser refusal never blocks normal play, and normal fullscreen has an exit.
     page.evaluate('()=>{window.fullscreenRequest=Element.prototype.requestFullscreen;Element.prototype.requestFullscreen=()=>Promise.reject(new Error("Denied"));}')
     page.get_by_role('button',name='Fullscreen',exact=True).click()
@@ -150,7 +150,7 @@ def verify_disconnected_load(browser, url, rom):
     page.get_by_role('button',name='Back',exact=True).click()
     page.evaluate('connected=false')
     page.get_by_role('button',name='Use keyboard',exact=True).wait_for()
-    count="Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])"
+    count="Number(document.querySelector('canvas').dataset.frameCount)"
     for attempt in range(2):
         candidate=rom+(b'first replacement' if attempt==0 else b'second replacement')
         page.set_input_files('input[type=file]',{'name':'disconnected.nes','mimeType':'application/octet-stream','buffer':candidate})

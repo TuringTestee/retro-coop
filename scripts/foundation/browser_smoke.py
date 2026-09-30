@@ -68,7 +68,7 @@ with room_test_server(root) as url:
                 page.get_by_role('button', name='Play locally', exact=True).click()
             page.get_by_role('button', name='Resume', exact=True).click()
             page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
-            page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+            page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
         def run_fresh_variant(data, name):
             variant_page = browser.new_page()
             try:
@@ -77,7 +77,7 @@ with room_test_server(root) as url:
                 variant_page.set_input_files('input[type=file]', {'name':name,'mimeType':'application/octet-stream','buffer':bytes(data)})
                 variant_page.get_by_role('button', name='Play locally', exact=True).click()
                 variant_page.get_by_role('button', name='Resume', exact=True).click()
-                variant_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+                variant_page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
                 assert hashlib.sha256(data).hexdigest() in read_fingerprint(variant_page)
             finally:
                 variant_page.close()
@@ -211,7 +211,7 @@ with room_test_server(root) as url:
         audio_page.set_input_files('input[type=file]', {'name':'audio-check.nes','mimeType':'application/octet-stream','buffer':rom})
         audio_page.get_by_role('button', name='Play locally', exact=True).click()
         audio_page.get_by_role('button', name='Resume', exact=True).click()
-        audio_page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        audio_page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
         assert audio_page.get_by_role('button',name='Retry sound').is_visible()
         audio_page.evaluate('denySound=false')
         audio_page.get_by_role('button',name='Retry sound').click()

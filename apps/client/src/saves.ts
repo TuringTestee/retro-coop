@@ -2,7 +2,7 @@
 export type SaveSlot = {identity:string;slot:number;savedAt:number;bytes:ArrayBuffer};
 export type BatteryRecord = {identity:string;savedAt:number;bytes:ArrayBuffer};
 export type PreferencesRecord = {identity:string;savedAt:number;value:unknown};
-export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number;label?:string;source?:'import'|'download';lastUsedAt?:number;preview?:string};
+export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number;label?:string;source?:'import'|'download';lastUsedAt?:number};
 export function validSavedAt(value:unknown):value is number {return typeof value==='number' && Number.isFinite(value) && Math.abs(value)<=8640000000000000;}
 const database='retro-coop-local',store='saves';
 const stores=['saves','batteries','preferences','roms','meta'];
@@ -98,7 +98,8 @@ export async function putRom(record:RomRecord,generation:number,romGeneration:nu
    existing.addEventListener('success',()=>{
     const old=existing.result as RomRecord|undefined;
     // A guest download and local import of identical bytes share one row.
-    store.put({...old,...record,label:record.label??old?.label,source:record.source??old?.source,lastUsedAt:record.lastUsedAt??old?.lastUsedAt,preview:record.preview??old?.preview});
+    const {preview: _legacyPreview,...prior}=(old??{}) as RomRecord & {preview?:string};
+    store.put({...prior,...record,label:record.label??old?.label,source:record.source??old?.source,lastUsedAt:record.lastUsedAt??old?.lastUsedAt});
    });
   };
   epoch.addEventListener('success',check);individual.addEventListener('success',check);return epoch;

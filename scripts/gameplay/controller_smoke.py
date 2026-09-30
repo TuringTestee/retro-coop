@@ -16,8 +16,13 @@ def run(host,guest,out,root,errors,source,build_files):
    time.sleep(.02)
  def assign(slot,role):
   before=native(host);old=host.evaluate('proof.room.game.epoch')
+  if host.get_by_test_id('room-slot').count()==0:host.get_by_role('button',name='Players',exact=True).click()
+  host.locator(f'[data-slot-id=slot-{slot}]').get_by_role('button',name='Manage',exact=True).click()
   host.get_by_label(f'Slot {slot} role',exact=True).select_option(role)
   for page in pages:page.wait_for_function("v=>proof.room.game.status==='playing'&&proof.room.game.epoch!==v",arg=old,polling=20)
+  host.get_by_role('dialog',name=f'Manage slot {slot}').get_by_role('button',name='Done',exact=True).click()
+  host.wait_for_function("document.activeElement?.hasAttribute('data-manage-slot')")
+  host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
   results.append({'assigned_slot':slot,'role':role,'preserved_boundary':before})
  def sample(expected,label):
   for page in pages:
@@ -41,6 +46,7 @@ def run(host,guest,out,root,errors,source,build_files):
  sample([128,0],'host P1, former owner remains observer despite held pad')
  final=pause()
  for page in pages:
+  if page.get_by_test_id('room-slot').count()==0:page.get_by_role('button',name='Players',exact=True).click()
   assert page.get_by_test_id('room-slot').count()==5
   page.locator('.room-panel').evaluate('(panel)=>panel.scrollTop=0')
  host.screenshot(path=str(out.with_suffix('.after.png')));guest.screenshot(path=str(out.with_suffix('.member.png')))

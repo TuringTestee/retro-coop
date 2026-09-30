@@ -38,13 +38,25 @@ test('host explicit retry works regardless of previous stop and does not duplica
  const t=setup(host);try{t.game.handle({type:'gameStop',reason:'Timed out'});t.game.retry();await tick();t.game.enter(room(host));await tick();assert.equal(t.commands.filter(c=>c.type==='gameReady').length,1);}finally{t.game.dispose();}
 });
 test('wrong selected file cannot prepare until matching file and explicit intent are supplied',async()=>{
- const t=setup();try{t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});t.game.playIntent();await tick();assert.equal(t.commands.length,0);t.game.cancelIntent();t.game.selected(fingerprint);await tick();assert.deepEqual(t.commands.map(c=>c.type),['gameUnready']);t.game.playIntent();await tick();assert.equal(t.commands.at(-1)?.type,'gameReady');}finally{t.game.dispose();}
+ const t=setup();try{t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});t.game.playIntent();await tick();assert.equal(t.commands.length,0);t.game.cancelIntent();t.game.selected(fingerprint);await tick();assert.deepEqual(t.commands.map(c=>c.type),['gameUnready']);t.game.playIntent();await tick();assert.equal(t.commands.at(-1)?.type,'gameReady');assert.equal(t.commands.at(-1)?.roomRevision,1);}finally{t.game.dispose();}
 });
 test('changing an already prepared member file explicitly revokes its readiness',async()=>{
  const t=setup();try{t.game.playIntent();await tick();assert.equal(t.commands.at(-1)?.type,'gameReady');t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});await tick();assert.deepEqual(t.commands.map(c=>c.type),['gameReady','gameUnready']);}finally{t.game.dispose();}
 });
 test('file replacement during worker hold invalidates stale readiness before it reaches coordinator',async()=>{
  const t=setup();t.defer();try{t.game.playIntent();t.game.selected({...fingerprint,romSha256:'f'.repeat(64)});t.holds[0]({frame:0,hash,fresh:true});await tick();assert.equal(t.commands.some(c=>c.type==='gameReady'),false);}finally{t.game.dispose();}
+});
+test('room revision invalidates an unfinished Ready click until the member chooses Ready again',async()=>{
+ const t=setup();t.defer();try{
+  t.game.playIntent();assert.equal(t.holds.length,1);
+  const changed=room();changed.revision=2;changed.slots[1].revision=1;t.game.enter(changed);
+  t.holds[0]({frame:0,hash,fresh:true});await tick();
+  assert.equal(t.commands.some(c=>c.type==='gameReady'),false);
+  assert.equal(t.updates.at(-1)?.intent,false);
+  t.game.playIntent();assert.equal(t.holds.length,2);
+  t.holds[1]({frame:0,hash,fresh:true});await tick();
+  assert.equal(t.commands.at(-1)?.type,'gameReady');assert.equal(t.commands.at(-1)?.roomRevision,2);
+ }finally{t.game.dispose();}
 });
 test('late configured controller offers readiness for activation rather than requesting observer sync',async()=>{
  const t=setup();try{const late=room();late.started='shared';late.established=true;late.game={...late.game,status:'playing',epoch,controllers:{owners:[host,null],revision:2}};t.game.enter(late);t.commands.length=0;t.game.playIntent();await tick();assert.equal(t.commands.some(c=>c.type==='gameObserve'),false);assert.ok(t.commands.some(c=>c.type==='gameReady'&&c.revision===2));}finally{t.game.dispose();}

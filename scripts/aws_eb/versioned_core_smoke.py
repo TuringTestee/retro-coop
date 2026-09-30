@@ -91,14 +91,14 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
                 else:
                     start = page.get_by_role('button', name='Play locally', exact=True)
                     start.wait_for()
-                    frames = page.get_by_test_id('frames')
-                    assert frames.inner_text() == '0 frames', 'Create Game advanced before local play'
+                    frames = page.locator('canvas')
+                    assert frames.get_attribute('data-frame-count') == '0', 'Create Game advanced before local play'
                     page.wait_for_timeout(200)
-                    assert frames.inner_text() == '0 frames', 'Create Game advanced before local play'
+                    assert frames.get_attribute('data-frame-count') == '0', 'Create Game advanced before local play'
                     start.click()
                     page.get_by_role('button', name='Resume', exact=True).click()
                 page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
-                page.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+                page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
                 page.get_by_role('button', name='Game help', exact=True).click()
                 page.get_by_text('Technical details', exact=True).click()
                 observed = page.get_by_test_id('fingerprint').text_content()

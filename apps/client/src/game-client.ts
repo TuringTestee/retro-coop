@@ -29,7 +29,14 @@ export class GameClient {
  private loaded(){return !!this.room&&!!this.file&&this.room.matches&&matchesFile(this.room.fingerprint,this.file)&&!!this.player()?.isLoaded(this.file);}
  enter(room?:RoomView){
   const prior=this.room;if(prior&&(!room||room.id!==prior.id||room.chatMembership!==prior.chatMembership))this.clear('Room membership changed. Your game is preserved.',true);
+  if(room&&(!prior||room.id!==prior.id||room.chatMembership!==prior.chatMembership)){this.intent=false;this.offered=undefined;this.publish({intent:false});}
   this.room=room;if(!room)return;
+  // A room revision can change the roster or roles while a local checksum is
+  // still being prepared. That earlier click does not authorize a new offer.
+  if(prior&&prior.id===room.id&&prior.chatMembership===room.chatMembership&&prior.revision!==room.revision&&!room.started){
+   ++this.serial;this.intent=false;this.offered=undefined;this.offering=false;
+   this.publish({intent:false,busy:false,status:'Room changed. Choose Ready again.'});
+  }
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
   if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;}
   if(room.game.status==='resume_ready'&&(this.incoming?.purpose==='controller'||[...this.outgoing.values()].some(value=>value.request.purpose==='controller'))){if(this.incoming?.purpose==='controller')this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])if(outgoing.request.purpose==='controller')this.cancelOutgoing(outgoing);this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}
@@ -44,15 +51,15 @@ export class GameClient {
  async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
  async resumeTogether(){const epoch=this.room?.game.epoch;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){this.publish({status:String(error),busy:false});}}
  observe(){const room=this.room;if(!room||!this.loaded()||room.game.status!=='playing'||room.game.controllers.owners.includes(this.self())||this.authority()||this.links.get(room.hostMembership)?.channel.readyState!=='open'||room.peers.find(peer=>peer.member===room.hostMembership)?.status!=='connected'||room.slots.find(slot=>slot.member?.id===this.self())?.member?.acquisition!=='loaded')return;this.intent=true;const epoch=room.game.epoch!;this.observeRequested=epoch;this.publish({busy:true,synchronizing:true,intent:true,status:'Requesting the current game for observation…'});void this.send({type:'gameObserve',revision:room.game.controllers.revision}).catch(error=>{if(this.observeRequested===epoch){this.observeRequested=undefined;this.publish({busy:false,synchronizing:false,status:String(error)});}});}
- cancelIntent(){const room=this.room;if(!room)return;this.clear('Synchronization cancelled. Game progress is preserved.');void this.send({type:'gameUnready',revision:room.game.controllers.revision}).catch(()=>{});}
+ cancelIntent(){const room=this.room;if(!room){this.intent=false;this.offered=undefined;this.publish({intent:false});return;}this.clear('Synchronization cancelled. Game progress is preserved.');void this.send({type:'gameUnready',revision:room.game.controllers.revision}).catch(()=>{});}
  private async offer(){
   const room=this.room;if(!room||!this.intent||!this.loaded()||this.offering||this.incoming||room.game.pending||(['playing','starting','pausing'].includes(room.game.status)&&room.game.controllers.owners.includes(this.self())))return;
   if(!this.authority()&&this.links.get(room.hostMembership)?.channel.readyState!=='open')return;
-  const key=room.id+room.game.controllers.revision+(room.game.epoch??'initial');if(this.offered===key)return;
+  const key=room.id+room.revision+room.game.controllers.revision+(room.game.epoch??'initial');if(this.offered===key)return;
   const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,status:'Checking the completed machine state…'});
   try{const info=await this.player()!.holdForGame(room.game.controllers.owners.includes(this.self()));if(serial!==this.serial)return;
-   const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
-   if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for the assigned players and host.'});
+   const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,roomRevision:room.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
+   if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for everyone.'});
   }catch(error){if(serial===this.serial){this.offered=undefined;this.publish({busy:false,status:String(error)});}}finally{if(serial===this.serial)this.offering=false;}
  }
  ready(member:string,channel:RTCDataChannel,epoch:string,roundTripMs=0){
@@ -89,7 +96,7 @@ export class GameClient {
   if(!this.room||!this.loaded())return;
   if(event.type==='gamePrepare'){
    this.cancelAllTransfers();++this.serial;this.offering=false;const serial=this.serial;this.prepared=event;this.controllers=event.controllers;this.scheduler=this.makeScheduler(event.epoch,event.frame,event.delay,event.controllers,false);this.frozen=true;this.historyHashes.clear();
-   this.publish({busy:true,status:'Preparing assigned players…'});
+   this.publish({busy:true,status:'Starting together…'});
    void this.player()!.holdForGame(this.ownsInput()).then(async info=>{if(serial!==this.serial)return;if(info.frame!==event.frame||info.hash!==event.hash)throw Error('State changed before shared start');await this.player()!.bindGameEpoch(event.epoch,event.frame,event.hash);if(serial!==this.serial)return;return this.send({type:'gameAck',epoch:event.epoch,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'mismatch');});return;
   }
   if(event.type==='gameStart'){

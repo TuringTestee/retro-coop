@@ -37,9 +37,9 @@ try:
         assert host.get_by_test_id('room-view').count()==0
         host.get_by_role('button',name='Create room',exact=True).click()
         host.wait_for_function("document.querySelector('[data-testid=room-view]')!==null")
-        assert host.get_by_test_id('frames').inner_text()=='0 frames'
+        assert host.locator('canvas').get_attribute('data-frame-count')=='0'
         assert 'Public ·' in host.get_by_test_id('room-view').text_content()
-        invitation=host.get_by_label('Room invitation',exact=True).input_value()
+        invitation=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         assert '#invite=' in invitation and len(invitation.split('#invite=')[1])>=22
         host.screenshot(path=str(output.with_suffix('.host.png')),full_page=True)
         dismissed=page();dismissed.goto(invitation)
@@ -77,7 +77,7 @@ try:
         stale_host.set_input_files('input[type=file]',{'name':'STALE-PREVIEW.nes','mimeType':'application/octet-stream','buffer':rom})
         stale_host.get_by_role('button',name='Create room',exact=True).click()
         stale_host.get_by_test_id('room-view').wait_for(state='attached')
-        stale_guest=page();stale_guest.goto(stale_host.get_by_label('Room invitation',exact=True).input_value())
+        stale_guest=page();stale_guest.goto(stale_host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
         stale_guest.get_by_role('button',name='Join room',exact=True).wait_for()
         stale_host.get_by_role('button',name='Leave room',exact=True).click()
         stale_host.get_by_role('button',name='Confirm leave',exact=True).click()
@@ -102,7 +102,7 @@ try:
             guest.goto(invitation)
             guest.get_by_role('button',name='Join room',exact=True).wait_for()
             assert guest.get_by_test_id('room-view').count()==0
-            assert guest.get_by_test_id('frames').inner_text()=='0 frames'
+            assert guest.locator('canvas').get_attribute('data-frame-count')=='0'
         # Independent clients race without loading a game first.
         for guest in [first,second]:
             guest.get_by_role('button',name='Join room',exact=True).click()
@@ -122,9 +122,9 @@ try:
         assert 'You are Player 2.' in first.get_by_test_id('room-view').text_content()
         first.get_by_role('button',name='Leave room',exact=True).wait_for()
         # A reserved guest automatically downloads the host's exact game.
-        first.get_by_role('button',name='Prepare to play',exact=True).wait_for(timeout=30000)
+        first.get_by_role('button',name='Ready',exact=True).wait_for(timeout=30000)
         assert first.get_by_role('button',name='Choose matching NES file').count()==0
-        assert first.get_by_test_id('frames').inner_text()=='0 frames'
+        assert first.locator('canvas').get_attribute('data-frame-count')=='0'
         first.locator('[data-slot-id=slot-2] [data-slot-region=status]').get_by_text('Game loaded · prepare to play',exact=True).wait_for()
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)
         # Reloading the host and choosing the same file preserves the room, loaded membership, and cleared acquisition deadline.
@@ -150,7 +150,7 @@ try:
         second.get_by_test_id('room-view').wait_for(state='detached')
         # Rename renders hostile text literally, and visibility changes revoke the public code.
         host.get_by_role('button',name='Start game',exact=True).click()
-        host.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        host.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
         host.locator('.room-panel').wait_for()
         late=page();late.goto(invitation)
         late.get_by_role('button',name='Join room',exact=True).click()
@@ -179,7 +179,7 @@ try:
         second.screenshot(path=str(output.with_suffix('.closed-preview.png')),full_page=True)
         second.get_by_role('button',name='Retry invitation',exact=True).click()
         second.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('closed, unavailable')")
-        assert int(host.get_by_test_id('frames').inner_text().split()[0])>10
+        assert int(host.locator('canvas').get_attribute('data-frame-count').split()[0])>10
         # A room keeps its verified game. A different local file cannot replace it;
         # after leaving, deliberate Create room publishes a new room instead.
         replacement=page();replacement.goto(url)
@@ -188,25 +188,25 @@ try:
         assert replacement.get_by_test_id('room-view').count()==0
         replacement.get_by_role('button',name='Create room',exact=True).click()
         replacement.get_by_test_id('room-view').wait_for(state='attached')
-        old_invite=replacement.get_by_label('Room invitation',exact=True).input_value()
+        old_invite=replacement.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         waiting=page();waiting.goto(old_invite)
         waiting.get_by_role('button',name='Join room',exact=True).click()
         waiting.get_by_test_id('room-view').wait_for(state='attached')
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
         replacement.get_by_test_id('room-status').filter(has_text='Leave this room before choosing a different game.').wait_for(state='attached')
         assert waiting.get_by_test_id('room-view').count()==1
-        assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
+        assert replacement.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")==old_invite
         replacement.reload()
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-REPLACEMENT.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
         replacement.get_by_test_id('room-status').filter(has_text='Leave this room before choosing a different game.').wait_for(state='attached')
         assert waiting.get_by_test_id('room-view').count()==1
-        assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
+        assert replacement.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")==old_invite
         replacement.evaluate("window.originalRead=FileReader.prototype.readAsArrayBuffer;FileReader.prototype.readAsArrayBuffer=function(){}")
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-CANCELLED.nes','mimeType':'application/octet-stream','buffer':bytes(different)})
         replacement.get_by_role('button',name='Cancel loading',exact=True).click()
         replacement.evaluate("()=>{FileReader.prototype.readAsArrayBuffer=window.originalRead}")
         assert waiting.get_by_test_id('room-view').count()==1
-        assert replacement.get_by_label('Room invitation',exact=True).input_value()==old_invite
+        assert replacement.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")==old_invite
         replacement.set_input_files('input[type=file]',{'name':'PRIVATE-INVALID.nes','mimeType':'application/octet-stream','buffer':b'invalid'})
         replacement.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.includes('NES')")
         assert waiting.get_by_test_id('room-view').count()==1
@@ -219,7 +219,7 @@ try:
         assert replacement.get_by_test_id('room-view').count()==0
         replacement.get_by_role('button',name='Create room',exact=True).click()
         replacement.get_by_test_id('room-status').filter(has_text='Room created').wait_for(state='attached')
-        assert replacement.get_by_label('Room invitation',exact=True).input_value()!=old_invite
+        assert replacement.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")!=old_invite
         replacement.screenshot(path=str(output.with_suffix('.replacement-confirmed.png')),full_page=True)
         replacement.close();waiting.close()
         # A fresh tab does not inherit Unlisted; selecting it before loading creates an unlisted room.
@@ -240,7 +240,7 @@ try:
                 holdFirstJoin=false;window.releaseJoinA=()=>handler(event);
               }else handler(event);};}
           };""")
-        race_invite=unlisted.get_by_label('Room invitation',exact=True).input_value()
+        race_invite=unlisted.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         raced.goto(race_invite)
         raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
         raced.get_by_role('button',name='Join room',exact=True).click()
@@ -297,7 +297,7 @@ try:
         offline.locator('.create-options [role=status]').filter(has_text='Room connection lost').wait_for()
         offline.get_by_role('button',name='Play locally',exact=True).click()
         offline.get_by_role('button',name='Resume',exact=True).click()
-        offline.wait_for_function("Number(document.querySelector('[data-testid=frames]').textContent.split(' ')[0])>10")
+        offline.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
         offline.get_by_role('button',name='Public rooms',exact=True).click()
         offline.get_by_role('button',name='Create game',exact=True).wait_for()
         assert offline.get_by_test_id('room-view').count()==0

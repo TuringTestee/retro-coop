@@ -1,8 +1,7 @@
-"""Prove a disconnected observer stays in the room and can leave for local play."""
+"""Prove a late disconnected observer cannot interrupt play and exits cleanly."""
 import argparse
 from hashlib import sha256
 import json
-import re
 import subprocess
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -41,15 +40,22 @@ def main():
             host.set_input_files("input[type=file]", {"name": "release-host.nes", "mimeType": "application/octet-stream", "buffer": diagnostic})
             host.get_by_role("button", name="Create room", exact=True).click()
             host.get_by_role("button", name="Start game", exact=True).wait_for(timeout=30_000)
-            code = re.search(r"Public · (\S+)", host.get_by_test_id("room-view").text_content()).group(1)
+            code = host.evaluate('proof.room.id')
+            host.locator('[data-slot-id=slot-2] [data-manage-slot]').click()
+            host.get_by_label('Slot 2 role', exact=True).select_option('observer')
+            host.get_by_role('button', name='Done', exact=True).click()
+            host.get_by_role('button', name='Ready', exact=True).click()
+            host.get_by_role('button', name='Start game', exact=True).click()
+            host.evaluate('releaseFrames()')
+            host.wait_for_function('proof.frameCount>=30', polling=50)
             guest = page(block_peer=True)
-            guest.locator(".room-list [data-room-id]").filter(has_text=code).get_by_role("button", name="Join", exact=True).click()
+            guest.locator(f'.room-list [data-room-id="{code}"]').get_by_role("button", name="Join", exact=True).click()
             try:
                 guest.wait_for_function("proof.room?.slots.find(s=>s.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'", timeout=30_000, polling=50)
             except Exception:
                 print(json.dumps(guest.evaluate('({room:proof.room,text:document.body.innerText})')),flush=True)
                 raise
-            assert guest.get_by_role("button", name="Prepare to play", exact=True).is_disabled()
+            assert guest.get_by_role("button", name="Observe game", exact=True).is_disabled()
             assert guest.get_by_role("button", name="Choose matching NES file").count() == 0
             guest.wait_for_function("proof.room?.matches === true", timeout=30_000, polling=50)
             auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,token:sessionStorage.getItem('retro-coop-guest')})""")
@@ -58,25 +64,24 @@ def main():
                 bytes_received=response.read()
                 download={"status":response.status,"bytes":len(bytes_received),"sha256":sha256(bytes_received).hexdigest()}
             assert download == {"status": 200, "bytes": len(diagnostic), "sha256": sha256(diagnostic).hexdigest()}, download
-            host.get_by_label("Slot 2 role", exact=True).select_option("observer")
             guest.wait_for_function("proof.room?.slots.find(s=>s.member?.id===proof.room.chatMembership)?.role==='observer'", polling=50)
-            host.get_by_role("button", name="Start game", exact=True).click()
             host.wait_for_function("proof.room?.game.status==='playing'", timeout=30_000, polling=50)
-            host.evaluate('releaseFrames()')
-            host.wait_for_function('proof.frameCount>=30', timeout=15_000, polling=50)
+            before = host.evaluate('proof.frameCount')
+            host.wait_for_function('n=>proof.frameCount>=n+30', arg=before, timeout=15_000, polling=50)
             assert guest.evaluate('proof.room.id') == auth['roomId']
             assert guest.evaluate('proof.room.chatMembership') == auth['membership']
+            guest.get_by_role('button', name='Players', exact=True).click()
             assert guest.get_by_test_id("room-slot").count() == 5
             guest.screenshot(path=str(args.output / "loaded-observer-connection-failed.png"), full_page=True)
             guest.get_by_role("button", name="Leave room", exact=True).click()
             if guest.get_by_role("button", name="Confirm leave", exact=True).is_visible():
                 guest.get_by_role("button", name="Confirm leave", exact=True).click()
             guest.get_by_test_id("room-view").wait_for(state='detached')
-            guest.get_by_role("button", name="Resume local game", exact=True).click()
-            guest.get_by_role("button", name="Resume", exact=True).click()
-            guest.get_by_test_id("player-status").filter(has_text="Playing locally. The game runs in this browser.").wait_for(timeout=15_000)
+            guest.get_by_test_id('directory').wait_for(state='visible')
+            assert guest.locator('canvas').get_attribute('data-frame-count') == '0'
+            assert guest.get_by_role('button', name='Resume local game', exact=True).count() == 0
             assert not errors, errors
-            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "loaded member -> peer unavailable -> host assigns observer and starts -> member stays -> explicit leave -> resume local game", "errors": errors}
+            result = {"result": "pass", "source": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(), "browser": browser.version, "gateway_download": download, "journey": "host starts with everyone ready -> late observer cannot connect -> host keeps playing -> guest leaves and local game ends", "errors": errors}
             (args.output / "observer-isolation.json").write_text(json.dumps(result, indent=2) + "\n")
             print(json.dumps(result, indent=2))
             browser.close()

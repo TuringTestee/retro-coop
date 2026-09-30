@@ -32,34 +32,55 @@ with contextlib.ExitStack() as stack:
    for previous in geometry.values():
     if previous[0]['width']==value[0]['width'] and previous[0]['height']==value[0]['height']:assert previous==value,(label,previous,value)
    geometry[label]=value
+  def manage(slot):
+   if not host.locator('.room-slots').count():host.get_by_role('button',name='Players',exact=True).click()
+   host.locator(f'[data-slot-id=slot-{slot}] [data-manage-slot]').click()
+  def role(slot,value):
+   manage(slot)
+   host.get_by_label(f'Slot {slot} role',exact=True).select_option(value)
+   host.get_by_role('button',name='Done',exact=True).click()
+  def remove(slot):
+   manage(slot)
+   host.get_by_role('button',name='Remove member',exact=True).click()
+   host.get_by_role('button',name='Confirm removal',exact=True).click()
   def state(page):return page.evaluate("({room:proof.room,status:document.querySelector('[data-testid=game-status]')?.textContent,evidence:slotEvidence,iceErrors:window.iceErrors})")
   def native(page):return page.evaluate("""()=>new Promise((resolve,reject)=>{const requestId=window.nativeRequest=(window.nativeRequest??800000)+1;const timer=setTimeout(()=>reject(Error('native hash timed out')),3000);function done({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',done);if(data.type==='error')reject(Error(data.message));else resolve(data.info);}currentWorker.addEventListener('message',done);currentWorker.postMessage({type:'state-hash',requestId});})""")
   try:
-   host=pages[0];host.goto(url);host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_role('button',name='Copy invite',exact=True).wait_for();invite=host.get_by_label('Room invitation',exact=True).input_value();boxes(host,'waiting')
+   host=pages[0];host.goto(url);host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_role('button',name='Copy invite',exact=True).wait_for();invite=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");boxes(host,'waiting')
    for page in pages[1:]:
     page.goto(invite);page.get_by_role('button',name='Join room',exact=True).click();page.wait_for_function("proof.room?.matches&&proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'",polling=50)
    for page in pages:
     page.wait_for_function("proof.room?.occupancy===5&&proof.room.peers.length===4&&proof.room.peers.every(peer=>peer.status==='connected')",polling=50)
     assert page.get_by_test_id('room-slot').count()==5
+   host.screenshot(path=str(out.with_suffix('.waiting-desktop.png')),full_page=True)
+   host.set_viewport_size({'width':390,'height':800})
+   host.screenshot(path=str(out.with_suffix('.waiting-mobile.png')),full_page=True)
+   host.locator('.room-panel').evaluate('node=>node.scrollTop=node.scrollHeight')
+   host.screenshot(path=str(out.with_suffix('.waiting-mobile-actions.png')),full_page=True)
+   host.set_viewport_size({'width':1440,'height':1100})
    routes=[page.evaluate("async()=>Promise.all(gamePeers.map(async pc=>{const report=await pc.getStats();const transport=[...report.values()].find(v=>v.type==='transport'&&v.selectedCandidatePairId);const pair=transport&&report.get(transport.selectedCandidatePairId);return {state:pc.connectionState,local:pair&&report.get(pair.localCandidateId)?.candidateType,remote:pair&&report.get(pair.remoteCandidateId)?.candidateType}}))") for page in pages]
    assert all(len(values)==4 for values in routes),routes
    if args.relay:assert all(value['local']=='relay' and value['remote']=='relay' for values in routes for value in values),routes
    boxes(host,'full')
+   for page in pages:page.locator('details.chat-disclosure summary').click()
    for index,page in enumerate(pages):
     page.get_by_label('Chat message',exact=True).fill(f'Member {index+1} connected');page.get_by_role('button',name='Send message',exact=True).click()
    for page in pages:
     for index in range(5):page.get_by_role('log',name='Room messages').get_by_text(f'Member {index+1} connected',exact=True).wait_for()
    members=[page.evaluate('proof.room.chatMembership') for page in pages];assert len(set(members))==5
    if args.initial_stall:pages[1].evaluate("window.gameFault='drop-input'")
-   pages[1].get_by_role('button',name='Prepare to play',exact=True).click();pages[1].wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)',polling=20)
+   for page in pages:
+    page.get_by_role('button',name='Ready',exact=True).click()
+    page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)',polling=20)
+   host.screenshot(path=str(out.with_suffix('.everyone-ready.png')),full_page=True)
    host.get_by_role('button',name='Start game',exact=True).click()
    for page in pages:page.evaluate('releaseFrames()')
    if args.initial_stall:
     host.wait_for_function("proof.room.game.status==='paused'",polling=20)
     boundary=native(host);assert boundary['frame']==0,boundary
-    slot=host.locator('[data-slot-id="slot-2"]');slot.get_by_role('button',name='Remove member',exact=True).click();slot.get_by_role('button',name='Confirm removal',exact=True).click()
+    remove(2)
     host.wait_for_function('!proof.room.slots[1].member',polling=20)
-    host.get_by_label('Slot 3 role',exact=True).select_option('player2')
+    role(3,'player2')
     host.wait_for_function("proof.room.game.status==='playing'&&proof.room.game.controllers.owners[1]===proof.room.slots[2].member.id",polling=20)
     starts=host.evaluate("slotEvidence.events.filter(event=>event.type==='gameStart')");assert starts[-1]['frame']==0 and starts[-1]['hash']==boundary['hash']
     imports=pages[2].evaluate('slotEvidence.imports');assert any(item['frame']==0 and item['hash']==boundary['hash'] for item in imports)
@@ -75,13 +96,13 @@ with contextlib.ExitStack() as stack:
     host.screenshot(path=str(out.with_suffix('.poweron.png')))
     result={'result':'pass','source':provenance,'selected_routes':routes,'initial_stall':True,'boundary':boundary,'native_states':states,'errors':errors,'elapsed':round(time.monotonic()-started,2)};assert not errors,errors;out.write_text(json.dumps(result,indent=2));print(json.dumps({key:value for key,value in result.items() if key not in ['events','slot_geometry','source']}));sys.exit(0)
    for page in pages[:2]:page.wait_for_function("proof.room.game.status==='playing'",polling=20)
-   for page in pages[2:]:page.get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+   for page in pages[2:]:page.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
    host.wait_for_function('proof.frames.at(-1)?.frame>=240',polling=20)
    # Observer reconnect retains its slot and never pauses the active owners.
    observer_member=members[4];epoch_before=host.evaluate('proof.room.game.epoch')
    pages[4].reload();pages[4].evaluate('releaseFrames()')
    pages[4].wait_for_function('member=>proof.room?.chatMembership===member',arg=observer_member,polling=20)
-   pages[4].get_by_test_id('game-status').filter(has_text='Observing the current game.').wait_for()
+   pages[4].wait_for_function('proof.frames.at(-1)?.frame>=10',polling=20)
    assert host.evaluate("proof.room.game.status==='playing'&&proof.room.game.epoch") == epoch_before
    host.get_by_role('button',name='Pause',exact=True).click()
    for page in pages:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
@@ -91,10 +112,10 @@ with contextlib.ExitStack() as stack:
     if all(value==states[0] for value in states):break
     assert time.monotonic()<deadline,states
     time.sleep(.05)
-   initial=states;boxes(host,'playing-paused')
+   initial=states;host.get_by_role('button',name='Players',exact=True).click();boxes(host,'playing-paused')
    host.screenshot(path=str(out.with_suffix('.five.png')))
    # Host administration is independent of controller ownership.
-   host.get_by_label('Slot 1 role',exact=True).select_option('observer')
+   role(1,'observer')
    host.wait_for_function("proof.room.slots[0].role==='observer'&&proof.room.game.status==='playing'",polling=20)
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=initial[0]['frame'],polling=20)
    host.get_by_role('button',name='Pause',exact=True).click()
@@ -108,7 +129,7 @@ with contextlib.ExitStack() as stack:
    host_observer=states;boxes(host,'host-observer')
    host.screenshot(path=str(out.with_suffix('.host-observer.png')))
    # Promoting an observer atomically swaps the occupied Player 2 role.
-   host.get_by_label('Slot 3 role',exact=True).select_option('player2')
+   role(3,'player2')
    host.wait_for_function("proof.room.slots[2].role==='player2'&&proof.room.slots[1].role==='observer'&&proof.room.game.status==='playing'",polling=20)
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=host_observer[0]['frame'],polling=20)
    host.get_by_role('button',name='Pause',exact=True).click()
@@ -135,10 +156,10 @@ with contextlib.ExitStack() as stack:
    pages[2].evaluate("window.gameFault='drop-input'")
    host.wait_for_function("proof.room.game.status==='paused'",polling=20)
    stalled=native(host)
-   slot=host.locator('[data-slot-id="slot-3"]');slot.get_by_role('button',name='Remove member',exact=True).click();slot.get_by_role('button',name='Confirm removal',exact=True).click()
+   remove(3)
    host.wait_for_function('!proof.room.slots[2].member',polling=20)
    assert native(host)==stalled
-   host.get_by_label('Slot 4 role',exact=True).select_option('player2')
+   role(4,'player2')
    host.wait_for_function("proof.room.game.status==='playing'&&proof.room.game.controllers.owners[1]===proof.room.slots[3].member.id",polling=20)
    starts=host.evaluate("slotEvidence.events.filter(event=>event.type==='gameStart')")
    assert starts[-1]['frame']==stalled['frame'] and starts[-1]['hash']==stalled['hash'],(stalled,starts[-1])
@@ -156,7 +177,7 @@ with contextlib.ExitStack() as stack:
     time.sleep(.05)
    host.screenshot(path=str(out.with_suffix('.replacement.png')))
    host.evaluate('window.holdCheckpoint=true')
-   host.get_by_label('Slot 5 role',exact=True).select_option('player2')
+   role(5,'player2')
    host.wait_for_function("proof.room.game.pending?.status==='synchronizing'",polling=20)
    host.get_by_role('button',name='Cancel role change',exact=True).click()
    host.wait_for_function("!proof.room.game.pending&&proof.room.slots[3].role==='player2'&&proof.room.slots[4].role==='observer'&&proof.room.game.status==='paused'",polling=20)
@@ -164,7 +185,7 @@ with contextlib.ExitStack() as stack:
    assert all(value==replacement[0] for value in cancelled),(replacement,cancelled)
    host.screenshot(path=str(out.with_suffix('.cancelled.png')))
    host.evaluate('window.holdCheckpoint=false')
-   host.get_by_label('Slot 5 role',exact=True).select_option('player2')
+   role(5,'player2')
    host.wait_for_function("proof.room.game.status==='playing'&&proof.room.game.controllers.owners[1]===proof.room.slots[4].member.id",polling=20)
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=replacement[0]['frame'],polling=20)
    host.get_by_role('button',name='Pause',exact=True).click()

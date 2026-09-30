@@ -271,6 +271,18 @@ export class LocalPlayer {
   this.abandonCandidate();
   this.publish({loading:false,status:this.state.loaded ? 'Selection cancelled. Your previous game is still here.' : 'Selection cancelled. Choose a game whenever you’re ready.'});
  }
+ /** End the local session after a successful room exit or before opening the directory. */
+ async quit() {
+  this.pause();
+  await this.persistBattery();
+  this.abandonCandidate();
+  this.rejectPending('Game closed.');
+  this.active?.terminate();this.active=undefined;this.batterySession=undefined;
+  this.game=undefined;clearTimeout(this.gameTimer);this.shared=false;this.busy=false;
+  this.audio.flush();this.release();
+  this.canvas.getContext('2d')?.clearRect(0,0,this.canvas.width,this.canvas.height);
+  this.publish({loaded:false,loading:false,running:false,shared:false,frames:0,renderFps:undefined,fingerprint:undefined,rewind:undefined,batteryAvailable:false,storageIssue:undefined,status:'Choose a game to start playing.'});
+ }
  pause(reason:GameReason='user') {
   if(this.state.loading) this.cancel();
   if(this.game){this.release();this.audio.flush();this.game.pause(reason);return;}this.suspend();

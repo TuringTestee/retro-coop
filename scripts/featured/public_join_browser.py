@@ -37,7 +37,7 @@ try:
             row.get_by_role('button', name='Join', exact=True).click()
             return row
         def shared(host, guest):
-            guest.get_by_role('button', name='Prepare to play', exact=True).click()
+            guest.get_by_role('button', name='Ready', exact=True).click()
             try:
                 host.wait_for_function("proof.room?.game.ready.includes(proof.room.slots[1].member?.id)", timeout=30000, polling=50)
             except Exception:
@@ -58,13 +58,13 @@ try:
             assert hashes[0] and hashes[0] == hashes[1]
             return {'frames': [tab.evaluate('proof.frameCount') for tab in (host, guest)], 'matching_hash': hashes[0]}
         host = page()
-        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · Waiting for host').first
+        offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · 5 open').first
         offer.get_by_role('button', name='Join as host').click()
         host.get_by_role('button', name='Start game', exact=True).wait_for()
         included_code = code(host)
         friend = page()
         row = friend.locator('.room-list li').filter(has_text=included_code)
-        assert '1/5 · waiting · 4 open slots' in row.inner_text()
+        assert '1/5 · 4 open' in row.inner_text()
         assert 'P1/P2 controllers · included' in row.inner_text()
         friend.screenshot(path=str(args.output / 'included-directory.png'))
         file_choosers = []
@@ -81,7 +81,7 @@ try:
         custom_host.get_by_role('button', name='Start game', exact=True).wait_for()
         custom_guest = page()
         join_code(custom_guest, code(custom_host))
-        custom_guest.get_by_role('button', name='Prepare to play', exact=True).wait_for()
+        custom_guest.get_by_role('button', name='Ready', exact=True).wait_for()
         assert custom_guest.get_by_role('button', name='Choose matching NES file').count() == 0
         custom_guest.screenshot(path=str(args.output / 'custom-ready.png'))
         custom = shared(custom_host, custom_guest)
@@ -91,13 +91,13 @@ try:
         unlisted_host.set_input_files('input[type=file]', {'name': 'PRIVATE-UNLISTED-HOST.nes', 'mimeType': 'application/octet-stream', 'buffer': diagnostic})
         unlisted_host.get_by_role('button', name='Create room', exact=True).click()
         unlisted_host.get_by_role('button', name='Start game', exact=True).wait_for()
-        invitation = unlisted_host.get_by_label('Room invitation').input_value()
+        invitation = unlisted_host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         listing = page()
         listing.get_by_role('searchbox').fill(unlisted_host.locator('#room-heading').inner_text().split(' · ')[0])
         assert listing.get_by_text('No matching public rooms.', exact=True).is_visible()
         invited = page(invitation)
         invited.get_by_role('button', name='Join room', exact=True).click()
-        invited.get_by_role('button', name='Prepare to play', exact=True).wait_for()
+        invited.get_by_role('button', name='Ready', exact=True).wait_for()
         assert invited.get_by_role('button', name='Choose matching NES file').count() == 0
         unlisted = shared(unlisted_host, invited)
         assert not errors, errors
