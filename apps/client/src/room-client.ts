@@ -196,7 +196,7 @@ export class RoomClient {
  cancelPending() {++this.generation;this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {const leaving=(command.type==='close'||command.type==='leave')&&!!this.state.room;
   if(leaving)this.voluntaryExitRoomId=this.state.room!.id;
-  try {await this.connect();this.apply(await this.request(command));if(leaving)this.publish({releaseNotice:undefined});return true;}
+  try {await this.connect();this.apply(await this.request(command));if(leaving){this.setRoom(undefined);this.publish({releaseNotice:undefined});}return true;}
   catch(error){if(leaving)this.voluntaryExitRoomId=undefined;this.failure(error);return false;}}
  private async refreshDirectory() {try {this.apply(await this.request({type:'directory',includeEmptyOffers:true}));if(!this.state.room&&!this.previewingInvite&&this.state.status.startsWith('Room connection lost.'))this.publish({status:'No room selected.'});}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async watchDirectory() {this.watchingDirectory=true;this.publish({directoryStatus:'loading',directoryError:undefined});const connected=this.state.connected;try {await this.connect();if(connected) await this.refreshDirectory();}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
