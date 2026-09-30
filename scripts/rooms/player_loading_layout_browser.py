@@ -14,6 +14,7 @@ REGIONS = '.screen, [data-layout-region=player-primary-actions], [data-layout-re
 
 
 def check(page, url, output, label, zoom_worker=None):
+    page.add_init_script(path=ROOT / 'scripts/foundation/gamepad_fixture.js')
     page.goto(url)
     zoom = browser_zoom(page, zoom_worker) if zoom_worker else None
     page.get_by_role('button', name='Create game', exact=True).click()
@@ -102,6 +103,29 @@ def check(page, url, output, label, zoom_worker=None):
         action.focus()
         page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
         control_visibility(action, require_focus=True)
+    page.evaluate('()=>{window.originalFullscreenRequest=Element.prototype.requestFullscreen;Element.prototype.requestFullscreen=()=>Promise.reject(Error("Denied"))}')
+    page.keyboard.press('Enter')
+    denied = page.get_by_test_id('fullscreen-issue')
+    page.wait_for_function("document.activeElement?.dataset.testid==='fullscreen-issue'")
+    control_visibility(denied, require_focus=True)
+    page.screenshot(path=str(output / f'{label}-fullscreen-denied.png'), full_page=False)
+    page.keyboard.press('Shift+Tab')
+    if not page.get_by_role('button', name='Tools', exact=True).evaluate('node=>document.activeElement===node'):
+        page.keyboard.press('Shift+Tab')
+    control_visibility(page.get_by_role('button', name='Tools', exact=True), require_focus=True)
+    page.evaluate('()=>{Element.prototype.requestFullscreen=window.originalFullscreenRequest}')
+    page.get_by_role('button', name='Settings', exact=True).click()
+    page.get_by_label('Input device', exact=True).select_option('0')
+    page.get_by_role('button', name='Back', exact=True).click()
+    page.get_by_role('button', name='Tools', exact=True).click()
+    page.get_by_role('button', name='Back', exact=True).focus()
+    page.evaluate('padConnected=false')
+    keyboard = page.get_by_role('button', name='Use keyboard', exact=True)
+    page.wait_for_function("document.activeElement?.textContent?.trim()==='Use keyboard'")
+    control_visibility(keyboard, require_focus=True)
+    page.screenshot(path=str(output / f'{label}-controller-recovery.png'), full_page=False)
+    keyboard.click()
+    page.get_by_role('button', name='Tools', exact=True).wait_for(state='visible')
     return {'geometry':result,'zoom':zoom}
 
 
