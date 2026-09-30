@@ -69,7 +69,7 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
   ) & transfer_pid=$!
   timeout --foreground 120s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages & pages_pid=$!
   timeout --foreground 45s python3 scripts/rooms/player_loading_layout_browser.py --output spikes/d02/public-entrypoint.local/player-loading & player_pid=$!
-  timeout --foreground 45s python3 scripts/rooms/waiting_recovery_layout_browser.py --output spikes/d02/public-entrypoint.local/waiting-recovery & waiting_pid=$!
+  timeout --foreground 90s python3 scripts/rooms/waiting_recovery_layout_browser.py --output spikes/d02/public-entrypoint.local/waiting-recovery & waiting_pid=$!
   mkdir -p spikes/d02/public-entrypoint.local/exit
   RETRO_EXIT_SCREENSHOT_DIR=spikes/d02/public-entrypoint.local/exit timeout --foreground 60s python3 scripts/rooms/exit_browser.py > spikes/d02/public-entrypoint.local/exit/result.json & exit_pid=$!
   wait "$shared_pid"
