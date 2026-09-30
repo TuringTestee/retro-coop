@@ -1,7 +1,7 @@
 """Five real members through the public lobby; native state proves local observation."""
 import argparse,contextlib,hashlib,json,os,subprocess,sys,time
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError, sync_playwright
 parser=argparse.ArgumentParser();parser.add_argument('--relay',action='store_true');parser.add_argument('--initial-stall',action='store_true');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/five-slots.json');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];out=Path(args.output);out.parent.mkdir(parents=True,exist_ok=True);started=time.monotonic();sys.path.insert(0,str(root/'scripts/peer'))
 from fixture import LocalTurn
@@ -45,6 +45,12 @@ with contextlib.ExitStack() as stack:
    host.get_by_role('button',name='Confirm removal',exact=True).click()
   def state(page):return page.evaluate("({room:proof.room,status:document.querySelector('[data-testid=game-status]')?.textContent,evidence:slotEvidence,iceErrors:window.iceErrors})")
   def native(page):return page.evaluate("""()=>new Promise((resolve,reject)=>{const requestId=window.nativeRequest=(window.nativeRequest??800000)+1;const timer=setTimeout(()=>reject(Error('native hash timed out')),3000);function done({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',done);if(data.type==='error')reject(Error(data.message));else resolve(data.info);}currentWorker.addEventListener('message',done);currentWorker.postMessage({type:'state-hash',requestId});})""")
+  def resume_host():
+   if host.evaluate("proof.room.game.status")!='resume_ready':
+    try:host.get_by_role('button',name='Ready to resume',exact=True).click(timeout=3000)
+    except PlaywrightTimeoutError:
+     assert host.evaluate("proof.room.game.status")=='resume_ready',state(host)
+   host.get_by_role('button',name='Resume together',exact=True).click()
   try:
    host=pages[0];host.goto(url);host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_role('button',name='Copy invite',exact=True).wait_for();invite=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");boxes(host,'waiting')
    for page in pages[1:]:
@@ -179,7 +185,9 @@ with contextlib.ExitStack() as stack:
    host.evaluate('window.holdCheckpoint=true')
    role(5,'player2')
    host.wait_for_function("proof.room.game.pending?.status==='synchronizing'",polling=20)
+   manage(5)
    host.get_by_role('button',name='Cancel role change',exact=True).click()
+   host.get_by_role('button',name='Done',exact=True).click()
    host.wait_for_function("!proof.room.game.pending&&proof.room.slots[3].role==='player2'&&proof.room.slots[4].role==='observer'&&proof.room.game.status==='paused'",polling=20)
    boxes(host,'cancelled');cancelled=[native(page) for page in remaining]
    assert all(value==replacement[0] for value in cancelled),(replacement,cancelled)
@@ -198,13 +206,13 @@ with contextlib.ExitStack() as stack:
     time.sleep(.05)
    # An active owner's reload preserves membership, pauses authority, and imports
    # its current state before the same owner resumes.
-   pages[4].get_by_role('button',name='Ready to resume',exact=True).click();host.get_by_role('button',name='Ready to resume',exact=True).click();host.get_by_role('button',name='Resume together',exact=True).click()
+   pages[4].get_by_role('button',name='Ready to resume',exact=True).click();resume_host()
    host.wait_for_function("proof.room.game.status==='playing'",polling=20)
    pages[4].reload();pages[4].evaluate('releaseFrames()')
    host.wait_for_function("proof.room.game.status==='paused'",polling=20)
    pages[4].wait_for_function('member=>proof.room?.chatMembership===member&&proof.room.matches&&proof.room.peers.every(peer=>peer.status==="connected")',arg=members[4],polling=20)
    reconnect_boundary=native(host)
-   pages[4].get_by_role('button',name='Ready to resume',exact=True).click();host.get_by_role('button',name='Ready to resume',exact=True).click();host.get_by_role('button',name='Resume together',exact=True).click()
+   pages[4].get_by_role('button',name='Ready to resume',exact=True).click();resume_host()
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=reconnect_boundary['frame'],polling=20)
    assert any(item['frame']==reconnect_boundary['frame'] and item['hash']==reconnect_boundary['hash'] for item in pages[4].evaluate('slotEvidence.imports'))
    host.get_by_role('button',name='Pause',exact=True).click()
