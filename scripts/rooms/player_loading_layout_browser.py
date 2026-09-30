@@ -108,6 +108,7 @@ def check(page, url, output, label, zoom_worker=None):
     denied = page.get_by_test_id('fullscreen-issue')
     page.wait_for_function("document.activeElement?.dataset.testid==='fullscreen-issue'")
     control_visibility(denied, require_focus=True)
+    assert denied.evaluate("node=>getComputedStyle(node).boxShadow.includes('inset')")
     page.screenshot(path=str(output / f'{label}-fullscreen-denied.png'), full_page=False)
     page.keyboard.press('Shift+Tab')
     if not page.get_by_role('button', name='Tools', exact=True).evaluate('node=>document.activeElement===node'):
@@ -123,7 +124,7 @@ def check(page, url, output, label, zoom_worker=None):
     keyboard = page.get_by_role('button', name='Use keyboard', exact=True)
     page.wait_for_function("document.activeElement?.textContent?.trim()==='Use keyboard'")
     control_visibility(keyboard, require_focus=True)
-    assert keyboard.evaluate('node=>parseFloat(getComputedStyle(node).outlineWidth)>=3')
+    assert keyboard.evaluate("node=>getComputedStyle(node).boxShadow.includes('inset')")
     page.screenshot(path=str(output / f'{label}-controller-recovery.png'), full_page=False)
     keyboard.click()
     page.get_by_role('button', name='Tools', exact=True).wait_for(state='visible')
