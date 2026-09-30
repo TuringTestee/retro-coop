@@ -34,6 +34,7 @@ try:
             row = tab.locator('.room-list li').filter(has_text=title).filter(has_text='5 places open').first
             row.get_by_role('button', name='Join as host').click()
             tab.get_by_role('button', name='Start game', exact=True).wait_for()
+            tab.get_by_role('button', name='Ready', exact=True).click()
             tab.wait_for_function("!document.querySelector('.room-start button').disabled", timeout=30000)
             assert tab.get_by_test_id('room-slot').count() == 5
             assert 'Player 1' in tab.locator('[data-slot-id=slot-1]').inner_text() and 'Host' in tab.locator('[data-slot-id=slot-1]').inner_text()
@@ -48,19 +49,16 @@ try:
         wide.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>30", timeout=30000)
         wide.screenshot(path=str(args.output / 'super-tilt-playing.png'))
         wide.get_by_role('button', name='Public rooms', exact=True).click()
-        before = int(wide.locator('canvas').get_attribute('data-frame-count').split()[0])
-        wide.locator('.room-list li').first.wait_for()
-        assert wide.locator('.room-list li button').count() == 0
-        wide.wait_for_timeout(200)
-        assert int(wide.locator('canvas').get_attribute('data-frame-count').split()[0]) > before
-        wide.get_by_role('button', name='Return to room', exact=True).click()
-        assert wide.locator('.room-panel').is_visible()
+        wide.get_by_role('button', name='Confirm leave', exact=True).click()
+        wide.get_by_test_id('room-view').wait_for(state='detached')
+        wide.get_by_test_id('directory').wait_for(state='visible')
+        assert wide.get_by_role('button', name='Return to room', exact=True).count() == 0
         narrow = page(760, 680)
         fit(narrow)
-        assert 'Player 1 controller; observer slots' in narrow.locator('.room-list li').filter(has_text='From Below').first.inner_text()
+        assert narrow.locator('.room-list li').filter(has_text='From Below').first.get_by_role('button', name='Join as host').count() == 1
         narrow.screenshot(path=str(args.output / 'directory-narrow.png'))
         claim(narrow, 'From Below')
-        assert 'The host can assign that controller to any member; the other slots are observers.' in narrow.locator('.room-panel').inner_text()
+        assert narrow.get_by_test_id('room-slot').count() == 5
         fit(narrow)
         narrow.screenshot(path=str(args.output / 'from-below-waiting.png'))
         narrow.get_by_role('button', name='Start game', exact=True).click()

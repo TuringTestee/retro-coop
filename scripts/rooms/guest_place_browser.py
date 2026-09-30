@@ -111,7 +111,7 @@ try:
         guest.goto(url)
         guest.get_by_role('searchbox').fill(room_name)
         row = guest.locator('.room-list li').filter(has_text=room_name)
-        row.get_by_text('0 open',exact=False).wait_for()
+        row.get_by_text('Full',exact=True).wait_for()
         assert row.get_by_role('button', name='Join', exact=True).count() == 0
         guest.goto(invite)
         guest.locator('.room-panel.invitation').get_by_text('0 open places',exact=False).first.wait_for()
