@@ -23,7 +23,7 @@ The [Warcraft III Custom Game list](https://classic.battle.net/war3/ladder/featu
 
 The [access amendment](room-access-and-routing.md) owns the protected-room password step and automatic connection policy. Routine performance diagnostics remain out of ordinary play.
 
-The Controls action opens the existing Settings mapping list and editor. This replaces the persistent binding readout in the earlier [voice sidebar design](voice-play-sidebar-direction.md); device identity and any unbound action appear when the player asks to inspect controls. The public search field can clear its own query, so it needs no adjacent duplicate button.
+The Controls action opens the existing Settings mapping list and editor. This replaces the persistent binding readout in the earlier [voice sidebar design](voice-play-sidebar-direction.md); device identity and any unbound action appear when the player asks to inspect controls. While playing, the host opens Players to copy an invitation; the invite action does not occupy the ordinary game rail. The public search field can clear its own query, so it needs no adjacent duplicate button.
 
 ## Journeys and recovery
 
