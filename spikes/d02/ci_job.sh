@@ -78,6 +78,7 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
   wait "$player_pid"
   wait "$waiting_pid"
   wait "$exit_pid"
+  timeout --foreground 25s python3 scripts/rooms/secondary_layout_browser.py --output spikes/d02/public-entrypoint.local/tool-zoom --only effective-320
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv
