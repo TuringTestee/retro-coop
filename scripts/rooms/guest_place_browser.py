@@ -114,7 +114,7 @@ try:
         row.get_by_text('0 open',exact=False).wait_for()
         assert row.get_by_role('button', name='Join', exact=True).count() == 0
         guest.goto(invite)
-        guest.locator('.room-panel.invitation').get_by_text('0 open places.',exact=False).first.wait_for()
+        guest.locator('.room-panel.invitation').get_by_text('0 open places',exact=False).first.wait_for()
         assert guest.get_by_role('button', name='Join room', exact=True).count() == 0
 
         slot_action('slot-2', 'Open slot')
@@ -125,7 +125,7 @@ try:
         dialog=manage('slot-2')
         dialog.get_by_role('button',name='Open slot',exact=True).wait_for()
         dialog.get_by_role('button',name='Done').click()
-        guest.locator('.room-panel.invitation').get_by_text('0 open places.',exact=False).first.wait_for()
+        guest.locator('.room-panel.invitation').get_by_text('0 open places',exact=False).first.wait_for()
         host.wait_for_function("slotProbe.blocked.filter(item=>item==='result').length>=2")
         host.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent?.includes('did not respond')", timeout=12000)
         dialog=manage('slot-2')
@@ -153,7 +153,7 @@ try:
         dismissed.get_by_role('button', name='Join room', exact=True).wait_for()
         dismissed.get_by_role('button', name='View public rooms', exact=True).click()
         dismissed.get_by_role('heading', name='Public rooms', exact=True).wait_for()
-        dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
+        dismissed.locator('[data-testid=directory][data-directory-status=live]').wait_for()
         stage('invitation dismissed')
         # Older invitation sockets can outlive the route switch briefly. Close every
         # open socket owned by this tab after the replacement client connects.
@@ -167,7 +167,7 @@ try:
         slot_action('slot-2', 'Close slot')
         slot_action('slot-2', 'Open slot')
         dismissed.get_by_role('button', name='Retry', exact=True).click()
-        dismissed.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
+        dismissed.locator('[data-testid=directory][data-directory-status=live]').wait_for()
         stage('dismissed tab reconnected')
         assert dismissed.locator('.room-panel.invitation').count() == 0
         assert dismissed.get_by_role('button', name='Join room', exact=True).count() == 0

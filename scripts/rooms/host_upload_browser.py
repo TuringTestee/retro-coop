@@ -37,7 +37,8 @@ async def main():
             host=await context.new_page()
             await host.goto(URL)
             await host.get_by_role('button',name='Create game',exact=True).click()
-            await host.get_by_label('Room access').select_option('unlisted')
+            await host.get_by_label('Room access').select_option('protected')
+            await host.get_by_label('Room password').fill('blue-sky-room')
             release=asyncio.Event();seen=asyncio.Event()
             async def hold(route):
                 seen.set();await release.wait();await route.continue_()
@@ -48,7 +49,7 @@ async def main():
             assert await host.get_by_role('button',name='Cancel',exact=True).is_visible()
             assert await host.get_by_test_id('room-view').count()==0
             guest=await context.new_page();await guest.goto(URL)
-            # The in-flight unlisted upload must expose no human room, regardless of occupancy.
+            # The in-flight protected upload must expose no human room, regardless of occupancy.
             assert await guest.locator('.room-list li').filter(has=guest.get_by_role('button',name='Join',exact=True)).count()==0
             await host.get_by_role('button',name='Cancel',exact=True).click()
             release.set()
@@ -81,8 +82,9 @@ async def main():
             await host.unroute('**/rooms/*/rom',expire_once)
             await host.get_by_role('button',name='Create room',exact=True).click()
             await host.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
+            assert await host.locator('#room-heading').inner_text()
             assert await host.get_by_test_id('room-view').count()==1
-            assert await host.get_by_role('button',name='Start game',exact=True).is_disabled()
+            assert not await host.get_by_role('button',name='Start game',exact=True).is_enabled()
             await host.get_by_role('button',name='Ready',exact=True).click()
             await host.get_by_role('button',name='Not ready',exact=True).wait_for()
             assert await host.get_by_role('button',name='Start game',exact=True).is_enabled()
@@ -105,7 +107,7 @@ async def main():
             await included.get_by_role('button',name='Join as host').first.click()
             await included.get_by_role('button',name='Start game',exact=True).wait_for(timeout=30000)
             await browser.close()
-        result={'public_entrypoint':URL,'cancel_hidden':True,'failure_hidden':True,'expired_intent_hidden':True,'retry_unlisted':True,'public_directory':True,'invalid_file_hidden':True,'included_host':True,'duration_seconds':round(time.monotonic()-started,2)}
+        result={'public_entrypoint':URL,'cancel_hidden':True,'failure_hidden':True,'expired_intent_hidden':True,'retry_protected':True,'public_directory':True,'invalid_file_hidden':True,'included_host':True,'duration_seconds':round(time.monotonic()-started,2)}
         (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps(result))
     finally:

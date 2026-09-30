@@ -24,7 +24,8 @@ def start_solo(page, rom, *, require_start=False):
     """Leave Create Game for local play, then start the loaded cartridge."""
     expected = hashlib.sha256(rom).hexdigest()
     local = page.get_by_role('button', name='Play locally', exact=True)
-    if local.is_visible():
+    if page.get_by_test_id('create-game').is_visible():
+        local.wait_for(state='visible')
         local.click()
     else:
         page.get_by_test_id('player-status').filter(has_text='Game loaded').wait_for()

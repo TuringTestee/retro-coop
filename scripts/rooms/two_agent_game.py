@@ -22,7 +22,7 @@ parser.add_argument("--role", choices=("host", "guest", "verify", "run"), requir
 parser.add_argument("--runtime-root", type=Path, default=ROOT, help="Checkout providing the built runtime and fixture")
 parser.add_argument("--url", help="URL printed by scripts/rooms/browser-server.ts")
 parser.add_argument("--rom", type=Path, help="Host NES file; never supplied to the guest")
-parser.add_argument("--visibility", choices=("public", "unlisted"), default="public")
+parser.add_argument("--visibility", choices=("public", "protected"), default="public")
 parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes after held P1/P2 input, e.g. 128,64")
 parser.add_argument("--session-dir", type=Path, required=True)
 args = parser.parse_args()
@@ -233,14 +233,17 @@ with sync_playwright() as playwright:
             assert page.locator(".create-options strong").inner_text() == "shared-game.nes"
             saved_row_selected_after_reload = True
             page.get_by_label("Room access").select_option(args.visibility)
+            if args.visibility == "protected":
+                page.get_by_label("Room password").fill("blue-sky-room")
             page.get_by_role("button", name="Create room", exact=True).click()
             page.get_by_test_id("room-view").wait_for(state="attached")
             page.wait_for_function("proof.room?.role==='host'", polling=50)
             room = page.evaluate("proof.room")
             assert room["occupancy"] == 1 and room["visibility"] == args.visibility
             assert "catalogId" not in room and room["romBytes"] == len(rom)
-            assert page.get_by_role("button", name="Start game", exact=True).is_disabled()
-            invitation=page.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite") if args.visibility == "unlisted" else None
+            assert not page.get_by_role("button", name="Start game", exact=True).is_enabled()
+            page.get_by_role("button", name="Ready", exact=True).click()
+            invitation=page.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite") if args.visibility == "protected" else None
             save("host-ready.json", {"room_id": room["id"], "code": room.get("code"), "invitation": invitation})
             prepared = wait_for("guest-ready.json")
             page.wait_for_function(
@@ -250,13 +253,16 @@ with sync_playwright() as playwright:
                 polling=50,
             )
             page.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').filter(has_text="Ready").wait_for()
-            page.get_by_role("button", name="Ready", exact=True).click()
+            if page.get_by_role("button", name="Ready", exact=True).count():
+                page.get_by_role("button", name="Ready", exact=True).click()
             page.get_by_role("button", name="Start game", exact=True).click()
         else:
             expected = wait_for("host-ready.json")
-            if args.visibility == "unlisted":
+            if args.visibility == "protected":
                 page.goto(expected["invitation"])
                 page.get_by_role("button", name="Join room", exact=True).click()
+                page.get_by_label("Room password").fill("blue-sky-room")
+                page.locator(".room-password-dialog").get_by_role("button", name="Join room", exact=True).click()
             else:
                 search = page.get_by_label("Search room, game, host, or code")
                 search.fill(expected["code"])

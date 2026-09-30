@@ -34,8 +34,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
-                               env={**os.environ, 'COORDINATOR_EMPTY_OFFERS': 'super-tilt-bro-pal,from-below-1.0'},
-                               stdout=subprocess.PIPE, text=True)
+                               env=os.environ.copy(), stdout=subprocess.PIPE, text=True)
     try:
         assert service.stdout
         url = json.loads(service.stdout.readline())['url']
@@ -64,7 +63,7 @@ def main():
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Settings'")
             host.get_by_role('button', name='Create game', exact=True).click()
-            host.set_viewport_size({'width': 390, 'height': 844})
+            host.set_viewport_size({'width': 390, 'height': 500})
             host.wait_for_function("document.querySelector('.create-game')?.scrollHeight > innerHeight")
             assert host.locator('.create-game').evaluate("node => getComputedStyle(node).overflowY === 'visible'"), host.locator('.create-game').evaluate("node => ({overflow:getComputedStyle(node).overflowY,parent:node.parentElement.className})")
             assert host.evaluate('document.documentElement.scrollWidth <= innerWidth')
@@ -75,26 +74,27 @@ def main():
             host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+            host.get_by_role('button', name='Ready', exact=True).click()
             start_style = host.get_by_role('button', name='Start game', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
             invite_style = host.get_by_role('button', name='Copy invite', exact=True).evaluate('node => getComputedStyle(node).backgroundColor')
             assert start_style == 'rgb(181, 163, 255)' and start_style != invite_style, (start_style, invite_style)
             invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             host.screenshot(path=str(args.output / 'waiting.png'))
-            host.get_by_text('Connection and session settings', exact=True).click()
-            host.get_by_text('Session settings', exact=True).click()
-            visibility = host.get_by_label('Unlisted · invitation only', exact=True)
-            visibility.click()
-            host.wait_for_function("document.querySelector('.visibility input')?.checked")
-            visibility.click()
+            host.get_by_text('Room settings', exact=True).click()
+            host.get_by_role('button', name='Protect room', exact=True).click()
+            host.get_by_label('New room password', exact=True).fill('stable pages passphrase')
+            host.get_by_role('button', name='Protect room', exact=True).last.click()
+            host.get_by_text('Room access: Password protected', exact=True).wait_for()
             host.get_by_role('button', name='Make public', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
-            host.keyboard.press('Escape')
-            host.wait_for_function("document.activeElement?.matches('.visibility input')")
-            visibility.click()
             host.get_by_role('button', name='Make public', exact=True).click()
-            host.wait_for_function("!document.querySelector('.visibility input')?.checked")
-            host.get_by_text('Session settings', exact=True).click()
-            host.get_by_text('Connection and session settings', exact=True).click()
+            host.get_by_role('button', name='Confirm public access', exact=True).wait_for()
+            host.keyboard.press('Escape')
+            host.wait_for_function("document.activeElement?.matches('[data-make-public]')")
+            host.get_by_role('button', name='Make public', exact=True).click()
+            host.get_by_role('button', name='Confirm public access', exact=True).click()
+            host.get_by_text('Room access: Public', exact=True).wait_for()
+            host.get_by_text('Room settings', exact=True).click()
             guest = browser.new_page(viewport={'width': 390, 'height': 700})
             guest.on('pageerror', lambda error: errors.append(str(error)))
             guest.goto(invite)
@@ -104,7 +104,8 @@ def main():
             assert guest.evaluate('document.documentElement.scrollWidth <= innerWidth')
             guest.screenshot(path=str(args.output / 'invitation.png'), full_page=True)
             guest.close()
-            host.get_by_role('button', name='Ready', exact=True).click()
+            if host.get_by_role('button', name='Ready', exact=True).count():
+                host.get_by_role('button', name='Ready', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).click()
             host.locator('main.playing.with-room').wait_for(timeout=15000)
             wide = geometry(host, '1280x720')
@@ -175,28 +176,25 @@ def main():
             host.get_by_role('button', name='Confirm leave', exact=True).click()
             host.get_by_test_id('directory').wait_for(state='visible')
             assert host.locator('.release-notice').count() == 0
-            offer = host.locator('.room-list li').filter(has_text='Super Tilt Bro').filter(has_text='0/5 · 5 open').first
-            offer.get_by_role('button', name='Join as host').click()
-            host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
-            host.get_by_role('button', name='Leave room', exact=True).click()
-            host.get_by_role('button', name='Confirm leave', exact=True).click()
-            host.get_by_test_id('directory').wait_for(state='visible')
             host.wait_for_timeout(1000)
             assert host.locator('.release-notice').count() == 0
             assert host.get_by_test_id('included-status').count() == 0
+            assert not host.locator('.room-panel').is_visible()
             assert host.get_by_role('button', name='Resume local game', exact=True).count() == 0
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             host.set_viewport_size({'width': 1280, 'height': 720})
-            host.route('**/catalog/from-below*.nes', lambda route: route.abort())
-            offer = host.locator('.room-list li').filter(has_text='From Below').filter(has_text='0/5 · 5 open').first
-            offer.get_by_role('button', name='Join as host').click()
+            host.get_by_role('button', name='Create game', exact=True).click()
+            assert host.locator('.selected-game').evaluate("node => getComputedStyle(node).visibility === 'hidden'"), 'Old room selection must not survive a fresh Create Game visit'
+            with host.expect_file_chooser() as chooser:
+                host.get_by_role('button', name='Add NES file', exact=True).click()
+            chooser.value.set_files(STATIC / 'generated/diagnostic.nes')
+            host.get_by_text('diagnostic.nes is loaded and ready.', exact=True).wait_for()
+            host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
-            host.get_by_role('button', name='Retry download', exact=True).wait_for(timeout=15000)
             service.terminate()
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).click()
             host.get_by_text('Could not leave the room. Retry or stay here.', exact=True).wait_for(timeout=15000)
-            host.get_by_role('button', name='Retry download', exact=True).wait_for()
             assert host.locator('.release-notice').count() == 0
             host.screenshot(path=str(args.output / 'failed-close.png'), full_page=True)
             assert not errors, errors

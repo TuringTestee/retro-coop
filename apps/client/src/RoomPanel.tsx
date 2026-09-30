@@ -8,28 +8,30 @@ import type {LocalPlayer} from './player.ts';
 import {VoiceControls} from './VoiceControls.tsx';
 import type {VoiceSession,VoiceState} from './voice.ts';
 import type {Controls} from './controls.ts';
-import {ConnectionPolicyControl} from './ConnectionPolicy.tsx';
-import type {ConnectionPolicy} from '../../../packages/contracts/src/peer.ts';
 import React, {forwardRef, useEffect, useImperativeHandle, useRef, useState} from 'react';
 import {ChatPanel} from './ChatPanel.tsx';
 import {DirectoryPanel} from './DirectoryPanel.tsx';
 import {RoomClient, type RoomState} from './room-client.ts';
 import {connectionStatus} from './connection-status.ts';
-import {gameSize} from './room-download.ts';
-import {matchesFile,type Fingerprint,type RoomView,type Visibility} from '../../../packages/contracts/src/rooms.ts';
+import {roomAdmissionMessage} from './room-admission-message.ts';
+import {gameSize,roomDownloadLabel} from './room-download.ts';
+import {matchesFile,validRoomPassword,type Fingerprint,type RoomView,type NewVisibility} from '../../../packages/contracts/src/rooms.ts';
 type MemberOperation={roomId:string;membership:string;controller:AbortController;sawLoading:boolean};
 type MemberAcquisition={phase:'checking'|'downloading'|'loading'|'loaded'|'failed'|'expired';message:string;notice?:string};
-export type RoomPanelHandle = {voice():VoiceSession|undefined;openPlayers():void;localPlayIntent():void;readyToResume():void;recoverRelease():void;isMember():boolean;exitToDirectory(onExited:()=>void,onStayed?:()=>void):void;syncInvitation(invite:string|null):void;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void;createCustom(file:File,fingerprint:Fingerprint,visibility:Visibility,current:()=>boolean):Promise<void>;createIncluded(code:string,fingerprint:Fingerprint,visibility:Visibility):Promise<void>};
-export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;renderFps?:number;showDiscovery:boolean;releaseInFullscreen:boolean;onChoose():void;onCreate():void;onBrowse():void;onExit():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;policy:ConnectionPolicy;changePolicy:(policy:ConnectionPolicy)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void}>(function RoomPanel({playCards,renderFps,showDiscovery,releaseInFullscreen,onChoose,onCreate,onBrowse,onExit,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,policy,changePolicy,onConnection,onRoomChange,onState},ref) {
+export type RoomPanelHandle = {voice():VoiceSession|undefined;setNickname(name:string):void;openPlayers():void;localPlayIntent():void;readyToResume():void;recoverRelease():void;isMember():boolean;exitToDirectory(onExited:()=>void,onStayed?:()=>void):void;syncInvitation(invite:string|null):void;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;cancelCreation():void;createCustom(file:File,fingerprint:Fingerprint,visibility:NewVisibility,password:string|undefined,current:()=>boolean):Promise<void>;createIncluded(code:string,fingerprint:Fingerprint,visibility:NewVisibility,password?:string):Promise<void>};
+export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;showDiscovery:boolean;releaseInFullscreen:boolean;onChoose():void;onCreate():void;onBrowse():void;onExit():void;onInvitationDismiss():void;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;onVoice:(state:VoiceState|undefined)=>void;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;onNickname:(name:string)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void}>(function RoomPanel({playCards,showDiscovery,releaseInFullscreen,onChoose,onCreate,onBrowse,onExit,onInvitationDismiss,onAcquired,selectionLoading,controls,onVoice,fingerprint,player,onNickname,onConnection,onRoomChange,onState},ref) {
  const [state,setState] = useState<RoomState>({status:'No room selected.',busy:false,connected:false});
  const [playersOpen,setPlayersOpen]=useState(false);
- const [staying,setStaying] = useState<string>();
  const [invite,setInvite] = useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
- const [label,setLabel] = useState(''), [nickname,setNickname] = useState(''), [copy,setCopy] = useState('');
+ const [label,setLabel] = useState(''), [copy,setCopy] = useState('');
+ const [joinPassword,setJoinPassword]=useState(''),[showJoinPassword,setShowJoinPassword]=useState(false),[invitePasswordOpen,setInvitePasswordOpen]=useState(false),[accessPassword,setAccessPassword]=useState(''),[showAccessPassword,setShowAccessPassword]=useState(false),[editingAccess,setEditingAccess]=useState(false);
  const [confirmLeave,setConfirmLeave]=useState(false),[confirmPublic,setConfirmPublic]=useState(false),[leaveError,setLeaveError]=useState('');
- const client = useRef<RoomClient|null>(null);
+ const client = useRef<RoomClient|null>(null),invitePasswordDialog=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{if(invitePasswordOpen&&invitePasswordDialog.current&&!invitePasswordDialog.current.open)invitePasswordDialog.current.showModal();},[invitePasswordOpen]);
+ useEffect(()=>{if(invitePasswordOpen&&!state.preview)setInvitePasswordOpen(false);},[invitePasswordOpen,state.preview]);
  const exitAction=useRef<(()=>void)|undefined>(undefined),stayAction=useRef<(()=>void)|undefined>(undefined),exiting=useRef(false);
  const leaveFocusPending=useRef(false);
+ const publicFocusPending=useRef(false);
  const seenFile = useRef<Fingerprint|undefined>(undefined), sentMemberFile = useRef('');
  const [includedStatus,setIncludedStatus]=useState(''),[includedBusy,setIncludedBusy]=useState<CatalogId>(),[claiming,setClaiming]=useState('');
  const [memberAcquisition,setMemberAcquisition]=useState<MemberAcquisition>();
@@ -61,8 +63,11 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  const requestExit=(onExited:()=>void,onStayed?:()=>void)=>{const room=memberRoom.current;if(!room){onExited();return;}exitAction.current=onExited;stayAction.current=onStayed;setLeaveError('');if(room.role==='host'||room.established){setConfirmLeave(true);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.room-confirm button')?.focus());}else void leaveRoom(room);};
  const cancelLeave=()=>{exitAction.current=undefined;const stayed=stayAction.current;stayAction.current=undefined;stayed?.();leaveFocusPending.current=true;setConfirmLeave(false);setLeaveError('');};
  useEffect(()=>{if(!confirmLeave&&leaveFocusPending.current){leaveFocusPending.current=false;document.querySelector<HTMLButtonElement>('[data-leave-room]')?.focus();}},[confirmLeave]);
- const cancelPublic=()=>{setConfirmPublic(false);requestAnimationFrame(()=>document.querySelector<HTMLInputElement>('.visibility input')?.focus());};
+ const cancelPublic=()=>{publicFocusPending.current=true;setConfirmPublic(false);};
+ useEffect(()=>{if(!confirmPublic&&publicFocusPending.current){publicFocusPending.current=false;document.querySelector<HTMLButtonElement>('[data-make-public]')?.focus();}},[confirmPublic]);
  useEffect(()=>{setConfirmLeave(false);setConfirmPublic(false);setLeaveError('');},[state.room?.id,state.room?.started]);
+ useEffect(()=>{if(state.room){setJoinPassword('');setShowJoinPassword(false);setAccessPassword('');setEditingAccess(false);}},[state.room?.id]);
+ useEffect(()=>{setJoinPassword('');setShowJoinPassword(false);setInvitePasswordOpen(false);},[invite]);
  useEffect(()=>{if(!confirmLeave&&!confirmPublic)return;const escape=(event:KeyboardEvent)=>{if(event.key!=='Escape'||event.defaultPrevented||document.querySelector('.tool-page'))return;event.preventDefault();if(confirmLeave)cancelLeave();else cancelPublic();};addEventListener('keydown',escape);return()=>removeEventListener('keydown',escape);},[confirmLeave,confirmPublic]);
  const cancelIncluded=(message='Included loading canceled. Your previous game is preserved.')=>{
   const operation=included.current;included.current=undefined;operation?.controller.abort();
@@ -116,28 +121,27 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  useEffect(()=>{const sync=()=>{if(!state.room)setInvite(new URLSearchParams(location.hash.slice(1)).get('invite'));};addEventListener('hashchange',sync);addEventListener('popstate',sync);return()=>{removeEventListener('hashchange',sync);removeEventListener('popstate',sync);};},[state.room?.id]);
 
  useEffect(()=>{
-  const rooms = new RoomClient(setState,policy,player);client.current = rooms;
+  const rooms = new RoomClient(setState,player);client.current = rooms;
   void rooms.watchDirectory();
   if(invite) void rooms.preview(invite);
   return ()=>{rooms.dispose();client.current = null;};
  },[invite]);
- useEffect(()=>{void client.current?.setPolicy(policy);},[policy]);
  useEffect(()=>{client.current?.voice.configureControls(controls);},[controls]);
  useEffect(()=>{onVoice(state.voice);},[state.voice,onVoice]);
  useEffect(()=>{onConnection(connectionStatus(state));},[state.connection,state.room?.peers,onConnection]);
- useEffect(()=>{if(state.session) {onNickname(state.session.nickname);setNickname(state.session.nickname);}},[state.session,onNickname]);
+ useEffect(()=>{if(state.session) onNickname(state.session.nickname);},[state.session,onNickname]);
  useEffect(()=>{if(state.room) setLabel(state.room.label);},[state.room?.label]);
- useEffect(()=>{if(invite&&!state.room&&state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&document.activeElement===document.body)requestAnimationFrame(()=>document.querySelector<HTMLSelectElement>('.room-panel.invitation .connection-policy select')?.focus());},[invite,state.room?.id,state.preview]);
+ useEffect(()=>{if(invite&&!state.room&&state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&document.activeElement===document.body)requestAnimationFrame(()=>document.querySelector<HTMLElement>('.invite-action input, .invite-action button')?.focus());},[invite,state.room?.id,state.preview]);
  useEffect(()=>{onRoomChange(state.room);},[state.room,onRoomChange]);
  useEffect(()=>{onState(state);},[state,onState]);
  const recoverRelease=()=>{if(player()?.isLoaded()){player()?.allowLocalPlay();player()?.resume();}else onBrowse();client.current?.dismissRelease();};
- useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,openPlayers(){setPlayersOpen(value=>!value);},localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},recoverRelease,isMember(){return client.current?.isMember()??false;},exitToDirectory(onExited,onStayed){requestExit(onExited,onStayed);},syncInvitation(value){setInvite(value);},
+ useImperativeHandle(ref,()=>({voice:()=>client.current?.voice,setNickname(name){void client.current?.act({type:'nickname',nickname:name});},openPlayers(){setPlayersOpen(value=>!value);},localPlayIntent(){client.current?.localPlayIntent();},readyToResume(){client.current?.readyToResume();},recoverRelease,isMember(){return client.current?.isMember()??false;},exitToDirectory(onExited,onStayed){requestExit(onExited,onStayed);},syncInvitation(value){setInvite(value);},
   beforeSelection() {
    if(state.startingRoom||state.room?.role==='member'&&!state.room.catalogId)return false;
    cancelIncluded();client.current?.beginSelection();return true;
  },approveSelection(fingerprint,isCurrent){if(state.room?.role==='member'&&!state.room.catalogId){const operation=memberOperation.current;return Promise.resolve(!!operation&&memberCurrent(operation)&&isCurrent()&&matchesFile(state.room.fingerprint,fingerprint));}return client.current?.approveSelection(fingerprint,isCurrent) ?? Promise.resolve(isCurrent());},cancelCreation(){cancelIncluded();client.current?.cancelPending();},
- createCustom(file,fingerprint,visibility,current){return client.current?.host(file,fingerprint,visibility,current)??Promise.resolve();},
- createIncluded(code,fingerprint,visibility){return client.current?.claimCode(code,fingerprint,visibility)??Promise.resolve();}
+ createCustom(file,fingerprint,visibility,password,current){return client.current?.host(file,fingerprint,visibility,password,current)??Promise.resolve();},
+ createIncluded(code,fingerprint,visibility,password){return client.current?.claimCode(code,fingerprint,visibility,password)??Promise.resolve();}
  }),[state.room]);
  useEffect(()=>{
   if(!fingerprint || seenFile.current === fingerprint) return;
@@ -152,6 +156,7 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  const room = state.room;
  useEffect(()=>{setPlayersOpen(false);},[room?.id]);
  const inviteUrl = room ? `${location.origin}/#invite=${room.invite}`:'';
+ const inviteDownload=state.preview?roomDownloadLabel(state.preview):'';
  const selfSlot=room?.slots.find(slot=>slot.member?.id===room.chatMembership);
  const selfReady=!!room?.game.ready.includes(room.chatMembership);
  const waitingMembers=room?.slots.filter(slot=>slot.member&&!room.game.ready.includes(slot.member.id)).map(slot=>slot.member!.nickname)??[];
@@ -159,54 +164,52 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
  const peersReady=gameplayPeers.every(peer=>peer.status==='connected');
  const allPeersReady=room?.peers.every(peer=>peer.status==='connected')??false;
  const hostPeerReady=room?.peers.some(peer=>peer.member===room.hostMembership&&peer.status==='connected')??false;
- const directShared=room?.peers.every(peer=>peer.status==='connected')&&room?.started==='shared'&&state.connected&&peersReady&&state.connection?.route==='direct';
- const connectionNode=!directShared&&(room?.peers.some(peer=>peer.epoch)||!state.connected)?<p role="status" className={room?.started==='shared'&&state.connection?.route==='relay'&&peersReady?'relay-notice':undefined} data-testid="connection-status">{connectionStatus(state)}</p>:null;
+ const failedPeers=room?.peers.filter(peer=>peer.epoch&&['relay_unavailable','relay_capacity','failed'].includes(peer.status))??[];
+ const connectionNode=room?.started==='shared'&&!state.connected?<p role="status" data-testid="connection-status">Room service disconnected. Reconnect to check membership.</p>:null;
+ const connectionIssue=!state.connected||failedPeers.length>0;
+ const memberAcquisitionVisible=!!memberAcquisition&&(memberAcquisition.phase!=='loaded'||!room?.started&&!!memberAcquisition.notice);
+ const roomStatusImportant=!!state.retryAfterMs||/failed|could not|cannot|lost|unavailable|expired|changed|closed|denied|leave this room/i.test(state.status);
  const leaveControl=room&&(confirmLeave||!(room.role==='member'&&!room.catalogId&&['checking','downloading','loading','expired'].includes(memberAcquisition?.phase??'')))&&(confirmLeave?<div className="room-confirm" role="group" aria-label="Confirm leave"><p>{room.role==='host'?'Close this room for everyone?':'Leave this room?'}</p><button disabled={state.busy||exiting.current} onClick={()=>void leaveRoom(room)}>Confirm leave</button><button onClick={cancelLeave}>Stay in room</button>{leaveError&&<p role="alert">{leaveError}</p>}</div>:<button data-leave-room onClick={()=>requestExit(onExit)}>Leave room</button>);
  return <>{state.releaseNotice&&!releaseInFullscreen&&<div className="release-notice" role="alert"><p>{state.releaseNotice}</p><button onClick={recoverRelease}>{player()?.isLoaded()?'Resume local game':'View rooms'}</button></div>}
  {showDiscovery&&<><div className="discovery-notices">
  {claiming&&<p className="catalog-status" role="status">Checking this room… <button onClick={()=>{++claimGeneration.current;setClaiming('');setIncludedStatus('');client.current?.cancelPending();}}>Cancel</button></p>}
  {includedStatus&&!room&&<p className="catalog-status" role="status" data-testid="included-status">{includedStatus}</p>}
- {!room&&state.status!=='No room selected.'&&state.status!==state.directoryError&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
+ {!room&&state.directoryStatus==='live'&&state.status!=='No room selected.'&&state.status!==state.directoryError&&!state.status.toLowerCase().includes('password')&&!state.retryAfterMs&&<p className="catalog-status" role="status" data-testid="room-notice">{state.status} {state.busy&&<button onClick={()=>client.current?.cancelPending()}>Cancel</button>}</p>}
  </div>
- <DirectoryPanel connection={<ConnectionPolicyControl compact policy={policy} change={changePolicy}/>} state={{...state,busy:state.busy||!!claiming}} onCreate={onCreate} onJoin={code=>void client.current?.joinCode(code)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()}/></>}
- {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading">
+ <DirectoryPanel state={{...state,busy:state.busy||!!claiming}} onCreate={onCreate} onJoin={(code,password)=>void client.current?.joinCode(code,password)} onClaim={(code,id)=>void claim(code,id)} onRetry={()=>void client.current?.watchDirectory()} onDismissJoin={()=>client.current?.cancelJoin()}/></>}
+ {(room||invite)&& <section id="room-session" className={`room-panel${invite&&!room?' invitation':''}${room&&!fingerprint?' pending-room':''}`} aria-labelledby="room-heading" data-testid={room?'room-view':undefined} data-invite={room?.invite}>
   {room?.started==='shared'&&connectionNode}
   <h2 id="room-heading">{room ? room.label : invite ? 'Room invitation':'Play with a friend'}</h2>
-  {room?.started==='shared'&&leaveControl}
+  {room?.started==='shared'&&<div data-layout-region="shared-leave-actions" className="room-leave-actions">{leaveControl}</div>}
   {playCards}
-  {invite&&!room&&state.preview&&<p>{state.preview.label} · {state.preview.host} · {'openSlots' in state.preview?`${state.preview.openSlots} open places`:'No open places'}. Join prepares the game for you.</p>}
-  {invite&&!room&&<div className="invite-action">{state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&<><ConnectionPolicyControl compact policy={policy} change={changePolicy}/><button disabled={state.busy} onClick={()=>void client.current?.join(invite)}>Join room</button></>}{!state.busy&&!state.preview&&<button onClick={()=>void client.current?.preview(invite)}>Retry invitation</button>}<button onClick={clearInvitation}>View public rooms</button></div>}
-  {room?.role==='member'&&!room.catalogId&&memberAcquisition&&(!room.started||memberAcquisition.phase!=='loaded')&&<div className="member-acquisition" role="status" aria-live="polite"><p>{memberAcquisition.message}</p>{memberAcquisition.notice&&<p>{memberAcquisition.notice}</p>}{['checking','downloading','loading'].includes(memberAcquisition.phase)&&<button onClick={()=>void leaveMember()}>Cancel preparation</button>}{memberAcquisition.phase==='failed'&&<button onClick={()=>void startMember(room)}>Retry download</button>}{memberAcquisition.phase==='expired'&&<button onClick={()=>void leaveMember()}>Return to rooms</button>}</div>}
+  {invite&&!room&&state.preview&&<p>{state.preview.label} · {state.preview.host} · {'openSlots' in state.preview?`${state.preview.openSlots} open ${state.preview.openSlots===1?'place':'places'}`:'No open places'}{inviteDownload&&` · ${inviteDownload}`}</p>}
+  {invite&&!room&&<div className="invite-action">{state.preview&&'openSlots' in state.preview&&state.preview.openSlots>0&&<button disabled={state.busy} onClick={()=>state.preview?.visibility==='protected'?setInvitePasswordOpen(true):void client.current?.join(invite)}>Join room</button>}{!state.busy&&!state.preview&&<button onClick={()=>void client.current?.preview(invite)}>Retry invitation</button>}<button onClick={clearInvitation}>View public rooms</button></div>}
+  {invite&&!room&&invitePasswordOpen&&state.preview&&<dialog ref={invitePasswordDialog} className="room-password-dialog" aria-label={`Join ${state.preview.label}`} onClose={()=>{client.current?.cancelJoin();setInvitePasswordOpen(false);setJoinPassword('');setShowJoinPassword(false);requestAnimationFrame(()=>document.querySelector<HTMLElement>('.invite-action button')?.focus());}}><h3>{state.preview.label}</h3><p>Password required</p><form onSubmit={event=>{event.preventDefault();if(validRoomPassword(joinPassword))void client.current?.join(invite,joinPassword);}}><label>Room password <input type={showJoinPassword?'text':'password'} autoComplete="off" value={joinPassword} onChange={event=>setJoinPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowJoinPassword(value=>!value)}>{showJoinPassword?'Hide':'Show'}</button><p className="hint">Use 8 to 128 characters.</p><p role="alert">{roomAdmissionMessage(state.admissionError,state.retryAfterMs)}</p><button data-layout-region="password-join" type="submit" disabled={!validRoomPassword(joinPassword)||state.busy}>Join room</button><button data-layout-region="password-back" type="button" onClick={()=>invitePasswordDialog.current?.close()}>Back</button></form></dialog>}
+  {room?.role==='member'&&!room.catalogId&&(!room.started||memberAcquisitionVisible)&&<div data-layout-region="preparation-recovery" className={`member-acquisition${memberAcquisitionVisible?'':' quiet'}`} role="status" aria-live="polite">{memberAcquisition&&memberAcquisition.phase!=='loaded'&&<p>{memberAcquisition.message}</p>}{memberAcquisition?.notice&&<p>{memberAcquisition.notice}</p>}{memberAcquisition&&['checking','downloading','loading'].includes(memberAcquisition.phase)&&<button onClick={()=>void leaveMember()}>Cancel preparation</button>}{memberAcquisition?.phase==='failed'&&<button onClick={()=>void startMember(room)}>Retry download</button>}{memberAcquisition?.phase==='expired'&&<button onClick={()=>void leaveMember()}>Return to rooms</button>}</div>}
   {room&&selectionLoading&&!includedBusy&&!(room.role==='member'&&!room.catalogId)&&<p role="status">Checking the selected file… <button onClick={()=>{player()?.cancel();client.current?.beginSelection();}}>Cancel loading</button></p>}
   {room&&(!room.started||playersOpen)&&<><RoomSlots room={room} connected={state.connected} act={command=>client.current!.act(command)}/>{room.started&&<button onClick={()=>setPlayersOpen(false)}>Close players</button>}</>}
-  {room&&!room.started&&<div className="room-start" role="group" aria-label="Your readiness">
+  {room&&!room.started&&<div data-layout-region="readiness-actions" className="room-start" role="group" aria-label="Your readiness">
    {!state.connected?<p role="status">Room connection lost. Reconnect to get ready.</p>:selfReady?<button onClick={()=>client.current?.cancelSynchronization()}>Not ready</button>:<button disabled={!room.matches||selfSlot?.member?.acquisition!=='loaded'||!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!allPeersReady||!!state.gameplay?.busy} onClick={()=>client.current?.prepareMember()}>Ready</button>}
    {state.gameplay?.busy&&<p role="status">{state.gameplay.status}</p>}
   </div>}
   {room?.started&&room.game.status==='playing'&&selfSlot?.role!=='observer'&&!room.game.controllers.owners.includes(room.chatMembership)&&<div className="room-start"><button disabled={!state.connected||!room.matches||selfSlot?.member?.acquisition!=='loaded'||!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!state.gameplay?.busy} onClick={()=>client.current?.prepareMember()}>Prepare to play</button></div>}
   {room?.started&&room.role!=='host'&&room.game.status==='playing'&&selfSlot?.role==='observer'&&!state.gameplay?.observing&&!state.gameplay?.synchronizing&&<div className="room-start"><button disabled={!state.connected||!hostPeerReady||!room.matches||selfSlot.member?.acquisition!=='loaded'||!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading} onClick={()=>client.current?.prepareMember()}>Observe game</button></div>}
   {room?.started!=='shared'&&connectionNode}
-  {invite&&!room&&<p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>}
-  {room?.role==='host'&&room.openSlots>0&&<div className="room-invite"><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Copy unavailable. Select the invitation below.'));if(!navigator.clipboard)setCopy('Copy unavailable. Select the invitation below.');}}>Copy invite</button>{copy&&<span className="hint" role="status">{copy}</span>}{copy.startsWith('Copy unavailable')&&<input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/>}</div>}
-  {room?.role==='host'&&!room.started&&!confirmLeave&&<div className="room-start"><button disabled={!room.matches||selfSlot?.member?.acquisition!=='loaded'||!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!room.game.startRequested||!allPeersReady||waitingMembers.length>0} onClick={()=>{if(fingerprint)void client.current?.startRoom(fingerprint);}}>Start game</button><p role="status">{room.game.startRequested?'Starting…':waitingMembers.length?`Waiting for ${waitingMembers.join(', ')}.`:''}</p>{fingerprint&&!matchesFile(room.fingerprint,fingerprint)&&<p role="status">This file does not match the room. <button onClick={onChoose}>Choose matching NES file</button></p>}</div>}
+  {invite&&!room&&!invitePasswordOpen&&<p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>}
+  {room?.role==='host'&&<div data-layout-region="invite-actions" className="room-invite">{room.openSlots>0&&<><button onClick={()=>{void navigator.clipboard?.writeText(inviteUrl).then(()=>setCopy('Invitation copied.')).catch(()=>setCopy('Copy unavailable. Select the invitation below.'));if(!navigator.clipboard)setCopy('Copy unavailable. Select the invitation below.');}}>Copy invite</button>{copy&&<span className="hint" role="status">{copy}</span>}{copy.startsWith('Copy unavailable')&&<input aria-label="Room invitation" readOnly value={inviteUrl} onFocus={event=>event.currentTarget.select()}/>}</>}</div>}
+  {room?.role==='host'&&!room.started&&<div data-layout-region="start-actions" className="room-start">{!confirmLeave&&<><button disabled={!room.matches||selfSlot?.member?.acquisition!=='loaded'||!fingerprint||!player()?.isLoaded(fingerprint)||!matchesFile(room.fingerprint,fingerprint)||state.busy||selectionLoading||!!room.game.startRequested||!allPeersReady||waitingMembers.length>0} onClick={()=>{if(fingerprint)void client.current?.startRoom(fingerprint);}}>Start game</button><p role="status">{room.game.startRequested?'Starting…':waitingMembers.length?`Waiting for ${waitingMembers.join(', ')}.`:''}</p>{fingerprint&&!matchesFile(room.fingerprint,fingerprint)&&<p role="status">This file does not match the room. <button onClick={onChoose}>Choose matching NES file</button></p>}</>}</div>}
   {room&&includedStatus&&<p role="status" data-testid="included-status">{includedStatus} {includedBusy&&<button onClick={()=>cancelIncluded()}>Cancel loading</button>}{room.catalogId&&catalogAvailability[room.catalogId]&&!includedBusy&&(!fingerprint||!matchesFile(room.fingerprint,fingerprint)||!player()?.isLoaded(fingerprint))&&<button onClick={()=>void startIncluded(room.catalogId!)}>Retry download</button>}</p>}
-  {room?.started!=='shared'&&leaveControl}
+  {room&&room.started!=='shared'&&<div data-layout-region="leave-actions" className="room-leave-actions">{leaveControl}</div>}
   {room&&!room.started&&state.chat&&<details className="chat-disclosure"><summary>Chat</summary><ChatPanel state={state.chat} connected={state.connected} onDraft={text=>client.current?.chatDraft(text)} onSend={()=>void client.current?.sendChat()} onDiscard={()=>client.current?.discardChat()}/></details>}
-  {(room||!invite)&&<details name="room-tools" className="session-settings"><summary>Connection and session settings</summary>
-  <ConnectionPolicyControl policy={policy} change={changePolicy}/>
-  <p className="hint">Connection options for this room.</p>
-  {room?.peers.map(peer=><div key={peer.pairId}><p>{room.slots.find(slot=>slot.member?.id===peer.member)?.member?.nickname??'Member'} · {peer.status}</p>{peer.epoch&&<button onClick={()=>void client.current?.retryPeer(peer.pairId)}>Retry connection</button>}{peer.epoch&&['relay_unavailable','relay_capacity','failed'].includes(peer.status)&&<><button onClick={()=>setStaying(peer.pairId)}>Stay in room</button>{staying===peer.pairId&&<p role="status">You stayed in the room. Retry the connection when ready.</p>}</>}</div>)}
-  <p role="status" aria-live="polite" data-testid="room-status">{state.status}</p>
-  {state.retryAfterMs && <p>Wait at least {Math.ceil(state.retryAfterMs/1000)} seconds before retrying.</p>}
-  {room && <div data-testid="room-view" data-invite={room.invite}>
-   {room.reservationUntil && <p>Reservation expires at {new Date(room.reservationUntil).toLocaleTimeString()}. {room.matches ? 'Game verified. Preparing the shared-play connection.' : 'Your game is still being acquired or loaded.'}</p>}
-   {room.hostReconnectUntil && <p>Host disconnected. Return before {new Date(room.hostReconnectUntil).toLocaleTimeString()} to keep this room.</p>}
-   {room.role === 'host' ? <details><summary>Session settings</summary>
+  {room&&<p role="status" aria-live="polite" data-testid="room-status" className="room-status-line" style={{visibility:roomStatusImportant&&!connectionIssue?'visible':'hidden'}}>{state.status}</p>}
+  {room&&<div data-layout-region="connection-recovery" className="connection-recovery" role="group" aria-label="Connection help">{room.hostReconnectUntil&&<p>Host disconnected. Return before {new Date(room.hostReconnectUntil).toLocaleTimeString()} to keep this room.</p>}{!state.connected&&<button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}{connectionIssue&&failedPeers.map(peer=><div key={peer.pairId}><p>Could not connect to {room.slots.find(slot=>slot.member?.id===peer.member)?.member?.nickname??'member'}.</p><button onClick={()=>void client.current?.retryPeer(peer.pairId)}>Retry connection</button></div>)}</div>}
+  {room?.role==='host'&&(!room.started||playersOpen)&&<details name="room-tools" className="session-settings"><summary>Room settings</summary>
     <label>Room name <input maxLength={80} value={label} onChange={event=>setLabel(event.target.value)}/></label><button disabled={!label.trim()} onClick={()=>void client.current?.act({type:'rename',roomId:room.id,label})}>Save room name</button>
-    <label className="visibility"><input type="checkbox" checked={room.visibility === 'unlisted'} onChange={event=>{if(event.target.checked)void client.current?.act({type:'visibility',roomId:room.id,visibility:'unlisted'});else{setConfirmPublic(true);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.visibility-confirm button')?.focus());}}}/> Unlisted · invitation only</label>
-    {confirmPublic&&<div className="room-confirm visibility-confirm" role="group" aria-label="Confirm public room"><p>Make this room public? Its room name and host nickname will appear in Public rooms.</p><button disabled={state.busy} onClick={async()=>{if(await client.current?.act({type:'visibility',roomId:room.id,visibility:'public'}))setConfirmPublic(false);}}>Make public</button><button onClick={cancelPublic}>Keep unlisted</button></div>}
-   </details> : null}
-  </div>}
+    <p>Room access: {room.visibility==='protected'?'Password protected':'Public'}</p>
+    <button onClick={()=>{setEditingAccess(value=>!value);setAccessPassword('');}}>{editingAccess?'Cancel password change':room.visibility==='protected'?'Change password':'Protect room'}</button>
+    {editingAccess&&<div className="room-password"><label>New room password <input type={showAccessPassword?'text':'password'} autoComplete="new-password" value={accessPassword} onChange={event=>setAccessPassword(event.target.value)}/></label><button type="button" onClick={()=>setShowAccessPassword(value=>!value)}>{showAccessPassword?'Hide':'Show'}</button><p className="hint">Use 8 to 128 characters. Share it separately from the invitation.</p><button disabled={state.busy||!validRoomPassword(accessPassword)} onClick={async()=>{if(await client.current?.act({type:'visibility',roomId:room.id,visibility:'protected',password:accessPassword,expectedAccessRevision:room.accessRevision})){setEditingAccess(false);setAccessPassword('');}}}>{room.visibility==='protected'?'Save new password':'Protect room'}</button></div>}
+    {room.visibility==='protected'&&<button data-make-public onClick={()=>{setConfirmPublic(true);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.visibility-confirm button')?.focus());}}>Make public</button>}
+    {confirmPublic&&<div className="room-confirm visibility-confirm" role="group" aria-label="Confirm public room"><p>Anyone can join this room after you make it public.</p><button disabled={state.busy} onClick={async()=>{if(await client.current?.act({type:'visibility',roomId:room.id,visibility:'public',expectedAccessRevision:room.accessRevision}))setConfirmPublic(false);}}>Confirm public access</button><button onClick={cancelPublic}>Keep password</button></div>}
   </details>}
   {room&&!!room.started && <section aria-label="Shared gameplay">{(room.game.status!=='playing'||state.gameplay?.synchronizing)&&<p role="status" data-testid="game-status">{state.gameplay?.synchronizing?state.gameplay.status:room.game?.reason??state.gameplay?.status}</p>}
    {state.gameplay?.synchronizing&&<button onClick={()=>client.current?.cancelSynchronization()}>Cancel synchronization</button>}
@@ -217,9 +220,8 @@ export const RoomPanel = forwardRef<RoomPanelHandle,{playCards?:React.ReactNode;
   {room&&!room.started&&<details name="room-tools" className="voice-disclosure"><summary>Voice</summary><VoiceControls state={state.voice} voice={client.current?.voice}/></details>}
   <div className="controls">
    {state.busy && !state.startingRoom && !state.uploading && <button onClick={()=>client.current?.cancelPending()}>Cancel pending room action</button>}
-   {!state.connected && (state.room || state.admissionBlocked || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
+   {!room && !state.connected && (state.admissionBlocked || /unavailable|lost|disconnected/.test(state.status)) && <button onClick={()=>void client.current?.reconnect()}>Reconnect rooms</button>}
   </div>
-  {state.session && <details name="room-tools"><summary>Nickname settings</summary><p className="hint">Temporary name for this browser tab. It is not an account.</p><label>Nickname <input maxLength={32} value={nickname} onChange={event=>setNickname(event.target.value)}/></label><button disabled={!nickname.trim()} onClick={()=>void client.current?.act({type:'nickname',nickname})}>Save nickname</button></details>}
   {state.needsNewGuest && <button onClick={()=>client.current?.newGuest()}>Start a new guest session</button>}
  </section>}</>;
 });

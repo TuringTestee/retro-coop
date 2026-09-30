@@ -2,13 +2,13 @@ Audience: Agent
 
 # Anonymous rooms and reservations
 
-The later [room access and automatic routing plan](room-access-and-routing.md) replaces Unlisted admission with listed password-protected rooms. Every protected Join verifies the password before a reservation, including invite and code paths; historical two-person and file duties remain where consistent.
+The current room journey uses five places, Public or Password protected access, automatic connection routing, and an all-member Ready gate before Start. The [minimal room plan](minimal-room-journey.md), [access and routing plan](room-access-and-routing.md), and [README](../../README.md) govern the current behavior; the D08 details below document the earlier room slice.
 
 This document records the original D08 room and reservation slice. A valid local NES file creates a public or unlisted room without a naming form, and friends can reserve Player 2 before choosing their own file. The coordinator protects ownership and deadlines. Current shared-play Start behavior is governed by [D11](d11.md) and the [lobby refactor](lobby-refactor.md).
 
 ## Run and inspect
 
-Use the README's pinned Node/npm/Rust tools and run `sh scripts/demo.sh`. Open `http://127.0.0.1:8765/`. The public list contains ordinary 0/2 rooms for the included games; choose **Join as host** to claim one, then wait for a guest or choose **Start game**. For a local NES file, choose Public or Unlisted before picking or dropping the file; a valid file automatically creates a waiting room. Copy its invitation into another browser/tab. On an Unlisted invitation, choose Standard or Relay only before Join; Join reserves Player 2 for 120 seconds. The joining player supplies the exact matching local file when needed. No ROM is transferred. The current one-list behavior and recovery are specified in the [lobby refactor](lobby-refactor.md).
+Use the README's pinned Node/npm/Rust tools and run `sh scripts/demo.sh`. Open `http://127.0.0.1:8765/`. Choose **Join as host** on an empty included-game offer, or **Create game** to select a saved, included, or added NES file and Public or Password protected access. A protected room requires its password before a new member enters through the directory or an invitation. A joining member downloads and verifies a host-shared custom game file when needed. Every occupied member, including the host and observers, chooses **Ready** before the host can choose **Start game**. Opening Public rooms closes or leaves the current session first. The [minimal room plan](minimal-room-journey.md) describes recovery and navigation.
 
 For a built preview on port 4173, set `COORDINATOR_ORIGINS=http://127.0.0.1:4173` and configure the static server's `/coordinator/ws` proxy, or set `PUBLIC_COORDINATOR_URL` explicitly when building. Staging requires `COORDINATOR_STAGE=staging` and an explicit comma-separated `COORDINATOR_ORIGINS` allowlist of exact HTTPS client origins. The coordinator accepts `/ws` or `/coordinator/ws`; the test-only gateway in `scripts/rooms/browser-server.ts` demonstrates same-origin routing without choosing a deployment provider.
 
@@ -19,7 +19,7 @@ python3 scripts/rooms/browser_smoke.py --output /tmp/rooms.local.json
 python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
 ```
 
-Use `--chrome` for installed Chrome. The room suite launches its own coordinator and static gateway on private ephemeral loopback ports. It covers public/unlisted creation, invite preview, independent-client slot races, mismatch correction, cancel/retry, host settings, text rendering, close, stale creation cancellation and service failure. It inspects outgoing messages for private filenames and forbidden upload fields. It never records raw session tokens in JSON evidence; screenshots use synthetic invitations that expire when the test service exits. Application gain remains muted; no system/browser-global audio changes occur.
+Use `--chrome` for installed Chrome. The room suite launches its own coordinator and static gateway on private ephemeral loopback ports. The original D08 evidence covered public/unlisted creation, invite preview, independent-client slot races, mismatch correction, cancel/retry, host settings, text rendering, close, stale creation cancellation and service failure. Current access and shared-play acceptance requires the additional journeys in the [access plan](room-access-and-routing.md) and [minimal room plan](minimal-room-journey.md). The original suite inspected outgoing messages for private filenames and forbidden upload fields. It never recorded raw session tokens in JSON evidence; screenshots used synthetic invitations that expired when the test service exited. Application gain remained muted; no system/browser-global audio changes occurred.
 
 ## Contracts and state ownership
 

@@ -12,9 +12,11 @@ function setup(count=5){
  const members=[latest.chatMembership],intents:string[]=[intent];
  for(let i=1;i<count;i++){const joined=act(i,{type:'join',invite:latest.invite,intent:randomUUID()}).room!;members.push(joined.chatMembership);intents.push(joined.reservationIntent);}
  function view(){const event=events[0].filter(e=>e.type==='room').at(-1);return event?.type==='room'?event.room:latest;}
- for(let i=1;i<count;i++){
-  const pair=view().peers.find(p=>p.member===members[i])!;
-  for(const type of ['peerAck','peerConnected'])for(const who of [0,i])act(who,{type,pairId:pair.pairId,epoch:pair.epoch});
+ for(let i=0;i<count;i++)for(let j=i+1;j<count;j++){
+  const event=events[i].filter(item=>item.type==='room').at(-1);
+  if(event?.type!=='room')throw Error('Missing member room view');
+  const pair=event.room.peers.find(peer=>peer.member===members[j])!;
+  for(const type of ['peerAck','peerConnected'])for(const who of [i,j])act(who,{type,pairId:pair.pairId,epoch:pair.epoch});
  }
  const load=(who:number)=>{if(who===0)act(0,{type:'prepareHost',roomId:view().id,membership:members[0],fingerprint});else{act(who,{type:'file',fingerprint});act(who,{type:'memberAcquisition',roomId:view().id,membership:members[who],phase:'loaded'});}};
  const ready=(who:number,extra={})=>act(who,{type:'gameReady',revision:view().game.controllers.revision,roomRevision:view().revision,frame:0,fresh:true,hash,delay:who===0?3:8,...extra});
@@ -116,6 +118,34 @@ test('a disconnected or failed observer loses Ready before initial Start',()=>{
  const disconnected=setup(3);for(let i=0;i<3;i++){disconnected.load(i);disconnected.ready(i);}
  disconnected.rooms.detach(disconnected.sessions[2].token,disconnected.senders[2]);
  assert.equal(disconnected.view().game.ready.includes(disconnected.members[2]),false);assert.throws(()=>disconnected.start(),/game_prerequisites/);
+});
+test('non-host link loss clears initial Ready without pausing an established game',()=>{
+ const pairBetweenMembers=(t:ReturnType<typeof setup>)=>{
+  const event=t.events[1].filter(item=>item.type==='room').at(-1);
+  if(event?.type!=='room')throw Error('Missing member room view');
+  const pair=event.room.peers.find(peer=>peer.member===t.members[2]);
+  if(!pair)throw Error('Missing non-host pair');
+  return pair;
+ };
+ const waiting=setup(3);for(let i=0;i<3;i++){waiting.load(i);waiting.ready(i);}
+ const oldPair=pairBetweenMembers(waiting);
+ waiting.act(1,{type:'peerRetry',pairId:oldPair.pairId,epoch:oldPair.epoch});
+ assert.equal(waiting.view().game.ready.includes(waiting.members[1]),false);
+ assert.equal(waiting.view().game.ready.includes(waiting.members[2]),false);
+ assert.throws(()=>waiting.ready(1),/game_prerequisites/);
+ assert.throws(()=>waiting.start(),/game_prerequisites/);
+ const retry=pairBetweenMembers(waiting);
+ for(const type of ['peerAck','peerConnected'])for(const who of [1,2])waiting.act(who,{type,pairId:retry.pairId,epoch:retry.epoch});
+ waiting.ready(1);waiting.ready(2);
+ assert.equal(waiting.start().room!.game.status,'starting');
+ const startingPair=pairBetweenMembers(waiting);
+ waiting.act(1,{type:'peerRetry',pairId:startingPair.pairId,epoch:startingPair.epoch});
+ assert.equal(waiting.view().game.status,'paused');
+ assert.equal(waiting.view().game.startRequested,false);
+
+ const playing=setup(3);playing.begin();const livePair=pairBetweenMembers(playing);
+ playing.act(1,{type:'peerRetry',pairId:livePair.pairId,epoch:livePair.epoch});
+ assert.equal(playing.view().game.status,'playing');
 });
 test('slot availability revision while checkpoint is in flight invalidates all pending role publication',()=>{
  const t=setup(3),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const transfer=t.captures().at(-1)!,recipient=t.authorize(transfer);

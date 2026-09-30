@@ -15,36 +15,35 @@ try:
  with LocalTurn(args.turnserver) as turn, sync_playwright() as p:
   browser=p.chromium.launch(ignore_default_args=['--mute-audio'],**({'channel':'chrome'} if args.chrome else {}))
   errors=[]
-  def page(url,policy='standard'):
+  def page(url,force_relay=False):
    page=browser.new_page(viewport={'width':1280,'height':1050});page.on('pageerror',lambda error:errors.append(str(error)))
-   if policy=='relay':page.add_init_script("sessionStorage.setItem('retro-coop-connection-policy','relay')")
+   page.context.grant_permissions(['clipboard-read','clipboard-write'])
+   page.add_init_script(f'window.forceRelayTransport={str(force_relay).lower()}')
    page.add_init_script((root/'scripts/peer/diagnostics.js').read_text()+'''
     const dataSend=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(this.awaitingFirstInbound && window.modelEarlySendLoss && typeof data==='string' && JSON.parse(data).type==='transportProbe'){window.earlySendDrops=(window.earlySendDrops??0)+1;return;}if(window.suppressTransportProbe && typeof data==='string'){try{if(JSON.parse(data).type==='transportProbe'){window.suppressedProbes=(window.suppressedProbes??0)+1;return;}}catch{}}return dataSend.call(this,data)};
-    window.peerProof={pcs:[],started:false,gatherBeforeStart:false,policies:[],sentCandidates:[],errors:[],ice:[]};
+    window.peerProof={pcs:[],started:false,gatherBeforeStart:false,requestedPolicies:[],policies:[],sentCandidates:[],errors:[],ice:[]};
     const NativeSocket=WebSocket;window.WebSocket=class extends NativeSocket{
-     set onmessage(fn){this.deliver=fn;super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='room')peerProof.lastRoom=d.room;if(d.type==='result'&&d.ok&&d.data?.room)peerProof.lastRoom=d.data.room;if(d.type==='peerStart')peerProof.startedAt=performance.now();if(d.type==='peerStart'&&window.deadlineMode==='connecting')return;if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.offerer=d.offerer;peerProof.preparedAt=performance.now();peerProof.started=false;if(window.lowerPolicy){d.policy='standard';e=new MessageEvent('message',{data:JSON.stringify(d)})}};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
+     set onmessage(fn){this.deliver=fn;super.onmessage=e=>{const d=JSON.parse(e.data);if(d.type==='room')peerProof.lastRoom=d.room;if(d.type==='result'&&d.ok&&d.data?.room)peerProof.lastRoom=d.data.room;if(d.type==='peerStart')peerProof.startedAt=performance.now();if(d.type==='peerStart'&&window.deadlineMode==='connecting')return;if(d.type==='result'&&!d.ok)peerProof.errors.push(d.error);if(d.type==='peerPrepare'){peerProof.offerer=d.offerer;peerProof.preparedAt=performance.now();peerProof.started=false};if(d.type==='peerStart')peerProof.started=true;fn(e)}}
      send(raw){const d=JSON.parse(raw);if(d.type==='peerAck'&&window.deadlineMode==='preparing'){queueMicrotask(()=>this.deliver(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:d.requestId,ok:true,data:{}})})));return;}if(d.type==='peerSignal'&&d.signal.kind==='candidate')peerProof.sentCandidates.push(d.signal.candidate.candidate);super.send(raw)}
     };
     const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{
-     constructor(c){super(c);this.addEventListener('datachannel',({channel})=>{channel.awaitingFirstInbound=true;channel.addEventListener('message',()=>{channel.awaitingFirstInbound=false},{once:true})});peerProof.pcs.push(this);peerProof.policies.push(c.iceTransportPolicy);this.addEventListener('icecandidateerror',e=>peerProof.ice.push({error:e.errorCode}));this.addEventListener('iceconnectionstatechange',()=>peerProof.ice.push({state:this.iceConnectionState}));this.addEventListener('icecandidate',e=>{if(e.candidate)peerProof.ice.push({candidate:e.candidate.type})})}
+     constructor(c){peerProof.requestedPolicies.push(c.iceTransportPolicy);super(window.forceRelayTransport?{...c,iceTransportPolicy:'relay'}:c);this.addEventListener('datachannel',({channel})=>{channel.awaitingFirstInbound=true;channel.addEventListener('message',()=>{channel.awaitingFirstInbound=false},{once:true})});peerProof.pcs.push(this);peerProof.policies.push(this.getConfiguration().iceTransportPolicy);this.addEventListener('icecandidateerror',e=>peerProof.ice.push({error:e.errorCode}));this.addEventListener('iceconnectionstatechange',()=>peerProof.ice.push({state:this.iceConnectionState}));this.addEventListener('icecandidate',e=>{if(e.candidate)peerProof.ice.push({candidate:e.candidate.type})})}
      setLocalDescription(d){if(!peerProof.started)peerProof.gatherBeforeStart=true;return super.setLocalDescription(d)}
     };''');page.goto(url);return page
   def open_room(tab):
    panel=tab.locator('.room-panel')
-   panel.wait_for(state='visible');return panel
-  def open_connection(tab):
-   panel=open_room(tab);connection=panel.locator('details.session-settings')
-   if not connection.evaluate('(node)=>node.open'):connection.get_by_text('Connection and session settings',exact=True).click()
+   panel.wait_for(state='visible')
    return panel
-  def host(url,policy='standard'):
-   h=page(url,policy);h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True)
-   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(h).get_by_label('Connection privacy',exact=True).input_value()==policy
-   return h,h.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
-  def join(invite,policy='standard',early_loss=False):
-   g=page(invite,policy);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.locator('.room-panel.invitation').get_by_text('Host-shared NES',exact=False).wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()==policy;return g
+  def host(url,force_relay=False):
+   h=page(url,force_relay);h.screenshot(path=str(out.with_suffix('.before.png')),full_page=True)
+   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'PRIVATE-PEER.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_test_id('room-view').wait_for(state='attached')
+   h.get_by_role('button',name='Copy invite',exact=True).click();invite=h.evaluate('navigator.clipboard.readText()');assert '#invite=' in invite
+   return h,invite
+  def join(invite,force_relay=False,early_loss=False):
+   g=page(invite,force_relay);g.evaluate('(value)=>window.modelEarlySendLoss=value',early_loss);assert g.evaluate('peerProof.pcs.length')==0;g.locator('.room-panel.invitation').wait_for();g.get_by_role('button',name='Join room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='attached');return g
   def connected(h,g,route):
    try:
-    for tab in [h,g]:tab.wait_for_function("r=>peerProof.lastRoom?.peers[0]?.status==='connected' && document.querySelector('[data-testid=connection-status]')?.textContent?.includes(r==='relay'?'Relay only is on. Connected through the relay.':'direct route.')",arg=route,timeout=25000)
+    for tab in [h,g]:tab.wait_for_function("peerProof.lastRoom?.peers[0]?.status==='connected'",timeout=25000)
    except Exception:
     failure={'connection_failure':[tab.evaluate("({status:document.querySelector('[data-testid=connection-status]')?.textContent,states:peerProof.pcs.map(pc=>pc.connectionState),earlySendModel:{enabled:window.modelEarlySendLoss===true,count:window.earlySendDrops??0},probeSuppression:{enabled:window.suppressTransportProbe===true,count:window.suppressedProbes??0},errors:peerProof.errors,ice:peerProof.ice,...peerDiagnostics()})") for tab in [h,g]],
      'turn_error_codes':turn.error_codes()}
@@ -63,8 +62,11 @@ try:
      tab.wait_for_timeout(100);data=tab.evaluate(probe)
     assert not data['gatherBeforeStart'];assert data['bytesSent']>0 and data['bytesReceived']>0
     if route=='relay':assert data['local']=='relay' and data['remote']=='relay' and data['policy']=='relay'
+    else:assert data['local']!='relay' and data['remote']!='relay'
+    assert tab.evaluate("peerProof.requestedPolicies.every(policy=>policy==='all')"),'Application attempted to choose a visitor route'
+    assert open_room(tab).get_by_test_id('connection-status').count()==0,'Ready member links should not add a duplicate room summary'
     result.append(data)
-   assert 'You are Player 2.' in g.get_by_test_id('room-view').text_content()
+   assert g.evaluate("peerProof.lastRoom.role==='member'")
    return result
   # Model the observed native first-send discard before the remote channel receives data.
   # This deterministic timing model is not a claim to reproduce Chromium's internal race.
@@ -79,86 +81,37 @@ try:
   mh.close();mg.close()
   direct=service({'TURN_URLS':'','TURN_SECRET':''});h,invite=host(direct);g=join(invite)
   direct_proof=connected(h,g,'direct');h.screenshot(path=str(out.with_suffix('.direct.png')),full_page=True)
-  # Changing either participant to stricter policy tears down direct, and unavailable relay never falls back.
-  open_connection(g).get_by_label('Connection privacy',exact=True).select_option('relay')
-  h.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('relay service unavailable')")
-  assert h.evaluate("peerProof.pcs.every(pc=>pc.connectionState==='closed')")
-  before=g.evaluate('peerProof.pcs.length');open_connection(g).get_by_role('button',name='Retry connection',exact=True).click()
-  assert g.evaluate('peerProof.pcs.length')==before
-  lease=g.get_by_test_id('room-view').text_content();open_connection(g).get_by_role('button',name='Stay in room',exact=True).click()
-  assert g.get_by_test_id('room-view').text_content()==lease and g.evaluate('peerProof.pcs.length')==before
-  g.get_by_text('You stayed in the room.',exact=False).wait_for()
-  g.screenshot(path=str(out.with_suffix('.unavailable.png')),full_page=True);h.close();g.close()
+  h.close();g.close()
   relay=service(turn.environment())
-  h,invite=host(relay);g=join(invite,'relay');relay_proof=connected(h,g,'relay')
+  h,invite=host(relay,force_relay=True);g=join(invite,force_relay=True);relay_proof=connected(h,g,'relay')
   for tab in [h,g]:assert tab.evaluate('peerProof.sentCandidates.every(c=>c.includes(" typ relay "))')
   h.screenshot(path=str(out.with_suffix('.relay.png')),full_page=True)
   h.set_viewport_size({'width':390,'height':844});assert h.evaluate('document.documentElement.scrollWidth<=innerWidth');h.screenshot(path=str(out.with_suffix('.mobile.png')),full_page=True);h.set_viewport_size({'width':1280,'height':1050})
   lease_before=g.evaluate('({member:peerProof.lastRoom.chatMembership,lease:peerProof.lastRoom.reservationUntil??null})')
   g.reload();recovery_proof=connected(h,g,'relay')
-  assert open_connection(g).get_by_label('Connection privacy',exact=True).input_value()=='relay'
   assert g.evaluate('({member:peerProof.lastRoom.chatMembership,lease:peerProof.lastRoom.reservationUntil??null})')==lease_before
   assert g.evaluate('peerProof.policies.every(policy=>policy==="relay")')
-  # Server admission denies a second relay pair before creating any RTCPeerConnection.
-  denied,denied_invite=host(relay,'relay');waiting=page(relay)
-  code=denied.get_by_test_id('room-view').locator('strong').inner_text().split(' · ')[1]
-  assert waiting.get_by_label('Connection privacy',exact=True).first.input_value()=='standard'
-  waiting.locator('.room-list li').filter(has_text=code).get_by_role('button',name='Join',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='attached');open_connection(waiting)
-  denied.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('relay capacity full')")
-  assert denied.evaluate('peerProof.pcs.length')==0 and waiting.evaluate('peerProof.pcs.length')==0
-  denied.screenshot(path=str(out.with_suffix('.capacity.png')),full_page=True)
-  # Explicit cancellation frees capacity; retry retains the original reservation.
-  waiting.wait_for_function("peerProof.lastRoom.slots.find(s=>s.member?.id===peerProof.lastRoom.chatMembership)?.member.acquisition==='loaded'")
-  lease=waiting.evaluate('({member:peerProof.lastRoom.chatMembership,lease:peerProof.lastRoom.reservationUntil??null})')
-  open_room(g).get_by_role('button',name='Leave room',exact=True).click();g.get_by_test_id('room-view').wait_for(state='detached')
-  open_connection(waiting).get_by_role('button',name='Retry connection',exact=True).click();retry_proof=connected(denied,waiting,'relay')
-  assert waiting.evaluate('({member:peerProof.lastRoom.chatMembership,lease:peerProof.lastRoom.reservationUntil??null})')==lease
-  # A local choice change reconnects even if the other player's stricter policy remains effective.
-  open_connection(waiting).get_by_label('Connection privacy',exact=True).select_option('relay')
-  connected(denied,waiting,'relay')
-  open_connection(denied).get_by_label('Connection privacy',exact=True).select_option('standard')
-  connected(denied,waiting,'relay')
-  # Settings reflects and changes the same privacy owner; shared gameplay is never promoted.
-  denied.get_by_role('button',name='Settings',exact=True).click();assert denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).input_value()=='standard'
-  denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).select_option('relay')
-  connected(denied,waiting,'relay')
-  assert denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).input_value()=='relay'
-  assert 'Paused' in denied.get_by_test_id('player-status').inner_text()
-  denied.locator('.settings.tool-page').get_by_label('Connection privacy',exact=True).scroll_into_view_if_needed()
-  denied.screenshot(path=str(out.with_suffix('.settings.png')),full_page=True)
-  denied.get_by_role('button',name='Back',exact=True).click()
-  assert open_connection(denied).get_by_label('Connection privacy',exact=True).input_value()=='relay'
-  # Controlled application-probe loss verifies recovery; it is NOT a reproduction of #53's unknown CI cause.
-  # Preserve the existing successful policy-change workload above, then add a separate failure transition.
-  open_connection(waiting).get_by_label('Connection privacy',exact=True).select_option('standard')
-  connected(denied,waiting,'relay')
-  original=waiting.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil??null,epoch:peerProof.lastRoom.peers[0].epoch})')
-  original_pixels=denied.locator('canvas').evaluate('canvas=>canvas.toDataURL()')
-  original_leases=[tab.evaluate('peerProof.lastRoom.reservationUntil??null') for tab in [denied,waiting]]
-  for tab in [denied,waiting]:tab.evaluate('window.suppressTransportProbe=true')
-  open_connection(waiting).get_by_label('Connection privacy',exact=True).select_option('relay')
-  for tab in [denied,waiting]:
-   tab.wait_for_function("peerProof.lastRoom?.peers[0]?.status==='failed'",timeout=25000)
-   observed=tab.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil??null,status:peerProof.lastRoom.peers[0].status,policy:peerProof.lastRoom.peers[0].policy,epoch:peerProof.lastRoom.peers[0].epoch,probes:window.suppressedProbes??0})')
-   assert observed['id']==original['id'] and observed.get('lease')==original_leases[[denied,waiting].index(tab)] and observed['epoch']!=original['epoch']
-   assert observed['status']=='failed' and observed['policy']=='relay',observed
-   assert (observed['probes']>0 if tab.evaluate('peerProof.offerer') else observed['probes']==0),observed
-   assert tab.evaluate('peerProof.policies.every(policy=>policy==="relay")')
-  waiting.screenshot(path=str(out.with_suffix('.policy-failure.png')),full_page=True)
-  open_connection(waiting).get_by_role('button',name='Stay in room',exact=True).click()
-  assert waiting.evaluate('peerProof.lastRoom.reservationUntil??null')==original['lease']
-  for tab in [denied,waiting]:tab.evaluate('window.suppressTransportProbe=false')
-  open_connection(waiting).get_by_role('button',name='Retry connection',exact=True).click()
-  policy_retry=connected(denied,waiting,'relay')
-  assert waiting.evaluate('peerProof.lastRoom.id')==original['id'] and waiting.evaluate('peerProof.lastRoom.reservationUntil??null')==original['lease']
-  assert denied.locator('canvas').evaluate('canvas=>canvas.toDataURL()')==original_pixels
-  waiting.screenshot(path=str(out.with_suffix('.policy-retry.png')),full_page=True)
-  open_room(waiting).get_by_role('button',name='Leave room',exact=True).click();waiting.get_by_test_id('room-view').wait_for(state='detached')
-  guard=page(invite,'relay');guard.evaluate('window.lowerPolicy=true')
-  guard.get_by_role('button',name='Join room',exact=True).click()
-  guard.get_by_test_id('room-view').wait_for(state='attached')
-  guard.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent?.includes('failed')")
-  assert guard.evaluate('peerProof.pcs.length')==0
+  # A second pair still negotiates directly when the test TURN limit is occupied.
+  capacity_host,capacity_invite=host(relay);capacity_guest=join(capacity_invite);capacity_proof=connected(capacity_host,capacity_guest,'direct')
+  assert capacity_guest.evaluate('peerProof.lastRoom.peers[0].policy')=='standard'
+  # Controlled probe loss after a failed link retains membership, then explicit Retry recovers.
+  capacity_guest.wait_for_function("peerProof.lastRoom.slots.find(slot=>slot.member?.id===peerProof.lastRoom.chatMembership)?.member.acquisition==='loaded'")
+  original=capacity_guest.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil??null})')
+  capacity_guest.evaluate('peerProof.pcs.at(-1).close()')
+  capacity_guest.wait_for_function("peerProof.lastRoom?.peers[0]?.status==='failed'",timeout=10000)
+  failed_slot=capacity_guest.evaluate("peerProof.lastRoom.slots.find(slot=>slot.member?.id===peerProof.lastRoom.peers[0].member).id")
+  assert open_room(capacity_guest).locator(f'[data-slot-id="{failed_slot}"] [data-slot-region="status"]').inner_text()=='Connection needs retry'
+  assert open_room(capacity_guest).get_by_role('group',name='Connection help').is_visible()
+  assert open_room(capacity_guest).get_by_test_id('connection-status').count()==0
+  for tab in [capacity_host,capacity_guest]:tab.evaluate('window.suppressTransportProbe=true')
+  open_room(capacity_guest).get_by_role('button',name='Retry connection',exact=True).click()
+  for tab in [capacity_host,capacity_guest]:tab.wait_for_function("peerProof.lastRoom?.peers[0]?.status==='failed'",timeout=40000)
+  observed_capacity=capacity_guest.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil??null})')
+  assert observed_capacity==original,(original,observed_capacity)
+  assert open_room(capacity_guest).get_by_role('button',name='Leave room',exact=True).is_visible()
+  assert open_room(capacity_guest).get_by_role('button',name='Stay in room',exact=True).count()==0
+  for tab in [capacity_host,capacity_guest]:tab.evaluate('window.suppressTransportProbe=false')
+  open_room(capacity_guest).get_by_role('button',name='Retry connection',exact=True).click();retry_proof=connected(capacity_host,capacity_guest,'direct')
   # Exercise real coordinator wall-clock deadlines, without extending or accelerating them.
   # Suppress only preparation acknowledgement or Start delivery; answer a withheld request
   # locally so the unrelated 8-second client request timer cannot mask the server deadline.
@@ -166,7 +119,7 @@ try:
   for phase in ['preparing','connecting']:
    dh,di=host(direct);dg=page(di)
    for tab in [dh,dg]:tab.evaluate('(mode)=>window.deadlineMode=mode',phase)
-   dg.get_by_role('button',name='Join room',exact=True).click();dg.get_by_test_id('room-view').wait_for(state='attached');open_connection(dg)
+   dg.get_by_role('button',name='Join room',exact=True).click();dg.get_by_test_id('room-view').wait_for(state='attached')
    dg.wait_for_function("peerProof.lastRoom.slots.find(s=>s.member?.id===peerProof.lastRoom.chatMembership)?.member.acquisition==='loaded'")
    original=dg.evaluate('({id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil??null})')
    leases=[tab.evaluate('peerProof.lastRoom.reservationUntil??null') for tab in [dh,dg]]
@@ -176,19 +129,19 @@ try:
     assert elapsed >= (14900 if phase=='preparing' else 19900), (phase,elapsed)
     observed=tab.evaluate('({status:peerProof.lastRoom.peers[0].status,id:peerProof.lastRoom.id,lease:peerProof.lastRoom.reservationUntil??null})')
     assert observed['status']=='failed' and observed['id']==original['id'] and observed.get('lease')==leases[[dh,dg].index(tab)],observed
-    panel=open_connection(tab)
+    panel=open_room(tab)
     assert panel.get_by_role('button',name='Retry connection',exact=True).is_visible()
-    assert panel.get_by_role('button',name='Stay in room',exact=True).is_visible()
-   open_connection(dg).get_by_role('button',name='Stay in room',exact=True).click()
+    assert panel.get_by_role('button',name='Leave room',exact=True).is_visible()
+    assert panel.get_by_role('button',name='Stay in room',exact=True).count()==0
    assert dg.evaluate('peerProof.lastRoom.reservationUntil??null')==original['lease']
    dg.screenshot(path=str(out.with_suffix(f'.{phase}-timeout.png')),full_page=True)
    for tab in [dh,dg]:tab.evaluate('window.deadlineMode=undefined')
-   open_connection(dg).get_by_role('button',name='Retry connection',exact=True).click();proof=connected(dh,dg,'direct')
+   open_room(dg).get_by_role('button',name='Retry connection',exact=True).click();proof=connected(dh,dg,'direct')
    assert dg.evaluate('peerProof.lastRoom.reservationUntil??null')==original['lease']
-   deadlines.append({'phase':phase,'both_received_failed_state':True,'stay_and_retry_visible':True,'original_room_and_lease_preserved':True,'retry_route':proof})
+   deadlines.append({'phase':phase,'both_received_failed_state':True,'retry_and_leave_visible':True,'original_room_and_lease_preserved':True,'retry_route':proof})
    dh.close();dg.close()
   assert not errors,errors
-  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'early_answerer_send_loss_model':{'connected':True,'answerer_waited_for_inbound_probe':True,'discarded_sends':0,'route':modeled_route},'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'retry_after_capacity':retry_proof,'stricter_policy_before_gathering':True,'relay_unavailable_no_fallback':True,'capacity_denial_before_peer_creation':True,'reservation_lease_unchanged':True,'settings_same_policy':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'public_code_join_same_policy':True,'client_rejects_policy_downgrade_before_peer_creation':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','policy_change_failure_retry':{'injection':'withheld application transport probes after Standard-to-Relay policy change; not the original CI cause','actual_timeout_preserved':True,'room_and_original_lease_preserved':True,'paused_local_pixels_preserved':True,'effective_policy':'relay','retry_route':policy_retry},'server_deadlines':deadlines,'page_errors':errors}
+  result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'early_answerer_send_loss_model':{'connected':True,'answerer_waited_for_inbound_probe':True,'discarded_sends':0,'route':modeled_route},'direct':direct_proof,'forced_turn':relay_proof,'relay_reload_recovery':recovery_proof,'direct_with_relay_capacity_full':capacity_proof,'retry_after_peer_failure':retry_proof,'automatic_policy_before_gathering':True,'reservation_lease_unchanged':True,'stay_preserves_room_and_lease':True,'invite_discloses_source_before_any_peer':True,'scope':'Loopback coturn and local browser tabs; public network/provider load qualification remains D21/D24.','server_deadlines':deadlines,'page_errors':errors}
   out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2));browser.close()
 finally:
  for proc in reversed(processes):

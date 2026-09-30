@@ -126,7 +126,7 @@ def main():
             guest.get_by_test_id('room-view').wait_for(state='detached')
             observer = browser.new_page()
             observer.goto(url)
-            observer.locator('.directory-title [role=status]').filter(has_text='Live').wait_for()
+            observer.locator('[data-directory-status=live]').wait_for()
             assert observer.locator('.room-list li').filter(has_text=room_name).count() == 0
             member_host = host_room()
             member = browser.new_page()

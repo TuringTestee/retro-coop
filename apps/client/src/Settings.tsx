@@ -3,6 +3,7 @@ import { actions, labels, defaults, conflict, inputMask, padInputs, bindingLabel
 
 type Props = {
  connection?:ReactNode;voice?:ReactNode;localData?:()=>void;
+ nickname?:string; saveNickname?(name:string):void;
  open:boolean; controls:Controls; change(value:Controls):void;
  filter:'nearest'|'scanlines'; setFilter(value:'nearest'|'scanlines'):void;
  volume:number; setVolume(value:number):void; muted:boolean; audioIssue?:string; audioState?:AudioContextState; retryAudio():void;
@@ -13,6 +14,8 @@ export function Settings(props:Props) {
  const [pads,setPads] = useState<{index:number;id:string}[]>([]);
  const [capture,setCapture] = useState<Action|null>(null), [binding,setBinding] = useState<string|null>(null);
  const [confirm,setConfirm] = useState(false), [tested,setTested] = useState(0);
+ const [nicknameDraft,setNicknameDraft] = useState(props.nickname??'');
+ useEffect(()=>{setNicknameDraft(props.nickname??'');},[props.nickname]);
  const returnFocus=useRef<HTMLElement|null>(null);
  useEffect(()=>{if(!capture && !confirm){returnFocus.current?.focus();returnFocus.current=null;}},[capture,confirm]);
  const held = useRef(new Set<string>()), previousPad = useRef(new Set<string>());
@@ -70,6 +73,7 @@ export function Settings(props:Props) {
    Focus here to test {source} input: <span data-testid="input-test">{actions.slice(0,8).filter((_,index)=>tested & (1<<index)).map(action=>labels[action]).join(', ') || 'None'}</span>
   </div>
   {props.voice}
+  {props.nickname!==undefined&&props.saveNickname&&<fieldset><legend>Profile in this tab</legend><label>Nickname <input maxLength={32} value={nicknameDraft} onChange={event=>setNicknameDraft(event.target.value)}/></label><button disabled={!nicknameDraft.trim()||nicknameDraft===props.nickname} onClick={()=>props.saveNickname?.(nicknameDraft)}>Save nickname</button></fieldset>}
   {props.connection && <fieldset><legend>Connection</legend>{props.connection}</fieldset>}
    <fieldset><legend>Picture and sound</legend><label>Display filter <select value={props.filter} onChange={event=>props.setFilter(event.target.value as Props['filter'])}><option value="nearest">Nearest neighbor</option><option value="scanlines">Scanlines</option></select></label>
    <label>Game volume {Math.round(props.volume*100)}% <input type="range" min="0" max="100" value={Math.round(props.volume*100)} onChange={event=>props.setVolume(Number(event.target.value)/100)}/></label>

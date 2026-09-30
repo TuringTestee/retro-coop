@@ -1,11 +1,11 @@
 """Production worker/barrier proof. The host is held at its genuine power-on state before shared start."""
 import argparse,contextlib,hashlib,json,math,os,subprocess,sys,time,tempfile
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 from workload import active_seconds as measured_active_seconds
 from verify import normalized_periodic_hashes
 from browser_errors import classify_page_errors
-parser=argparse.ArgumentParser();parser.add_argument('--runtime-root',type=Path,default=Path(__file__).resolve().parents[2]);parser.add_argument('--checkpoint',choices=['success','corrupt','cancel']);parser.add_argument('--initial-manual-frames',type=int,choices=[240,508],default=240,help='Retain the manual-input phase to exercise slow qualification setup');parser.add_argument('--controllers',action='store_true');parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true');parser.add_argument('--standard-fallback',action='store_true',help='Keep the app on Standard while the browser allows only relay ICE, modeling unavailable direct transport');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--delay-final-hash',action='store_true',help='Delay one final native hash response to exercise pause proof synchronization');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--short-viewport',action='store_true');parser.add_argument('--leave-interaction',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args();assert not(args.relay and args.standard_fallback)
+parser=argparse.ArgumentParser();parser.add_argument('--runtime-root',type=Path,default=Path(__file__).resolve().parents[2]);parser.add_argument('--checkpoint',choices=['success','corrupt','cancel']);parser.add_argument('--initial-manual-frames',type=int,choices=[240,508],default=240,help='Retain the manual-input phase to exercise slow qualification setup');parser.add_argument('--controllers',action='store_true');parser.add_argument('--delay-join',action='store_true');parser.add_argument('--operator-playing',choices=['remove','block']);parser.add_argument('--worker-floor-ms',type=int,choices=[0,14],default=0,help='Diagnostic only: minimum Firefox worker response latency');parser.add_argument('--kick-playing',action='store_true');parser.add_argument('--retry-barrier',choices=['guest-first','host-first']);parser.add_argument('--relay',action='store_true',help='Force relay transport in the browser test fixture');parser.add_argument('--standard-fallback',action='store_true',help='Force relay ICE while the application uses automatic routing, modeling unavailable direct transport');parser.add_argument('--turnserver',default='turnserver');parser.add_argument('--output',default='/tmp/gameplay.json');parser.add_argument('--seconds',type=int,choices=[8,30,600],default=8);parser.add_argument('--pair',choices=['Chrome-Chrome','Firefox-Firefox','Chrome-Firefox'],default='Chrome-Chrome');parser.add_argument('--firefox-executable');parser.add_argument('--cancel-barrier',action='store_true');parser.add_argument('--delay-start',action='store_true');parser.add_argument('--delay-final-hash',action='store_true',help='Delay one final native hash response to exercise pause proof synchronization');parser.add_argument('--barrier-timeout',action='store_true');parser.add_argument('--screenshots',action='store_true');parser.add_argument('--short-viewport',action='store_true');parser.add_argument('--leave-interaction',action='store_true');parser.add_argument('--late-join',action='store_true');parser.add_argument('--fault',choices=['none','drop-input','bad-hash','old-epoch','future-input','duplicate-input','focus','device'],default='none');args=parser.parse_args();assert not(args.relay and args.standard_fallback)
 root=args.runtime_root.resolve();static=Path(os.environ.get('RETRO_COOP_STATIC_ROOT',root/'apps/client/dist'));build_files={str(p.relative_to(static)):hashlib.sha256(p.read_bytes()).hexdigest() for p in (static).rglob('*') if p.is_file() and p.suffix in ['.js','.wasm']};out=Path(args.output);run_id=os.environ.get('GAMEPLAY_RUN_ID');started=time.monotonic()
 source={key:subprocess.check_output(['git','rev-parse',ref],cwd=root,text=True).strip() for key,ref in [('commit','HEAD'),('tree','HEAD^{tree}')]}
 sys.path.insert(0,str(root/'scripts/peer'))
@@ -20,7 +20,7 @@ try:
  with sync_playwright() as p, contextlib.ExitStack() as browser_stack:
   browsers=[]
   for kind in args.pair.split('-'):
-   browser=p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay else {},**(firefox_driver.launch_options(args.firefox_executable) if args.firefox_executable else {}))
+   browser=p.chromium.launch(ignore_default_args=['--mute-audio']) if kind=='Chrome' else p.firefox.launch(firefox_user_prefs={'media.peerconnection.ice.loopback':True} if args.relay or args.standard_fallback else {},**(firefox_driver.launch_options(args.firefox_executable) if args.firefox_executable else {}))
    browsers.append(browser);browser_stack.callback(browser.close)
   errors=[];pages=[];kinds=iter(zip(args.pair.split('-'),browsers))
   if args.firefox_executable:
@@ -34,16 +34,20 @@ try:
    else:tab.add_init_script(script)
   def page():
    kind,browser=next(kinds);tab=browser.new_page(**(firefox_driver.page_options() if kind=='Firefox' and args.firefox_executable else {'viewport':{'width':1366,'height':682} if args.short_viewport else {'width':1280,'height':1050}}));pages.append(tab);tab.set_default_timeout(10000);tab.on('pageerror',lambda e:errors.append({'message':str(e),'stack':e.stack,'elapsed':round(time.monotonic()-started,3)}))
+   if kind=='Chrome':tab.context.grant_permissions(['clipboard-read','clipboard-write'])
    fixtures[tab]=[]
    if args.firefox_executable:
     def document(route):
      scripts=''.join('<script>(()=>{'+script.replace('</script','<\\/script')+'\n})();</script>' for script in fixtures[tab])
      route.fulfill(status=200,content_type='text/html',body=(static/'index.html').read_text().replace('<head>','<head>'+scripts,1))
     tab.route(url+'/',document)
-   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}" if not args.standard_fallback else "window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(config){super({...config,iceTransportPolicy:'relay'});gamePeers.push(this)}}")
-   if args.relay:install_script(tab,"sessionStorage.setItem('retro-coop-connection-policy','relay')")
+   install_script(tab,path=root/'scripts/gameplay/fixture.js');install_script(tab,f'window.workerFloorMs={args.worker_floor_ms if kind=="Firefox" else 0}');install_script(tab,"window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(...a){super(...a);gamePeers.push(this)}}" if not (args.relay or args.standard_fallback) else "window.gamePeers=[];const P=RTCPeerConnection;window.RTCPeerConnection=class extends P{constructor(config){super({...config,iceTransportPolicy:'relay'});gamePeers.push(this)}}")
    tab.goto(url)
    return tab
+  def invitation(tab):
+   tab.get_by_role('button',name='Copy invite',exact=True).click()
+   try:return tab.evaluate('navigator.clipboard.readText()')
+   except Exception:return tab.evaluate('`${location.origin}/#invite=${proof.room.invite}`')
   def paused_hashes():
    for tab in [h,g]:tab.wait_for_function("proof.room.game.status==='paused'",timeout=15000,polling=50)
    frame=h.evaluate('proof.room.game.frame')
@@ -55,32 +59,43 @@ try:
    panel=tab.locator('.room-panel')
    panel.wait_for(state='visible');return panel
   def open_connection(tab):
-   panel=open_room(tab);connection=panel.locator('details.session-settings')
-   if not connection.evaluate('(node)=>node.open'):connection.get_by_text('Connection and session settings',exact=True).click()
-   return panel
+   return open_room(tab)
   def open_host_session(tab):
-   panel=open_connection(tab);session=panel.locator('details.session-settings details').filter(has_text='Session settings')
-   if not session.evaluate('(node)=>node.open'):session.get_by_text('Session settings',exact=True).click()
+   panel=open_connection(tab);session=panel.locator('details.session-settings')
+   if not session.evaluate('(node)=>node.open'):session.get_by_text('Room settings',exact=True).click()
    return panel
   try:
    h=page();g=page()
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
-   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
+   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom})
+   if args.late_join:
+    h.get_by_label('Room access').select_option('protected')
+    h.get_by_label('Room password').fill('late-observer-pass')
+   h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
     # The public host chooses an observer slot before starting alone.
     h.locator('[data-slot-id=slot-2]').get_by_role('button',name='Manage',exact=True).click()
     h.get_by_label('Slot 2 role',exact=True).select_option('observer')
-    h.wait_for_function("proof.room.slots[1].role==='observer'")
+    try:h.wait_for_function("proof.room.slots[1].role==='observer'",polling=50,timeout=15000)
+    except PlaywrightTimeoutError:
+     print(json.dumps({'observer_slot_setup':h.evaluate('''()=>({slot:proof.room?.slots[1],revision:proof.room?.revision,feedback:document.querySelector('.slot-feedback')?.textContent,status:document.querySelector('[data-testid=room-status]')?.textContent})''')}),flush=True)
+     raise
     h.get_by_role('dialog',name='Manage slot 2').get_by_role('button',name='Done',exact=True).click()
-    invite=h.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+
     h.get_by_role('button',name='Ready',exact=True).click()
     h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()')
     h.wait_for_function('proof.frameCount>=120',polling=50)
+    invite=invitation(h)
+    assert 'late-observer-pass' not in invite
+    if args.screenshots:h.screenshot(path=str(out.with_name('late-observer-invite.png')))
     prior_frame=h.evaluate('proof.frames.at(-1).frame');prior_epoch=h.evaluate('proof.activeEpoch')
     g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
     g.get_by_role('button',name='Join room',exact=True).click()
+    g.get_by_label('Room password').fill('late-observer-pass')
+    g.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
     g.get_by_test_id('room-view').wait_for(state='attached');g.evaluate('releaseFrames()')
     g.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
+    if args.screenshots:g.screenshot(path=str(out.with_name('late-observer-joined.png')))
     h.wait_for_function('frame=>proof.frames.at(-1).frame>frame+60',arg=prior_frame,polling=50)
     assert h.evaluate('proof.activeEpoch')==prior_epoch,'Observer admission changed the host timeline'
     assert g.evaluate("proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership).role")== 'observer'
@@ -93,11 +108,13 @@ try:
     while states[0]!=states[1] and time.monotonic()<deadline:
      time.sleep(.05);states=[worker(tab,{'type':'state-hash'})['info'] for tab in [h,g]]
     assert states[0]==states[1] and states[0]['frame']>prior_frame,states
+    if args.screenshots:h.screenshot(path=str(out.with_name('late-observer-playing.png')))
     result={'result':'pass','source':source,'build_files':build_files,'scenario':'late observer joins running host','host_frame_before_join':prior_frame,'epoch_preserved':True,'native_states':states,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:
     install_script(g,"""const Native=WebSocket;window.WebSocket=class extends Native{set onmessage(handler){super.onmessage=event=>{const e=JSON.parse(event.data);if(!window.releaseJoin&&e.type==='result'&&e.ok&&e.data?.room?.role==='member'){window.releaseJoin=()=>handler(event)}else handler(event)}}};""")
-   invite=h.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
+
+   invite=invitation(h);g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload();g.get_by_role('button',name='Join room',exact=True).click()
    if args.delay_join:
     g.wait_for_function('typeof releaseJoin === "function"');g.evaluate('releaseJoin()')
    g.get_by_test_id('room-view').wait_for(state='attached')
@@ -108,7 +125,12 @@ try:
    initial_members=g.evaluate('proof.room.slots.filter(slot=>slot.member).map(slot=>({id:slot.member.id,role:slot.role,slot:slot.id}))')
    if args.delay_start:g.evaluate('window.delayStart=true')
    if args.barrier_timeout or args.cancel_barrier or args.retry_barrier:g.evaluate('window.dropGameAck=true')
-   g.get_by_role('button',name='Ready',exact=True).click()
+   try:
+    g.get_by_role('button',name='Ready',exact=True).click(timeout=30000)
+   except PlaywrightTimeoutError:
+    readiness=g.evaluate('''()=>{const room=proof.room,member=room?.slots.find(slot=>slot.member?.id===room.chatMembership)?.member,ready=[...document.querySelectorAll('button')].find(button=>button.textContent?.trim()==='Ready');return {roomMatches:room?.matches,memberAcquisition:member?.acquisition,memberConnected:member?.connected,peerStatuses:room?.peers.map(peer=>({status:peer.status,gameplay:peer.gameplay})),readyDisabled:ready?.disabled,playerStatus:document.querySelector('[data-testid=player-status]')?.textContent,roomStatus:document.querySelector('[data-testid=room-status]')?.textContent,preparation:document.querySelector('[data-layout-region=preparation-recovery]')?.textContent}}''')
+    print(json.dumps({'ready_timeout':readiness}),flush=True)
+    raise
    h.wait_for_function("member=>proof.room?.game?.ready?.includes(member)",arg=g.evaluate('proof.room.chatMembership'),timeout=15000,polling=50)
    h.get_by_role('button',name='Ready',exact=True).click()
    h.get_by_role('button',name='Start game',exact=True).click()
@@ -292,24 +314,13 @@ try:
    # This is the measured workload interval, never a guessed startup wait.
    while measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed)<args.seconds:h.wait_for_timeout(20)
    active_seconds=round(measured_active_seconds(args.seconds,first_active,time.monotonic()-resumed),2)
-   expected_status='Relay only is on. Connected through the relay.' if args.relay else 'Direct connection unavailable. Relay keeps you playing together.' if args.standard_fallback else None
    route='relay' if args.relay or args.standard_fallback else 'direct'
    route_probe="""async expected=>{for(const pc of gamePeers){if(pc.connectionState!=='connected')continue;const stats=await pc.getStats();let pair;for(const value of stats.values())if(value.type==='transport'&&value.selectedCandidatePairId)pair=stats.get(value.selectedCandidatePairId);else if(value.type==='candidate-pair'&&value.selected)pair=value;if(!pair)continue;const local=stats.get(pair.localCandidateId)?.candidateType,remote=stats.get(pair.remoteCandidateId)?.candidateType;if(!local||!remote||!pair.bytesSent||!pair.bytesReceived)continue;if(expected==='relay'?local==='relay'&&remote==='relay':local!=='relay'&&remote!=='relay')return true;}return false;}"""
-   for tab in [h,g]:
-    tab.wait_for_function(route_probe,arg=route,timeout=10000)
-    status_node=tab.get_by_test_id('connection-status')
-    if expected_status:assert status_node.is_visible() and expected_status in status_node.inner_text(), 'A selected relay path must be explained during shared play'
-    else:assert status_node.count()==0 and tab.locator('.relay-notice').count()==0, 'Direct play must have no relay warning'
-   if expected_status:
-    status_node=h.get_by_test_id('connection-status')
-    status_node.evaluate("node=>node.style.display='none'")
-    assert not status_node.is_visible(), 'The visibility check must reject hidden status text'
-    status_node.evaluate("node=>node.style.display=''")
-    assert status_node.is_visible(), 'The status must be restored after the negative check'
+   for tab in [h,g]:tab.wait_for_function(route_probe,arg=route,timeout=10000)
+   for tab in [h,g]:assert tab.get_by_test_id('connection-status').count()==0,'Healthy shared play should not show connection details'
    if args.screenshots:
     h.set_viewport_size({'width':390,'height':844})
-    if expected_status:assert h.get_by_test_id('connection-status').is_visible()
-    else:assert h.locator('.room-panel').is_visible()
+    assert h.locator('.room-panel').is_visible()
     assert h.evaluate('document.documentElement.scrollWidth<=innerWidth'), 'Mobile room overflows horizontally'
     h.screenshot(path=str(out.with_suffix('.mobile.shared-playing.png')),full_page=True)
     h.set_viewport_size({'width':1366 if args.short_viewport else 1280,'height':682 if args.short_viewport else 1050})
@@ -323,10 +334,7 @@ try:
     assert delayed['response']['hash']==final[1]['hash'],delayed
     assert all(record['requestId']!=delayed['requestId'] and record['frame']<delayed['frame'] for record in delayed['periodic']),delayed
    hashes=[normalized_periodic_hashes(tab.evaluate('proof.sentHashes'),pause,completed) for tab,pause,completed in zip([h,g],before,final)];assert hashes[0]==hashes[1], 'Every interior epoch/frame hash must be present and identical on both peers';assert len(hashes[0])>=2
-   for tab in [h,g]:
-    if expected_status:assert expected_status in tab.get_by_test_id('connection-status').inner_text()
-    else:assert tab.get_by_test_id('connection-status').count()==0
-    assert tab.evaluate(route_probe,route),'Selected transport changed before pause'
+   for tab in [h,g]:assert tab.evaluate(route_probe,route),'Selected transport changed before pause'
    identity=h.evaluate('proof.room.fingerprint');assert identity['romSha256']==hashlib.sha256(rom).hexdigest();assert identity['coreSha256'] in build_files.values()
    if args.delay_start:assert g.evaluate('proof.delayedStarts')==1
    if args.firefox_executable:assert firefox_driver.evidence(args.firefox_executable)==firefox_evidence,'Firefox binary changed during probe'

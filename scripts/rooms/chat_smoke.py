@@ -17,22 +17,20 @@ try:
         errors=[]
         def page(address=url):
             page=browser.new_page(viewport={'width':1280,'height':1000});page.on('pageerror',lambda error:errors.append(str(error)))
+            page.context.grant_permissions(['clipboard-read','clipboard-write'])
             page.add_init_script('''window.chatProof={errors:[],requests:{},events:[],sent:[]};window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(data.type==='room')chatProof.room=data.room;chatProof.events.push(data.type==='result'&&data.data?.chatAck?'chatAck':data.type);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}send(raw){const data=JSON.parse(raw);chatProof.sent.push(data.type);chatProof.requests[data.requestId]=data.type;return super.send(raw)}};
+    window.chatPcs=[];window.failPeerSetup=false;const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{constructor(config){if(window.failPeerSetup)throw Error('Peer setup blocked by test');super(config);chatPcs.push(this)}};
 window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...rest){if(message.type==='frame')inputProof.push(message.p1);return post.call(this,message,...rest)};''')
             page.goto(address);return page
         def open_room(tab):
             panel=tab.locator('.room-panel')
             panel.wait_for(state='visible');return panel
-        def open_connection(tab):
-            panel=open_room(tab);connection=panel.locator('details.session-settings')
-            if not connection.evaluate('(node)=>node.open'):connection.get_by_text('Connection and session settings',exact=True).click()
-            return panel
         def open_chat(tab):
             panel=open_room(tab)
             disclosure=panel.locator('details.chat-disclosure')
             if disclosure.count():disclosure.evaluate('(node)=>node.open=true')
             panel.locator('.chat-panel').wait_for();return panel
-        host=page();host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_test_id('room-view').wait_for(state='attached');host.get_by_test_id('room-status').filter(has_text='Room created').wait_for(state='attached');open_chat(host)
+        host=page();host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_test_id('room-view').wait_for(state='attached');open_chat(host)
         def send(page,text):
             open_chat(page);message=page.get_by_label('Chat message',exact=True);message.fill(text);assert message.input_value()==text
             button=page.get_by_role('button',name='Send message',exact=True);button.wait_for();assert button.is_enabled();sent=page.evaluate("chatProof.sent.filter(type=>type==='chat').length");button.click()
@@ -41,8 +39,9 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
                 print(json.dumps({'failed':'send action','value':message.input_value(),'buttons':page.get_by_role('button').all_text_contents(),'panelVisible':page.locator('.room-panel').is_visible(),'chatVisible':page.locator('.chat-panel').is_visible(),'mainClass':page.locator('main').get_attribute('class'),'statuses':page.locator('[role=status]').all_text_contents(),'sent':page.evaluate('chatProof.sent')}),flush=True);raise
             page.locator('.chat-panel li p').filter(has_text=text).wait_for(state='attached')
         send(host,'only before join')
-        invite=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("chatProof.room?.slots[1].member?.id&&document.querySelectorAll('[data-testid=room-slot]').length===5")
-        for tab in [host,guest]:tab.wait_for_function("document.querySelector('[data-testid=connection-status]')?.textContent.includes('direct route.')")
+
+        host.get_by_role('button',name='Copy invite',exact=True).click();invite=host.evaluate('navigator.clipboard.readText()');guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("chatProof.room?.slots[1].member?.id&&document.querySelectorAll('[data-testid=room-slot]').length===5")
+        for tab in [host,guest]:tab.wait_for_function("chatProof.room?.peers[0]?.status==='connected'")
         open_chat(guest)
         assert guest.locator('canvas').get_attribute('data-frame-count')=='0'
         assert guest.locator('.chat-panel li').count()==0
@@ -95,15 +94,18 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         guest.screenshot(path=str(output.with_suffix('.chat.png')),full_page=True)
         guest.set_viewport_size({'width':400,'height':900})
         assert guest.evaluate('document.documentElement.scrollWidth<=innerWidth')
-        # Relay service is intentionally absent here; failed peer setup cannot disable text.
-        open_connection(guest).get_by_label('Connection privacy',exact=True).select_option('relay');open_chat(guest)
-        guest.get_by_text('relay service unavailable',exact=False).first.wait_for()
+        # Test-owned peer failure cannot disable text or release room membership.
+        guest.evaluate('window.failPeerSetup=true;chatPcs.at(-1).close()')
+        guest.wait_for_function("chatProof.room?.peers[0]?.status==='failed'",timeout=10000)
+        open_room(guest).get_by_role('button',name='Retry connection',exact=True).click()
+        guest.wait_for_function("chatProof.room?.peers[0]?.status==='failed'",timeout=10000)
+        open_chat(guest)
         guest.get_by_label('Chat message',exact=True).fill('text survives peer denial')
         guest.get_by_role('button',name='Send message',exact=True).click()
         host.locator('.chat-panel').get_by_text('text survives peer denial',exact=True).wait_for(state='attached')
         open_room(guest).get_by_role('button',name='Leave room',exact=True).click();guest.locator('.chat-panel').wait_for(state='detached')
         guest.goto(invite);guest.get_by_role('button',name='Join room',exact=True).click();open_chat(guest);guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
         assert not errors,errors
-        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_relay_denial_keeps_chat_usable':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
+        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_failure_keeps_chat_usable':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()
 finally:service.terminate();service.wait(timeout=5)

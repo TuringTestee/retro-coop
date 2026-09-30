@@ -1,4 +1,4 @@
-Room members connect through authenticated browser-to-browser pairs. Standard allows direct connections; Relay only applies before either end gathers candidates and never falls back to direct.
+Room members connect through authenticated browser-to-browser pairs, with direct or relay routing chosen automatically. The older user-selected route behavior documented below is historical; the [access and routing plan](room-access-and-routing.md) governs current sessions.
 
 Audience: Agent
 
@@ -20,7 +20,7 @@ At exhausted or unavailable relay capacity, the affected pair reports the reason
 
 ## Run and reproduce
 
-For the maintained gamer entrypoint, use the README's pinned tools and run `sh scripts/demo.sh`; it starts the coordinator and client with both included games configured. The lower-level `npm run build` and browser harness commands below are connectivity diagnostics, not a second public setup path. Select Relay only with no configured service to inspect honest denial and retry. Existing local games survive connection failures.
+For the maintained gamer entrypoint, use the README's pinned tools and run `sh scripts/demo.sh`; it starts the coordinator and client with both included games configured. The lower-level `npm run build` and browser harness commands below are connectivity diagnostics, not a second public setup path. The harness forces direct and relay conditions to verify automatic fallback and honest failure/retry. Existing local games survive connection failures.
 
 A configured coordinator accepts `TURN_URLS` (comma-separated turn/turns URLs), `TURN_SECRET` (at least 32 characters), and the pair limit described above. These are operator settings, not browser-exposed shared secrets. Coturn must use the matching REST authentication secret and enforce its own allocation/bandwidth quotas. The service issues member-only credentials with 300-second expiry; it never logs credentials or SDP. TURN allocation quotas must include transient allocations from replaced ICE epochs, not only current pair count; browser closure does not guarantee immediate relay deallocation. Zero configured capacity denies Relay only before creating peers. Standard may use direct connectivity when relay capacity is unavailable; Relay only never changes to Standard automatically.
 
@@ -60,6 +60,8 @@ During development, rapid policy changes hit coturn's allocation bandwidth quota
 ## Historical D10 candidate evidence and UI trace
 
 The checked candidate integrates directory PR48 through `73aa6c6230dbef3ef2e450d1e5b5d407375e3fd4`; that PR's independent acceptance and merge remain prerequisites at author handoff. [Preflight](d10/preflight.txt), [build](d10/build.txt), [peer route results](d10/peer.json), [room regressions](d10/rooms.json), [directory](d10/directory.json), and [player/settings](d10/foundation.json) are retained here. All four browser suites ran against the same built app. Browser scripts mute only the app's game gain. Screenshots contain disposable loopback invitations, not live credentials or production rooms.
+
+The screenshots and table below record the earlier D10 interface. Under [the minimal room journey](minimal-room-journey.md), a failed connection leaves the member in the room by default; Retry connection and Leave room remain available, and the old no-op Stay in room button is removed.
 
 | Approved UI clause | Implementation and observed proof |
 | --- | --- |

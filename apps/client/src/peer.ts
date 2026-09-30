@@ -1,8 +1,8 @@
-import {effectivePolicy,peerLimits,type ConnectionPolicy,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
+import {peerLimits,type PeerEvent,type PeerCommand,type Signal} from '../../../packages/contracts/src/peer.ts';
 import {connectionMetrics} from './peer-route.ts';
 type Command=PeerCommand extends infer T ? T extends PeerCommand ? Omit<T,'requestId'>:never:never;
 export type PeerMedia={prepare(pc:RTCPeerConnection,offerer:boolean):void;answer(pc:RTCPeerConnection):void;connected():void;close():void};
-export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;checkpoint?:(channel:RTCDataChannel,epoch:string)=>void;preference?:()=>ConnectionPolicy;media?:PeerMedia};
+export type PeerOptions={ready?:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>void;closed?:(epoch:string|undefined)=>void;checkpoint?:(channel:RTCDataChannel,epoch:string)=>void;media?:PeerMedia};
 export type ConnectionState={status:string;route?:'direct'|'relay';pingMs?:number;epoch?:string};
 /** Browser transport boundary; D11 consumes the channel only after its independent gameplay barrier. */
 export class PeerConnection {
@@ -20,13 +20,12 @@ export class PeerConnection {
  private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
  constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
  close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;this.reportedRoute=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);clearInterval(this.statsTimer);this.channel?.close();this.checkpoint?.close();this.checkpoint=undefined;this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
- private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry or stay in the room.');void this.send({type:'peerFailed',pairId:this.pairId,epoch}).catch(()=>{});}
+ private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry the connection or leave the room.');void this.send({type:'peerFailed',pairId:this.pairId,epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {if(event.pairId===this.pairId)this.close(event.reason);return;}
   if(event.type==='peerPrepare') {
-   this.close('Preparing connection privacy…');this.epoch=event.epoch;this.pairId=event.pairId;this.offerer=event.offerer;
+   this.close('Preparing connection…');this.epoch=event.epoch;this.pairId=event.pairId;this.offerer=event.offerer;
    try {
-    if(effectivePolicy(event.policy,this.options.preference?.() ?? 'standard')!==event.policy) throw Error('Privacy downgrade rejected');
     const pc=new RTCPeerConnection({bundlePolicy:'max-bundle',iceTransportPolicy:event.policy==='relay'?'relay':'all',iceServers:event.iceServers,iceCandidatePoolSize:0});this.pc=pc;this.options.media?.prepare(pc,event.offerer);
     const epoch=event.epoch;
     pc.onicecandidate=({candidate})=>{if(candidate && this.epoch===epoch) void this.send({type:'peerSignal',pairId:this.pairId,epoch,signal:{kind:'candidate',candidate:candidate.toJSON() as Extract<Signal,{kind:'candidate'}>['candidate']}}).catch(()=>this.fail(epoch));};
@@ -40,8 +39,8 @@ export class PeerConnection {
     };
     pc.ondatachannel=({channel})=>{if(this.epoch===epoch) this.wire(channel,epoch);else channel.close();};
     this.timer=setTimeout(()=>this.fail(epoch),peerLimits.prepareMs+peerLimits.connectMs);
-    this.update({status:`Preparing ${event.policy==='relay'?'relay-only':'standard'} connection…`,epoch});
-    // No offer/local description (and thus no gathering) until both peers acknowledge policy.
+    this.update({status:'Preparing connection…',epoch});
+    // No offer/local description (and thus no gathering) until both peers acknowledge the epoch.
     void this.send({type:'peerAck',pairId:this.pairId,epoch}).catch(()=>this.fail(epoch));
    }catch {this.fail(event.epoch);}
    return;

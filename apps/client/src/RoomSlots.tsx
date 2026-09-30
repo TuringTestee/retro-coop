@@ -9,6 +9,8 @@ function status(room:RoomView,slot:RoomSlot) {
  if(!member)return slot.open?'Open':'Closed';
  if(!member.connected)return 'Disconnected · waiting to reconnect';
  if(!member.matches||member.acquisition!=='loaded')return ({checking:'Checking game…',downloading:'Downloading game…',loading:'Loading game…',failed:'Game preparation failed',loaded:'Waiting for matching game'})[member.acquisition];
+ const peer=room.peers.find(peer=>peer.member===member.id);
+ if(peer&&peer.status!=='connected')return ['relay_unavailable','relay_capacity','failed'].includes(peer.status)?'Connection needs retry':'Connecting…';
  const proposed=room.game.pending?.roles.find(change=>change.slotId===slot.id);
  if(proposed)return room.game.pending!.status==='failed'?`Change to ${slotRoleLabel(proposed.role)} failed`:`Changing to ${slotRoleLabel(proposed.role)}…`;
  if(room.game.ready.includes(member.id))return 'Ready';
@@ -31,7 +33,7 @@ export function RoomSlots({room,connected,act}:{room:RoomView;connected:boolean;
  useEffect(()=>{if(removing&&!room.slots.some(slot=>slot.id===removing.slotId&&slot.member?.id===removing.membership))setRemoving(undefined);},[room.slots,removing]);
  const focusSlot=(id:string)=>requestAnimationFrame(()=>panel.current?.querySelector<HTMLElement>(`[data-slot-id="${id}"] [data-manage-slot]`)?.focus());
  const cancel=()=>{setRemoving(undefined);requestAnimationFrame(()=>dialog.current?.querySelector<HTMLElement>('[data-remove-member]')?.focus());};
- useEffect(()=>{if(managing){dialog.current?.showModal();dialog.current?.querySelector<HTMLElement>('select, button')?.focus();}},[managing]);
+ useEffect(()=>{if(managing){if(dialog.current&&!dialog.current.open)dialog.current.showModal();dialog.current?.querySelector<HTMLElement>('select, button')?.focus();}},[managing]);
  const send=async(command:Parameters<RoomClient['act']>[0])=>{
   const attempt=generation.current;setPending(true);setError('');
   try{const ok=await act(command);if(attempt!==generation.current)return false;if(!ok)setError('The change was not confirmed. Check the current slots and try again.');return ok;}
@@ -40,7 +42,7 @@ export function RoomSlots({room,connected,act}:{room:RoomView;connected:boolean;
  };
  const locked=pending||!connected||!!room.game.pending;
  const selected=room.slots.find(slot=>slot.id===managing),selectedMember=selected?.member,selectedIndex=selected?SLOT_IDS.indexOf(selected.id)+1:0;
- return <div ref={panel} className="room-slots" aria-label="Room slots">
+ return <div ref={panel} className={`room-slots ${room.role==='host'?'host-slots':'member-slots'}`} aria-label="Room slots">
   {SLOT_IDS.map((id,index)=>{const slot=room.slots.find(value=>value.id===id);if(!slot)throw Error(`Missing room slot ${id}`);const member=slot.member;return <section key={id} data-testid="room-slot" data-slot-id={id} aria-label={`Slot ${index+1}`}>
    <div data-slot-region="identity" tabIndex={0} aria-label={`Slot ${index+1} identity`}><strong>Slot {index+1} · {slotRoleLabel(slot.role)}</strong><span>{member?`${member.id===room.chatMembership?'You':member.nickname}${member.id===room.hostMembership?' · Host':''}`:''}</span></div>
    <div data-slot-region="status" role="status" tabIndex={0} aria-label={`Slot ${index+1} status`}>{status(room,slot)}</div>

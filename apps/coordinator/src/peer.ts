@@ -49,11 +49,11 @@ export class PeerBroker {
    member.send!({type:'peerPrepare',pairId:pair.id,member:member.id===pair.offerer.id?pair.answerer.id:pair.offerer.id,gameplay:pair.gameplay,epoch:round.epoch,offerer:member.id===pair.offerer.id,policy,iceServers});
   }
  }
- handle(roomId:string,token:string,command:Exclude<PeerCommand,{type:'peerPolicy'}>) {
+ handle(roomId:string,token:string,command:PeerCommand) {
   const id=command.pairId,round=this.rounds.get(id);
   if(!round || round.pair.roomId!==roomId || round.epoch!==command.epoch || ![round.pair.offerer.token,round.pair.answerer.token].includes(token)) throw new PeerError('stale_peer');
   if(command.type==='peerRetry') {this.clear(id,'Retrying connection.');return;}
-  if(command.type==='peerFailed') {round.status='failed';round.relay=false;this.stop(round,'Connection failed. Retry or stay in the room.');return;}
+  if(command.type==='peerFailed') {round.status='failed';round.relay=false;this.stop(round,'Connection failed. Retry the connection or leave the room.');return;}
   if(command.type==='peerAck') {
    if(round.status!=='preparing') throw new PeerError('stale_peer');
    round.acks.add(token);
@@ -78,7 +78,7 @@ export class PeerBroker {
  }
  sweep():string[] {
   const changed:string[]=[];
-  for(const [id,round] of this.rounds) if(['preparing','connecting'].includes(round.status) && this.now()>=round.deadline) {round.status='failed';round.relay=false;this.stop(round,'Connection timed out. Retry or stay in the room.');changed.push(round.pair.roomId);}
+  for(const [id,round] of this.rounds) if(['preparing','connecting'].includes(round.status) && this.now()>=round.deadline) {round.status='failed';round.relay=false;this.stop(round,'Connection timed out. Retry the connection or leave the room.');changed.push(round.pair.roomId);}
   return changed;
  }
 }

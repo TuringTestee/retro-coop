@@ -38,17 +38,14 @@ try:
         host.get_by_role('button',name='Create room',exact=True).click()
         host.wait_for_function("document.querySelector('[data-testid=room-view]')!==null")
         assert host.locator('canvas').get_attribute('data-frame-count')=='0'
-        assert 'Public ·' in host.get_by_test_id('room-view').text_content()
+        assert host.get_by_label('Room access').count()==0
         invitation=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         assert '#invite=' in invitation and len(invitation.split('#invite=')[1])>=22
         host.screenshot(path=str(output.with_suffix('.host.png')),full_page=True)
         dismissed=page();dismissed.goto(invitation)
-        privacy=dismissed.locator('.room-panel.invitation').get_by_label('Connection privacy',exact=True)
-        privacy.wait_for();assert privacy.is_visible()
-        dismissed.wait_for_function("document.activeElement?.getAttribute('aria-label')==='Connection privacy'")
+        dismissed.get_by_role('button',name='Join room',exact=True).wait_for()
+        assert dismissed.get_by_label('Connection privacy',exact=True).count()==0
         assert dismissed.get_by_role('button',name='Create game',exact=True).count()==0
-        privacy.select_option('relay')
-        assert privacy.input_value()=='relay'
         dismissed.get_by_role('button',name='View public rooms',exact=True).click()
         assert dismissed.get_by_test_id('directory').is_visible()
         assert dismissed.locator('.room-panel.invitation').count()==0
@@ -73,7 +70,8 @@ try:
         dismissed.close()
         stale_host=page();stale_host.goto(url)
         stale_host.get_by_role('button',name='Create game',exact=True).click()
-        stale_host.get_by_label('Room access').select_option('unlisted')
+        stale_host.get_by_label('Room access').select_option('protected')
+        stale_host.get_by_label('Room password').fill('stale-room-password')
         stale_host.set_input_files('input[type=file]',{'name':'STALE-PREVIEW.nes','mimeType':'application/octet-stream','buffer':rom})
         stale_host.get_by_role('button',name='Create room',exact=True).click()
         stale_host.get_by_test_id('room-view').wait_for(state='attached')
@@ -83,16 +81,21 @@ try:
         stale_host.get_by_role('button',name='Confirm leave',exact=True).click()
         stale_host.get_by_test_id('room-view').wait_for(state='detached')
         stale_guest.get_by_role('button',name='Join room',exact=True).click()
+        stale_guest.get_by_label('Room password').fill('stale-room-password')
+        stale_guest.get_by_role('dialog').get_by_role('button',name='Join room',exact=True).click()
         stale_guest.get_by_test_id('room-status').filter(has_text='closed, unavailable').wait_for()
-        assert stale_guest.get_by_role('button',name='Join room',exact=True).count()==0
+        assert stale_guest.get_by_test_id('room-view').count()==0
         assert stale_guest.get_by_role('button',name='Retry invitation',exact=True).is_visible()
         stale_guest.screenshot(path=str(output.with_suffix('.stale-invite.png')),full_page=True)
         stale_host.close();stale_guest.close()
         # Leave exactly one of five slots available for the atomic admission race.
         for slot in ['slot-3','slot-4','slot-5']:
             row=host.locator(f'[data-slot-id={slot}]')
-            row.get_by_role('button',name='Close slot',exact=True).click()
-            row.get_by_role('button',name='Open slot',exact=True).wait_for()
+            row.get_by_role('button',name='Manage',exact=True).click()
+            management=host.get_by_role('dialog',name=re.compile('Manage slot'))
+            management.get_by_role('button',name='Close slot',exact=True).click()
+            management.get_by_role('button',name='Open slot',exact=True).wait_for()
+            management.get_by_role('button',name='Done',exact=True).click()
         first=page();second=page()
         for guest in [first,second]:
             guest.add_init_script('''(() => {const send=WebSocket.prototype.send;
@@ -119,13 +122,13 @@ try:
         assert sum(rooms)==1 and 'All five slots are occupied or closed' in statuses[rooms.index(0)],(rooms,statuses)
         first,second=(candidates[0],candidates[1]) if rooms==[1,0] else (candidates[1],candidates[0])
         first.get_by_test_id('room-view').wait_for(state='attached')
-        assert 'You are Player 2.' in first.get_by_test_id('room-view').text_content()
+        assert first.get_by_test_id('room-view').count()==1
         first.get_by_role('button',name='Leave room',exact=True).wait_for()
         # A reserved guest automatically downloads the host's exact game.
         first.get_by_role('button',name='Ready',exact=True).wait_for(timeout=30000)
         assert first.get_by_role('button',name='Choose matching NES file').count()==0
         assert first.locator('canvas').get_attribute('data-frame-count')=='0'
-        first.locator('[data-slot-id=slot-2] [data-slot-region=status]').get_by_text('Game loaded · prepare to play',exact=True).wait_for()
+        first.locator('[data-slot-id=slot-2] [data-slot-region=status]').get_by_text('Not ready',exact=True).wait_for()
         first.screenshot(path=str(output.with_suffix('.guest.png')),full_page=True)
         # Reloading the host and choosing the same file preserves the room, loaded membership, and cleared acquisition deadline.
         original_reservation=first.evaluate('({member:lastRoom.chatMembership,lease:lastRoom.reservationUntil??null})')
@@ -148,28 +151,31 @@ try:
         second.get_by_test_id('room-view').wait_for(state='attached')
         second.get_by_role('button',name='Leave room',exact=True).click()
         second.get_by_test_id('room-view').wait_for(state='detached')
-        # Rename renders hostile text literally, and visibility changes revoke the public code.
+        # Rename renders hostile text literally, and access changes protect future admission.
+        host.get_by_role('button',name='Ready',exact=True).click()
         host.get_by_role('button',name='Start game',exact=True).click()
         host.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
         host.locator('.room-panel').wait_for()
         late=page();late.goto(invitation)
         late.get_by_role('button',name='Join room',exact=True).click()
         late.get_by_test_id('room-view').wait_for(state='attached')
+        late.get_by_role('button',name='Players',exact=True).click()
         assert late.get_by_test_id('room-slot').count()==5
         late.get_by_role('button',name='Leave room',exact=True).click()
         late.get_by_role('button',name='Confirm leave',exact=True).click()
         late.get_by_test_id('room-view').wait_for(state='detached')
         late.close()
-        host.get_by_text('Connection and session settings',exact=True).click()
-        host.get_by_text('Session settings',exact=True).click()
+        host.get_by_role('button',name='Players',exact=True).click()
+        host.get_by_text('Room settings',exact=True).click()
         host.get_by_label('Room name',exact=True).fill('<img src=x onerror=alert(1)>')
         host.get_by_role('button',name='Save room name',exact=True).click()
         host.wait_for_function("document.querySelector('#room-heading').textContent.startsWith('<img')")
         assert host.locator('.room-panel img').count()==0
-        host.get_by_label('Unlisted · invitation only',exact=True).click()
-        host.wait_for_function("document.querySelector('[data-testid=room-view]').textContent.includes('Unlisted · invite only')")
-        assert 'Public ·' not in host.get_by_test_id('room-view').text_content()
-        # Explicit close removes the invite immediately and retains local emulation.
+        host.get_by_role('button',name='Protect room',exact=True).click()
+        host.get_by_label('New room password').fill('changed-room-password')
+        host.get_by_role('button',name='Protect room',exact=True).last.click()
+        host.get_by_text('Room access: Password protected',exact=True).wait_for()
+        # Explicit close removes the invitation and exits the game before returning to rooms.
         host.get_by_role('button',name='Leave room',exact=True).click()
         host.get_by_role('button',name='Confirm leave',exact=True).click()
         host.get_by_test_id('room-view').wait_for(state='detached')
@@ -179,7 +185,7 @@ try:
         second.screenshot(path=str(output.with_suffix('.closed-preview.png')),full_page=True)
         second.get_by_role('button',name='Retry invitation',exact=True).click()
         second.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.includes('closed, unavailable')")
-        assert int(host.locator('canvas').get_attribute('data-frame-count').split()[0])>10
+        assert host.locator('canvas').get_attribute('data-frame-count')=='0'
         # A room keeps its verified game. A different local file cannot replace it;
         # after leaving, deliberate Create room publishes a new room instead.
         replacement=page();replacement.goto(url)
@@ -222,15 +228,13 @@ try:
         assert replacement.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")!=old_invite
         replacement.screenshot(path=str(output.with_suffix('.replacement-confirmed.png')),full_page=True)
         replacement.close();waiting.close()
-        # A fresh tab does not inherit Unlisted; selecting it before loading creates an unlisted room.
-        unlisted=page();unlisted.goto(url)
-        unlisted.get_by_role('button',name='Create game',exact=True).click()
-        assert unlisted.get_by_label('Room access').input_value()=='public'
-        unlisted.get_by_label('Room access').select_option('unlisted')
-        unlisted.set_input_files('input[type=file]',{'name':'PRIVATE-UNLISTED.nes','mimeType':'application/octet-stream','buffer':rom})
-        unlisted.get_by_role('button',name='Create room',exact=True).click()
-        unlisted.get_by_test_id('room-view').wait_for(state='attached')
-        assert 'Unlisted · invite only' in unlisted.get_by_test_id('room-view').text_content()
+        # A fresh tab starts Public. Keep this room Public to isolate stale join handling.
+        race_host=page();race_host.goto(url)
+        race_host.get_by_role('button',name='Create game',exact=True).click()
+        assert race_host.get_by_label('Room access').input_value()=='public'
+        race_host.set_input_files('input[type=file]',{'name':'PRIVATE-RACE.nes','mimeType':'application/octet-stream','buffer':rom})
+        race_host.get_by_role('button',name='Create room',exact=True).click()
+        race_host.get_by_test_id('room-view').wait_for(state='attached')
         # A cancelled join's delayed response must not release a newer reservation.
         raced=page()
         raced.add_init_script("""const Native=WebSocket;let holdFirstJoin=true;
@@ -240,7 +244,7 @@ try:
                 holdFirstJoin=false;window.releaseJoinA=()=>handler(event);
               }else handler(event);};}
           };""")
-        race_invite=unlisted.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+        race_invite=race_host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         raced.goto(race_invite)
         raced.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent.startsWith('Join reserves')")
         raced.get_by_role('button',name='Join room',exact=True).click()
@@ -252,12 +256,15 @@ try:
         raced.evaluate('releaseJoinA()')
         # Close the other three empty slots so capacity still proves Join B survived.
         for slot in ['slot-3','slot-4','slot-5']:
-            row=unlisted.locator(f'[data-slot-id={slot}]')
-            row.get_by_role('button',name='Close slot',exact=True).click()
-            row.get_by_role('button',name='Open slot',exact=True).wait_for()
+            row=race_host.locator(f'[data-slot-id={slot}]')
+            row.get_by_role('button',name='Manage',exact=True).click()
+            management=race_host.get_by_role('dialog',name=re.compile('Manage slot'))
+            management.get_by_role('button',name='Close slot',exact=True).click()
+            management.get_by_role('button',name='Open slot',exact=True).wait_for()
+            management.get_by_role('button',name='Done',exact=True).click()
         competing=page();competing.goto(race_invite)
-        competing.locator('.room-panel.invitation').get_by_text('0 open slots.', exact=False).wait_for()
-        assert '0 open slots.' in competing.locator('.room-panel.invitation').inner_text()
+        competing.locator('.room-panel.invitation').get_by_text('0 open places', exact=False).wait_for()
+        assert '0 open places' in competing.locator('.room-panel.invitation').inner_text()
         assert competing.get_by_role('button',name='Join room',exact=True).count()==0
         assert competing.get_by_role('button',name='View public rooms',exact=True).is_visible()
         assert competing.get_by_test_id('room-view').count()==0, 'stale Join A released newer Join B on the real server'
@@ -302,16 +309,16 @@ try:
         offline.get_by_role('button',name='Create game',exact=True).wait_for()
         assert offline.get_by_test_id('room-view').count()==0
         offline.screenshot(path=str(output.with_suffix('.offline.png')),full_page=True)
-        unlisted.set_viewport_size({'width':390,'height':844})
-        assert unlisted.evaluate('document.documentElement.scrollWidth<=innerWidth')
-        unlisted.screenshot(path=str(output.with_suffix('.mobile.png')),full_page=True)
+        race_host.set_viewport_size({'width':390,'height':844})
+        assert race_host.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        race_host.screenshot(path=str(output.with_suffix('.mobile.png')),full_page=True)
         assert not errors,errors
         encoded=json.dumps(frames)
         assert 'PRIVATE-' not in encoded
         assert not any(key in command for command in frames for key in ['rom','filename','save','state'])
         # Raw tokens are intentionally excluded from published evidence.
         counts={kind:sum(command['type']==kind for command in frames) for kind in sorted({command['type'] for command in frames})}
-        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'file_requires_explicit_create_room':True,'public_default_and_unlisted_selection':True,'invite_preview_before_join':True,'atomic_final_open_slot_browser_race':True,'late_join_after_start':True,'reservation_before_file':True,'mismatch_then_match_without_ready_click':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'visibility_removes_code':True,'close_expires_invite_preserves_local_game':True,'cancelled_stale_create_not_published':True,'stale_join_cannot_release_newer_reservation':True,'hosted_game_cannot_be_replaced':True,'leave_then_explicit_create_new_room':True,'cancelled_and_invalid_selection_preserve_room_and_game':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
+        result={'result':'pass','browser':browser.version,'seconds':round(time.monotonic()-started,2),'file_requires_explicit_create_room':True,'public_default_and_password_protection':True,'invite_preview_before_join':True,'atomic_final_open_slot_browser_race':True,'late_join_after_start':True,'reservation_before_file':True,'host_reload_matching_file_preserves_room_and_lease':True,'cancel_releases_slot':True,'rename_plain_text':True,'access_changes_future_admission':True,'close_expires_invite_and_quits_game':True,'cancelled_stale_create_not_published':True,'stale_join_cannot_release_newer_reservation':True,'hosted_game_cannot_be_replaced':True,'leave_then_explicit_create_new_room':True,'cancelled_and_invalid_selection_preserve_room_and_game':True,'offline_preserves_local_game':True,'metadata_only_websocket_requests':True,'mobile_no_overflow':True,'command_counts':counts,'page_errors':errors}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
         browser.close()
 finally:

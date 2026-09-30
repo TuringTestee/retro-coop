@@ -13,8 +13,6 @@ export function connectionStatus(state:RoomState) {
  if(!state.connected)parts.push('Room service disconnected; existing member links may remain active.');
  parts.push(`${connected.length}/${peers.length} member connections ready.`);
  if(pending)parts.push(`${pending} connecting.`);
- for(const peer of failures){const reason=peer.status==='relay_unavailable'?'relay service unavailable':peer.status==='relay_capacity'?'relay capacity full':'connection failed';parts.push(`${name(peer.member)}: ${reason}. Retry this connection in Connection and session settings.`);if(peer.policy==='relay')parts.push('Relay only will not switch to direct.');}
- if(connected.length&&state.connection?.route==='relay')parts.push(peers.length===1?(peers[0].policy==='relay'?'Relay only is on. Connected through the relay.':'Direct connection unavailable. Relay keeps you playing together.'):'At least one member connection uses the relay.');
- else if(connected.length&&state.connection?.route==='direct')parts.push('Connected member links use the direct route.');
+ for(const peer of failures)parts.push(`Could not connect to ${name(peer.member)}. Retry this connection or leave the room.`);
  return parts.join(' ');
 }

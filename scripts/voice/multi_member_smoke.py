@@ -112,7 +112,7 @@ window.WebSocket=class extends RoomSocket {constructor(...args){super(...args);
  this.addEventListener('message',event=>{const value=JSON.parse(event.data);if(value.type==='room')voiceRoom=value.room;});}};
 """)
             if args.relay:
-                context.add_init_script("sessionStorage.setItem('retro-coop-connection-policy','relay')")
+                context.add_init_script("const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{constructor(config,...rest){super({...config,iceTransportPolicy:'relay'},...rest)}}")
             contexts.append(context)
         for index in range(5):
             page = contexts[0 if index < 2 else 1 if index < 4 else 2].new_page()
@@ -127,6 +127,7 @@ window.WebSocket=class extends RoomSocket {constructor(...args){super(...args);
             static = Path(env.get('RETRO_COOP_STATIC_ROOT', runtime / 'apps/client/dist'))
             host.set_input_files('input[type=file]', str(static / 'generated/diagnostic.nes'))
             host.get_by_role('button', name='Create room', exact=True).click()
+            host.get_by_test_id('room-view').wait_for(state='attached')
             invitation = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
             # A real observer download failure must not prevent its independent voice mesh.
             pages[4].route('**/coordinator/rooms/*/rom', lambda route: route.fulfill(status=503, body='proof download unavailable'))
