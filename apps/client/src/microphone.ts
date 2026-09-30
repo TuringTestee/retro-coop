@@ -1,6 +1,6 @@
 export type MicrophoneState = {
  phase:'off'|'requesting'|'ready'|'error'; mode:'open'|'push'; muted:boolean;
- transmitting:boolean; device:string; error?:string;
+ transmitting:boolean; device:string; error?:string; connectionFailure?:boolean;
 };
 type Sender = Pick<RTCRtpSender,'replaceTrack'>;
 type Capture = (constraints:MediaStreamConstraints)=>Promise<MediaStream>;
@@ -40,12 +40,15 @@ export class Microphone {
  private async replaceAll(track:MediaStreamTrack|null,generation:number){
   const bindings=[...this.senders.values()];
   const results=await Promise.allSettled(bindings.map(binding=>this.replace(binding,track,generation)));
-  if(this.generation===generation&&results.some((result,index)=>result.status==='rejected'&&[...this.senders.values()].includes(bindings[index])))this.publish({error:'A peer microphone connection failed. Retry that connection.'});
+  const failed=results.some((result,index)=>result.status==='rejected'&&[...this.senders.values()].includes(bindings[index]));
+  if(this.generation===generation&&failed)this.publish({error:'A peer microphone connection failed. Retry that connection.',connectionFailure:true});
+  return !failed;
  }
+ async retryConnection(){if(this.state.phase!=='ready'||!this.stream||!this.state.connectionFailure)return;const generation=this.generation;if(await this.replaceAll(this.stream.getAudioTracks()[0],generation)&&this.generation===generation)this.publish({error:undefined,connectionFailure:false});}
  async enable(device=this.state.device,unmute=true){
   if(!this.senders.size){this.publish({phase:'error',error:'Connect to another participant before enabling your microphone.'});return;}
   const generation=++this.generation;this.stopTracks();
-  this.publish({phase:'requesting',device,muted:!unmute,error:undefined});
+  this.publish({phase:'requesting',device,muted:!unmute,error:undefined,connectionFailure:false});
   try{
    await this.replaceAll(null,generation);
    if(this.generation!==generation)return;
@@ -64,8 +67,8 @@ export class Microphone {
    this.unavailable(name==='NotAllowedError'?'Microphone access was denied. Text chat still works.':name==='NotFoundError'||name==='OverconstrainedError'?'Microphone unavailable. Choose another device and try again.':'Voice could not start. Retry without restarting your game.');
   }
  }
- private unavailable(error:string){this.disable();this.publish({phase:'error',error});}
- disable(){const generation=++this.generation;this.stopTracks();this.publish({phase:'off',muted:true,error:undefined});void this.replaceAll(null,generation);}
+ private unavailable(error:string){this.disable();this.publish({phase:'error',error,connectionFailure:false});}
+ disable(){const generation=++this.generation;this.stopTracks();this.publish({phase:'off',muted:true,error:undefined,connectionFailure:false});void this.replaceAll(null,generation);}
  mute(muted:boolean){this.held=false;this.publish({muted});}
  // Focus releases momentary input; only an explicit action changes microphone mute.
  blur(){this.hold(false);}

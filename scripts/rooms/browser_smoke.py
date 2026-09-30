@@ -165,6 +165,7 @@ try:
         late.get_by_role('button',name='Confirm leave',exact=True).click()
         late.get_by_test_id('room-view').wait_for(state='detached')
         late.close()
+        host.get_by_role('button',name='Players',exact=True).click()
         host.get_by_text('Room settings',exact=True).click()
         host.get_by_label('Room name',exact=True).fill('<img src=x onerror=alert(1)>')
         host.get_by_role('button',name='Save room name',exact=True).click()

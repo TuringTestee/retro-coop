@@ -137,6 +137,7 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("Space")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
+    host.locator('details.chat-disclosure').evaluate('(node)=>node.open=true')
     host.get_by_label("Chat message", exact=True).focus()
     host.keyboard.down("KeyV")
     host.evaluate(
@@ -144,6 +145,7 @@ try:
     )
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.keyboard.up("KeyV")
+    host.locator('details.chat-disclosure').evaluate('(node)=>node.open=false')
     # Synthetic gamepad input goes through the real Settings selection and shared mapping.
     host.evaluate(
         """() => { window.voicePad={index:0,id:'Voice fixture controller',connected:true,buttons:Array.from({length:16},()=>({pressed:false,value:0})),axes:[0,0]};Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>voicePad.connected?[voicePad]:[]}); }"""
@@ -196,16 +198,20 @@ try:
     ).wait_for()
     host.evaluate("window.missingDevice=false;window.rejectAttachment=true")
     panel.get_by_role("button", name="Try microphone again", exact=True).click()
-    panel.get_by_text("A peer microphone connection failed. Retry that connection.", exact=True).wait_for()
+    panel.get_by_role("button", name="Retry voice connection", exact=True).wait_for()
+    assert "A peer microphone connection failed. Retry that connection." in panel.inner_text()
     assert host.evaluate("pcs.length") == pc_count
     host.evaluate("window.rejectAttachment=false;window.blockPlayback=true")
     capture_count = host.evaluate("captures.length")
-    open_room(host).get_by_role("button", name="Retry connection", exact=True).click()
-    host.wait_for_function("n=>pcs.length>n&&pcs.at(-1).connectionState==='connected'", arg=pc_count)
+    open_room(host).get_by_role("button", name="Retry voice connection", exact=True).click()
+    panel.get_by_role("button", name="Retry voice connection", exact=True).wait_for(state="detached")
+    assert host.evaluate("pcs.length") == pc_count
     assert host.evaluate("captures.length") == capture_count
     assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&t.enabled)")
     pc_count = host.evaluate("pcs.length")
     panel.locator("details.voice-disclosure").evaluate("node=>node.open=true")
+    panel.get_by_role("button", name="Mute remote voice", exact=True).click()
+    panel.get_by_role("button", name="Unmute remote voice", exact=True).click()
     panel.get_by_role("button", name="Enable voice sound", exact=True).wait_for()
     host.evaluate("window.blockPlayback=false")
     panel.get_by_role("button", name="Enable voice sound", exact=True).click()

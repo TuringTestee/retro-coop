@@ -8,7 +8,7 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
   const status=state.connectionError?'Connection unavailable':mic.phase==='requesting'?'Requesting microphone…':mic.phase==='error'?'Mic unavailable':!state.connected?'Connecting':mic.phase==='off'?'Off':mic.muted?'Muted':mic.mode==='push'?(mic.transmitting?'Talking':'Hold to talk'):'Mic on';
   return <section className="voice-card" aria-label="Voice controls">
    <h2>Voice <span role="status" data-testid="microphone-status">· {status}</span></h2>
-   {mic.error&&<p>{mic.error} {mic.error.includes('denied')&&'Review microphone permission in your browser’s site settings, then try again.'}</p>}
+   {mic.error&&<p>{mic.error} {mic.error.includes('denied')&&'Review microphone permission in your browser’s site settings, then try again.'}{mic.connectionFailure&&<button className="text-action" onClick={()=>void voice.microphone.retryConnection()}>Retry voice connection</button>}</p>}
    {state.connectionError&&<p>{state.connectionError} <button className="text-action" onClick={()=>voice.retryBinding()}>Retry voice connection</button></p>}
    {state.playbackError&&<p>{state.playbackError} <button className="text-action" onClick={()=>voice.retrySound()}>Enable voice sound</button></p>}
    {mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:<button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button>}
@@ -24,7 +24,7 @@ export function VoiceControls({state,voice,compact=false,onSettings,talkBinding}
   {(mic.phase==='off'||mic.phase==='error') && <button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>}
   {mic.phase==='requesting' && <button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>}
   {mic.phase==='ready' && <><button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button><button onClick={()=>voice.microphone.disable()}>Disable microphone</button></>}
-  {mic.error && <p>{mic.error} {mic.error.includes('denied') && 'Review microphone permission in your browser’s site settings, then try again.'}</p>}
+  {mic.error && <p>{mic.error} {mic.error.includes('denied') && 'Review microphone permission in your browser’s site settings, then try again.'}{mic.connectionFailure&&<button onClick={()=>void voice.microphone.retryConnection()}>Retry voice connection</button>}</p>}
   {state.connectionError && <p>{state.connectionError} <button onClick={()=>voice.retryBinding()}>Retry voice connection</button></p>}
   <label htmlFor={`${id}-mode`}>Voice mode</label><select id={`${id}-mode`} value={mic.mode} onChange={event=>voice.microphone.mode(event.target.value as 'open'|'push')}><option value="open">Open microphone</option><option value="push">Push to talk</option></select>
   {mic.mode==='push' && <><p>Hold the button or your mapped Push to talk input. Remap it in Controls. Typing in a text field does not press it.</p>{talk}</>}
