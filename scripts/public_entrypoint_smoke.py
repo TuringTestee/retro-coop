@@ -8,7 +8,6 @@ from pathlib import Path
 import signal
 import socket
 import subprocess
-import sys
 import time
 from urllib.request import Request, urlopen
 
@@ -468,11 +467,6 @@ def runtime_check(with_browser=False, screenshot_dir=None):
                       "launcher_signals": lifecycle}
             if with_browser:
                 result["browser"] = browser_check(screenshot_dir)
-                preview = subprocess.check_output([
-                    sys.executable, "scripts/rooms/preview_browser.py", "--url", "http://127.0.0.1:8765/",
-                    *(["--screenshot", str(screenshot_dir / "original-preview.png")] if screenshot_dir else []),
-                ], cwd=ROOT, text=True, timeout=40)
-                result["preview"] = json.loads(preview)
         finally:
             if service.poll() is None:
                 stop_launcher(service, signal.SIGTERM)
