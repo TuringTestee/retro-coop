@@ -137,7 +137,8 @@ def check_profile(browser, url, output, label, viewport, directory_check=None):
 
 
 def check_zoom_room(context, worker, host, url, output, label):
-    host.get_by_role('searchbox').fill('')
+    host.get_by_role('searchbox').press('ControlOrMeta+A')
+    host.get_by_role('searchbox').press('Backspace')
     host.get_by_role('button', name='Create game', exact=True).click()
     host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
     host.get_by_label('Room access').select_option('protected')

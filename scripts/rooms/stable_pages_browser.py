@@ -147,6 +147,19 @@ def main():
             control_visibility(host.get_by_role('button', name='Players', exact=True))
             assert host.locator('.play-bindings').count() == 0
             host.screenshot(path=str(args.output / 'playing-wide.png'))
+            host.get_by_role('button', name='Players', exact=True).click()
+            host.locator('.room-slots').wait_for(state='visible')
+            host.get_by_role('button', name='Close players', exact=True).wait_for(state='visible')
+            host.screenshot(path=str(args.output / 'playing-players-open.png'))
+            host.get_by_role('button', name='Close players', exact=True).click()
+            host.get_by_role('button', name='Controls', exact=True).click()
+            host.get_by_role('heading', name='Local settings', exact=True).wait_for(state='visible')
+            host.locator('.mapping-list').wait_for(state='visible')
+            host.screenshot(path=str(args.output / 'playing-controls-settings.png'))
+            host.get_by_role('button', name='Back', exact=True).click()
+            assert host.evaluate("document.activeElement?.textContent === 'Controls'")
+            control_visibility(host.get_by_role('button', name='Controls', exact=True), require_focus=True)
+            host.screenshot(path=str(args.output / 'playing-controls-return.png'))
             # A room always owns a shared timeline now. Rewind remains a local-play
             # tool; preserve its fullscreen/focus journey in an independent local tab.
             room_host = host
@@ -223,12 +236,19 @@ def main():
             host.get_by_role('button', name='Back', exact=True).click()
             host.wait_for_function("document.activeElement?.textContent === 'Saves'")
             assert host.get_by_text('Could not exit fullscreen. Press Esc, then try again.', exact=True).count() == 0
+            if host.locator('.player-tools-back:visible').count():
+                host.locator('.player-tools-back').click()
             host.set_viewport_size({'width': 390, 'height': 700})
             narrow = geometry(host, '390x700')
+            control_visibility(host.get_by_role('button', name='Players', exact=True))
             host.screenshot(path=str(args.output / 'playing-narrow.png'), full_page=True)
             host.set_viewport_size({'width': 640, 'height': 360})
             zoom = geometry(host, '640x360 (200% zoom equivalent)')
             host.screenshot(path=str(args.output / 'playing-zoom.png'), full_page=True)
+            zoom_players = host.get_by_role('button', name='Players', exact=True)
+            zoom_players.scroll_into_view_if_needed()
+            control_visibility(zoom_players)
+            host.screenshot(path=str(args.output / 'playing-zoom-controls.png'), full_page=True)
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
@@ -266,6 +286,9 @@ def main():
                       'focus_return': True, 'fullscreen_tools': ['Saves', 'Rewind', 'Game help'], 'fullscreen_exit_failure': True,
                       'inline_confirmations': True, 'dialogs': 0, 'create_page_scroll': True,
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
+                      'play_transitions': {'players_open': True, 'controls_settings': True,
+                                           'controls_focus_return': True, 'narrow_players_visible': True,
+                                           'zoom_players_visible_after_scroll': True},
                       'layout': [wide, narrow, zoom], 'tool_layout': tool_proofs,
                       'scroll_probe_rejected_jump': True, 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

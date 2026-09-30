@@ -157,6 +157,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .play-controls button,.voice-card button{font-size:12px;padding:5px 8px;margin:4px 6px 0 0}
 .play-controls button{margin:0;white-space:nowrap}
 .play-controls .text-action,.voice-card .text-action{background:transparent;border-color:transparent;color:#c6b9ff;font-weight:400;padding-left:0}
+.play-controls .text-action:focus{outline:2px solid #b5a3ff;outline-offset:2px}
 .tooling>.solo-controls,.released>.solo-controls{display:none!important}
 @media(max-width:760px){
  /* Keep the existing stacked player/room arrangement within one viewport.

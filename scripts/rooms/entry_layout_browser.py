@@ -27,6 +27,14 @@ def capture(page, path, label):
         page.screenshot(path=str(path))
 
 
+def clear_search_control(search):
+    box = search.bounding_box()
+    assert box and box['width'] > 50, box
+    search.click(position={'x': box['width'] - 18, 'y': box['height'] / 2})
+    assert search.input_value() == ''
+    assert search.evaluate('node => node === document.activeElement')
+
+
 def public_room(browser, url):
     host = browser.new_page(viewport={'width': 1440, 'height': 900})
     host.goto(url)
@@ -141,8 +149,14 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
         path = output / f'{label}-empty-search.png'
         capture(page, path, label)
         proof['captures'].append(path.name)
-    search.fill('')
+    clear_search_control(search)
     page.get_by_text('No matching public rooms.', exact=True).wait_for(state='hidden')
+    page.locator('.room-list li').filter(has_text=host_name).wait_for()
+    proof['native_search_clear'] = {'query': search.input_value(), 'focus_retained': search.evaluate('node => node === document.activeElement'), 'room_restored': True}
+    if label == 'wide':
+        path = output / 'wide-search-cleared.png'
+        capture(page, path, label)
+        proof['captures'].append(path.name)
     directory.allow_user_scroll(True)
     search.click()
     control_visibility(search, require_focus=True)
@@ -178,7 +192,11 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
     close_room(host)
     page.get_by_text('No matching public rooms.', exact=True).wait_for()
     directory.mark('room removed')
-    search.fill('')
+    search.press('ControlOrMeta+A')
+    search.press('Backspace')
+    assert search.input_value() == '' and search.evaluate('node => node === document.activeElement')
+    page.get_by_text('No matching public rooms.', exact=True).wait_for(state='hidden')
+    proof['keyboard_search_clear'] = {'query': search.input_value(), 'focus_retained': True}
     proof['directory_geometry'] = directory.finish(output / f'{label}-directory-layout.json',
         required=('directory-heading','directory-search','directory-feedback','directory-list','directory-actions'))
     proof['states'].extend(('loading', 'public rooms', 'directory stale', 'directory retry', 'room added', 'empty search', 'search recovery', 'pagination appeared', 'next page', 'previous page', 'pagination disappeared', 'room removed'))
