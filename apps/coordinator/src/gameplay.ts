@@ -1,7 +1,7 @@
 import {randomBytes} from 'node:crypto';
 import {gameplayLimits,type GameCommand,type GameEvent,type GameView,type ControllerAssignment,type RoleTransaction,type CheckpointPurpose} from '../../../packages/contracts/src/gameplay.ts';
 type Offer=Extract<GameCommand,{type:'gameReady'}>;
-type Member={id:string;connected:boolean;loaded:boolean;transport:boolean};
+type Member={id:string;connected:boolean;loaded:boolean;hostTransport:boolean;allLinksReady:boolean};
 type Transfer={id:string;recipient:string;purpose:CheckpointPurpose;frame?:number;hash?:string;sending:boolean;deadline:number;catchingUp?:boolean};
 const id=()=>randomBytes(24).toString('base64url');
 /** Room-owned authority and barriers. Every occupant gates initial Start; owners alone gate live play. */
@@ -23,13 +23,13 @@ export class GameSession {
    for(const [member,offer] of this.offers)if(!this.available(member)||offer.revision!==this.state.controllers.revision||offer.roomRevision!==(revision??this.roomRevision??0))this.offers.delete(member);
   }
   if(revision!==undefined)this.roomRevision=revision;
-  const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.transport&&!this.members.get(old.id)!.transport);
+  const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.hostTransport&&!this.members.get(old.id)!.hostTransport);
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
   if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Membership changed. Previous roles and game progress are preserved.');
-  if(this.state.status==='starting'&&this.required.some(owner=>!this.available(owner)))this.stop('A prepared player disconnected. Previous progress is preserved; retry after choosing available players.');
+  if(this.state.status==='starting'&&(!this.hasPlayed?[...this.members.keys()].some(member=>!this.available(member)):this.required.some(owner=>!this.available(owner))))this.stop('A prepared member disconnected. Previous progress is preserved; prepare again when everyone is connected.');
   if(this.state.status==='playing'&&this.owners().some(owner=>!this.available(owner)))this.freeze('A controller owner disconnected. Game progress is preserved.');
  }
- private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(member===this.host||value.transport);}
+ private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(this.hasPlayed?member===this.host||value.hostTransport:value.allLinksReady);}
  private checkRevision(revision:number){if(revision!==this.state.controllers.revision)throw Error('stale_controllers');}
  private initialReady(){return this.members.has(this.host)&&[...this.members.keys()].every(member=>this.available(member)&&this.offers.get(member)?.revision===this.state.controllers.revision&&this.offers.get(member)?.roomRevision===(this.roomRevision??0));}
  requestStart(){

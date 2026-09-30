@@ -43,7 +43,7 @@ test('reusing a client intent never restores a prior membership or delayed chat 
 test('host actions target the confirmed room, not a newer room belonging to the same host',()=>{
  const t=setup(),old=t.create();t.act(t.host.token,{type:'close',roomId:old.id});
  const current=t.create();
- for(const command of [{type:'close'},{type:'rename',label:'stale label'},{type:'visibility',visibility:'unlisted'},{type:'memberRemove',membership:randomUUID(),expectedRevision:0}] as const){
+ for(const command of [{type:'close'},{type:'rename',label:'stale label'},{type:'visibility',visibility:'public',expectedAccessRevision:0},{type:'memberRemove',membership:randomUUID(),expectedRevision:0}] as const){
   assert.throws(()=>t.act(t.host.token,{...command,roomId:old.id}),/room_changed/);
  }
  assert.equal(t.act(t.first.token,{type:'preview',invite:current.invite}).preview!.label,current.label);
@@ -51,7 +51,7 @@ test('host actions target the confirmed room, not a newer room belonging to the 
 });
 test('host mutation wire schema requires exact targets and rejects public authority extensions',()=>{
  const requestId=randomUUID(),roomId=randomUUID(),membership=randomUUID();
- for(const command of [{type:'close'},{type:'memberRemove',membership,expectedRevision:0},{type:'rename',label:'Current name'},{type:'visibility',visibility:'unlisted'}]) {
+ for(const command of [{type:'close'},{type:'memberRemove',membership,expectedRevision:0},{type:'rename',label:'Current name'},{type:'visibility',visibility:'protected',expectedAccessRevision:0,password:'password 123'}]) {
   assert.equal(parseRoomCommand({...command,requestId}),undefined);
   assert.ok(parseRoomCommand({...command,requestId,roomId}));
  }

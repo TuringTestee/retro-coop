@@ -47,7 +47,7 @@ test('chat wire format enforces Unicode character bound and rejects attachments 
 test('five-member broadcasts use recipient membership and never leak to outsiders or departed members',()=>{
  const rooms=new Rooms(()=>1000),events:RoomEvent[][]=Array.from({length:6},()=>[]),sessions=events.map(list=>rooms.attach(undefined,event=>list.push(event),()=>{}));
  const act=(who:number,command:Command)=>rooms.handle(sessions[who].token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
- const intent=randomUUID();act(0,{type:'create',intent,visibility:'unlisted',fingerprint});const host=act(0,{type:'confirmCreate',intent}).room!;
+ const intent=randomUUID();act(0,{type:'create',intent,visibility:'public',fingerprint});const host=act(0,{type:'confirmCreate',intent}).room!;
  const members=[host];for(let i=1;i<5;i++)members.push(act(i,{type:'join',intent:randomUUID(),invite:host.invite}).room!);
  const command={type:'chat' as const,roomId:host.id,membership:members[3].chatMembership,clientId:randomUUID(),text:'All five can hear this'};
  act(3,command);

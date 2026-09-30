@@ -46,11 +46,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 panel.wait_for(state='visible')
                 return panel
             def open_connection(tab):
-                panel = open_room(tab)
-                connection = panel.locator('details.session-settings')
-                if not connection.evaluate('(node)=>node.open'):
-                    connection.get_by_text('Connection and session settings', exact=True).click()
-                return panel
+                return open_room(tab)
             def pair():
                 host = page(url)
                 assert host.get_by_role('button', name='Unmute', exact=True).count() == 0
@@ -66,7 +62,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 for tab in [host,guest]:
                     panel = open_room(tab)
                     panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
-                    tab.wait_for_function("document.querySelector('[data-testid=connection-status]').textContent.includes('Route: direct')")
+                    tab.wait_for_function("[...document.querySelectorAll('button')].some(button=>button.textContent?.trim()==='Ready'&&!button.disabled)")
                     panel.get_by_label('Remote voice volume', exact=False).fill('0')
                     panel.get_by_role('button', name='Enable voice', exact=True).click()
                     tab.wait_for_function("captures.length>0 && captures.at(-1).getAudioTracks().some(t=>t.enabled&&t.readyState==='live')")
@@ -79,6 +75,7 @@ with tempfile.TemporaryDirectory(prefix='retro-operator-browser-') as directory:
                 tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed') && captures.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
             def play_fullscreen(host, guest):
                 guest.get_by_role('button', name='Ready', exact=True).click()
+                host.get_by_role('button', name='Ready', exact=True).click()
                 host.get_by_role('button', name='Start game', exact=True).click()
                 host.locator('main.playing.with-room').wait_for()
                 host.locator('.panel').get_by_role('button', name='Fullscreen', exact=True).click()

@@ -16,7 +16,7 @@ function setup() {
  let now = 1000;const rooms = new Rooms(()=>now);
  const guest = () => {const events:RoomEvent[] = [];return {...rooms.attach(undefined,event=>events.push(event),()=>{}),events};};
  const act = (token:string,command:Command) => {assert.notEqual(command.type,'hello');return rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);};
- const host = (token:string,visibility:'public'|'unlisted' = 'public') => {const intent = randomUUID();const room = act(token,{type:'create',intent,visibility,fingerprint}).room!;act(token,{type:'confirmCreate',intent});return room;};
+ const host = (token:string) => {const intent = randomUUID();const room = act(token,{type:'create',intent,visibility:'public',fingerprint}).room!;act(token,{type:'confirmCreate',intent});return room;};
  return {rooms,guest,act,host,advance(ms:number){now+=ms;rooms.sweep();}};
 }
 test('creation acknowledgement and cancellation never expose stale invitations',()=>{
@@ -31,20 +31,18 @@ test('creation acknowledgement and cancellation never expose stale invitations',
  t.advance(5000);
  assert.throws(()=>t.act(viewer.token,{type:'join',intent:randomUUID(),invite:provisional.invite}),/room_unavailable/);
 });
-test('unlisted preview excludes hashes and codes, host alone controls room mutations',()=>{
- const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token,'unlisted');
+test('room preview excludes hashes and host alone controls room mutations',()=>{
+ const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token);
  const preview = t.act(guest.token,{type:'preview',invite:room.invite}).preview!;
- assert.equal(preview.code,undefined);assert.equal(JSON.stringify(preview).includes(fingerprint.romSha256),false);
+ assert.equal(preview.code,room.code);assert.equal(JSON.stringify(preview).includes(fingerprint.romSha256),false);
  const joined=t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}).room!;
- for(const command of [{type:'close',roomId:room.id},{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:joined.revision},{type:'rename',roomId:room.id,label:'stolen'},{type:'visibility',roomId:room.id,visibility:'public'}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
- const publicRoom = t.act(host.token,{type:'visibility',roomId:room.id,visibility:'public'}).room!;assert.ok(publicRoom.code);
- assert.equal(t.act(host.token,{type:'visibility',roomId:room.id,visibility:'unlisted'}).room!.code,undefined);
+ for(const command of [{type:'close',roomId:room.id},{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:joined.revision},{type:'rename',roomId:room.id,label:'stolen'},{type:'visibility',roomId:room.id,visibility:'public',expectedAccessRevision:0}] as Command[]) assert.throws(()=>t.act(guest.token,command),/host_only/);
  t.act(host.token,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:joined.revision});assert.throws(()=>t.act(guest.token,{type:'join',intent:randomUUID(),invite:room.invite}),/room_unavailable/);
 });
 // Empty Guest-place cases migrate to explicit stable slots. Revision checks remain
 // mandatory; an old revision does not authorize an idempotent-looking mutation.
-test('host closes and reopens empty slots across directory and private invitation',()=>{
- const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token,'unlisted');let current=room;
+test('host closes and reopens empty slots across directory and invitation',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),room=t.host(host.token);let current=room;
  assert.equal(room.openSlots,4);assert.equal(room.revision,0);
  assert.equal(human(t.act(viewer.token,{type:'preview',invite:room.invite}).preview).openSlots,4);
  assert.throws(()=>t.act(guest.token,{type:'slotAvailability',roomId:room.id,slotId:'slot-2',open:false,expectedRevision:0}),/not_in_room/);
@@ -156,7 +154,8 @@ test('strict metadata schema rejects uploads, arbitrary fields and malformed val
  assert.ok(parseRoomCommand(command));
  const claim={type:'claimCode',requestId,code:'ABCDEFGH',intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0')};
  assert.ok(parseRoomCommand(claim));
- assert.ok(parseRoomCommand({...claim,visibility:'unlisted'}));
+ assert.ok(parseRoomCommand({...claim,visibility:'protected',password:'room password 123'}));
+ assert.equal(parseRoomCommand({...claim,visibility:'unlisted'}),undefined);
  assert.equal(parseRoomCommand({...claim,visibility:'private'}),undefined);
  const start={type:'startRoom',requestId,roomId:randomUUID(),membership:randomUUID(),fingerprint};assert.ok(parseRoomCommand(start));assert.ok(parseRoomCommand({...start,type:'prepareHost'}));
  const place={type:'slotAvailability',requestId,roomId:randomUUID(),slotId:'slot-2',open:false,expectedRevision:0};assert.ok(parseRoomCommand(place));
@@ -203,11 +202,11 @@ test('delayed cancellation cannot release a newer reservation from the same gues
  assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room,undefined);
 });
 
-test('directory publishes admitted public metadata through reservation, visibility and recovery',()=>{
- const t=setup(),watcher=t.guest(),host=t.guest(),hidden=t.guest(),joiner=t.guest();
+test('directory publishes admitted room metadata through reservation and recovery',()=>{
+ const t=setup(),watcher=t.guest(),host=t.guest(),joiner=t.guest();
  assert.deepEqual(t.act(watcher.token,{type:'directory'}).directory,[]);
  const intent=randomUUID(),provisional=t.act(host.token,{type:'create',intent,visibility:'public',fingerprint}).room!;
- t.host(hidden.token,'unlisted');assert.deepEqual(t.act(watcher.token,{type:'directory'}).directory,[]);
+ assert.deepEqual(t.act(watcher.token,{type:'directory'}).directory,[]);
  t.act(host.token,{type:'confirmCreate',intent});
  const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms;
  assert.equal(latest().length,1);assert.equal(latest()[0].id,provisional.id);
@@ -222,10 +221,6 @@ test('directory publishes admitted public metadata through reservation, visibili
  t.act(host.token,{type:'nickname',nickname:'Local host'});assert.equal(latest()[0].host,'Local host');
  t.advance(30_000);assert.equal(latest()[0].status,'reconnecting');
  t.rooms.attach(host.token,()=>{},()=>{});assert.equal(latest()[0].status,'waiting');
- t.act(host.token,{type:'visibility',roomId:provisional.id,visibility:'unlisted'});assert.deepEqual(latest(),[]);
- assert.throws(()=>t.act(joiner.token,{type:'lookupCode',code}),/room_unavailable/);
- assert.throws(()=>t.act(joiner.token,{type:'joinCode',code,intent:randomUUID()}),/room_unavailable/);
- t.act(host.token,{type:'visibility',roomId:provisional.id,visibility:'public'});assert.equal(latest().length,1);
  t.act(host.token,{type:'close',roomId:provisional.id});assert.deepEqual(latest(),[]);
 });
 
@@ -286,18 +281,18 @@ test('empty offers are opt-in, first claim is atomic, and the same room becomes 
  now+=1;rooms.stop();
 });
 
-test('unlisted included claim atomically removes the old public offer and replenishes a new one',()=>{
+test('protected included claim atomically replaces the old public offer and replenishes a new one',async()=>{
  const rooms=new Rooms(()=>1000,undefined,undefined,['from-below-1.0']);
  const attach=()=>rooms.attach(undefined,()=>{},()=>{}).token;
  const act=(token:string,command:Command)=>rooms.handle(token,{...command,requestId:randomUUID()} as Exclude<RoomCommand,{type:'hello'}>);
  const observer=attach(),host=attach();
  const offer=act(observer,{type:'directory',includeEmptyOffers:true}).directory![0];
  act(host,{type:'directory',includeEmptyOffers:true});
- const room=act(host,{type:'claimCode',code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0'),visibility:'unlisted'}).room!;
- assert.equal(room.id,offer.id);assert.equal(room.visibility,'unlisted');assert.equal(room.code,undefined);
+ const room=(await rooms.authorize(host,{type:'claimCode',requestId:randomUUID(),code:offer.code!,intent:randomUUID(),fingerprint:includedFingerprint('from-below-1.0'),visibility:'protected',password:'room password 123'},'203.0.113.25')).room!;
+ assert.equal(room.id,offer.id);assert.equal(room.visibility,'protected');assert.equal(room.code,offer.code);
  const rows=act(observer,{type:'directory',includeEmptyOffers:true}).directory!;
- assert.equal(rows.length,1);assert.equal(rows[0].occupancy,0);assert.notEqual(rows[0].id,offer.id);assert.notEqual(rows[0].code,offer.code);
- assert.throws(()=>act(observer,{type:'lookupCode',code:offer.code!}),/room_unavailable/);
+ assert.equal(rows.length,2);assert.equal(rows.filter(row=>row.occupancy===0).length,1);assert.notEqual(rows.find(row=>row.occupancy===0)?.id,offer.id);assert.equal(rows.find(row=>row.id===offer.id)?.visibility,'protected');
+ assert.equal(act(observer,{type:'lookupCode',code:offer.code!}).preview?.id,room.id);
  assert.equal(act(observer,{type:'preview',invite:room.invite}).preview?.id,room.id);
  rooms.stop();
 });
@@ -330,12 +325,12 @@ test('pending human creation publishes an unavailable offer and cancellation or 
  for(let i=0;i<limits.rooms-1;i++){const host=attach(),intent=randomUUID();act(host.token,{type:'create',intent,visibility:'public',fingerprint});act(host.token,{type:'confirmCreate',intent});}
  const latest=()=>watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms.find(row=>row.id===offer.id)!;
  assert.equal(latest().status,'waiting');
- const last=attach(),intent=randomUUID();act(last.token,{type:'create',intent,visibility:'unlisted',fingerprint});
+ const last=attach(),intent=randomUUID();act(last.token,{type:'create',intent,visibility:'public',fingerprint});
  const fullOffer=latest();assert.equal(fullOffer.status,'unavailable');assert.equal(fullOffer.occupancy,0);
  if(fullOffer.occupancy===0) assert.equal(fullOffer.unavailableReason,'room_capacity');
  assert.equal(watcher.events.filter(event=>event.type==='directory').at(-1)!.rooms.filter(row=>row.occupancy>0).length,limits.rooms-1);
  act(last.token,{type:'cancelCreate',intent});assert.equal(latest().status,'waiting');
- const expired=attach();act(expired.token,{type:'create',intent:randomUUID(),visibility:'unlisted',fingerprint});
+ const expired=attach();act(expired.token,{type:'create',intent:randomUUID(),visibility:'public',fingerprint});
  assert.equal(latest().status,'unavailable');now+=5000;rooms.sweep();assert.equal(latest().status,'waiting');
 });
 
@@ -405,7 +400,8 @@ test('separate WebSocket browsers reject an unready observer, then admit a late 
   assert.equal(joined.occupancy,2);
   const changed=data(await request(host,{type:'slotRole',roomId:room.id,slotId:'slot-2',role:'observer',expectedRevision:joined.revision})).room!;
   data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
-  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
+  const notConnected=await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6});
+  assert.equal(notConnected.ok,false);if(!notConnected.ok)assert.equal(notConnected.error,'game_prerequisites');
   const rejected=await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});assert.equal(rejected.ok,false);if(!rejected.ok)assert.equal(rejected.error,'game_prerequisites');
   const removed=data(await request(host,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:changed.revision})).room!;
   data(await request(host,{type:'gameReady',revision:removed.game.controllers.revision,roomRevision:removed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));

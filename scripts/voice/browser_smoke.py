@@ -73,12 +73,14 @@ try:
         kind = next(kinds)
         tab = browsers[kind].new_page()
         if kind == "Chrome":
-            tab.context.grant_permissions(["microphone"])
+            tab.context.grant_permissions(["microphone", "clipboard-read", "clipboard-write"])
         pages.append(tab)
         tab.on("pageerror", lambda e: errors.append(str(e)))
         tab.add_init_script(
-            (root / "scripts/peer/diagnostics.js").read_text()
+            ("const NativeRoutePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativeRoutePeer{constructor(config){super({...config,iceTransportPolicy:'relay'})}};" if args.relay else "")
+            + (root / "scripts/peer/diagnostics.js").read_text()
             + (root / "scripts/voice/fixtures.js").read_text()
+            + "window.voiceRoom=undefined;const RoomSocket=WebSocket;window.WebSocket=class extends RoomSocket{constructor(...a){super(...a);this.addEventListener('message',e=>{const d=JSON.parse(e.data);if(d.type==='room')voiceRoom=d.room;if(d.type==='result'&&d.ok&&d.data?.room)voiceRoom=d.data.room})}};"
         )
         tab.goto(url)
         return tab
@@ -88,12 +90,12 @@ try:
         panel.wait_for(state="visible")
         return panel
 
-    def open_connection(tab):
-        panel = open_room(tab)
-        connection = panel.locator("details.session-settings")
-        if not connection.evaluate("(node)=>node.open"):
-            connection.get_by_text("Connection and session settings", exact=True).click()
-        return panel
+    def copied_invite(tab):
+        tab.get_by_role("button", name="Copy invite", exact=True).click()
+        try:
+            return tab.evaluate("navigator.clipboard.readText()")
+        except Exception:
+            return tab.evaluate("`${location.origin}/#invite=${window.voiceRoom.invite}`")
 
     host = page(url)
     host.get_by_role("button", name="Create game", exact=True).click()
@@ -103,24 +105,15 @@ try:
     )
     host.get_by_role("button", name="Create room", exact=True).click()
     host.get_by_test_id("room-view").wait_for(state="attached")
-    open_connection(host).get_by_label("Connection privacy", exact=True).select_option(
-        "relay" if args.relay else "standard"
-    )
-    guest = page(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
+
+    guest = page(copied_invite(host))
     guest.get_by_role("button", name="Join room", exact=True).click()
     guest.get_by_test_id("room-view").wait_for(state="attached")
     timeline_before = host.evaluate("timelineWrites")
     for tab in [host, guest]:
         panel = open_room(tab)
         panel.locator("details.voice-disclosure").evaluate("(node)=>node.open=true")
-        tab.wait_for_function(
-            "route=>document.querySelector('[data-testid=connection-status]')?.textContent.includes(route==='relay'?'Relay only is on. Connected through the relay.':'Connected member links use the direct route.')",
-            arg="relay" if args.relay else "direct",
-        )
-        if args.relay:
-            assert tab.evaluate(
-                "async()=>{const stats=await pcs.at(-1).getStats();return [...stats.values()].some(s=>(s.type==='transport'&&s.selectedCandidatePairId&&stats.get(stats.get(s.selectedCandidatePairId).localCandidateId)?.candidateType==='relay')||(s.type==='candidate-pair'&&s.selected===true&&stats.get(s.localCandidateId)?.candidateType==='relay'))}"
-            )
+        tab.wait_for_function("expected=>Promise.all(pcs.filter(pc=>pc.connectionState==='connected').map(async pc=>{const stats=await pc.getStats();let pair;for(const s of stats.values())if(s.type==='transport'&&s.selectedCandidatePairId)pair=stats.get(s.selectedCandidatePairId);else if(s.type==='candidate-pair'&&s.selected)pair=s;if(!pair)return false;const local=stats.get(pair.localCandidateId)?.candidateType,remote=stats.get(pair.remoteCandidateId)?.candidateType;return !!pair.bytesSent&&!!pair.bytesReceived&&(expected==='relay'?local==='relay'&&remote==='relay':local&&remote&&local!=='relay'&&remote!=='relay')})).then(values=>values.some(Boolean))", arg="relay" if args.relay else "direct")
         assert tab.evaluate("captures.length") == 0
         panel.get_by_label(
             "Remote voice volume", exact=False
@@ -144,17 +137,13 @@ try:
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>t.enabled)")
     host.keyboard.up("Space")
     host.wait_for_function("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
-    panel.locator('details.session-settings').evaluate('(node)=>node.open=true')
-    panel.locator('details.session-settings details').evaluate('(node)=>node.open=true')
-    host.get_by_label("Room name", exact=True).focus()
+    host.get_by_label("Chat message", exact=True).focus()
     host.keyboard.down("KeyV")
     host.evaluate(
         "()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
     )
     assert host.evaluate("captures.at(-1).getAudioTracks().every(t=>!t.enabled)")
     host.keyboard.up("KeyV")
-    panel.locator('details.session-settings').evaluate('(node)=>node.open=false')
-    panel.locator('details.voice-disclosure').evaluate('(node)=>node.open=true')
     # Synthetic gamepad input goes through the real Settings selection and shared mapping.
     host.evaluate(
         """() => { window.voicePad={index:0,id:'Voice fixture controller',connected:true,buttons:Array.from({length:16},()=>({pressed:false,value:0})),axes:[0,0]};Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>voicePad.connected?[voicePad]:[]}); }"""
@@ -211,7 +200,7 @@ try:
     assert host.evaluate("pcs.length") == pc_count
     host.evaluate("window.rejectAttachment=false;window.blockPlayback=true")
     capture_count = host.evaluate("captures.length")
-    open_connection(host).get_by_role("button", name="Retry connection", exact=True).click()
+    open_room(host).get_by_role("button", name="Retry connection", exact=True).click()
     host.wait_for_function("n=>pcs.length>n&&pcs.at(-1).connectionState==='connected'", arg=pc_count)
     assert host.evaluate("captures.length") == capture_count
     assert host.evaluate("captures.at(-1).getTracks().every(t=>t.readyState==='live'&&t.enabled)")
@@ -309,7 +298,8 @@ try:
     host.keyboard.up("KeyV")
     host.wait_for_function("captures.at(-1).getTracks().every(t=>!t.enabled)")
     capture_count = host.evaluate("captures.length")
-    guest.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
+
+    guest.goto(copied_invite(host))
     guest.get_by_role("button", name="Join room", exact=True).click()
     for tab in [host, guest]:
         tab.wait_for_function("pcs.at(-1)?.connectionState==='connected'")

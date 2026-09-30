@@ -1,12 +1,11 @@
 import {object,keys,token,integer} from './protocol-validation.ts';
 export type ConnectionPolicy = 'standard'|'relay';
-export const validPolicy = (value:unknown):value is ConnectionPolicy => value==='standard' || value==='relay';
 export const effectivePolicy = (a:ConnectionPolicy,b:ConnectionPolicy):ConnectionPolicy => a==='relay' || b==='relay' ? 'relay':'standard';
 export const peerLimits = {sdp:12_000,candidate:1024,candidates:64,frame:16_384,prepareMs:15_000,connectMs:20_000} as const;
 export type IceServer = {urls:string[];username?:string;credential?:string};
 export type PeerView = {pairId:string;member:string;gameplay:boolean;epoch?:string;policy:ConnectionPolicy;status:'waiting'|'preparing'|'connecting'|'connected'|'failed'|'relay_unavailable'|'relay_capacity'};
 export type Signal = {kind:'description';description:{type:'offer'|'answer';sdp:string}} | {kind:'candidate';candidate:{candidate:string;sdpMid:string|null;sdpMLineIndex:number|null;usernameFragment?:string|null}};
-export type PeerCommand = {type:'peerPolicy';requestId:string;policy:ConnectionPolicy} | {type:'peerAck'|'peerRetry'|'peerConnected'|'peerFailed';requestId:string;pairId:string;epoch:string} | {type:'peerRoute';requestId:string;pairId:string;epoch:string;route:'direct'|'relay'} | {type:'peerSignal';requestId:string;pairId:string;epoch:string;signal:Signal};
+export type PeerCommand = {type:'peerAck'|'peerRetry'|'peerConnected'|'peerFailed';requestId:string;pairId:string;epoch:string} | {type:'peerRoute';requestId:string;pairId:string;epoch:string;route:'direct'|'relay'} | {type:'peerSignal';requestId:string;pairId:string;epoch:string;signal:Signal};
 export type PeerEvent = {type:'peerPrepare';pairId:string;member:string;gameplay:boolean;epoch:string;policy:ConnectionPolicy;offerer:boolean;iceServers:IceServer[]} | {type:'peerStart';pairId:string;epoch:string} | {type:'peerSignal';pairId:string;epoch:string;signal:Signal} | {type:'peerStop';pairId:string;reason:string};
 export function validSignal(value:unknown):value is Signal {
  if(!object(value)) return false;
@@ -16,7 +15,6 @@ export function validSignal(value:unknown):value is Signal {
 }
 export function parsePeerCommand(value:unknown):PeerCommand|undefined {
  if(!object(value)||!token(value.requestId)) return;
- if(value.type==='peerPolicy' && keys(value,['type','requestId','policy']) && validPolicy(value.policy)) return value as PeerCommand;
  if(!token(value.pairId)||!token(value.epoch)) return;
  if(value.type==='peerRoute' && keys(value,['type','requestId','pairId','epoch','route']) && (value.route==='direct'||value.route==='relay')) return value as PeerCommand;
  if(['peerAck','peerRetry','peerConnected','peerFailed'].includes(value.type as string) && keys(value,['type','requestId','pairId','epoch'])) return value as PeerCommand;

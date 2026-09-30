@@ -1,4 +1,4 @@
-"""Prove included, custom public, and unlisted rooms through independent browser sessions."""
+"""Prove included, custom public, and password protected rooms through independent browser sessions."""
 import argparse
 import hashlib
 import json
@@ -43,6 +43,7 @@ try:
             except Exception:
                 print(json.dumps({'host':host.evaluate('({room:proof.room,text:document.body.innerText})'),'guest':guest.evaluate('({room:proof.room,text:document.body.innerText})')}),flush=True)
                 raise
+            host.get_by_role('button', name='Ready', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).click()
             for tab in (host, guest):
                 try:
@@ -85,26 +86,30 @@ try:
         assert custom_guest.get_by_role('button', name='Choose matching NES file').count() == 0
         custom_guest.screenshot(path=str(args.output / 'custom-ready.png'))
         custom = shared(custom_host, custom_guest)
-        unlisted_host = page()
-        unlisted_host.get_by_role('button', name='Create game', exact=True).click()
-        unlisted_host.get_by_label('Room access').select_option('unlisted')
-        unlisted_host.set_input_files('input[type=file]', {'name': 'PRIVATE-UNLISTED-HOST.nes', 'mimeType': 'application/octet-stream', 'buffer': diagnostic})
-        unlisted_host.get_by_role('button', name='Create room', exact=True).click()
-        unlisted_host.get_by_role('button', name='Start game', exact=True).wait_for()
-        invitation = unlisted_host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+        protected_host = page()
+        protected_host.get_by_role('button', name='Create game', exact=True).click()
+        protected_host.get_by_label('Room access').select_option('protected')
+        protected_host.get_by_label('Room password').fill('featured-room-password')
+        protected_host.set_input_files('input[type=file]', {'name': 'PRIVATE-PROTECTED-HOST.nes', 'mimeType': 'application/octet-stream', 'buffer': diagnostic})
+        protected_host.get_by_role('button', name='Create room', exact=True).click()
+        protected_host.get_by_role('button', name='Start game', exact=True).wait_for()
+        invitation = protected_host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         listing = page()
-        listing.get_by_role('searchbox').fill(unlisted_host.locator('#room-heading').inner_text().split(' · ')[0])
-        assert listing.get_by_text('No matching public rooms.', exact=True).is_visible()
+        listing.get_by_role('searchbox').fill(protected_host.locator('#room-heading').inner_text().split(' · ')[0])
+        protected_row = listing.locator('.room-list li').filter(has_text=protected_host.locator('#room-heading').inner_text())
+        protected_row.get_by_text('Password required', exact=False).wait_for()
         invited = page(invitation)
         invited.get_by_role('button', name='Join room', exact=True).click()
+        invited.get_by_label('Room password').fill('featured-room-password')
+        invited.get_by_role('dialog').get_by_role('button', name='Join room', exact=True).click()
         invited.get_by_role('button', name='Ready', exact=True).wait_for()
         assert invited.get_by_role('button', name='Choose matching NES file').count() == 0
-        unlisted = shared(unlisted_host, invited)
+        protected = shared(protected_host, invited)
         assert not errors, errors
         wire_text = '\n'.join(wire)
         assert 'PRIVATE-' not in wire_text
         assert len(diagnostic) > max(map(len, wire), default=0)
-        result = {'result': 'pass', 'included': included, 'included_join_opened_no_file_picker': True, 'custom_public': custom, 'unlisted_invite': unlisted, 'filenames_absent_from_wire': True, 'diagnostic_sha256': hashlib.sha256(diagnostic).hexdigest(), 'browser': browser.version, 'seconds': round(time.monotonic() - started, 2), 'page_errors': errors}
+        result = {'result': 'pass', 'included': included, 'included_join_opened_no_file_picker': True, 'custom_public': custom, 'protected_invite': protected, 'filenames_absent_from_wire': True, 'diagnostic_sha256': hashlib.sha256(diagnostic).hexdigest(), 'browser': browser.version, 'seconds': round(time.monotonic() - started, 2), 'page_errors': errors}
         (args.output / 'public-built-in-join.json').write_text(json.dumps(result, indent=2) + '\n')
         print(json.dumps(result, indent=2))
         browser.close()

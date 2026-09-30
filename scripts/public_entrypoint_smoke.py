@@ -140,6 +140,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Ready", exact=True).click()
         host.get_by_role("button", name="Start game", exact=True).click()
         host.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10", timeout=30000)
+        assert host.locator('details.session-settings').count() == 0
+        host.get_by_role("button", name="Players", exact=True).click()
+        host.locator('details.session-settings').wait_for(state='visible')
+        host.get_by_role("button", name="Close players", exact=True).click()
         result["host_start_solo_after_guest_left"] = True
         # One-member rooms use the shared timeline too. Leave explicitly to verify local playback.
         host.get_by_role("button", name="Leave room", exact=True).click()
@@ -162,13 +166,14 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         custom = browser.new_page(viewport={"width": 1280, "height": 800})
         custom.goto(url)
         custom.get_by_role("button", name="Create game", exact=True).click()
-        custom.get_by_label("Room access").select_option("unlisted")
+        custom.get_by_label("Room access").select_option("protected")
+        custom.get_by_label("Room password").fill("entrypoint-room-password")
         custom.set_input_files("input[type=file]", fixture)
         custom.get_by_role("button", name="Create room", exact=True).click()
         custom.get_by_role("button", name="Start game", exact=True).wait_for(timeout=15000)
         assert custom.get_by_test_id("room-view").count() == 1
         assert custom.get_by_role("button", name="Leave room", exact=True).count() == 1
-        result["local_file_unlisted"] = True
+        result["local_file_password_protected"] = True
         custom.get_by_role("button", name="Leave room", exact=True).click()
         custom.get_by_role("button", name="Confirm leave", exact=True).click()
         custom.locator(".room-panel").wait_for(state="detached")

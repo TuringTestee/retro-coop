@@ -84,6 +84,7 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
  const sockets = new WebSocketServer({noServer:true,maxPayload:peerLimits.frame,perMessageDeflate:false});
  // The transport peer owns address identity unless an explicit trusted proxy boundary applies.
  const admission = new Map<string,{id:string;times:number[];clients:Set<WebSocket>;revision:number;blockedUntil:number}>();
+ const addresses=new WeakMap<WebSocket,string>();
  const revokers=new Map<WebSocket,()=>void>();
  const sweepAdmission=()=>{for(const [key,item] of admission)if(!item.clients.size && item.blockedUntil<=now() && item.times.every(time=>time<=now()-60_000))admission.delete(key);};
  const operator=operatorHandler({
@@ -106,17 +107,18 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
   sockets.handleUpgrade(request,socket,head,ws => {
    // A completed upgrade carries an explicit browser-readable denial, without authenticating or admitting a session.
    if(record.blockedUntil>timestamp){ws.on('error',()=>{});ws.close(4003,'Admission temporarily blocked');return;}
-   record.clients.add(ws);record.revision++;ws.once('close',()=>{record.clients.delete(ws);record.revision++;revokers.delete(ws);});sockets.emit('connection',ws);
+   addresses.set(ws,address);record.clients.add(ws);record.revision++;ws.once('close',()=>{record.clients.delete(ws);record.revision++;revokers.delete(ws);});sockets.emit('connection',ws);
   });
  });
  sockets.on('connection',ws => {
+  const address=addresses.get(ws);if(!address){ws.terminate();return;}
   let token:string|undefined;
   let windowStarted = Date.now(), received = 0;
   const send:Sender = (event:RoomEvent) => {if(ws.readyState !== WebSocket.OPEN) return;if(ws.bufferedAmount > 64*1024) {ws.terminate();return;}ws.send(JSON.stringify(event));};
   revokers.set(ws,()=>{if(token)rooms.revoke(token,send);});
   const authDeadline = setTimeout(()=>ws.close(1008,'Authenticate first'),5000);authDeadline.unref();
   ws.on('error',()=>{}); // Protocol errors close the socket; content is never logged.
-  ws.on('message',(raw,binary) => {
+  ws.on('message',async(raw,binary) => {
    if(ws.readyState!==WebSocket.OPEN)return;
    if(Date.now()-windowStarted >= 10_000) {windowStarted = Date.now();received = 0;}
    if(++received > ROOM_WIRE_BURST) {ws.close(1008,'Message rate exceeded');return;}
@@ -128,9 +130,9 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
     let data;
     if(command.type === 'hello') {
      if(token) throw new RoomError('already_authenticated');
-     const attached = rooms.attach(command.token,send,()=>ws.close(1000,'Session replaced or expired'),command.policy);
+     const attached = rooms.attach(command.token,send,()=>ws.close(1000,'Session replaced or expired'));
      token = attached.token;data = attached.data;clearTimeout(authDeadline);
-    } else {if(!token) throw new RoomError('authenticate_first');data = rooms.handle(token,command,send);}
+    } else {if(!token) throw new RoomError('authenticate_first');data = await rooms.authorize(token,command,address,send);}
     send({type:'result',requestId:command.requestId,ok:true,data});
    } catch(error) { const failure = error instanceof RoomError ? error:new RoomError('server_error');send({type:'result',requestId:command.requestId,ok:false,error:failure.code,...(failure.retryAfterMs ? {retryAfterMs:failure.retryAfterMs}:{})}); }
   });

@@ -112,7 +112,7 @@ window.WebSocket=class extends RoomSocket {constructor(...args){super(...args);
  this.addEventListener('message',event=>{const value=JSON.parse(event.data);if(value.type==='room')voiceRoom=value.room;});}};
 """)
             if args.relay:
-                context.add_init_script("sessionStorage.setItem('retro-coop-connection-policy','relay')")
+                context.add_init_script("const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{constructor(config,...rest){super({...config,iceTransportPolicy:'relay'},...rest)}}")
             contexts.append(context)
         for index in range(5):
             page = contexts[0 if index < 2 else 1 if index < 4 else 2].new_page()

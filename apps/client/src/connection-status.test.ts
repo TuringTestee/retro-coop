@@ -7,18 +7,17 @@ const state=(peers:PeerView[],route?:'direct'|'relay',connected=true)=>({connect
 const peer=(index:number,status:PeerView['status']='connected',policy:PeerView['policy']='standard'):PeerView=>({pairId:`pair${index}`,member:`member${index}`,gameplay:true,status,policy});
 test('reports partial five-member connectivity without claiming whole-room failure',()=>{
  const text=connectionStatus(state([peer(1),peer(2),peer(3,'connecting'),peer(4,'relay_capacity','relay')],'relay'));
- assert.match(text,/2\/4 member connections ready/);assert.match(text,/1 connecting/);assert.match(text,/Friend 4: relay capacity full/);assert.match(text,/At least one member connection uses the relay/);assert.match(text,/Relay only will not switch to direct/);
+ assert.match(text,/2\/4 member connections ready/);assert.match(text,/1 connecting/);assert.match(text,/Could not connect to Friend 4/);assert.match(text,/Retry this connection or leave the room/);
  assert.doesNotMatch(text,/room.*failed|All.*disconnected/);
 });
-test('reports a single relay policy, direct links, and unavailable relay truthfully',()=>{
- assert.match(connectionStatus(state([peer(1)],'relay')),/Direct connection unavailable\. Relay keeps you playing together/);
- assert.match(connectionStatus(state([peer(1,'connected','relay')],'relay')),/Relay only is on/);
- assert.match(connectionStatus(state([peer(1)],'direct')),/Connected member links use the direct route/);
- assert.match(connectionStatus(state([peer(1,'relay_unavailable','relay')])),/Friend 1: relay service unavailable/);
+test('keeps route details out of ordinary connection feedback',()=>{
+ assert.equal(connectionStatus(state([peer(1)],'relay')),'1/1 member connections ready.');
+ assert.equal(connectionStatus(state([peer(1)],'direct')),'1/1 member connections ready.');
+ assert.doesNotMatch(connectionStatus(state([peer(1,'relay_unavailable','relay')])),/relay|direct/i);
 });
 test('separates service loss from remaining links and handles an empty lobby',()=>{
  const text=connectionStatus(state([peer(1),peer(2,'failed')],'direct',false));
- assert.match(text,/Room service disconnected/);assert.match(text,/1\/2 member connections ready/);assert.match(text,/Friend 2: connection failed/);
+ assert.match(text,/Room service disconnected/);assert.match(text,/1\/2 member connections ready/);assert.match(text,/Could not connect to Friend 2/);
  assert.equal(connectionStatus(state([])),'No other members are connected.');
  assert.equal(connectionStatus({...state([]),room:undefined}),'Last link changed.');
 });
