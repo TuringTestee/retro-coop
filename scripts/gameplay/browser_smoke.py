@@ -67,23 +67,35 @@ try:
   try:
    h=page();g=page()
    if args.screenshots:h.screenshot(path=str(out.with_name('initial.png')),full_page=True)
-   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
+   h.get_by_role('button',name='Create game',exact=True).click();h.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom})
+   if args.late_join:
+    h.get_by_label('Room access').select_option('protected')
+    h.get_by_label('Room password').fill('late-observer-pass')
+   h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
     # The public host chooses an observer slot before starting alone.
     h.locator('[data-slot-id=slot-2]').get_by_role('button',name='Manage',exact=True).click()
     h.get_by_label('Slot 2 role',exact=True).select_option('observer')
-    h.wait_for_function("proof.room.slots[1].role==='observer'")
+    try:h.wait_for_function("proof.room.slots[1].role==='observer'",polling=50,timeout=15000)
+    except PlaywrightTimeoutError:
+     print(json.dumps({'observer_slot_setup':h.evaluate('''()=>({slot:proof.room?.slots[1],revision:proof.room?.revision,feedback:document.querySelector('.slot-feedback')?.textContent,status:document.querySelector('[data-testid=room-status]')?.textContent})''')}),flush=True)
+     raise
     h.get_by_role('dialog',name='Manage slot 2').get_by_role('button',name='Done',exact=True).click()
 
-    invite=invitation(h)
     h.get_by_role('button',name='Ready',exact=True).click()
     h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()')
     h.wait_for_function('proof.frameCount>=120',polling=50)
+    invite=invitation(h)
+    assert 'late-observer-pass' not in invite
+    if args.screenshots:h.screenshot(path=str(out.with_name('late-observer-invite.png')))
     prior_frame=h.evaluate('proof.frames.at(-1).frame');prior_epoch=h.evaluate('proof.activeEpoch')
     g.evaluate('invite=>{location.hash=new URL(invite).hash}',invite);g.reload()
     g.get_by_role('button',name='Join room',exact=True).click()
+    g.get_by_label('Room password').fill('late-observer-pass')
+    g.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
     g.get_by_test_id('room-view').wait_for(state='attached');g.evaluate('releaseFrames()')
     g.wait_for_function('proof.frames.at(-1)?.frame>=10', polling=20)
+    if args.screenshots:g.screenshot(path=str(out.with_name('late-observer-joined.png')))
     h.wait_for_function('frame=>proof.frames.at(-1).frame>frame+60',arg=prior_frame,polling=50)
     assert h.evaluate('proof.activeEpoch')==prior_epoch,'Observer admission changed the host timeline'
     assert g.evaluate("proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership).role")== 'observer'
@@ -96,6 +108,7 @@ try:
     while states[0]!=states[1] and time.monotonic()<deadline:
      time.sleep(.05);states=[worker(tab,{'type':'state-hash'})['info'] for tab in [h,g]]
     assert states[0]==states[1] and states[0]['frame']>prior_frame,states
+    if args.screenshots:h.screenshot(path=str(out.with_name('late-observer-playing.png')))
     result={'result':'pass','source':source,'build_files':build_files,'scenario':'late observer joins running host','host_frame_before_join':prior_frame,'epoch_preserved':True,'native_states':states,'seconds':round(time.monotonic()-started,2),'page_errors':errors};assert not errors
     out.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));raise SystemExit(0)
    if args.delay_join:

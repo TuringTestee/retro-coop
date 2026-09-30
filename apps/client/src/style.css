@@ -43,7 +43,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .member-acquisition.quiet{visibility:hidden}
 .waiting-room [data-layout-region=readiness-actions]{height:3.5rem;overflow:auto}
 .waiting-room [data-layout-region=start-actions]{height:5.5rem;overflow:auto}
-.waiting-room [data-layout-region=invite-actions]{height:3rem;overflow:auto}
+.waiting-room [data-layout-region=invite-actions],.playing [data-layout-region=invite-actions]{height:3rem;overflow:auto}
 .waiting-room [data-layout-region=leave-actions]{height:7rem;overflow:auto}
 .waiting-room [data-layout-region=connection-recovery]{height:5.5rem;overflow:auto;max-width:760px}
 .waiting-room .room-status-line{height:3.25rem;overflow:auto;max-width:760px;scrollbar-gutter:stable}
