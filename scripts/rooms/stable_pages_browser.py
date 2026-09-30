@@ -87,6 +87,8 @@ def main():
             host.get_by_text('Room access: Password protected', exact=True).wait_for()
             host.get_by_role('button', name='Make public', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
+            host.get_by_role('button', name='Make public', exact=True).click()
+            host.get_by_role('button', name='Confirm public access', exact=True).wait_for()
             host.keyboard.press('Escape')
             host.wait_for_function("document.activeElement?.matches('[data-make-public]')")
             host.get_by_role('button', name='Make public', exact=True).click()
@@ -182,7 +184,11 @@ def main():
             host.screenshot(path=str(args.output / 'voluntary-exit.png'))
             host.set_viewport_size({'width': 1280, 'height': 720})
             host.get_by_role('button', name='Create game', exact=True).click()
-            host.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+            assert host.locator('.selected-game').evaluate("node => getComputedStyle(node).visibility === 'hidden'"), 'Old room selection must not survive a fresh Create Game visit'
+            with host.expect_file_chooser() as chooser:
+                host.get_by_role('button', name='Add NES file', exact=True).click()
+            chooser.value.set_files(STATIC / 'generated/diagnostic.nes')
+            host.get_by_text('diagnostic.nes is loaded and ready.', exact=True).wait_for()
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
             service.terminate()
