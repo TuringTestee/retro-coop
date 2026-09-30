@@ -7,7 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from layout_geometry import GeometryRecorder
+from layout_geometry import GeometryRecorder, control_visibility
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -156,10 +156,34 @@ def main():
                 assert host.get_by_role('button', name='Back', exact=True).is_visible()
                 assert not host.locator('.room-panel').is_visible()
                 assert host.locator('dialog').count() == 0
+                if label == 'Saves':
+                    saves_layout = GeometryRecorder(host, 'save-feedback', '.tool-page [data-layout-region]')
+                    saves_layout.mark('empty slot')
+                    saves_layout.allow_user_scroll()
+                    host.get_by_role('button', name='Save current point', exact=True).click()
+                    host.get_by_text('Saved in Slot 1 on this device.', exact=True).wait_for()
+                    saves_layout.mark('saved slot')
+                    host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+                    saves_layout.allow_user_scroll(False)
+                    tool_proofs.append(saves_layout.finish(args.output / 'save-feedback-layout.json',
+                                                          required=('tool-heading', 'tool-content', 'tool-list',
+                                                                    'tool-status', 'tool-confirmation', 'tool-actions')))
+                    delete_save = host.get_by_role('button', name='Delete Slot 1', exact=True)
+                    delete_save.focus()
+                    host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+                    control_visibility(delete_save, require_focus=True)
                 if label == 'Game help':
+                    help_layout = GeometryRecorder(host, 'help-details', '.tool-page [data-layout-region]')
+                    help_layout.mark('closed')
+                    help_layout.allow_user_scroll()
                     host.get_by_text('Technical details', exact=True).click()
                     expected = hashlib.sha256((STATIC / 'generated/diagnostic.nes').read_bytes()).hexdigest()
                     assert expected in host.get_by_test_id('fingerprint').inner_text()
+                    help_layout.mark('open')
+                    host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+                    help_layout.allow_user_scroll(False)
+                    tool_proofs.append(help_layout.finish(args.output / 'help-details-layout.json',
+                                                         required=('tool-heading', 'tool-content')))
                 host.screenshot(path=str(args.output / filename))
                 host.get_by_role('button', name='Back', exact=True).click()
                 host.wait_for_function("label => document.activeElement?.textContent === label", arg=label)
