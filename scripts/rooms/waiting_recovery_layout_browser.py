@@ -119,7 +119,14 @@ def check(browser, url, output, label, viewport, zoom_worker=None):
         playing.mark('cancelled-file')
         playing_result = playing.finish(output / f'{label}-playing.json',
                                         required=('game-actions', 'shared-leave-actions'))
-        return [room_result, modal_result, keyboard_result, playing_result]
+        page.get_by_role('button', name='Leave room', exact=True).click()
+        page.get_by_role('group', name='Confirm leave').wait_for()
+        page.get_by_role('button', name='Confirm leave', exact=True).click()
+        page.get_by_test_id('directory').wait_for()
+        assert page.get_by_test_id('room-view').count() == 0
+        page.screenshot(path=str(output / f'{label}-returned-to-rooms.png'))
+        return [room_result, modal_result, keyboard_result, playing_result,
+                {'label': f'{label}-exit', 'room_closed_before_directory': True}]
     finally:
         page.close()
 
