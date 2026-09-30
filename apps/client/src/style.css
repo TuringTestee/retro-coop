@@ -78,16 +78,18 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .create-library-title{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .create-game h2{font-size:19px;margin:0}
 .library-feedback,.create-feedback,.create-option-fields,.create-library ul{min-height:0;overflow:auto;scrollbar-gutter:stable;scroll-padding:8px}
+.create-feedback{line-height:1.2}
 .library-feedback p,.create-feedback p{margin:0}
 .create-library ul{list-style:none;padding:0;margin:0;display:grid;gap:8px;align-content:start}
 .create-library li button{width:100%;display:grid;text-align:left;gap:2px;background:#303146;color:white;border:1px solid #63647e}
 .create-library li button.selected{border-color:#b5a3ff;box-shadow:0 0 0 2px #b5a3ff55}
 .create-details{min-width:0;min-height:0}
-.create-options{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 4rem 4rem;gap:6px}
-.create-option-fields{padding:4px}
-.create-options label{display:grid;gap:5px;margin:0 0 8px}
+.create-options{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 2.5rem 4rem;gap:6px}
+.create-option-fields{padding:8px}
+.create-options label{display:grid;gap:5px;margin:0 0 4px}
 .create-options select{font:inherit;background:#303146;color:white;border:1px solid #77758d;border-radius:6px;padding:8px}
-.create-actions{display:flex;align-items:center;gap:8px;min-height:0;overflow:auto}
+.create-actions{display:grid;grid-template-columns:8.5rem minmax(0,1fr);align-items:center;gap:8px;min-height:0;overflow:auto;padding:7px}
+.create-actions button{height:44.8px;min-width:0;white-space:nowrap;margin:0;justify-self:start}
 .create-actions button:first-child{background:#b5a3ff;color:#171323}
 .create-actions .local-play{background:transparent;border-color:transparent;color:#d4cdf4;text-decoration:underline;font-weight:400;padding-left:0}
 .create-actions .local-play:hover{background:#303146}
@@ -96,7 +98,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .waiting-room>.directory-panel,.waiting-room>.panel{display:none}
 @media(min-width:761px){.creating>.create-game{height:min(100%,34rem);align-self:start}}
 @media(max-width:760px){.create-game{grid-template-rows:5rem minmax(0,1fr)}.create-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(13rem,2fr) minmax(15rem,3fr)}}
-@media(max-height:500px){.creating{height:auto;min-height:100dvh;overflow:visible;grid-template-rows:auto auto}.creating>.create-game{height:auto;min-height:0;overflow:visible}.create-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:15rem 20rem}}
+@media(max-height:500px){.creating{height:auto;min-height:100dvh;overflow:visible;grid-template-rows:auto auto}.creating>.create-game{height:auto;min-height:0;overflow:visible}.create-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:11.5rem 20rem}}
 .waiting-room .room-invite>button,.waiting-room .room-slots button:first-child{background:#303146;color:white;font-weight:400;border-color:#52536e}.waiting-room .room-invite>button{white-space:nowrap}
 .waiting-room .room-start>button{background:#b5a3ff;color:#171323;font-weight:750;border-color:#b5a3ff}
 
