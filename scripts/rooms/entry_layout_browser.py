@@ -120,6 +120,13 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
     host = public_room(browser, url)
     host_name = host.get_by_test_id('guest').inner_text().strip()
     search = page.get_by_role('searchbox', name='Search room, game, host, or code')
+    directory.allow_user_scroll(True)
+    search.focus()
+    page.keyboard.press('Shift+Tab')
+    page.keyboard.press('Tab')
+    assert search.evaluate('node=>node===document.activeElement'), 'Search was not reachable by keyboard'
+    proof['keyboard_search_visibility'] = control_visibility(search, require_focus=True)
+    directory.allow_user_scroll(False)
     search.fill(host_name)
     page.locator('.room-list li').filter(has_text=host_name).wait_for()
     directory.mark('room added')
@@ -136,11 +143,19 @@ def profile(page, browser, url, output, label, gate, *, navigate=True):
         proof['captures'].append(path.name)
     page.get_by_role('button', name='Clear search').click()
     page.get_by_text('No matching public rooms.', exact=True).wait_for(state='hidden')
+    directory.allow_user_scroll(True)
+    search.click()
+    control_visibility(search, require_focus=True)
+    directory.allow_user_scroll(False)
     directory.mark('cleared')
     page_size = 2 if proof['viewport']['height'] < 700 else 3 if proof['viewport']['height'] < 820 else 4
     extra_hosts = [public_room(browser, url) for _ in range(page_size)]
     page.get_by_text('Page 1 of 2', exact=True).wait_for()
     directory.mark('pagination appeared')
+    directory.allow_user_scroll(True)
+    search.click()
+    control_visibility(search, require_focus=True)
+    directory.allow_user_scroll(False)
     if label in ('wide', 'mid-550', 'mid-600'):
         path = output / f'{label}-pagination.png'
         capture(page, path, label)
