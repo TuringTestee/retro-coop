@@ -111,3 +111,8 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
  .playing .screen{min-height:0;height:100%;max-width:100%}
  .playing .player-info{min-height:0;overflow:auto;align-content:start;padding:7px;scroll-padding:8px}
 }
+/* Directory regions reserve their bounds before rooms or recovery messages arrive. */
+.directory-panel{grid-template-rows:3.5rem 6.5rem 3rem minmax(0,1fr) 3rem;overflow:hidden}
+.directory-title,.directory-search,.directory-feedback,.room-list,.pagination-region{min-height:0;overflow:auto}
+.directory-title{grid-row:1}.directory-search{grid-row:2}.directory-feedback{grid-row:3}.room-list{grid-row:4}.pagination-region{grid-row:5;display:flex;align-items:center;justify-content:center}
+@media(max-height:500px){.discovery{height:100dvh;min-height:0;overflow:hidden;grid-template-rows:auto auto minmax(0,1fr)}.discovery>.directory-panel{min-height:0;overflow:hidden;grid-template-rows:3.5rem 6.5rem 3rem minmax(0,1fr) 3rem}}
