@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the five secondary tasks at short, narrow, and actual zoom profiles."""
+"""Exercise secondary tasks from local play and a started room at responsive profiles."""
 import argparse
 import json
 import os
@@ -28,6 +28,9 @@ def confirmation_visible(page):
 
 def check_page(page, name, result):
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), (name, 'horizontal page overflow')
+    if page.evaluate('innerWidth <= 760'):
+        frame_width = page.locator('.tool-page').bounding_box()['width']
+        assert frame_width >= page.evaluate('innerWidth - 48'), (result['label'], name, 'task frame squeezed', frame_width)
     assert page.get_by_role('button', name='Back', exact=True).is_visible(), (name, 'Back unavailable')
     region = page.locator('.tool-page .tool-content')
     metrics = region.evaluate('node=>({height:node.clientHeight,scroll:node.scrollHeight,tab:node.tabIndex})')
@@ -53,13 +56,25 @@ def check_page(page, name, result):
     result['pages'].append(name)
 
 
-def journey(page, url, output, label, navigate=True):
+def start_room(page):
+    page.get_by_role('button', name='Create game', exact=True).click()
+    page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+    page.get_by_role('button', name='Create room', exact=True).click()
+    page.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+    page.get_by_role('button', name='Ready', exact=True).click()
+    page.get_by_role('button', name='Start game', exact=True).click()
+    page.locator('main.playing.with-room').wait_for(timeout=15000)
+
+
+def journey(page, url, output, label, navigate=True, started_room=False):
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
     if navigate:
         page.goto(url)
+    if started_room:
+        start_room(page)
     receipt = {'label': label, 'css_viewport': page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio})'),
-               'pages': [], 'keyboard_scroll_endpoints': [], 'captures': [], 'page_errors': errors}
+               'started_room': started_room, 'pages': [], 'keyboard_scroll_endpoints': [], 'captures': [], 'page_errors': errors}
     page.get_by_role('button', name='Settings', exact=True).click()
     page.get_by_role('heading', name='Local settings').wait_for()
     page.wait_for_function("document.activeElement?.id === 'settings-title'")
@@ -68,7 +83,7 @@ def journey(page, url, output, label, navigate=True):
     visible_focus(page, page.get_by_role('button', name='Keep mappings'))
     confirmation_visible(page)
     check_page(page, 'Settings confirmation', receipt)
-    if label in ('short', 'narrow', 'zoom-200', 'effective-320'):
+    if label in ('short', 'narrow', 'zoom-200', 'effective-320') or started_room:
         visible_focus(page, page.get_by_role('button', name='Keep mappings'))
         path = output / f'{label}-settings-confirmation.png'
         page.screenshot(path=str(path));receipt['captures'].append(path.name)
@@ -81,7 +96,7 @@ def journey(page, url, output, label, navigate=True):
     visible_focus(page, page.get_by_role('button', name='Cancel', exact=True))
     confirmation_visible(page)
     check_page(page, 'Local data confirmation', receipt)
-    if label in ('narrow', 'zoom-200', 'effective-320'):
+    if label in ('narrow', 'zoom-200', 'effective-320') or started_room:
         visible_focus(page, page.get_by_role('button', name='Cancel', exact=True))
         confirmation_visible(page)
         path = output / f'{label}-local-data-confirmation.png'
@@ -89,10 +104,11 @@ def journey(page, url, output, label, navigate=True):
     page.keyboard.press('Escape')
     page.get_by_role('button', name='Back', exact=True).click()
     page.get_by_role('button', name='Back', exact=True).click()
-    page.get_by_role('button', name='Create game', exact=True).click()
-    page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
-    page.get_by_role('button', name='Play locally', exact=True).click()
-    page.get_by_role('button', name='Resume', exact=True).click()
+    if not started_room:
+        page.get_by_role('button', name='Create game', exact=True).click()
+        page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+        page.get_by_role('button', name='Play locally', exact=True).click()
+        page.get_by_role('button', name='Resume', exact=True).click()
     page.locator('.panel').get_by_role('button', name='Saves', exact=True).click()
     page.get_by_role('heading', name='Saves on this device').wait_for()
     page.wait_for_function("document.activeElement?.id === 'saves-title'")
@@ -104,27 +120,28 @@ def journey(page, url, output, label, navigate=True):
     visible_focus(page, page.get_by_role('button', name='Cancel', exact=True))
     confirmation_visible(page)
     check_page(page, 'Saves confirmation and feedback', receipt)
-    if label in ('short', 'narrow', 'effective-320'):
+    if label in ('short', 'narrow', 'effective-320') or started_room:
         visible_focus(page, page.get_by_role('button', name='Cancel', exact=True))
         path = output / f'{label}-saves-confirmation.png'
         page.screenshot(path=str(path));receipt['captures'].append(path.name)
     page.keyboard.press('Escape')
     page.get_by_role('button', name='Back', exact=True).click()
-    page.locator('.panel').get_by_role('button', name='Rewind', exact=True).click()
-    page.get_by_role('heading', name='Rewind local game').wait_for()
-    page.wait_for_function("document.activeElement?.id === 'rewind-title'")
-    page.get_by_test_id('rewind-history').wait_for(state='visible')
-    action = page.get_by_role('button', name='Rewind 1 second', exact=True)
-    page.locator('.rewind .tool-content').evaluate('node=>node.scrollTop=node.scrollHeight')
-    page.locator('.rewind [data-layout-region="tool-actions"]').evaluate('node=>node.scrollTop=node.scrollHeight')
-    control_visibility(action)
-    check_page(page, 'Rewind history or recovery', receipt)
-    if label in ('short', 'zoom-200'):
+    if not started_room:
+        page.locator('.panel').get_by_role('button', name='Rewind', exact=True).click()
+        page.get_by_role('heading', name='Rewind local game').wait_for()
+        page.wait_for_function("document.activeElement?.id === 'rewind-title'")
+        page.get_by_test_id('rewind-history').wait_for(state='visible')
+        action = page.get_by_role('button', name='Rewind 1 second', exact=True)
         page.locator('.rewind .tool-content').evaluate('node=>node.scrollTop=node.scrollHeight')
         page.locator('.rewind [data-layout-region="tool-actions"]').evaluate('node=>node.scrollTop=node.scrollHeight')
-        path = output / f'{label}-rewind.png'
-        page.screenshot(path=str(path));receipt['captures'].append(path.name)
-    page.get_by_role('button', name='Back', exact=True).click()
+        control_visibility(action)
+        check_page(page, 'Rewind history or recovery', receipt)
+        if label in ('short', 'zoom-200'):
+            page.locator('.rewind .tool-content').evaluate('node=>node.scrollTop=node.scrollHeight')
+            page.locator('.rewind [data-layout-region="tool-actions"]').evaluate('node=>node.scrollTop=node.scrollHeight')
+            path = output / f'{label}-rewind.png'
+            page.screenshot(path=str(path));receipt['captures'].append(path.name)
+        page.get_by_role('button', name='Back', exact=True).click()
     page.locator('.panel').get_by_role('button', name='Game help', exact=True).click()
     page.get_by_role('heading', name='Game help', exact=True).wait_for()
     page.wait_for_function("document.activeElement?.id === 'game-help-title'")
@@ -133,11 +150,14 @@ def journey(page, url, output, label, navigate=True):
     details.click()
     page.get_by_test_id('fingerprint').wait_for(state='visible')
     check_page(page, 'Help expanded details', receipt)
-    if label in ('zoom-200', 'effective-320'):
+    if label in ('zoom-200', 'effective-320') or started_room:
         page.locator('.tool-page .tool-content').evaluate('node=>node.scrollTop=node.scrollHeight')
         path = output / f'{label}-help-expanded.png'
         page.screenshot(path=str(path));receipt['captures'].append(path.name)
     page.get_by_role('button', name='Back', exact=True).click()
+    if started_room:
+        page.locator('main.playing.with-room .panel').wait_for(state='visible')
+        page.wait_for_function("document.activeElement?.textContent.trim()==='Game help'")
     assert not errors, errors
     return receipt
 
@@ -164,6 +184,14 @@ def main():
                     results.append(journey(context.new_page(), url, args.output, label))
                 finally:
                     context.close()
+            for label, viewport in [('room-narrow', (390,700))]:
+                if args.only and label != args.only:
+                    continue
+                context = browser.new_context(viewport={'width': viewport[0], 'height': viewport[1]})
+                try:
+                    results.append(journey(context.new_page(), url, args.output, label, started_room=True))
+                finally:
+                    context.close()
             browser.close()
             for label, viewport in [('zoom-200', (1280,800)), ('effective-320', (640,800))]:
                 if args.only and label != args.only:
@@ -173,6 +201,17 @@ def main():
                     page.goto(url)
                     zoom = browser_zoom(page, worker, 2)
                     row = journey(page, url, args.output, label, navigate=False)
+                    row['zoom'] = zoom
+                    row['zoom_verified'] = verify_zoom(worker, zoom)
+                    results.append(row)
+            for label, viewport in [('room-zoom-200', (1280,800)), ('room-effective-320', (640,800))]:
+                if args.only and label != args.only:
+                    continue
+                with zoom_context(playwright, {'width': viewport[0], 'height': viewport[1]}) as (context, worker):
+                    page = context.new_page()
+                    page.goto(url)
+                    zoom = browser_zoom(page, worker, 2)
+                    row = journey(page, url, args.output, label, navigate=False, started_room=True)
                     row['zoom'] = zoom
                     row['zoom_verified'] = verify_zoom(worker, zoom)
                     results.append(row)
