@@ -5,6 +5,7 @@ expected fingerprint from the published room and downloads bytes over HTTP.
 """
 
 import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -14,7 +15,7 @@ import time
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from layout_geometry import GeometryRecorder, control_visibility
+from layout_geometry import GeometryRecorder, browser_zoom, control_visibility, verify_zoom, zoom_context
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +29,7 @@ parser.add_argument("--expect-controller-ram", help="Two diagnostic WRAM bytes a
 parser.add_argument("--session-dir", type=Path, required=True)
 parser.add_argument("--width", type=int, default=1366)
 parser.add_argument("--height", type=int, default=682)
+parser.add_argument("--zoom", type=int, choices=(1, 2), default=1)
 args = parser.parse_args()
 ROOT = args.runtime_root.resolve()
 expected_ram = [int(value) for value in args.expect_controller_ram.split(",")] if args.expect_controller_ram else None
@@ -152,6 +154,7 @@ if args.role == "run":
                         [sys.executable, __file__, "--role", role, "--url", url,
                          *role_arguments, "--runtime-root", str(ROOT), "--session-dir", str(session),
                          "--width", str(args.width), "--height", str(args.height),
+                         "--zoom", str(args.zoom),
                          "--visibility", args.visibility,
                          *(["--expect-controller-ram", args.expect_controller_ram] if args.expect_controller_ram else [])],
                         cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
@@ -191,10 +194,19 @@ rom_hash = hashlib.sha256(rom).hexdigest() if rom is not None else None
 errors = []
 started = time.monotonic()
 
-with sync_playwright() as playwright:
-    browser = playwright.chromium.launch(ignore_default_args=["--mute-audio"])
-    try:
+with sync_playwright() as playwright, ExitStack() as resources:
+    zoom_worker = None
+    if args.zoom == 2:
+        context, zoom_worker = resources.enter_context(
+            zoom_context(playwright, {"width": args.width * 2, "height": args.height * 2})
+        )
+        page = context.new_page()
+        browser = context.browser
+    else:
+        browser = playwright.chromium.launch(ignore_default_args=["--mute-audio"])
+        resources.callback(browser.close)
         page = browser.new_page(viewport={"width": args.width, "height": args.height})
+    try:
         page.set_default_timeout(15000)
         page.on("pageerror", lambda error: errors.append(str(error)))
         # Room creation and Join first arrive as command results. The gameplay
@@ -210,6 +222,7 @@ with sync_playwright() as playwright:
             }; })();
         """)
         page.goto(args.url)
+        zoom_receipt = browser_zoom(page, zoom_worker, 2) if zoom_worker else None
         page.get_by_test_id("directory").wait_for(state="visible")
         file_choosers = []
         page.on("filechooser", lambda chooser: file_choosers.append(chooser))
@@ -238,6 +251,8 @@ with sync_playwright() as playwright:
                 page.wait_for_timeout(50)
             assert store_verified_before_reload
             page.reload()
+            if zoom_worker:
+                zoom_receipt = browser_zoom(page, zoom_worker, 2)
             page.get_by_test_id("create-game").wait_for(state="visible")
             file_input_count_after_reload = page.evaluate("document.querySelector('input[type=file]')?.files?.length")
             assert file_input_count_after_reload == 0
@@ -277,6 +292,8 @@ with sync_playwright() as playwright:
             expected = wait_for("host-ready.json")
             if args.visibility == "protected":
                 page.goto(expected["invitation"])
+                if zoom_worker:
+                    zoom_receipt = browser_zoom(page, zoom_worker, 2)
                 page.get_by_role("button", name="Join room", exact=True).click()
                 page.get_by_label("Room password").fill("blue-sky-room")
                 page.locator(".room-password-dialog").get_by_role("button", name="Join room", exact=True).click()
@@ -393,7 +410,9 @@ with sync_playwright() as playwright:
             "resumed_frames": page.evaluate("proof.frameCount"),
             "controller_ram": controller_ram,
             "direct_without_notice": direct_without_notice,
-            "browser": browser.version,
+            "browser": browser.version if browser else "chromium persistent context",
+            "zoom": zoom_receipt,
+            "zoom_verified": verify_zoom(zoom_worker, zoom_receipt) if zoom_worker and zoom_receipt else None,
             "elapsed_seconds": round(time.monotonic() - started, 2),
             "page_errors": errors,
             "rom_argument_received": args.rom is not None,
@@ -429,5 +448,3 @@ with sync_playwright() as playwright:
             "page_errors": errors,
         })
         raise
-    finally:
-        browser.close()
