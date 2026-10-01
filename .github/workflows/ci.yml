@@ -29,7 +29,9 @@ jobs:
           if [ "${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}" = true ]; then
             python3 spikes/d02/ci_budget.py watch --gate preflight
           else
-            python3 spikes/d02/ci_budget.py watch --gate entrypoint --gate images
+            python3 spikes/d02/ci_budget.py watch \
+              --gate entrypoint-journey --gate entrypoint-controls \
+              --gate entrypoint-ui --gate entrypoint-layout --gate images
           fi
   build:
     runs-on: ubuntu-latest
@@ -74,9 +76,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   entrypoint:
+    name: entrypoint-${{ matrix.suite }}
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [journey, controls, ui, layout]
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
     steps:
@@ -95,12 +102,12 @@ jobs:
         with:
           node-version-file: .node-version
       - name: Verify the documented browser journey within five minutes
-        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh entrypoint
+        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh entrypoint-${{ matrix.suite }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         timeout-minutes: 1
         with:
-          name: public-entrypoint
+          name: public-entrypoint-${{ matrix.suite }}
           path: spikes/d02/public-entrypoint.local/**
           if-no-files-found: warn
           retention-days: 7
