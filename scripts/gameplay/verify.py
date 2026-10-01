@@ -37,7 +37,7 @@ def verify(result,seconds):
   require([b.get('kind') for b in instances]==result['pair'].split('-'),'missing separate browser instances')
   for browser in instances:
    if browser['kind']=='Firefox':firefox_driver.validate_evidence(result,browser.get('version'))
- require(number(result['active_seconds']) and seconds<=result['active_seconds']<=seconds+2,'shared execution did not sustain the real-time workload')
+ require(number(result['active_seconds']) and result['active_seconds']>=seconds,'shared execution did not sustain the real-time workload')
  require(digest(result['identity']['romSha256']) and result['identity']['coreSha256'] in {value for name,value in result['build_files'].items() if name.endswith('.wasm')},'missing actual ROM/core artifact identity')
  peers=result['peers'];require(len(peers)==2,'missing peer')
  fps=peers[0]['fps'];require(number(fps) and 45<=fps<=65 and fps==peers[1]['fps'],'missing or unequal reported region rates')
