@@ -6,7 +6,7 @@ import subprocess
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, control_visibility, verify_zoom, zoom_context
+from layout_geometry import GeometryRecorder, browser_zoom, control_visibility, verify_zoom, zoom_context
 
 parser=argparse.ArgumentParser();parser.add_argument('--chrome',action='store_true');parser.add_argument('--output',default='chat.local.json');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];output=Path(args.output);started=time.monotonic()
@@ -19,7 +19,7 @@ try:
         def page(address=url):
             page=browser.new_page(viewport={'width':1280,'height':1000});page.on('pageerror',lambda error:errors.append(str(error)))
             page.context.grant_permissions(['clipboard-read','clipboard-write'])
-            page.add_init_script('''window.chatProof={errors:[],requests:{},events:[],sent:[]};window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(data.type==='room')chatProof.room=data.room;chatProof.events.push(data.type==='result'&&data.data?.chatAck?'chatAck':data.type);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}send(raw){const data=JSON.parse(raw);chatProof.sent.push(data.type);chatProof.requests[data.requestId]=data.type;return super.send(raw)}};
+            page.add_init_script('''window.chatProof={errors:[],requests:{},events:[],sent:[]};window.chatSockets=[];window.holdChatReplies=false;window.heldChatReplies=[];window.releaseChatReplies=()=>{holdChatReplies=false;for(const {socket,data} of heldChatReplies.splice(0))socket.dispatchEvent(new MessageEvent('message',{data}))};const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this);this.addEventListener('message',event=>{const data=JSON.parse(event.data);if(data.type==='room')chatProof.room=data.room;chatProof.events.push(data.type==='result'&&data.data?.chatAck?'chatAck':data.type);if(data.type==='result'&&!data.ok)chatProof.errors.push({type:chatProof.requests[data.requestId],error:data.error,retryAfterMs:data.retryAfterMs});if(window.holdChatReplies && (data.type==='chat' || data.data?.chatAck)){heldChatReplies.push({socket:this,data:event.data});event.stopImmediatePropagation()}if(window.dropChatReplies && (data.type==='chat' || data.data?.chatAck))event.stopImmediatePropagation()})}send(raw){const data=JSON.parse(raw);chatProof.sent.push(data.type);chatProof.requests[data.requestId]=data.type;return super.send(raw)}};
     window.chatPcs=[];window.failPeerSetup=false;const NativePeer=RTCPeerConnection;window.RTCPeerConnection=class extends NativePeer{constructor(config){if(window.failPeerSetup)throw Error('Peer setup blocked by test');super(config);chatPcs.push(this)}};
 window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.postMessage=function(message,...rest){if(message.type==='frame')inputProof.push(message.p1);return post.call(this,message,...rest)};''')
             page.goto(address);return page
@@ -161,7 +161,8 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         send(play_guest,'chat during shared play')
         play_host.locator('.chat-panel').get_by_text('chat during shared play',exact=True).wait_for(state='attached')
         assert geometry(play_host)==playing_geometry,(playing_geometry,geometry(play_host))
-        def check_profile(tab,label,zoom=None,zoom_worker=None):
+        profile_regions='.room-panel, .room-detail-scroll, .chat-panel, .chat-log-region, .chat-panel form, .chat-panel textarea, .chat-action-slot, .chat-feedback-slot, .chat-connection-slot'
+        def check_profile(tab,label,zoom=None,zoom_worker=None,record_pending=False):
             tab.get_by_role('button',name='Create game',exact=True).click()
             tab.set_input_files('input[type=file]',{'name':f'{label}-chat.nes','mimeType':'application/octet-stream','buffer':rom})
             tab.get_by_role('button',name='Create room',exact=True).click()
@@ -175,29 +176,64 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
             editor_visibility=control_visibility(editor,require_focus=True)
             before=geometry(tab)
             tab.screenshot(path=str(output.with_suffix(f'.{label}-before.png')))
-            send_button.click();tab.locator('.chat-panel').get_by_text('profile message',exact=True).wait_for(state='attached')
+            pending=[]
+            if record_pending:
+                send_record=GeometryRecorder(tab,f'{label}-pending-send',profile_regions)
+                send_record.mark('before-send')
+                tab.evaluate('holdChatReplies=true')
+            send_button.click()
+            if record_pending:
+                tab.locator('.chat-feedback-slot').get_by_text('Sending…',exact=True).wait_for()
+                send_record.mark('sending')
+                tab.screenshot(path=str(output.with_suffix(f'.{label}-sending.png')))
+                tab.wait_for_timeout(100)
+                tab.evaluate('releaseChatReplies()')
+                tab.locator('.chat-feedback-slot').get_by_text('Sending…',exact=True).wait_for(state='detached')
+                send_record.mark('delivered')
+                pending.append(send_record.finish(output.with_suffix(f'.{label}-pending-send.json'),required=('chat-panel','chat-action-slot','chat-feedback-slot')))
+            tab.locator('.chat-panel').get_by_text('profile message',exact=True).wait_for(state='attached')
             assert geometry(tab)==before,(label,'first message',before,geometry(tab))
+            if record_pending:
+                retry_record=GeometryRecorder(tab,f'{label}-pending-reconnect',profile_regions)
+                retry_record.mark('before-disconnect')
             tab.evaluate('chatSockets.at(-1).close()')
             tab.get_by_role('button',name='Reconnect rooms',exact=True).wait_for()
-            open_chat(tab);editor.fill('profile retry');send_button.click()
+            if record_pending:retry_record.mark('disconnected')
+            open_chat(tab)
+            if record_pending:retry_record.allow_user_scroll(True)
+            editor.fill('profile retry');send_button.click()
+            if record_pending:retry_record.allow_user_scroll(False)
             retry=tab.get_by_role('button',name='Retry message',exact=True);retry.wait_for()
+            if record_pending:retry_record.mark('send-failed')
             assert geometry(tab)==before,(label,'recovery',before,geometry(tab))
+            if record_pending:retry_record.allow_user_scroll(True)
             tab.get_by_role('button',name='Reconnect rooms',exact=True).click()
+            if record_pending:retry_record.allow_user_scroll(False);retry_record.mark('reconnecting')
             tab.wait_for_function("[...document.querySelectorAll('button')].some(button=>button.textContent==='Retry message' && !button.disabled)")
+            if record_pending:
+                retry_record.mark('retry-available')
+                pending.append(retry_record.finish(output.with_suffix(f'.{label}-pending-reconnect.json'),required=('chat-panel','chat-action-slot','chat-feedback-slot')))
             retry.focus();retry_visibility=control_visibility(retry,require_focus=True)
             tab.keyboard.press('Tab')
             discard_visibility=control_visibility(tab.get_by_role('button',name='Discard message',exact=True),require_focus=True)
             tab.keyboard.press('Shift+Tab');control_visibility(retry,require_focus=True)
             tab.screenshot(path=str(output.with_suffix(f'.{label}-recovery.png')))
+            if label=='effective-320':
+                tab.keyboard.press('Tab');tab.keyboard.press('Tab')
+                feedback=tab.locator('.chat-feedback-slot')
+                control_visibility(feedback,require_focus=True)
+                tab.keyboard.press('End')
+                assert feedback.evaluate('node=>node.scrollHeight<=node.clientHeight || node.scrollTop>0')
+                tab.screenshot(path=str(output.with_suffix('.effective-320-feedback.png')))
             retry.click();tab.locator('.chat-panel').get_by_text('profile retry',exact=True).wait_for(state='attached')
             assert geometry(tab)==before,(label,'retried',before,geometry(tab))
             if zoom_worker:assert verify_zoom(zoom_worker,zoom)==2
             return {'label':label,'viewport':tab.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio})'),
                 'geometry':before,'send_visible':send_visibility['visible'],'editor_visible':editor_visibility['visible'],
                 'retry_visible':retry_visibility['visible'],'discard_visible':discard_visibility['visible'],
-                'keyboard_forward_reverse':True,'first_message_recovery_and_retry_fixed':True,'zoom':zoom}
+                'keyboard_forward_reverse':True,'first_message_recovery_and_retry_fixed':True,'pending':pending,'zoom':zoom}
         short=page();short.set_viewport_size({'width':1024,'height':600})
-        profiles=[check_profile(short,'short')]
+        profiles=[check_profile(short,'short',record_pending=True)]
         with zoom_context(p,{'width':1280,'height':800}) as (zoom_browser,worker):
             zoom_tab=zoom_browser.new_page()
             zoom_browser.grant_permissions(['clipboard-read','clipboard-write'])
@@ -205,6 +241,13 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
             zoom_tab.goto(url)
             zoom=browser_zoom(zoom_tab,worker)
             profiles.append(check_profile(zoom_tab,'zoom-200',zoom,worker))
+        with zoom_context(p,{'width':640,'height':800}) as (narrow_browser,worker):
+            narrow_tab=narrow_browser.new_page()
+            narrow_browser.grant_permissions(['clipboard-read','clipboard-write'])
+            narrow_tab.add_init_script("window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this)}}")
+            narrow_tab.goto(url)
+            zoom=browser_zoom(narrow_tab,worker)
+            profiles.append(check_profile(narrow_tab,'effective-320',zoom,worker))
         assert not errors,errors
         result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_failure_keeps_chat_usable':True,'rejoin_clears_chat':True,'fixed_chat_through_play':True,'layout_profiles':profiles,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()
