@@ -40,7 +40,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .waiting-room{grid-template-rows:auto minmax(0,1fr)}.waiting-room>.directory-panel,.waiting-room>.panel{display:none}.waiting-room>.room-panel{grid-row:2;display:grid;grid-template-rows:3rem minmax(0,1fr);gap:6px;overflow:hidden;margin:0;min-height:0;padding:16px 22px}.waiting-room .room-detail-scroll{grid-row:2;min-height:0;overflow:auto;scroll-padding:8px}.waiting-room .room-panel h2{margin-top:0}.waiting-room .room-panel .chat-panel{max-width:640px}.waiting-room .room-panel .chat-panel ol{max-height:8rem}
 .waiting-room .room-panel{max-width:100%;}.waiting-room .room-panel h2 small{font-size:14px;font-weight:400;color:#aeb0c5}/* Slot identities and action/status cells survive member and role changes. */
 @media(min-width:901px){
- .waiting-room .host-waiting .room-detail-scroll{display:grid;grid-template-columns:minmax(0,760px) minmax(220px,1fr);grid-template-rows:3.5rem 3rem 5.5rem 7rem 10rem;column-gap:24px;align-content:start}
+ .waiting-room .host-waiting .room-detail-scroll{display:grid;grid-template-columns:minmax(0,760px) minmax(220px,1fr);grid-template-rows:3.5rem 3rem 5.5rem 7rem 13rem;column-gap:24px;align-content:start}
  .waiting-room .host-waiting .room-slots{grid-column:1;grid-row:1/6;margin:0}
  .waiting-room .host-waiting [data-layout-region=readiness-actions]{grid-column:2;grid-row:1}
  .waiting-room .host-waiting [data-layout-region=invite-actions]{grid-column:2;grid-row:2}
@@ -49,7 +49,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
  .waiting-room .host-waiting .room-start,.waiting-room .host-waiting .room-invite,.waiting-room .host-waiting .room-leave-actions{margin:0}
  .waiting-room .host-waiting .room-detail-scroll>:not(.room-slots):not([data-layout-region=readiness-actions]):not([data-layout-region=invite-actions]):not([data-layout-region=start-actions]):not([data-layout-region=leave-actions]){grid-column:1/-1}
 }
-.room-slots{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;max-width:760px;margin:8px 0}
+.room-slots{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(5,5.5rem) 2.5rem;align-content:start;gap:6px;max-width:760px;margin:8px 0}
 .member-acquisition{height:5.5rem;max-width:760px;overflow:auto;scrollbar-gutter:stable}
 .member-acquisition.quiet{visibility:hidden}
 .waiting-room [data-layout-region=readiness-actions]{height:3.5rem;overflow:auto}
