@@ -200,6 +200,12 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
             tab.get_by_role('button',name='Reconnect rooms',exact=True).wait_for()
             if record_pending:retry_record.mark('disconnected')
             open_chat(tab)
+            if label=='effective-320':
+                connection=tab.locator('.chat-connection-slot')
+                connection.focus();control_visibility(connection,require_focus=True)
+                tab.keyboard.press('End')
+                assert connection.evaluate('node=>node.scrollHeight<=node.clientHeight || node.scrollTop>0')
+                tab.screenshot(path=str(output.with_suffix('.effective-320-connection.png')))
             if record_pending:retry_record.allow_user_scroll(True)
             editor.fill('profile retry');send_button.click()
             if record_pending:retry_record.allow_user_scroll(False)

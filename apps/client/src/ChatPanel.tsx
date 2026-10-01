@@ -19,6 +19,6 @@ export function ChatPanel({state,connected,onDraft,onSend,onDiscard}:{state:Chat
    <div className="chat-action-slot">{!state.outbox?<button disabled={!validChatText(state.draft)} type="submit">Send message</button>:!state.sending&&<><button type="button" disabled={!connected || wait>0} onClick={onSend}>Retry message</button><button type="button" onClick={onDiscard}>Discard message</button></>}</div>
    <div className="chat-feedback-slot" role="status" aria-label="Chat delivery status" tabIndex={count>CHAT_LIMITS.characters||state.outbox?0:-1}>{count>CHAT_LIMITS.characters&&<p>Messages can contain at most {CHAT_LIMITS.characters} characters.</p>}{state.outbox&&(state.sending?<p>Sending…</p>:<p>Not sent or delivery unconfirmed. {state.outbox.error} {wait ? `Retry in ${wait} seconds.`:''}</p>)}</div>
   </form>
-  <div className="chat-connection-slot" aria-label="Chat connection status" tabIndex={connected?-1:0}>{!connected && <p role="status">Chat disconnected. Reconnect rooms, then retry any unsent message.</p>}</div>
+  <div className="chat-connection-slot" role={connected?undefined:'region'} aria-label={connected?undefined:'Chat connection status'} tabIndex={connected?-1:0}>{!connected && <p role="status">Chat disconnected. Reconnect rooms, then retry any unsent message.</p>}</div>
  </section>;
 }
