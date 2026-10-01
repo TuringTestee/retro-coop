@@ -76,6 +76,7 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
       timeout --foreground 90s python3 scripts/rooms/waiting_recovery_layout_browser.py --output spikes/d02/public-entrypoint.local/waiting-recovery & waiting_pid=$!
       wait "$pages_pid"
       wait "$waiting_pid"
+      timeout --foreground 60s python3 scripts/rooms/chat_smoke.py --output spikes/d02/public-entrypoint.local/chat-layout.json
       ;;
     entrypoint-layout)
       timeout --foreground 90s python3 scripts/rooms/player_loading_layout_browser.py --output spikes/d02/public-entrypoint.local/player-loading & layout_pid=$!

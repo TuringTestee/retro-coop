@@ -6,6 +6,7 @@ import subprocess
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from layout_geometry import control_visibility
 
 parser=argparse.ArgumentParser();parser.add_argument('--chrome',action='store_true');parser.add_argument('--output',default='chat.local.json');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];output=Path(args.output);started=time.monotonic()
@@ -28,9 +29,19 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         def open_chat(tab):
             panel=open_room(tab)
             disclosure=panel.locator('details.chat-disclosure')
-            if disclosure.count():disclosure.evaluate('(node)=>node.open=true')
+            if disclosure.count() and not disclosure.evaluate('(node)=>node.open'):
+                disclosure.locator('summary').click()
             panel.locator('.chat-panel').wait_for();return panel
+        def geometry(tab):
+            return tab.locator('.chat-panel').evaluate('''panel=>{
+              const relative=node=>{const a=node.getBoundingClientRect(),b=panel.getBoundingClientRect();
+                return {top:a.top-b.top,width:a.width,height:a.height}};
+              return {list:relative(panel.querySelector('.chat-log-region')),form:relative(panel.querySelector('form')),
+                textarea:relative(panel.querySelector('textarea')),connection:relative(panel.querySelector('.chat-connection-slot'))};
+            }''')
         host=page();host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_test_id('room-view').wait_for(state='attached');open_chat(host)
+        empty_geometry=geometry(host)
+        host.locator('.chat-panel').screenshot(path=str(output.with_suffix('.empty.png')))
         def send(page,text):
             open_chat(page);message=page.get_by_label('Chat message',exact=True);message.fill(text);assert message.input_value()==text
             button=page.get_by_role('button',name='Send message',exact=True);button.wait_for();assert button.is_enabled();sent=page.evaluate("chatProof.sent.filter(type=>type==='chat').length");button.click()
@@ -39,6 +50,8 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
                 print(json.dumps({'failed':'send action','value':message.input_value(),'buttons':page.get_by_role('button').all_text_contents(),'panelVisible':page.locator('.room-panel').is_visible(),'chatVisible':page.locator('.chat-panel').is_visible(),'mainClass':page.locator('main').get_attribute('class'),'statuses':page.locator('[role=status]').all_text_contents(),'sent':page.evaluate('chatProof.sent')}),flush=True);raise
             page.locator('.chat-panel li p').filter(has_text=text).wait_for(state='attached')
         send(host,'only before join')
+        assert geometry(host)==empty_geometry,(empty_geometry,geometry(host))
+        host.locator('.chat-panel').screenshot(path=str(output.with_suffix('.first-message.png')))
 
         host.get_by_role('button',name='Copy invite',exact=True).click();invite=host.evaluate('navigator.clipboard.readText()');guest=page(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');host.wait_for_function("chatProof.room?.slots[1].member?.id&&document.querySelectorAll('[data-testid=room-slot]').length===5")
         for tab in [host,guest]:tab.wait_for_function("chatProof.room?.peers[0]?.status==='connected'")
@@ -60,11 +73,25 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         host.get_by_label('Chat message',exact=True).fill('a'*501);assert host.get_by_role('button',name='Send message',exact=True).is_disabled()
         # Consume five-message budget including earlier messages, then preserve rejected text.
         for i in range(3):send(guest,f'bounded {i}')
+        log=host.locator('.chat-log-region ol')
+        assert log.evaluate('node=>node.scrollHeight>node.clientHeight')
+        log.evaluate('node=>{node.scrollTop=0;node.dispatchEvent(new Event("scroll"))}')
+        host_before_unread=geometry(host)
+        guest.set_viewport_size({'width':400,'height':900})
+        guest_before_rejection=geometry(guest)
         guest.get_by_label('Chat message',exact=True).fill('retry after limit');guest.get_by_role('button',name='Send message',exact=True).click()
         retry=guest.get_by_role('button',name='Retry message',exact=True);retry.wait_for();assert retry.is_disabled()
+        assert geometry(guest)==guest_before_rejection,(guest_before_rejection,geometry(guest))
+        control_visibility(retry)
+        guest.locator('.chat-panel').screenshot(path=str(output.with_suffix('.retry-mobile.png')))
         assert guest.get_by_label('Chat message',exact=True).input_value()=='retry after limit'
         guest.wait_for_function("[...document.querySelectorAll('button')].some(button=>button.textContent==='Retry message' && !button.disabled)",timeout=15000)
         retry.click();guest.locator('.chat-panel').get_by_text('retry after limit',exact=True).wait_for(state='attached')
+        host.get_by_role('button',name='New messages · Jump to latest',exact=True).wait_for()
+        assert geometry(host)==host_before_unread,(host_before_unread,geometry(host))
+        host.locator('.chat-panel').screenshot(path=str(output.with_suffix('.unread.png')))
+        host.get_by_role('button',name='New messages · Jump to latest',exact=True).click()
+        assert geometry(host)==host_before_unread,(host_before_unread,geometry(host))
         guest.wait_for_function("document.querySelector('#chat-message').readOnly===false")
         assert host.locator('.chat-panel').get_by_text('retry after limit',exact=True).count()==1
         # No automatic reconnect/send. Unsent draft survives actual socket loss until explicit retry.
@@ -104,8 +131,33 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         guest.get_by_role('button',name='Send message',exact=True).click()
         host.locator('.chat-panel').get_by_text('text survives peer denial',exact=True).wait_for(state='attached')
         open_room(guest).get_by_role('button',name='Leave room',exact=True).click();guest.locator('.chat-panel').wait_for(state='detached')
-        guest.goto(invite);guest.get_by_role('button',name='Join room',exact=True).click();open_chat(guest);guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
+        guest.goto(invite);guest.get_by_role('button',name='Join room',exact=True).click();guest.get_by_test_id('room-view').wait_for(state='attached');open_chat(guest);guest.locator('.chat-panel').wait_for();assert guest.locator('.chat-panel li').count()==0
+        play_host=page();play_host.get_by_role('button',name='Create game',exact=True).click()
+        play_host.set_input_files('input[type=file]',{'name':'playing-chat.nes','mimeType':'application/octet-stream','buffer':rom})
+        play_host.get_by_role('button',name='Create room',exact=True).click()
+        play_host.get_by_role('button',name='Copy invite',exact=True).click()
+        play_invite=play_host.evaluate('navigator.clipboard.readText()')
+        play_guest=page(play_invite);play_guest.get_by_role('button',name='Join room',exact=True).click()
+        for tab in (play_host,play_guest):tab.wait_for_function("chatProof.room?.peers[0]?.status==='connected'")
+        play_guest.get_by_role('button',name='Ready',exact=True).click()
+        play_host.get_by_role('button',name='Ready',exact=True).click()
+        play_host.get_by_role('button',name='Start game',exact=True).click()
+        for tab in (play_host,play_guest):
+            try:tab.locator('main.playing.with-room').wait_for(timeout=10000)
+            except Exception:
+                print(json.dumps({'playing_chat_setup':[
+                    {'main':peer.locator('main').get_attribute('class'),
+                     'game':peer.evaluate('chatProof.room?.game'),
+                     'status':peer.locator('[data-testid=game-status]').all_text_contents(),
+                     'room_text':peer.locator('.room-panel').inner_text()[:500]}
+                    for peer in (play_host,play_guest)],'errors':errors}),flush=True)
+                raise
+        open_chat(play_host);open_chat(play_guest)
+        playing_geometry=geometry(play_host)
+        send(play_guest,'chat during shared play')
+        play_host.locator('.chat-panel').get_by_text('chat during shared play',exact=True).wait_for(state='attached')
+        assert geometry(play_host)==playing_geometry,(playing_geometry,geometry(play_host))
         assert not errors,errors
-        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_failure_keeps_chat_usable':True,'rejoin_clears_chat':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
+        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_failure_keeps_chat_usable':True,'rejoin_clears_chat':True,'fixed_chat_through_play':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()
 finally:service.terminate();service.wait(timeout=5)
