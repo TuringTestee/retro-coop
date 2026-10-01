@@ -6,7 +6,7 @@ import subprocess
 import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from layout_geometry import control_visibility
+from layout_geometry import browser_zoom, control_visibility, verify_zoom, zoom_context
 
 parser=argparse.ArgumentParser();parser.add_argument('--chrome',action='store_true');parser.add_argument('--output',default='chat.local.json');args=parser.parse_args()
 root=Path(__file__).resolve().parents[2];output=Path(args.output);started=time.monotonic()
@@ -34,10 +34,14 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
             panel.locator('.chat-panel').wait_for();return panel
         def geometry(tab):
             return tab.locator('.chat-panel').evaluate('''panel=>{
-              const relative=node=>{const a=node.getBoundingClientRect(),b=panel.getBoundingClientRect();
-                return {top:a.top-b.top,width:a.width,height:a.height}};
-              return {list:relative(panel.querySelector('.chat-log-region')),form:relative(panel.querySelector('form')),
-                textarea:relative(panel.querySelector('textarea')),connection:relative(panel.querySelector('.chat-connection-slot'))};
+              const bounds=node=>{const r=node.getBoundingClientRect();let x=r.x+scrollX,y=r.y+scrollY;
+                for(let p=node.parentElement;p;p=p.parentElement){x+=p.scrollLeft;y+=p.scrollTop}
+                return {x,y,width:r.width,height:r.height}};
+              return {panel:bounds(panel),list:bounds(panel.querySelector('.chat-log-region')),
+                form:bounds(panel.querySelector('form')),textarea:bounds(panel.querySelector('textarea')),
+                actions:bounds(panel.querySelector('.chat-action-slot')),
+                feedback:bounds(panel.querySelector('.chat-feedback-slot')),
+                connection:bounds(panel.querySelector('.chat-connection-slot'))};
             }''')
         host=page();host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'private-chat-host.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_test_id('room-view').wait_for(state='attached');open_chat(host)
         empty_geometry=geometry(host)
@@ -157,7 +161,51 @@ window.inputProof=[];const post=Worker.prototype.postMessage;Worker.prototype.po
         send(play_guest,'chat during shared play')
         play_host.locator('.chat-panel').get_by_text('chat during shared play',exact=True).wait_for(state='attached')
         assert geometry(play_host)==playing_geometry,(playing_geometry,geometry(play_host))
+        def check_profile(tab,label,zoom=None,zoom_worker=None):
+            tab.get_by_role('button',name='Create game',exact=True).click()
+            tab.set_input_files('input[type=file]',{'name':f'{label}-chat.nes','mimeType':'application/octet-stream','buffer':rom})
+            tab.get_by_role('button',name='Create room',exact=True).click()
+            open_chat(tab)
+            editor=tab.get_by_label('Chat message',exact=True)
+            editor.fill('profile message')
+            editor.focus();tab.keyboard.press('Tab')
+            send_button=tab.get_by_role('button',name='Send message',exact=True)
+            send_visibility=control_visibility(send_button,require_focus=True)
+            tab.keyboard.press('Shift+Tab')
+            editor_visibility=control_visibility(editor,require_focus=True)
+            before=geometry(tab)
+            tab.screenshot(path=str(output.with_suffix(f'.{label}-before.png')))
+            send_button.click();tab.locator('.chat-panel').get_by_text('profile message',exact=True).wait_for(state='attached')
+            assert geometry(tab)==before,(label,'first message',before,geometry(tab))
+            tab.evaluate('chatSockets.at(-1).close()')
+            tab.get_by_role('button',name='Reconnect rooms',exact=True).wait_for()
+            open_chat(tab);editor.fill('profile retry');send_button.click()
+            retry=tab.get_by_role('button',name='Retry message',exact=True);retry.wait_for()
+            assert geometry(tab)==before,(label,'recovery',before,geometry(tab))
+            tab.get_by_role('button',name='Reconnect rooms',exact=True).click()
+            tab.wait_for_function("[...document.querySelectorAll('button')].some(button=>button.textContent==='Retry message' && !button.disabled)")
+            retry.focus();retry_visibility=control_visibility(retry,require_focus=True)
+            tab.keyboard.press('Tab')
+            discard_visibility=control_visibility(tab.get_by_role('button',name='Discard message',exact=True),require_focus=True)
+            tab.keyboard.press('Shift+Tab');control_visibility(retry,require_focus=True)
+            tab.screenshot(path=str(output.with_suffix(f'.{label}-recovery.png')))
+            retry.click();tab.locator('.chat-panel').get_by_text('profile retry',exact=True).wait_for(state='attached')
+            assert geometry(tab)==before,(label,'retried',before,geometry(tab))
+            if zoom_worker:assert verify_zoom(zoom_worker,zoom)==2
+            return {'label':label,'viewport':tab.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio})'),
+                'geometry':before,'send_visible':send_visibility['visible'],'editor_visible':editor_visibility['visible'],
+                'retry_visible':retry_visibility['visible'],'discard_visible':discard_visibility['visible'],
+                'keyboard_forward_reverse':True,'first_message_recovery_and_retry_fixed':True,'zoom':zoom}
+        short=page();short.set_viewport_size({'width':1024,'height':600})
+        profiles=[check_profile(short,'short')]
+        with zoom_context(p,{'width':1280,'height':800}) as (zoom_browser,worker):
+            zoom_tab=zoom_browser.new_page()
+            zoom_browser.grant_permissions(['clipboard-read','clipboard-write'])
+            zoom_tab.add_init_script("window.chatSockets=[];const OriginalSocket=WebSocket;window.WebSocket=class extends OriginalSocket{constructor(...args){super(...args);chatSockets.push(this)}}")
+            zoom_tab.goto(url)
+            zoom=browser_zoom(zoom_tab,worker)
+            profiles.append(check_profile(zoom_tab,'zoom-200',zoom,worker))
         assert not errors,errors
-        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_failure_keeps_chat_usable':True,'rejoin_clears_chat':True,'fixed_chat_through_play':True,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
+        result={'pre_rom_chat':True,'no_pre_join_history':True,'plain_text_not_html':True,'typing_releases_game_input':True,'oversize_disabled':True,'rate_limit_retains_text_countdown_and_explicit_retry':True,'socket_loss_no_automatic_duplicate':True,'lost_event_and_ack_retry_has_no_duplicate':True,'narrow_no_overflow':True,'peer_failure_keeps_chat_usable':True,'rejoin_clears_chat':True,'fixed_chat_through_play':True,'layout_profiles':profiles,'page_errors':errors,'elapsedSeconds':round(time.monotonic()-started,2)}
         output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result));browser.close()
 finally:service.terminate();service.wait(timeout=5)
