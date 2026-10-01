@@ -216,6 +216,7 @@ with contextlib.ExitStack() as stack:
     if all(value==retried[0] for value in retried):break
     assert time.monotonic()<deadline,retried
     time.sleep(.05)
+   host.locator('[data-slot-id=slot-5]').scroll_into_view_if_needed()
    host.screenshot(path=str(out.with_suffix('.role-retried.png')))
    # An active owner's reload preserves membership, pauses authority, and imports
    # its current state before the same owner resumes.
