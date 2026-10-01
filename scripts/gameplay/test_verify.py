@@ -51,6 +51,11 @@ class GameplayEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'wrong workload'):
             verify(self.record, 600)
 
+    def test_delayed_browser_wakeup_does_not_invalidate_completed_workload(self):
+        record = copy.deepcopy(self.record)
+        record['active_seconds'] = 33.47
+        verify(record, 30)
+
     def test_full_firefox_workload_requires_official_build(self):
         record=copy.deepcopy(self.record)
         record['target_seconds']=600
