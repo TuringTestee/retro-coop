@@ -56,14 +56,13 @@ Resources:
                 Condition:
                   StringLike:
                     cloudformation:ChangeSetName: five-slot-relay-*
-              - Sid: UseReviewedRelayChange
+              # Execute/Delete with a returned ARN do not reliably carry the
+              # ChangeSetName condition; the existing stack is the IAM boundary.
+              - Sid: UseExistingFoundationChangeSet
                 Effect: Allow
                 Action: [cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet,
                          cloudformation:DeleteChangeSet]
                 Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/retro-coop-website-foundation/*
-                Condition:
-                  StringLike:
-                    cloudformation:ChangeSetName: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:changeSet/five-slot-relay-*/*
               - Sid: ReadSecurityGroup
                 Effect: Allow
                 Action: ec2:DescribeSecurityGroups

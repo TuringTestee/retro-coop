@@ -116,6 +116,29 @@ class RelayMigrationTests(unittest.TestCase):
             if not unsafe:
                 self.assertEqual(operations[-1], 'describe-security-groups')
 
+    def test_cleanup_failure_preserves_the_original_deployment_error(self):
+        old = copy.deepcopy(self.group)
+        old['IpPermissions'][-1]['ToPort'] = 49175
+        def fake_aws(*args):
+            operation = args[1]
+            if operation == 'describe-stacks':
+                return {'Stacks': [{'StackStatus': 'UPDATE_COMPLETE',
+                    'Outputs': [{'OutputKey': 'AppSecurityGroupId', 'OutputValue': 'sg-existing'}],
+                    'Parameters': []}]}
+            if operation == 'describe-security-groups':
+                return {'SecurityGroups': [old]}
+            if operation == 'create-change-set':
+                return {'Id': 'change-existing-stack'}
+            if operation == 'describe-change-set':
+                raise RuntimeError('primary execute-path denial')
+            if operation == 'delete-change-set':
+                raise RuntimeError('cleanup denial')
+            self.fail(f'unexpected AWS operation: {operation}')
+        with patch.object(relay_capacity, 'aws', fake_aws), patch('sys.argv', ['relay_capacity.py', '--apply']):
+            with self.assertRaisesRegex(RuntimeError, 'primary execute-path denial') as caught:
+                relay_capacity.main()
+        self.assertIn('cleanup denial', ' '.join(caught.exception.__notes__))
+
     def test_exact_live_ports_required(self):
         verify_ingress(self.group)
         for mode in ['old_range', 'ssh', 'ipv6', 'private', 'empty']:
