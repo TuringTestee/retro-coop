@@ -139,6 +139,29 @@ class RelayMigrationTests(unittest.TestCase):
                 relay_capacity.main()
         self.assertIn('cleanup denial', ' '.join(caught.exception.__notes__))
 
+    def test_dry_run_deletes_its_unexecuted_change_set(self):
+        old = copy.deepcopy(self.group)
+        old['IpPermissions'][-1]['ToPort'] = 49175
+        calls = []
+        def fake_aws(*args):
+            operation = args[1]
+            calls.append(operation)
+            if operation == 'describe-stacks':
+                return {'Stacks': [{'StackStatus': 'UPDATE_COMPLETE',
+                    'Outputs': [{'OutputKey': 'AppSecurityGroupId', 'OutputValue': 'sg-existing'}],
+                    'Parameters': []}]}
+            if operation == 'describe-security-groups':
+                return {'SecurityGroups': [old]}
+            if operation == 'create-change-set':
+                return {'Id': 'change-existing-stack'}
+            if operation == 'describe-change-set':
+                return {'Status': 'CREATE_COMPLETE', 'Changes': [self.change]}
+            return {}
+        with patch.object(relay_capacity, 'aws', fake_aws), patch('sys.argv', ['relay_capacity.py']), patch('builtins.print'):
+            relay_capacity.main()
+        self.assertEqual(calls[-1], 'delete-change-set')
+        self.assertNotIn('execute-change-set', calls)
+
     def test_exact_live_ports_required(self):
         verify_ingress(self.group)
         for mode in ['old_range', 'ssh', 'ipv6', 'private', 'empty']:
