@@ -9,7 +9,7 @@ type Spec=Extract<GameEvent,{type:'gameCheckpoint'}>;
 type Capture=Awaited<ReturnType<LocalPlayer['exportPeerCheckpoint']>>;
 type Outgoing={request:Extract<GameEvent,{type:'gameCapture'}>;capture?:Capture;digest?:string;spec?:Spec;timer:ReturnType<typeof setTimeout>;cursor?:number;sending?:boolean;exporting?:boolean};
 type Link={epoch:string;channel:RTCDataChannel;roundTripMs:number;checkpoint?:RTCDataChannel;live:boolean};
-export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;synchronizing?:boolean;intent?:boolean;observing?:boolean};
+export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;synchronizing?:boolean;intent?:boolean;observing?:boolean;preparationError?:string};
 /** One local emulator; the authority owns at most four independently bounded replica links. */
 export class GameClient {
  private room?:RoomView;private file?:Fingerprint;private intent=false;private serial=0;private offered?:string;private offering=false;
@@ -29,13 +29,13 @@ export class GameClient {
  private loaded(){return !!this.room&&!!this.file&&this.room.matches&&matchesFile(this.room.fingerprint,this.file)&&!!this.player()?.isLoaded(this.file);}
  enter(room?:RoomView){
   const prior=this.room;if(prior&&(!room||room.id!==prior.id||room.chatMembership!==prior.chatMembership))this.clear('Room membership changed. Your game is preserved.',true);
-  if(room&&(!prior||room.id!==prior.id||room.chatMembership!==prior.chatMembership)){this.intent=false;this.offered=undefined;this.publish({intent:false});}
+  if(room&&(!prior||room.id!==prior.id||room.chatMembership!==prior.chatMembership)){this.intent=false;this.offered=undefined;this.publish({intent:false,preparationError:undefined});}
   this.room=room;if(!room)return;
   // A room revision can change the roster or roles while a local checksum is
   // still being prepared. That earlier click does not authorize a new offer.
   if(prior&&prior.id===room.id&&prior.chatMembership===room.chatMembership&&prior.revision!==room.revision&&!room.started){
    ++this.serial;this.intent=false;this.offered=undefined;this.offering=false;
-   this.publish({intent:false,busy:false,status:'Room changed. Choose Ready again.'});
+   this.publish({intent:false,busy:false,preparationError:undefined,status:'Room changed. Choose Ready again.'});
   }
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
   if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;}
@@ -44,8 +44,8 @@ export class GameClient {
   if(room.game.status==='playing'&&this.observerSlot()&&!this.authority()&&this.loaded()&&!this.scheduler&&!this.incoming&&!this.observeRequested)this.observe();
   if(this.intent&&!room.started)void this.offer();
  }
- selected(file:Fingerprint){if(this.file&&this.room&&(this.offered||this.offering||this.incoming||this.scheduler)){const revision=this.room.game.controllers.revision;this.clear('Game selection changed. Prepare the matching game again.');void this.send({type:'gameUnready',revision}).catch(()=>{});}this.file=file;this.offered=undefined;if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else if(this.intent)void this.offer();}
- playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else void this.offer();}
+ selected(file:Fingerprint){if(this.file&&this.room&&(this.offered||this.offering||this.incoming||this.scheduler)){const revision=this.room.game.controllers.revision;this.clear('Game selection changed. Prepare the matching game again.');void this.send({type:'gameUnready',revision}).catch(()=>{});}this.file=file;this.offered=undefined;if(this.state.preparationError)this.publish({preparationError:undefined});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else if(this.intent)void this.offer();}
+ playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else void this.offer();}
  retry(){this.playIntent();}
  retryConnection(){}
  async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
@@ -56,11 +56,13 @@ export class GameClient {
   const room=this.room;if(!room||!this.intent||!this.loaded()||this.offering||this.incoming||room.game.pending||(['playing','starting','pausing'].includes(room.game.status)&&room.game.controllers.owners.includes(this.self())))return;
   if(!this.authority()&&this.links.get(room.hostMembership)?.channel.readyState!=='open')return;
   const key=room.id+room.revision+room.game.controllers.revision+(room.game.epoch??'initial');if(this.offered===key)return;
-  const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,status:'Checking the completed machine state…'});
+  const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,preparationError:undefined,status:'Checking the completed machine state…'});
   try{const info=await this.player()!.holdForGame(room.game.controllers.owners.includes(this.self()));if(serial!==this.serial)return;
    const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,roomRevision:room.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
    if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for everyone.'});
-  }catch(error){if(serial===this.serial){this.offered=undefined;this.publish({busy:false,status:String(error)});}}finally{if(serial===this.serial)this.offering=false;}
+  }catch(error){if(serial===this.serial){const message=error instanceof Error?error.message:String(error);const code=error instanceof Error?(error as Error & {code?:string}).code:undefined;
+   const display=code==='room_changed'?'Room changed. Try again.':message.startsWith('The room service did not respond.')?'Room service did not respond. Try again.':message;
+   this.offered=undefined;this.intent=false;this.publish({busy:false,intent:false,preparationError:display,status:message});}}finally{if(serial===this.serial)this.offering=false;}
  }
  ready(member:string,channel:RTCDataChannel,epoch:string,roundTripMs=0){
   const checkpoint=this.checkpointLinks.get(member);this.links.set(member,{epoch,channel,roundTripMs,checkpoint:checkpoint?.epoch===epoch?checkpoint.channel:undefined,live:false});channel.bufferedAmountLowThreshold=16*1024;
@@ -169,7 +171,7 @@ export class GameClient {
  private cancelIncoming(){clearTimeout(this.incomingTimer);this.incoming=undefined;this.receiver.cancel();this.player()?.cancelPeerCheckpoint();this.catchingUp=false;this.catchupTarget=undefined;}
  private failIncoming(spec:Spec,status:string){if(this.incoming!==spec)return;this.cancelIncoming();this.scheduler=undefined;this.player()?.stopGame(status);this.publish({busy:false,synchronizing:false,observing:false,status});void this.send({type:'gameCheckpointFailed',epoch:spec.epoch,transferId:spec.transferId}).catch(()=>{});}
  private cancelAllTransfers(){this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])this.cancelOutgoing(outgoing);}
- private clear(status:string,leave=false){this.cancelAllTransfers();++this.serial;this.intent=false;this.offered=undefined;this.offering=false;this.prepared=undefined;this.scheduler=undefined;this.frozen=false;this.fence=undefined;this.hashing=false;this.observeRequested=undefined;this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.publish({status,busy:false,synchronizing:false,intent:false,observing:false});}
+ private clear(status:string,leave=false){this.cancelAllTransfers();++this.serial;this.intent=false;this.offered=undefined;this.offering=false;this.prepared=undefined;this.scheduler=undefined;this.frozen=false;this.fence=undefined;this.hashing=false;this.observeRequested=undefined;this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.publish({status,busy:false,synchronizing:false,intent:false,observing:false,preparationError:undefined});}
  private fail(status:string,reason:GameReason){const epoch=this.scheduler?.epoch??this.room?.game.epoch,spec=this.incoming;if(spec){this.failIncoming(spec,status);return;}this.clear(status);if(epoch)void this.send({type:'gameAbort',epoch,reason}).catch(()=>{});}
  dispose(){this.clear('Shared game closed.',true);this.links.clear();this.checkpointLinks.clear();}
 }

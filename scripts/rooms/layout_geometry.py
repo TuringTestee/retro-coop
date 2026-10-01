@@ -9,6 +9,7 @@ import subprocess
 import json
 import tempfile
 from pathlib import Path
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 REGIONS = '[data-layout-region], [data-testid="room-slot"], [data-slot-region]'
 
@@ -130,10 +131,23 @@ def zoom_context(playwright, viewport):
         (ext / 'manifest.json').write_text(json.dumps({'manifest_version': 3, 'name': 'Geometry zoom probe',
             'version': '1.0', 'permissions': ['tabs'], 'background': {'service_worker': 'worker.js'}}))
         (ext / 'worker.js').write_text('chrome.runtime.onInstalled.addListener(()=>{});')
-        context = playwright.chromium.launch_persistent_context(str(root / 'profile'), channel='chromium',
-            headless=True, viewport=viewport, args=[f'--disable-extensions-except={ext}', f'--load-extension={ext}'])
+        # Under parallel CI browser load, Chromium can start without installing
+        # the extension. Restart that disposable profile instead of waiting for
+        # an event the failed launch will never emit.
+        for attempt in range(3):
+            context = playwright.chromium.launch_persistent_context(str(root / f'profile-{attempt}'), channel='chromium',
+                headless=True, viewport=viewport, args=[f'--disable-extensions-except={ext}', f'--load-extension={ext}'])
+            try:
+                worker = next((w for w in context.service_workers if w.url.startswith('chrome-extension://')), None)
+                if worker is None:
+                    worker = context.wait_for_event('serviceworker',
+                        predicate=lambda w: w.url.startswith('chrome-extension://'), timeout=8000)
+                break
+            except PlaywrightTimeoutError:
+                context.close()
+                if attempt == 2:
+                    raise RuntimeError('Chromium did not load the zoom probe extension after three launches') from None
         try:
-            worker = context.service_workers[0] if context.service_workers else context.wait_for_event('serviceworker')
             yield context, worker
         finally:
             context.close()

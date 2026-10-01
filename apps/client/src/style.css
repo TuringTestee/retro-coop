@@ -125,6 +125,10 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 }
 .waiting-room .room-invite>button,.waiting-room .room-slots button:first-child{background:#303146;color:white;font-weight:400;border-color:#52536e}.waiting-room .room-invite>button{white-space:nowrap}
 .waiting-room .room-start>button{background:#b5a3ff;color:#171323;font-weight:750;border-color:#b5a3ff}
+.waiting-room [data-layout-region=readiness-actions]{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:center;gap:8px}
+.waiting-room [data-layout-region=readiness-actions] button{white-space:nowrap}
+.waiting-room [data-layout-region=readiness-actions] p{min-width:0;font-size:13px;line-height:1.25;overflow-wrap:anywhere}
+.waiting-room [data-layout-region=readiness-actions] p:first-child{grid-column:1/-1}
 
 /* Secondary tasks replace the current view in the same frame. The mounted room
    client and canvas continue running while their controls are absent from tab order. */

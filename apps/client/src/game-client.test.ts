@@ -7,15 +7,45 @@ import type {Fingerprint,RoomView} from '../../../packages/contracts/src/rooms.t
 const host='h'.repeat(22),member='m'.repeat(22),peerEpoch='p'.repeat(22),epoch='e'.repeat(22),hash='c'.repeat(64);
 const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:1,submapper:0,region:'NTSC',bytes:32784}};
 const room=(self=member):RoomView=>({id:'r'.repeat(22),label:'Room',visibility:'public',status:'waiting',host:'Host',occupancy:2,openSlots:3,hostReady:true,established:false,chatMembership:self,hostMembership:host,invite:'i'.repeat(22),role:self===host?'host':'member',slot:self===host?'slot-1':'slot-2',revision:1,accessRevision:0,controllerRoles:['player1','player2'],connectionPolicy:'standard',peers:[],reservationIntent:'j'.repeat(22),fingerprint,matches:true,game:{status:'waiting',controllers:{owners:[host,member],revision:1},ready:[],startRequested:false},slots:[{id:'slot-1',role:'player1',open:true,revision:0,member:{id:host,nickname:'Host',connected:true,matches:true,acquisition:'loaded'}},{id:'slot-2',role:'player2',open:true,revision:0,member:{id:member,nickname:'Member',connected:true,matches:true,acquisition:'loaded'}},...(['slot-3','slot-4','slot-5'] as const).map(id=>({id,role:'observer' as const,open:true,revision:0}))]});
-function setup(self=member){
- const commands:{type:string;[key:string]:unknown}[]=[],updates:GameplayState[]=[],holds:Array<(value:{frame:number;hash:string;fresh:boolean})=>void>=[];let deferHold=false,sendHook:((command:{type:string})=>Promise<void>)|undefined;
- const player={isLoaded:()=>true,frameRate:()=>60,holdForGame:()=>deferHold?new Promise(resolve=>holds.push(resolve)):Promise.resolve({frame:0,hash,fresh:true}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){},releaseControllers(){}} as unknown as LocalPlayer;
+function setup(self=member,connected=true){
+ const commands:{type:string;[key:string]:unknown}[]=[],updates:GameplayState[]=[],holds:Array<(value:{frame:number;hash:string;fresh:boolean})=>void>=[];let deferHold=false,holdError:Error|undefined,sendHook:((command:{type:string})=>Promise<void>)|undefined;
+ const player={isLoaded:()=>true,frameRate:()=>60,holdForGame:()=>holdError?Promise.reject(holdError):deferHold?new Promise(resolve=>holds.push(resolve)):Promise.resolve({frame:0,hash,fresh:true}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){},releaseControllers(){}} as unknown as LocalPlayer;
  const game=new GameClient(()=>player,async command=>{commands.push(command);await sendHook?.(command);},state=>updates.push(state));
  const channel={readyState:'open',bufferedAmount:0,send(){},onmessage:undefined} as unknown as RTCDataChannel;
- game.enter(room(self));game.selected(fingerprint);game.ready(self===host?member:host,channel,peerEpoch);
- return {game,player,commands,updates,channel,holds,defer:()=>{deferHold=true;},send:(hook:typeof sendHook)=>{sendHook=hook;}};
+ game.enter(room(self));game.selected(fingerprint);if(connected)game.ready(self===host?member:host,channel,peerEpoch);
+ return {game,player,commands,updates,channel,holds,defer:()=>{deferHold=true;},failHold:(error?:Error)=>{holdError=error;},send:(hook:typeof sendHook)=>{sendHook=hook;}};
 }
 const tick=()=>setImmediate();
+test('Ready intent waits for the local peer channel and then reaches the coordinator',async()=>{
+ const t=setup(member,false);try{
+  t.game.playIntent();await tick();assert.equal(t.commands.some(command=>command.type==='gameReady'),false);
+  t.game.ready(host,t.channel,peerEpoch);await tick();assert.equal(t.commands.filter(command=>command.type==='gameReady').length,1);
+ }finally{t.game.dispose();}
+});
+test('failed preparation exposes the reason, stops retrying in the background, and accepts an explicit retry',async()=>{
+ const t=setup();try{
+  t.failHold(Error('Reconnect your controller before shared play.'));
+  t.game.playIntent();await tick();
+  assert.equal(t.updates.at(-1)?.preparationError,'Reconnect your controller before shared play.');
+  assert.equal(t.updates.at(-1)?.intent,false);
+  t.game.enter(room());await tick();assert.equal(t.commands.filter(command=>command.type==='gameReady').length,0);
+  t.failHold();t.game.playIntent();await tick();
+  assert.equal(t.updates.at(-1)?.preparationError,undefined);
+  assert.equal(t.commands.filter(command=>command.type==='gameReady').length,1);
+ }finally{t.game.dispose();}
+});
+test('rejected readiness can be retried without hiding the error or sending in the background',async()=>{
+ const t=setup();try{
+  t.send(command=>command.type==='gameReady'?Promise.reject(Error('The room service did not respond. Retry or cancel.')):Promise.resolve());
+  t.game.playIntent();await tick();
+  assert.equal(t.updates.at(-1)?.preparationError,'Room service did not respond. Try again.');
+  assert.equal(t.updates.at(-1)?.intent,false);
+  t.game.enter(room());await tick();assert.equal(t.commands.filter(command=>command.type==='gameReady').length,1);
+  t.send(undefined);t.game.playIntent();await tick();
+  assert.equal(t.updates.at(-1)?.preparationError,undefined);
+  assert.equal(t.commands.filter(command=>command.type==='gameReady').length,2);
+ }finally{t.game.dispose();}
+});
 test('replaced peer channel cannot mutate current game through delayed malformed message',()=>{
  const t=setup(),current={readyState:'open',bufferedAmount:0,send(){}} as unknown as RTCDataChannel;try{
   t.game.ready(host,current,'n'.repeat(22));const count=t.updates.length;t.channel.onmessage!.call(t.channel,new MessageEvent('message',{data:'bad'}));assert.equal(t.updates.length,count);

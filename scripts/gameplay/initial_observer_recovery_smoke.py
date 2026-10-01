@@ -139,6 +139,8 @@ def main():
                     assert not host.evaluate('proof.room.game.epoch')
                 host.evaluate('window.dropGameAck=false;window.dropInitialReady=false')
                 if case == 'pre-epoch':
+                    host.get_by_role('button', name='Cancel preparation', exact=True).click()
+                    wait(host, '!proof.room.game.ready.includes(proof.room.chatMembership)')
                     host.get_by_role('button', name='Ready', exact=True).click()
                     wait(host, 'proof.room.game.ready.includes(proof.room.chatMembership)')
                 states = recover(host, member, room_id, case)
