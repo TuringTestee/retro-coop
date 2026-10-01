@@ -7,7 +7,7 @@ import os
 import subprocess
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-from layout_geometry import GeometryRecorder, control_visibility
+from layout_geometry import GeometryRecorder, browser_zoom, control_visibility, verify_zoom, zoom_context
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
@@ -27,6 +27,14 @@ def geometry(page, label):
         assert page.evaluate('window.scrollY > 0'), (label, 'room is below the viewport but the page cannot scroll')
         page.evaluate('window.scrollTo(0, 0)')
     return {'viewport': label, 'canvas': canvas, 'room': room}
+
+
+def settle_copy(page, index, success):
+    page.evaluate('''async ({index,success})=>{
+      const pending=window.pendingCopies[index];
+      if(success)pending.resolve();else pending.reject(Error('Clipboard denied'));
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    }''', {'index': index, 'success': success})
 
 
 def main():
@@ -152,12 +160,67 @@ def main():
             wide = geometry(host, '1280x720')
             control_visibility(host.get_by_role('button', name='Players', exact=True))
             assert host.locator('.play-bindings').count() == 0
+            assert host.get_by_role('button', name='Copy invite', exact=True).count() == 0
             host.screenshot(path=str(args.output / 'playing-wide.png'))
             host.get_by_role('button', name='Players', exact=True).click()
             host.locator('.room-slots').wait_for(state='visible')
+            copy_invite = host.get_by_role('button', name='Copy invite', exact=True)
+            control_visibility(copy_invite)
+            copy_invite.click()
+            host.wait_for_function("() => /Invitation copied|Copy unavailable/.test(document.querySelector('.room-invite')?.textContent || '')")
+            control_visibility(copy_invite)
             host.get_by_role('button', name='Close players', exact=True).wait_for(state='visible')
             host.screenshot(path=str(args.output / 'playing-players-open.png'))
             host.get_by_role('button', name='Close players', exact=True).click()
+            assert host.get_by_role('button', name='Copy invite', exact=True).count() == 0
+            host.get_by_role('button', name='Players', exact=True).click()
+            assert host.locator('.room-invite').get_by_role('status').count() == 0
+            host.get_by_role('button', name='Close players', exact=True).click()
+            host.wait_for_function("document.activeElement?.matches('[data-players-toggle]')")
+            host.evaluate('''() => {
+              window.pendingCopies=[];
+              Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise(
+                (resolve,reject)=>window.pendingCopies.push({resolve,reject}))}});
+            }''')
+            for index, success in enumerate((True, False)):
+                host.get_by_role('button', name='Players', exact=True).click()
+                host.get_by_role('button', name='Copy invite', exact=True).click()
+                host.wait_for_function('count=>window.pendingCopies.length===count', arg=index+1)
+                host.get_by_role('button', name='Close players', exact=True).click()
+                host.wait_for_function("document.activeElement?.matches('[data-players-toggle]')")
+                host.get_by_role('button', name='Players', exact=True).click()
+                settle_copy(host, index, success)
+                assert host.locator('.room-invite').get_by_role('status').count() == 0
+                assert host.get_by_label('Room invitation', exact=True).count() == 0
+                host.get_by_role('button', name='Close players', exact=True).click()
+            players_toggle = host.get_by_role('button', name='Players', exact=True)
+            players_toggle.click()
+            host.get_by_role('button', name='Copy invite', exact=True).wait_for(state='visible')
+            players_toggle.focus()
+            copy_state = host.locator('.room-invite').evaluate("node=>({html:node.outerHTML,visibility:getComputedStyle(node).visibility,display:getComputedStyle(node).display})")
+            assert host.get_by_role('button', name='Copy invite', exact=True).count() == 1, copy_state
+            focus_trail = []
+            for _ in range(30):
+                host.keyboard.press('Tab')
+                focus_trail.append(host.evaluate("document.activeElement?.outerHTML?.slice(0,180)"))
+                if host.evaluate("document.activeElement?.textContent?.trim()==='Copy invite'"):
+                    break
+            else:
+                raise AssertionError(('Copy invite was not reachable by Tab from Players', copy_state, focus_trail))
+            copy_invite = host.get_by_role('button', name='Copy invite', exact=True)
+            control_visibility(copy_invite, require_focus=True)
+            host.keyboard.press('Enter')
+            host.wait_for_function('window.pendingCopies.length===3')
+            settle_copy(host, 2, False)
+            host.get_by_text('Copy unavailable. Select the invitation below.', exact=True).wait_for()
+            fallback = host.get_by_label('Room invitation', exact=True)
+            control_visibility(fallback)
+            fallback.click()
+            control_visibility(fallback, require_focus=True)
+            assert fallback.evaluate('element=>element.selectionStart===0&&element.selectionEnd===element.value.length')
+            host.screenshot(path=str(args.output / 'playing-invite-keyboard-fallback.png'))
+            host.get_by_role('button', name='Close players', exact=True).click()
+            host.wait_for_function("document.activeElement?.matches('[data-players-toggle]')")
             host.get_by_role('button', name='Controls', exact=True).click()
             host.get_by_role('heading', name='Local settings', exact=True).wait_for(state='visible')
             host.locator('.mapping-list').wait_for(state='visible')
@@ -247,14 +310,41 @@ def main():
             host.set_viewport_size({'width': 390, 'height': 700})
             narrow = geometry(host, '390x700')
             control_visibility(host.get_by_role('button', name='Players', exact=True))
+            assert host.get_by_role('button', name='Copy invite', exact=True).count() == 0
             host.screenshot(path=str(args.output / 'playing-narrow.png'), full_page=True)
+            host.get_by_role('button', name='Players', exact=True).click()
+            narrow_invite = host.get_by_role('button', name='Copy invite', exact=True)
+            narrow_invite.scroll_into_view_if_needed()
+            control_visibility(narrow_invite)
+            host.screenshot(path=str(args.output / 'playing-narrow-invite.png'))
+            narrow_invite.click()
+            host.wait_for_function('window.pendingCopies.length===4')
+            settle_copy(host, 3, False)
+            host.get_by_text('Copy unavailable. Select the invitation below.', exact=True).wait_for()
+            narrow_fallback = host.get_by_label('Room invitation', exact=True)
+            control_visibility(narrow_fallback)
+            narrow_fallback.click()
+            control_visibility(narrow_fallback, require_focus=True)
+            assert narrow_fallback.evaluate('element=>element.selectionStart===0&&element.selectionEnd===element.value.length')
+            host.screenshot(path=str(args.output / 'playing-narrow-invite-fallback.png'))
+            host.get_by_role('button', name='Players', exact=True).click()
             host.set_viewport_size({'width': 640, 'height': 360})
             zoom = geometry(host, '640x360 (200% zoom equivalent)')
             host.screenshot(path=str(args.output / 'playing-zoom.png'), full_page=True)
             zoom_players = host.get_by_role('button', name='Players', exact=True)
             zoom_players.scroll_into_view_if_needed()
             control_visibility(zoom_players)
+            assert host.get_by_role('button', name='Copy invite', exact=True).count() == 0
+            zoom_players.click()
+            zoom_invite = host.get_by_role('button', name='Copy invite', exact=True)
+            zoom_invite.scroll_into_view_if_needed()
+            control_visibility(zoom_invite)
+            host.screenshot(path=str(args.output / 'playing-zoom-invite.png'))
+            zoom_players.click()
             host.screenshot(path=str(args.output / 'playing-zoom-controls.png'), full_page=True)
+            zoom_players.click()
+            host.get_by_role('button', name='Copy invite', exact=True).click()
+            host.wait_for_function('window.pendingCopies.length===5')
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).wait_for()
             assert host.locator('dialog').count() == 0
@@ -280,6 +370,56 @@ def main():
             host.get_by_text('diagnostic.nes is loaded and ready.', exact=True).wait_for()
             host.get_by_role('button', name='Create room', exact=True).click()
             host.get_by_role('button', name='Start game', exact=True).wait_for(timeout=30000)
+            settle_copy(host, 4, True)
+            assert host.locator('.room-invite').get_by_role('status').count() == 0
+            assert host.get_by_label('Room invitation', exact=True).count() == 0
+            host.screenshot(path=str(args.output / 'new-room-no-old-copy-feedback.png'))
+            with zoom_context(playwright, {'width': 1280, 'height': 800}) as (context, worker):
+                zoom_page = context.new_page()
+                zoom_page.on('pageerror', lambda error: errors.append(str(error)))
+                zoom_page.goto(url)
+                real_zoom = browser_zoom(zoom_page, worker, 2)
+                zoom_page.get_by_role('button', name='Create game', exact=True).click()
+                zoom_page.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
+                zoom_page.get_by_role('button', name='Create room', exact=True).click()
+                zoom_page.get_by_role('button', name='Ready', exact=True).click()
+                zoom_page.get_by_role('button', name='Start game', exact=True).click()
+                zoom_page.locator('main.playing.with-room').wait_for()
+                players = zoom_page.get_by_role('button', name='Players', exact=True)
+                players.focus()
+                control_visibility(players, require_focus=True)
+                zoom_page.keyboard.press('Enter')
+                zoom_copy = zoom_page.get_by_role('button', name='Copy invite', exact=True)
+                zoom_copy.wait_for(state='visible')
+                zoom_focus_trail = []
+                for _ in range(30):
+                    zoom_page.keyboard.press('Tab')
+                    zoom_focus_trail.append(zoom_page.evaluate("document.activeElement?.outerHTML?.slice(0,180)"))
+                    if zoom_page.evaluate("document.activeElement?.textContent?.trim()==='Copy invite'"):
+                        break
+                else:
+                    raise AssertionError(('Zoomed Copy invite was not reachable by Tab', zoom_focus_trail))
+                control_visibility(zoom_copy, require_focus=True)
+                zoom_page.evaluate('''() => Object.defineProperty(navigator,'clipboard',
+                  {configurable:true,value:{writeText:()=>Promise.reject(Error('Clipboard denied'))}})''')
+                zoom_page.keyboard.press('Enter')
+                zoom_page.get_by_text('Copy unavailable. Select the invitation below.', exact=True).wait_for()
+                zoom_fallback = zoom_page.get_by_label('Room invitation', exact=True)
+                control_visibility(zoom_fallback)
+                zoom_fallback.click()
+                control_visibility(zoom_fallback, require_focus=True)
+                assert zoom_fallback.evaluate('element=>element.selectionStart===0&&element.selectionEnd===element.value.length')
+                zoom_page.screenshot(path=str(args.output / 'playing-real-zoom-invite-fallback.png'))
+                zoom_page.get_by_role('button', name='Close players', exact=True).click()
+                zoom_page.wait_for_function("document.activeElement?.matches('[data-players-toggle]')")
+                control_visibility(players, require_focus=True)
+                assert zoom_page.get_by_role('button', name='Copy invite', exact=True).count() == 0
+                zoom_page.screenshot(path=str(args.output / 'playing-real-zoom-return.png'))
+                assert verify_zoom(worker, real_zoom) == 2
+                zoom_page.get_by_role('button', name='Leave room', exact=True).click()
+                zoom_page.get_by_role('button', name='Confirm leave', exact=True).click()
+                zoom_page.get_by_test_id('directory').wait_for()
+                zoom_page.close()
             service.terminate()
             host.get_by_role('button', name='Leave room', exact=True).click()
             host.get_by_role('button', name='Confirm leave', exact=True).click()
@@ -294,8 +434,9 @@ def main():
                       'start_is_primary': True, 'voluntary_exit_clean': True, 'failed_close_has_retry': True,
                       'play_transitions': {'players_open': True, 'controls_settings': True,
                                            'controls_focus_return': True, 'narrow_players_visible': True,
-                                           'zoom_players_visible_after_scroll': True},
-                      'layout': [wide, narrow, zoom], 'tool_layout': tool_proofs,
+                                           'zoom_players_visible_after_scroll': True,
+                                           'copy_races_and_keyboard': True, 'real_zoom_invite': True},
+                      'layout': [wide, narrow, zoom, real_zoom], 'tool_layout': tool_proofs,
                       'scroll_probe_rejected_jump': True, 'page_errors': errors}
             (args.output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result))

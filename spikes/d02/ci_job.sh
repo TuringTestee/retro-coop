@@ -20,7 +20,7 @@ if [ "$D02_JOB" = build ]; then
   timeout --foreground 60s sh scripts/preflight.sh
   exit
 fi
-if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
+if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
   python3 -m venv /tmp/d02-entrypoint-venv
   /tmp/d02-entrypoint-venv/bin/pip install playwright==1.58.0
   # The pinned Ubuntu runner already has Chromium's libraries. Installing apt
@@ -43,43 +43,46 @@ if [ "$D02_JOB" = entrypoint ] || [ "$D02_JOB" = slots ]; then
     timeout --foreground 60s python3 scripts/gameplay/initial_observer_recovery_smoke.py --output spikes/d02/five-members.local/initial-observer-recovery.json
     exit
   fi
-  # These journeys launch separate demo ports and use separate evidence paths.
-  # Run both before the staging build without serializing their browser time.
-  (
-    RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py & upload_pid=$!
-    trap 'kill "$upload_pid" 2>/dev/null || true' EXIT
-    timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
-    wait "$upload_pid"
-  )
+  if [ "$D02_JOB" = entrypoint-journey ]; then
+    # The upload and public entry use separate demo ports and evidence paths.
+    (
+      RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py & upload_pid=$!
+      trap 'kill "$upload_pid" 2>/dev/null || true' EXIT
+      timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
+      wait "$upload_pid"
+    )
+  fi
   npm run build:staging
-  # Independent browser servers use free local ports and separate result paths.
-  # All three groups retain their assertions under the original shared deadline.
-  (
-    timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice &
-    voice_pid=$!
-    timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
-    timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
-    wait "$voice_pid"
-    timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility protected --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-protected
-  ) & shared_pid=$!
-  (
-    timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery
-    timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
-    RETRO_COOP_ACCESS_OUTPUT=spikes/d02/public-entrypoint.local/access timeout --foreground 45s python3 scripts/rooms/access_browser.py > spikes/d02/public-entrypoint.local/access.json
-  ) & transfer_pid=$!
-  timeout --foreground 120s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages & pages_pid=$!
-  timeout --foreground 90s python3 scripts/rooms/waiting_recovery_layout_browser.py --output spikes/d02/public-entrypoint.local/waiting-recovery & waiting_pid=$!
-  mkdir -p spikes/d02/public-entrypoint.local/exit
-  RETRO_EXIT_SCREENSHOT_DIR=spikes/d02/public-entrypoint.local/exit timeout --foreground 60s python3 scripts/rooms/exit_browser.py > spikes/d02/public-entrypoint.local/exit/result.json & exit_pid=$!
-  wait "$shared_pid"
-  wait "$transfer_pid"
-  wait "$pages_pid"
-  wait "$waiting_pid"
-  wait "$exit_pid"
-  # The frame-by-frame player geometry probe runs after the other browser
-  # journeys so it cannot starve their short recovery windows.
-  timeout --foreground 90s python3 scripts/rooms/player_loading_layout_browser.py --output spikes/d02/public-entrypoint.local/player-loading
-  timeout --foreground 25s python3 scripts/rooms/secondary_layout_browser.py --output spikes/d02/public-entrypoint.local/tool-zoom --only effective-320
+  case "$D02_JOB" in
+    entrypoint-journey)
+      timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice & voice_pid=$!
+      timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
+      timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
+      wait "$voice_pid"
+      timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility protected --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-protected
+      ;;
+    entrypoint-controls)
+      timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery & transfer_pid=$!
+      mkdir -p spikes/d02/public-entrypoint.local/exit
+      RETRO_EXIT_SCREENSHOT_DIR=spikes/d02/public-entrypoint.local/exit timeout --foreground 60s python3 scripts/rooms/exit_browser.py > spikes/d02/public-entrypoint.local/exit/result.json & exit_pid=$!
+      wait "$transfer_pid"
+      timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
+      RETRO_COOP_ACCESS_OUTPUT=spikes/d02/public-entrypoint.local/access timeout --foreground 45s python3 scripts/rooms/access_browser.py > spikes/d02/public-entrypoint.local/access.json
+      wait "$exit_pid"
+      ;;
+    entrypoint-ui)
+      timeout --foreground 120s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages & pages_pid=$!
+      timeout --foreground 90s python3 scripts/rooms/waiting_recovery_layout_browser.py --output spikes/d02/public-entrypoint.local/waiting-recovery & waiting_pid=$!
+      wait "$pages_pid"
+      wait "$waiting_pid"
+      ;;
+    entrypoint-layout)
+      timeout --foreground 90s python3 scripts/rooms/player_loading_layout_browser.py --output spikes/d02/public-entrypoint.local/player-loading & layout_pid=$!
+      timeout --foreground 25s python3 scripts/rooms/secondary_layout_browser.py --output spikes/d02/public-entrypoint.local/tool-zoom --only effective-320
+      wait "$layout_pid"
+      ;;
+    *) echo "Unknown entrypoint suite" >&2; exit 2;;
+  esac
   exit
 fi
 python3 -m venv /tmp/d02-browser-venv

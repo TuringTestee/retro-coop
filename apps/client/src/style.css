@@ -160,6 +160,11 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .playing.with-room .room-leave-actions .room-confirm p{grid-column:1/-1;grid-row:1;align-self:stretch;min-width:0;margin:0;overflow:auto;line-height:1.125rem}
 .playing.with-room .room-leave-actions .room-confirm button{min-width:0;height:2.8rem;margin:0;padding:9px 8px;white-space:nowrap}
 .playing.with-room .room-invite>button{justify-self:start;background:#303146;color:white;font-weight:400;border-color:#52536e}
+.playing .room-detail-scroll .room-invite{height:5.5rem;grid-template-columns:max-content minmax(0,1fr);grid-template-rows:2.75rem 2.75rem;align-items:start}
+.playing .room-detail-scroll .room-invite>button{white-space:nowrap}
+.playing .room-detail-scroll .room-invite>.hint{min-width:0;max-height:2.75rem;overflow:auto}
+.playing .room-detail-scroll .room-invite>input{grid-column:1/-1;grid-row:2;height:2.3rem;margin:0}
+.playing .room-detail-scroll .room-invite :is(button,input):focus-visible{outline:0;outline-offset:0;box-shadow:inset 0 0 0 3px #d2c7ff}
 .game-metrics{display:flex;gap:12px;align-items:center;font-size:12px;font-variant-numeric:tabular-nums;color:#d9d9eb;margin:6px 0 10px!important}
 .game-metrics span+span{border-left:1px solid #56576d;padding-left:12px}
 
