@@ -99,10 +99,8 @@ def check_profile(browser, url, output, label, viewport, directory_check=None):
             slot[0].mark(f'{index}-occupied-slots')
         assert host.get_by_role('button', name='Copy invite', exact=True).count() == 0
         slot[0].allow_user_scroll(True)
-        host.locator('[data-slot-id=slot-5] [data-manage-slot]').click()
-        manage = host.get_by_role('dialog', name='Manage slot 5')
-        manage.get_by_role('button', name='Remove member', exact=True).click()
-        manage.get_by_role('button', name='Confirm removal', exact=True).click()
+        host.locator('[data-slot-id=slot-5] [data-slot-action]').select_option('kick')
+        host.get_by_role('button', name='Kick member', exact=True).click()
         host.get_by_role('button', name='Copy invite', exact=True).wait_for()
         slot[0].mark('final-slot-reopened')
         host.get_by_role('button', name='Leave room', exact=True).click()

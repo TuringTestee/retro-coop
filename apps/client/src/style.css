@@ -40,7 +40,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .waiting-room{grid-template-rows:auto minmax(0,1fr)}.waiting-room>.directory-panel,.waiting-room>.panel{display:none}.waiting-room>.room-panel{grid-row:2;display:grid;grid-template-rows:3rem minmax(0,1fr);gap:6px;overflow:hidden;margin:0;min-height:0;padding:16px 22px}.waiting-room .room-detail-scroll{grid-row:2;min-height:0;overflow:auto;scroll-padding:8px}.waiting-room .room-panel h2{margin-top:0}.waiting-room .room-panel .chat-panel{max-width:640px}.waiting-room .room-panel .chat-panel ol{max-height:8rem}
 .waiting-room .room-panel{max-width:100%;}.waiting-room .room-panel h2 small{font-size:14px;font-weight:400;color:#aeb0c5}/* Slot identities and action/status cells survive member and role changes. */
 @media(min-width:901px){
- .waiting-room .host-waiting .room-detail-scroll{display:grid;grid-template-columns:minmax(0,760px) minmax(220px,1fr);grid-template-rows:3.5rem 3rem 5.5rem 7rem 10rem;column-gap:24px;align-content:start}
+ .waiting-room .host-waiting .room-detail-scroll{display:grid;grid-template-columns:minmax(0,760px) minmax(220px,1fr);grid-template-rows:3.5rem 3rem 5.5rem 7rem 13rem;column-gap:24px;align-content:start}
  .waiting-room .host-waiting .room-slots{grid-column:1;grid-row:1/6;margin:0}
  .waiting-room .host-waiting [data-layout-region=readiness-actions]{grid-column:2;grid-row:1}
  .waiting-room .host-waiting [data-layout-region=invite-actions]{grid-column:2;grid-row:2}
@@ -49,7 +49,7 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
  .waiting-room .host-waiting .room-start,.waiting-room .host-waiting .room-invite,.waiting-room .host-waiting .room-leave-actions{margin:0}
  .waiting-room .host-waiting .room-detail-scroll>:not(.room-slots):not([data-layout-region=readiness-actions]):not([data-layout-region=invite-actions]):not([data-layout-region=start-actions]):not([data-layout-region=leave-actions]){grid-column:1/-1}
 }
-.room-slots{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;max-width:760px;margin:8px 0}
+.room-slots{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(5,5.5rem) 2.5rem;align-content:start;gap:6px;max-width:760px;margin:8px 0}
 .member-acquisition{height:5.5rem;max-width:760px;overflow:auto;scrollbar-gutter:stable}
 .member-acquisition.quiet{visibility:hidden}
 .waiting-room [data-layout-region=readiness-actions]{height:3.5rem;overflow:auto}
@@ -58,18 +58,25 @@ html,body,#root{width:100%;height:100%;overflow:hidden}main{width:100%;height:10
 .waiting-room [data-layout-region=leave-actions]{height:7rem;overflow:auto}
 .waiting-room [data-layout-region=connection-recovery]{height:5.5rem;overflow:auto;max-width:760px}
 .waiting-room .room-status-line{height:3.25rem;overflow:auto;max-width:760px;scrollbar-gutter:stable}
-.room-slots>[data-slot-id]{border:1px solid #52536e;border-radius:8px;padding:5px 8px;display:grid;grid-template-columns:minmax(0,1fr) 5.5rem;grid-template-rows:repeat(3,minmax(0,1fr));height:5rem;gap:0 8px;min-width:0}
+.room-slots>[data-slot-id]{border:1px solid #52536e;border-radius:9px;padding:7px 10px;display:grid;grid-template-columns:minmax(0,1fr) 10.5rem;grid-template-rows:repeat(3,minmax(0,1fr));height:5.5rem;gap:0 12px;min-width:0;background:#1b1c2b}
 .room-slots [data-slot-region]{min-width:0;min-height:0;overflow:auto;overflow-wrap:anywhere;padding:4px;scrollbar-gutter:stable}
 .room-slots [data-slot-region=identity]{grid-column:1;grid-row:1 / span 2;display:grid;grid-template-rows:repeat(2,minmax(0,1fr));align-content:start;gap:0;white-space:nowrap}
 .room-slots strong{font-size:12px;color:#b5a3ff}
 .room-slots [data-slot-region=status]{grid-column:1;grid-row:3;font-size:13px;white-space:nowrap}
 .room-slots.member-slots>[data-slot-id]{grid-template-columns:minmax(0,1fr) 0}
-.room-slots select{max-width:100%;font:inherit;background:#303146;color:white;border:1px solid #77758d;border-radius:6px;padding:5px}
-.room-slots .slot-confirm p{font-size:13px}.room-slots [data-slot-region=actions]{grid-column:2;grid-row:1 / span 3;align-self:center;overflow:auto;scrollbar-gutter:auto}.room-slots [data-manage-slot]{white-space:nowrap;padding:4px 6px;font-size:13px;width:100%}.slot-management-dialog{width:min(24rem,calc(100vw - 2rem));height:min(22rem,calc(100dvh - 2rem));overflow:auto;padding:18px;border:1px solid #77758d;border-radius:10px;background:#1c1d2b;color:white}.slot-management-dialog::backdrop{background:#08090dcc}.slot-management-dialog h3{margin:0 0 12px}.slot-management-dialog label{display:grid;gap:5px;margin-bottom:10px}.slot-management-dialog button{margin:4px 8px 4px 0}.slot-management-dialog .slot-confirm p{margin:10px 0}
-.room-slots .slot-feedback{height:1.8rem;overflow:auto}
+.room-slots [data-slot-region=actions]{grid-column:2;grid-row:1 / span 3;display:flex;align-items:center;overflow:visible;padding:4px 0}
+.room-slots [data-slot-action]{width:100%;min-width:0;height:2.5rem;font:inherit;font-size:13px;font-weight:600;line-height:1.2;color:#f5f0ff;background:#33314b;border:1px solid #807aa2;border-radius:8px;padding:0 8px;cursor:pointer}
+.room-slots [data-slot-action]:hover{border-color:#b5a3ff;background:#3c3956}
+.room-slots [data-slot-action]:focus-visible{outline:2px solid #d2c7ff;outline-offset:2px}
+.room-slots [data-slot-action]:disabled{opacity:.65;cursor:wait}
+.slot-kick-dialog{width:min(23rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);padding:18px;border:1px solid #77758d;border-radius:10px;background:#1c1d2b;color:white}
+.slot-kick-dialog::backdrop{background:#08090dcc}
+.slot-kick-dialog h3{margin:0 0 10px}.slot-kick-dialog p{margin:0 0 14px}.slot-kick-actions{display:flex;gap:8px;justify-content:flex-end}.slot-kick-actions button{margin:0}
+.room-slots .slot-feedback{height:2.5rem;overflow:auto}
+.playing .room-slots .slot-feedback{font-size:13px;line-height:1.2}
 .room-password-dialog{width:min(25rem,calc(100vw - 2rem));min-height:18rem;max-height:80dvh;overflow:auto;padding:18px;border:1px solid #77758d;border-radius:10px;background:#1c1d2b;color:white}.room-password-dialog::backdrop{background:#08090dcc}.room-password-dialog h3{margin:0 0 8px}.room-password-dialog label,.room-password label{display:grid;gap:5px}.room-password-dialog input,.room-password input{width:100%;max-width:100%;background:#10111b;color:white;border:1px solid #77758d;border-radius:6px;padding:9px;font:inherit}.room-password-dialog [role=alert]{min-height:2.5rem}.room-password-dialog button,.room-password button{margin:8px 8px 4px 0}.room-lock{font-size:12px;font-weight:400;color:#cfbdff}
-.playing .room-slots>[data-slot-id]{height:5rem}
-@media(max-width:600px){.room-slots [data-slot-region]{padding:3px}}
+.playing .room-slots>[data-slot-id]{height:5.5rem}
+@media(max-width:600px){.room-slots>[data-slot-id]{grid-template-columns:minmax(0,1fr) 8.75rem;gap:0 6px;padding:6px 7px}.room-slots [data-slot-region]{padding:3px}.room-slots [data-slot-action]{font-size:12px}}
 .waiting-room .room-invite{display:flex;align-items:center;gap:8px;margin:4px 0 14px}.waiting-room .room-invite label{flex-basis:100%;}.waiting-room .room-start{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0}.waiting-room .room-start p{margin:0}.waiting-room .room-start button{order:-1}.waiting-room .room-start p[role=status]{flex-basis:100%}.waiting-room .chat-panel{border-top:1px solid #52536e;padding-top:10px;margin-top:12px}.waiting-room .chat-panel h3{font-size:16px;margin:0 0 8px}.waiting-room .chat-panel ol{min-height:0;margin:0}.waiting-room .chat-panel form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;max-width:640px}.waiting-room .chat-panel form label{grid-column:1/-1}.waiting-room .chat-panel textarea{grid-column:1;min-height:44px;max-height:100px}.waiting-room .chat-panel form button{grid-column:2;grid-row:2;align-self:end}.waiting-room .chat-panel #chat-help{grid-column:1/-1;margin:0}.waiting-room .room-panel>details{margin:8px 0}.waiting-room .room-panel>button{margin:4px 0}.waiting-room .room-panel .room-invite input{max-width:100%}
 .waiting-room .room-start button.secondary-action,.waiting-room .room-leave-actions>button{background:#303146;color:white;font-weight:400;border-color:#52536e}
 .waiting-room .room-detail-scroll button:focus-visible{outline:0;outline-offset:0;box-shadow:inset 0 0 0 3px #d2c7ff}

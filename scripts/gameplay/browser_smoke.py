@@ -74,17 +74,16 @@ try:
    h.get_by_role('button',name='Create room',exact=True).click();h.get_by_role('button',name='Copy invite',exact=True).wait_for();h.get_by_test_id('room-view').wait_for(state='attached')
    if args.late_join:
     # The public host chooses an observer slot before starting alone.
-    h.locator('[data-slot-id=slot-2]').get_by_role('button',name='Manage',exact=True).click()
-    h.get_by_label('Slot 2 role',exact=True).select_option('observer')
+    h.locator('[data-slot-id=slot-2] [data-slot-action]').select_option('role:observer')
     try:h.wait_for_function("proof.room.slots[1].role==='observer'",polling=50,timeout=15000)
     except PlaywrightTimeoutError:
      print(json.dumps({'observer_slot_setup':h.evaluate('''()=>({slot:proof.room?.slots[1],revision:proof.room?.revision,feedback:document.querySelector('.slot-feedback')?.textContent,status:document.querySelector('[data-testid=room-status]')?.textContent})''')}),flush=True)
      raise
-    h.get_by_role('dialog',name='Manage slot 2').get_by_role('button',name='Done',exact=True).click()
 
     h.get_by_role('button',name='Ready',exact=True).click()
     h.get_by_role('button',name='Start game',exact=True).click();h.evaluate('releaseFrames()')
     h.wait_for_function('proof.frameCount>=120',polling=50)
+    h.get_by_role('button',name='Players',exact=True).click()
     invite=invitation(h)
     assert 'late-observer-pass' not in invite
     if args.screenshots:h.screenshot(path=str(out.with_name('late-observer-invite.png')))
@@ -209,9 +208,8 @@ try:
     if args.kick_playing:
      # Remove this precise member through the current host slot control.
      h.get_by_role('button',name='Players',exact=True).click()
-     h.locator('[data-slot-id=slot-2]').get_by_role('button',name='Manage',exact=True).click()
-     h.get_by_role('dialog',name='Manage slot 2').get_by_role('button',name='Remove member',exact=True).click()
-     h.get_by_role('button',name='Confirm removal',exact=True).click()
+     h.locator('[data-slot-id=slot-2] [data-slot-action]').select_option('kick')
+     h.get_by_role('button',name='Kick member',exact=True).click()
      g.get_by_test_id('room-view').wait_for(state='detached')
     else:
      cli=['node','apps/coordinator/src/operator-cli.ts',operator_dir]

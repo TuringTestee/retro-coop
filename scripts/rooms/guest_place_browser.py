@@ -62,28 +62,18 @@ try:
         slot=host.locator('[data-slot-id=slot-2]')
         def manage(slot_id):
             row=host.locator(f'[data-slot-id={slot_id}]')
-            button=row.get_by_role('button', name='Manage', exact=True)
-            expect(button).to_be_enabled(timeout=20000)
-            button.click()
-            dialog=host.get_by_role('dialog', name=f'Manage slot {int(slot_id.split("-")[1])}')
-            dialog.wait_for()
-            return dialog
+            actions=row.locator('[data-slot-action]')
+            expect(actions).to_be_enabled(timeout=20000)
+            return actions
 
         def slot_action(slot_id, name):
-            dialog=manage(slot_id)
-            button=dialog.get_by_role('button', name=name, exact=True)
-            expect(button).to_be_enabled()
-            button.click()
-            dialog.get_by_role('button', name='Done', exact=True).click()
+            manage(slot_id).select_option('close' if name=='Close slot' else 'open')
 
-        manage('slot-2').get_by_role('button', name='Close slot', exact=True).wait_for(timeout=20000)
-        host.get_by_role('dialog', name='Manage slot 2').get_by_role('button', name='Done').click()
+        manage('slot-2').locator('option[value="close"]').wait_for(state='attached',timeout=20000)
         assert host.get_by_test_id('room-slot').count()==5
         for slot_id in ['slot-3','slot-4','slot-5']:
             slot_action(slot_id, 'Close slot')
-            dialog=manage(slot_id)
-            dialog.get_by_role('button',name='Open slot',exact=True).wait_for()
-            dialog.get_by_role('button',name='Done').click()
+            manage(slot_id).locator('option[value="open"]').wait_for(state='attached')
         stage('host room ready')
         invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
         room_name = host.locator('#room-heading').inner_text().strip()
@@ -93,9 +83,7 @@ try:
         slot_action('slot-2', 'Close slot')
         host.wait_for_function("slotProbe.blocked.includes('room')&&slotProbe.blocked.includes('result')")
         host.get_by_text('The change was not confirmed.', exact=False).wait_for(timeout=12000)
-        dialog=manage('slot-2')
-        assert dialog.get_by_role('button',name='Close slot',exact=True).count()==1
-        dialog.get_by_role('button',name='Done').click()
+        assert manage('slot-2').locator('option[value="close"]').count()==1
         host.screenshot(path=str(output.with_suffix('.lost-response.png')))
         stage('lost room and acknowledgement observed')
         host.evaluate('slotProbe.dropRoom=false;slotProbe.dropAck=false')
@@ -104,9 +92,7 @@ try:
         host.get_by_text('The change was not confirmed.',exact=False).wait_for()
         host.evaluate('slotProbe.sockets.at(-1).close()')
         host.get_by_role('button',name='Reconnect rooms',exact=True).click()
-        dialog=manage('slot-2')
-        dialog.get_by_role('button',name='Open slot',exact=True).wait_for()
-        dialog.get_by_role('button',name='Done').click()
+        manage('slot-2').locator('option[value="open"]').wait_for(state='attached')
 
         guest.goto(url)
         guest.get_by_role('searchbox').fill(room_name)
@@ -122,15 +108,11 @@ try:
         # A successful Close broadcast arrives but its acknowledgement is lost.
         host.evaluate('slotProbe.dropAck=true')
         slot_action('slot-2', 'Close slot')
-        dialog=manage('slot-2')
-        dialog.get_by_role('button',name='Open slot',exact=True).wait_for()
-        dialog.get_by_role('button',name='Done').click()
+        manage('slot-2').locator('option[value="open"]').wait_for(state='attached')
         guest.locator('.room-panel.invitation').get_by_text('0 open places',exact=False).first.wait_for()
         host.wait_for_function("slotProbe.blocked.filter(item=>item==='result').length>=2")
         host.wait_for_function("document.querySelector('[data-testid=room-status]')?.textContent?.includes('did not respond')", timeout=12000)
-        dialog=manage('slot-2')
-        assert dialog.get_by_role('button',name='Open slot',exact=True).count()==1
-        dialog.get_by_role('button',name='Done').click()
+        assert manage('slot-2').locator('option[value="open"]').count()==1
         host.screenshot(path=str(output.with_suffix('.applied-close.png')))
         stage('lost acknowledgement observed')
         host.evaluate('slotProbe.dropAck=false')
@@ -177,16 +159,13 @@ try:
         guest.get_by_role('button', name='Join room', exact=True).click()
         guest.get_by_test_id('room-view').wait_for(state='attached')
         assert guest.get_by_test_id('room-slot').count()==5
-        dialog=manage('slot-2')
-        dialog.get_by_role('button',name='Remove member',exact=True).click()
-        dialog.get_by_role('button',name='Cancel removal',exact=True).click()
+        manage('slot-2').select_option('kick')
+        host.get_by_role('button',name='Cancel',exact=True).click()
         assert guest.get_by_test_id('room-view').count()==1
-        dialog.get_by_role('button',name='Remove member',exact=True).click()
-        dialog.get_by_role('button',name='Confirm removal',exact=True).click()
+        manage('slot-2').select_option('kick')
+        host.get_by_role('button',name='Kick member',exact=True).click()
         guest.get_by_test_id('room-view').wait_for(state='detached')
-        dialog=manage('slot-2')
-        dialog.get_by_role('button',name='Close slot',exact=True).wait_for()
-        dialog.get_by_role('button',name='Done').click()
+        manage('slot-2').locator('option[value="close"]').wait_for(state='attached')
         assert host.get_by_test_id('room-slot').count()==5
         assert not errors, errors
         result = {'result': 'pass', 'room_name': room_name, 'lost_ack_stale_retry_and_reconnect_preserved_close': True, 'cancel_and_confirm_member_removal': True,

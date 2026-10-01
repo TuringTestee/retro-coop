@@ -104,10 +104,10 @@ with contextlib.ExitStack() as stack:
             expected_roles = ['player1', 'player2' if entry['controllers'] == 2 else 'observer', 'observer', 'observer', 'observer']
             assert host.evaluate('proof.room.slots.map(s=>s.role)') == expected_roles
             if entry['controllers'] == 1:
-                assert host.get_by_label('Slot 3 role', exact=True).locator('option[value=player2]').count() == 0
-            else:
-                pages[1].get_by_role('button', name='Ready', exact=True).click()
-                pages[1].wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
+                assert host.get_by_label('Slot 3 actions', exact=True).locator('option[value="role:player2"]').count() == 0
+            for page in pages:
+                page.get_by_role('button', name='Ready', exact=True).click()
+                page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
             host.get_by_role('button', name='Start game', exact=True).click()
             for page in pages:
                 page.evaluate('releaseFrames()')
@@ -120,7 +120,9 @@ with contextlib.ExitStack() as stack:
             host.screenshot(path=str(args.output.with_suffix(f".{entry['id']}.before.png")))
             role = 'player1' if entry['controllers'] == 1 else 'player2'
             promoted = pages[2].evaluate('proof.room.chatMembership')
-            host.get_by_label('Slot 3 role', exact=True).select_option(role)
+            if host.locator('.room-slots').count()==0:
+                host.get_by_role('button', name='Players', exact=True).click()
+            host.get_by_label('Slot 3 actions', exact=True).select_option(f'role:{role}')
             host.wait_for_function("owner=>proof.room.game.status==='playing'&&proof.room.game.controllers.owners.includes(owner)", arg=promoted, polling=20)
             assert host.evaluate('proof.room.slots.map(s=>s.role)')[entry['controllers'] - 1] == 'observer'
             boundary = {'frame': before[0]['frame'], 'hash': before[0]['hash']}

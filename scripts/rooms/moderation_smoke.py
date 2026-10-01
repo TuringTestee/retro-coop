@@ -53,8 +53,8 @@ try:
             panel.wait_for(state='visible')
             return panel
         def open_connection(tab):
-            panel = open_room(tab)
-            panel.get_by_test_id('room-view').wait_for(state='visible')
+            panel = tab.get_by_test_id('room-view')
+            panel.wait_for(state='visible')
             return panel
         def voice(tab):
             panel = open_room(tab)
@@ -76,10 +76,8 @@ try:
         connected(host)
         open_room(host)
         host.evaluate('window.holdRemoval=true')
-        host.locator('[data-slot-id=slot-2]').get_by_role('button', name='Manage', exact=True).click()
-        management = host.get_by_role('dialog', name='Manage slot 2')
-        management.get_by_role('button', name='Remove member', exact=True).click()
-        host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()
+        host.locator('[data-slot-id=slot-2] [data-slot-action]').select_option('kick')
+        host.get_by_role('button', name='Kick member', exact=True).click()
         host.wait_for_function("typeof releaseRemoval==='function'")
         open_room(first).get_by_role('button', name='Leave room', exact=True).click()
         first.get_by_test_id('room-view').wait_for(state='detached')
@@ -109,8 +107,8 @@ try:
             assert tab.evaluate("pcs.at(-1).connectionState==='connected' && captures.at(-1).getAudioTracks().some(t=>t.readyState==='live')")
         host.screenshot(path=str(output.with_suffix('.stale.png')), full_page=True)
         writes = host.evaluate('timelineWrites')
-        management.get_by_role('button', name='Remove member', exact=True).click()
-        host.locator('.room-slots').get_by_role('button', name='Confirm removal', exact=True).click()
+        host.locator('[data-slot-id=slot-2] [data-slot-action]').select_option('kick')
+        host.get_by_role('button', name='Kick member', exact=True).click()
         replacement.get_by_test_id('room-view').wait_for(state='detached')
         for tab in [host, replacement]:
             tab.wait_for_function("pcs.every(pc=>pc.connectionState==='closed')")

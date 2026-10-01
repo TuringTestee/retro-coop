@@ -45,18 +45,15 @@ def check(browser, url, output, label, viewport, zoom_worker=None):
         assert page.get_by_text('Waiting for you.', exact=True).count() == 1
         page.screenshot(path=str(output / f'{label}-cancelled-file.png'))
 
-        manage = page.locator('[data-slot-id=slot-2] [data-manage-slot]')
-        manage.click()
-        dialog = page.get_by_role('dialog', name='Manage slot 2')
-        before = dialog.bounding_box()
-        dialog.get_by_role('button', name='Close slot', exact=True).click()
-        dialog.get_by_role('button', name='Open slot', exact=True).wait_for(state='visible')
-        after = dialog.bounding_box()
+        manage = page.locator('[data-slot-id=slot-2] [data-slot-action]')
+        before = manage.bounding_box()
+        manage.select_option('close')
+        manage.locator('option[value="open"]').wait_for(state='attached')
+        after = manage.bounding_box()
         assert before and after and all(abs(before[key] - after[key]) <= 1 for key in before), (before, after)
         page.screenshot(path=str(output / f'{label}-closed-slot.png'))
-        modal_result = {'label': f'{label}-manage', 'before': before, 'after': after}
-        dialog.get_by_role('button', name='Done', exact=True).click()
-        assert manage.evaluate('node=>document.activeElement===node'), 'Manage focus did not return'
+        action_result = {'label': f'{label}-slot-actions', 'before': before, 'after': after}
+        manage.focus()
         control_visibility(manage, require_focus=True)
         page.screenshot(path=str(output / f'{label}-managed-slot.png'))
         room.allow_user_scroll(False)
@@ -75,7 +72,7 @@ def check(browser, url, output, label, viewport, zoom_worker=None):
                 action, page.evaluate('document.activeElement?.outerHTML'))
             control_visibility(page.get_by_role('button', name=action, exact=True), require_focus=True)
         page.screenshot(path=str(output / f'{label}-keyboard-actions.png'))
-        keyboard_manage = page.locator('[data-slot-id=slot-1] [data-manage-slot]')
+        keyboard_manage = page.locator('[data-slot-id=slot-1] [data-slot-action]')
         for _ in range(3):
             page.keyboard.press('Tab')
         control_visibility(keyboard_manage, require_focus=True)
@@ -83,16 +80,16 @@ def check(browser, url, output, label, viewport, zoom_worker=None):
         assert page.locator('[data-slot-id=slot-1] [data-slot-region=status]').evaluate('node=>document.activeElement===node')
         page.keyboard.press('Tab')
         page.keyboard.press('Enter')
-        page.get_by_role('dialog', name='Manage slot 1').wait_for(state='visible')
         page.keyboard.press('Escape')
         assert keyboard_manage.evaluate('node=>document.activeElement===node')
+        assert keyboard_manage.input_value()==''
         control_visibility(keyboard_manage, require_focus=True)
-        page.screenshot(path=str(output / f'{label}-keyboard-manage-return.png'))
+        page.screenshot(path=str(output / f'{label}-keyboard-dropdown-focus.png'))
         if zoom_worker:
             assert verify_zoom(zoom_worker, zoom) == 2
         keyboard_result = {'label': f'{label}-keyboard', 'tab_sequence':
-            ['Not ready', 'Copy invite', 'Start game', 'Leave room', 'Slot 1 Manage'],
-            'reverse_tab_and_dialog_focus_return': True, 'zoom': zoom}
+            ['Not ready', 'Copy invite', 'Start game', 'Leave room', 'Slot 1 actions'],
+            'reverse_tab_and_dropdown_focus': True, 'zoom': zoom}
 
         page.get_by_role('button', name='Start game', exact=True).click()
         page.locator('[data-layout-region=game-actions]').wait_for(state='visible')
@@ -125,7 +122,7 @@ def check(browser, url, output, label, viewport, zoom_worker=None):
         page.get_by_test_id('directory').wait_for()
         assert page.get_by_test_id('room-view').count() == 0
         page.screenshot(path=str(output / f'{label}-returned-to-rooms.png'))
-        return [room_result, modal_result, keyboard_result, playing_result,
+        return [room_result, action_result, keyboard_result, playing_result,
                 {'label': f'{label}-exit', 'room_closed_before_directory': True}]
     finally:
         page.close()

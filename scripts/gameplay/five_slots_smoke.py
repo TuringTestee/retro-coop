@@ -23,7 +23,7 @@ with contextlib.ExitStack() as stack:
   for index in range(5):
    page=contexts[0 if index<2 else 1 if index<4 else 2].new_page();page.set_default_timeout(20000);page.add_init_script(path=root/'scripts/gameplay/fixture.js')
    if args.relay:page.add_init_script("window.forceRelayTransport=true")
-   page.add_init_script("const sendCheckpoint=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(window.holdCheckpoint&&this.label==='retro-coop-checkpoint'&&typeof data!=='string')return;return sendCheckpoint.call(this,data)};window.gamePeers=[];const Base=RTCPeerConnection;window.RTCPeerConnection=class extends Base{constructor(...args){super(window.forceRelayTransport?{...(args[0]??{}),iceTransportPolicy:'relay'}:args[0],...args.slice(1));gamePeers.push(this);this.addEventListener('icecandidateerror',event=>{(window.iceErrors??=[]).push({code:event.errorCode,text:event.errorText})})}}")
+   page.add_init_script("const sendCheckpoint=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(window.holdCheckpoint&&this.label==='retro-coop-checkpoint'&&typeof data!=='string')return;if(window.corruptRoleCheckpoint&&this.label==='retro-coop-checkpoint'&&data instanceof ArrayBuffer){const bad=data.slice(0);new Uint8Array(bad)[0]=0;window.corruptRoleChunks=(window.corruptRoleChunks??0)+1;return sendCheckpoint.call(this,bad)}return sendCheckpoint.call(this,data)};window.gamePeers=[];const Base=RTCPeerConnection;window.RTCPeerConnection=class extends Base{constructor(...args){super(window.forceRelayTransport?{...(args[0]??{}),iceTransportPolicy:'relay'}:args[0],...args.slice(1));gamePeers.push(this);this.addEventListener('icecandidateerror',event=>{(window.iceErrors??=[]).push({code:event.errorCode,text:event.errorText})})}}")
    page.add_init_script("window.slotEvidence={events:[],imports:[],errors:[],wireerrors:[]};const Socket=WebSocket;window.WebSocket=class extends Socket{constructor(...a){super(...a);this.addEventListener('message',({data})=>{const event=JSON.parse(data);if(event.type.startsWith('game'))slotEvidence.events.push(event);if(event.type==='error')slotEvidence.wireerrors.push(event);})}};const Core=Worker;window.Worker=class extends Core{constructor(...a){super(...a);this.addEventListener('message',({data})=>{if(data.type==='peer-checkpoint-imported')slotEvidence.imports.push(data);if(data.type.includes('error'))slotEvidence.errors.push(data);})}}")
    page.on('pageerror',lambda error:errors.append(str(error)));pages.append(page)
   def boxes(page,label):
@@ -34,15 +34,12 @@ with contextlib.ExitStack() as stack:
    geometry[label]=value
   def manage(slot):
    if not host.locator('.room-slots').count():host.get_by_role('button',name='Players',exact=True).click()
-   host.locator(f'[data-slot-id=slot-{slot}] [data-manage-slot]').click()
+   return host.locator(f'[data-slot-id=slot-{slot}] [data-slot-action]')
   def role(slot,value):
-   manage(slot)
-   host.get_by_label(f'Slot {slot} role',exact=True).select_option(value)
-   host.get_by_role('button',name='Done',exact=True).click()
+   manage(slot).select_option(f'role:{value}')
   def remove(slot):
-   manage(slot)
-   host.get_by_role('button',name='Remove member',exact=True).click()
-   host.get_by_role('button',name='Confirm removal',exact=True).click()
+   manage(slot).select_option('kick')
+   host.get_by_role('button',name='Kick member',exact=True).click()
   def state(page):return page.evaluate("({room:proof.room,status:document.querySelector('[data-testid=game-status]')?.textContent,evidence:slotEvidence,iceErrors:window.iceErrors})")
   def native(page):return page.evaluate("""()=>new Promise((resolve,reject)=>{const requestId=window.nativeRequest=(window.nativeRequest??800000)+1;const timer=setTimeout(()=>reject(Error('native hash timed out')),3000);function done({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',done);if(data.type==='error')reject(Error(data.message));else resolve(data.info);}currentWorker.addEventListener('message',done);currentWorker.postMessage({type:'state-hash',requestId});})""")
   def resume_host():
@@ -185,16 +182,31 @@ with contextlib.ExitStack() as stack:
    host.evaluate('window.holdCheckpoint=true')
    role(5,'player2')
    host.wait_for_function("proof.room.game.pending?.status==='synchronizing'",polling=20)
-   manage(5)
-   host.get_by_role('button',name='Cancel role change',exact=True).click()
-   host.get_by_role('button',name='Done',exact=True).click()
+   manage(5).select_option('cancel')
    host.wait_for_function("!proof.room.game.pending&&proof.room.slots[3].role==='player2'&&proof.room.slots[4].role==='observer'&&proof.room.game.status==='paused'",polling=20)
    boxes(host,'cancelled');cancelled=[native(page) for page in remaining]
    assert all(value==replacement[0] for value in cancelled),(replacement,cancelled)
    host.screenshot(path=str(out.with_suffix('.cancelled.png')))
-   host.evaluate('window.holdCheckpoint=false')
+   host.evaluate('window.holdCheckpoint=false;window.corruptRoleCheckpoint=true')
    role(5,'player2')
+   host.wait_for_function("proof.room.game.pending?.status==='failed'",polling=20)
+   failed=host.evaluate("""()=>{const box=selector=>{const node=document.querySelector(selector),rect=node?.getBoundingClientRect();return rect&&{top:rect.top,bottom:rect.bottom,height:rect.height,scrollHeight:node.scrollHeight,clientHeight:node.clientHeight}};return {transaction:proof.room.game.pending,owners:proof.room.game.controllers.owners,roles:proof.room.slots.map(slot=>slot.role),corruptChunks:window.corruptRoleChunks,geometry:{gameActions:box('.shared-gameplay-actions'),details:box('.room-detail-scroll'),slots:box('.room-slots'),feedback:box('.slot-feedback')}}}""")
+   assert failed['corruptChunks']>0 and failed['roles'][3]=='player2' and failed['roles'][4]=='observer',failed
+   assert failed['owners'][1]==host.evaluate('proof.room.slots[3].member.id'),failed
+   assert native(host)==replacement[0],(failed,replacement[0])
+   assert failed['geometry']['details']['top']>=failed['geometry']['gameActions']['bottom'],failed['geometry']
+   assert failed['geometry']['feedback']['scrollHeight']<=failed['geometry']['feedback']['clientHeight'],failed['geometry']
+   manage(5).locator('option[value="retry"]').wait_for(state='attached')
+   assert manage(5).locator('option[value="retry"]').is_enabled()
+   assert 'Role change failed' in host.locator('[data-slot-id=slot-5] [data-slot-region=status]').inner_text()
+   host.locator('.slot-feedback').scroll_into_view_if_needed()
+   host.screenshot(path=str(out.with_suffix('.role-failed.png')))
+   host.evaluate('window.corruptRoleCheckpoint=false')
+   manage(5).select_option('retry')
    host.wait_for_function("proof.room.game.status==='playing'&&proof.room.game.controllers.owners[1]===proof.room.slots[4].member.id",polling=20)
+   retry_start=host.evaluate("slotEvidence.events.filter(event=>event.type==='gameStart').at(-1)")
+   assert retry_start['frame']==replacement[0]['frame'] and retry_start['hash']==replacement[0]['hash'],(replacement[0],retry_start)
+   assert any(item['frame']==replacement[0]['frame'] and item['hash']==replacement[0]['hash'] for item in pages[4].evaluate('slotEvidence.imports'))
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=replacement[0]['frame'],polling=20)
    host.get_by_role('button',name='Pause',exact=True).click()
    for page in remaining:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
@@ -204,6 +216,8 @@ with contextlib.ExitStack() as stack:
     if all(value==retried[0] for value in retried):break
     assert time.monotonic()<deadline,retried
     time.sleep(.05)
+   host.locator('[data-slot-id=slot-5]').scroll_into_view_if_needed()
+   host.screenshot(path=str(out.with_suffix('.role-retried.png')))
    # An active owner's reload preserves membership, pauses authority, and imports
    # its current state before the same owner resumes.
    pages[4].get_by_role('button',name='Ready to resume',exact=True).click();resume_host()
@@ -231,7 +245,7 @@ with contextlib.ExitStack() as stack:
     while turn.allocation_counts()['live_allocations'] and time.monotonic()<deadline:time.sleep(.05)
     assert turn.allocation_counts()['peak_live_allocations']<=32,turn.allocation_counts()
     assert turn.error_codes().get('486',0)==0,turn.error_codes()
-   result={'result':'pass','source':provenance,'selected_routes':routes,'members':5,'native_states':states,'initial':initial,'host_observer':host_observer,'promotion':promotion,'stalled':stalled,'replacement':replacement,'cancelled':cancelled,'retried':retried,'reconnect_boundary':reconnect_boundary,'reconnected':reconnected,'events':evidence,'slot_geometry':geometry,'turn_allocations':turn.allocation_counts() if turn else None,'turn_error_codes':turn.error_codes() if turn else {},'all_member_chat':True,'same_origin_tabs':True,'browser_processes':3,'errors':errors,'elapsed':round(time.monotonic()-started,2)};assert not errors,errors;out.write_text(json.dumps(result,indent=2));print(json.dumps({key:value for key,value in result.items() if key not in ['events','slot_geometry','source']}))
+   result={'result':'pass','source':provenance,'selected_routes':routes,'members':5,'native_states':states,'initial':initial,'host_observer':host_observer,'promotion':promotion,'stalled':stalled,'replacement':replacement,'cancelled':cancelled,'failed':failed,'retry_start':retry_start,'retried':retried,'reconnect_boundary':reconnect_boundary,'reconnected':reconnected,'events':evidence,'slot_geometry':geometry,'turn_allocations':turn.allocation_counts() if turn else None,'turn_error_codes':turn.error_codes() if turn else {},'all_member_chat':True,'same_origin_tabs':True,'browser_processes':3,'errors':errors,'elapsed':round(time.monotonic()-started,2)};assert not errors,errors;out.write_text(json.dumps(result,indent=2));print(json.dumps({key:value for key,value in result.items() if key not in ['events','slot_geometry','source']}))
   except Exception:
    for index,page in enumerate(pages):
     try:out.with_suffix(f'.member{index}.json').write_text(json.dumps(state(page),indent=2));page.screenshot(path=str(out.with_suffix(f'.member{index}.png')))
