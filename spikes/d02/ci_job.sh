@@ -41,6 +41,7 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
     timeout --foreground 30s python3 scripts/gameplay/late_controller_smoke.py --output spikes/d02/five-members.local/late-controller.json
     timeout --foreground 60s python3 scripts/gameplay/observer_failure_smoke.py --output spikes/d02/five-members.local/observer-failure.json
     timeout --foreground 60s python3 scripts/gameplay/initial_observer_recovery_smoke.py --output spikes/d02/five-members.local/initial-observer-recovery.json
+    timeout --foreground 45s python3 scripts/gameplay/ready_failure_browser.py --output spikes/d02/five-members.local/ready-failure.json
     exit
   fi
   if [ "$D02_JOB" = entrypoint-journey ]; then
