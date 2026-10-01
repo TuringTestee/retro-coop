@@ -34,15 +34,12 @@ with contextlib.ExitStack() as stack:
    geometry[label]=value
   def manage(slot):
    if not host.locator('.room-slots').count():host.get_by_role('button',name='Players',exact=True).click()
-   host.locator(f'[data-slot-id=slot-{slot}] [data-manage-slot]').click()
+   return host.locator(f'[data-slot-id=slot-{slot}] [data-slot-action]')
   def role(slot,value):
-   manage(slot)
-   host.get_by_label(f'Slot {slot} role',exact=True).select_option(value)
-   host.get_by_role('button',name='Done',exact=True).click()
+   manage(slot).select_option(f'role:{value}')
   def remove(slot):
-   manage(slot)
-   host.get_by_role('button',name='Remove member',exact=True).click()
-   host.get_by_role('button',name='Confirm removal',exact=True).click()
+   manage(slot).select_option('kick')
+   host.get_by_role('button',name='Kick member',exact=True).click()
   def state(page):return page.evaluate("({room:proof.room,status:document.querySelector('[data-testid=game-status]')?.textContent,evidence:slotEvidence,iceErrors:window.iceErrors})")
   def native(page):return page.evaluate("""()=>new Promise((resolve,reject)=>{const requestId=window.nativeRequest=(window.nativeRequest??800000)+1;const timer=setTimeout(()=>reject(Error('native hash timed out')),3000);function done({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',done);if(data.type==='error')reject(Error(data.message));else resolve(data.info);}currentWorker.addEventListener('message',done);currentWorker.postMessage({type:'state-hash',requestId});})""")
   def resume_host():
@@ -185,9 +182,7 @@ with contextlib.ExitStack() as stack:
    host.evaluate('window.holdCheckpoint=true')
    role(5,'player2')
    host.wait_for_function("proof.room.game.pending?.status==='synchronizing'",polling=20)
-   manage(5)
-   host.get_by_role('button',name='Cancel role change',exact=True).click()
-   host.get_by_role('button',name='Done',exact=True).click()
+   manage(5).select_option('cancel')
    host.wait_for_function("!proof.room.game.pending&&proof.room.slots[3].role==='player2'&&proof.room.slots[4].role==='observer'&&proof.room.game.status==='paused'",polling=20)
    boxes(host,'cancelled');cancelled=[native(page) for page in remaining]
    assert all(value==replacement[0] for value in cancelled),(replacement,cancelled)

@@ -91,11 +91,9 @@ try:
         # Leave exactly one of five slots available for the atomic admission race.
         for slot in ['slot-3','slot-4','slot-5']:
             row=host.locator(f'[data-slot-id={slot}]')
-            row.get_by_role('button',name='Manage',exact=True).click()
-            management=host.get_by_role('dialog',name=re.compile('Manage slot'))
-            management.get_by_role('button',name='Close slot',exact=True).click()
-            management.get_by_role('button',name='Open slot',exact=True).wait_for()
-            management.get_by_role('button',name='Done',exact=True).click()
+            actions=row.locator('[data-slot-action]')
+            actions.select_option('close')
+            actions.locator('option[value="open"]').wait_for(state='attached')
         first=page();second=page()
         for guest in [first,second]:
             guest.add_init_script('''(() => {const send=WebSocket.prototype.send;
@@ -257,11 +255,9 @@ try:
         # Close the other three empty slots so capacity still proves Join B survived.
         for slot in ['slot-3','slot-4','slot-5']:
             row=race_host.locator(f'[data-slot-id={slot}]')
-            row.get_by_role('button',name='Manage',exact=True).click()
-            management=race_host.get_by_role('dialog',name=re.compile('Manage slot'))
-            management.get_by_role('button',name='Close slot',exact=True).click()
-            management.get_by_role('button',name='Open slot',exact=True).wait_for()
-            management.get_by_role('button',name='Done',exact=True).click()
+            actions=row.locator('[data-slot-action]')
+            actions.select_option('close')
+            actions.locator('option[value="open"]').wait_for(state='attached')
         competing=page();competing.goto(race_invite)
         competing.locator('.room-panel.invitation').get_by_text('0 open places', exact=False).wait_for()
         assert '0 open places' in competing.locator('.room-panel.invitation').inner_text()

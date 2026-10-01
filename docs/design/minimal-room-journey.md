@@ -54,11 +54,11 @@ If protected: Room password [________] [Show]
 [Checking / Uploading / Retry / Cancel in this reserved area]
 
 WAITING ROOM · LILAC HARBOR
-1  You · Host · Player 1              Preparing     [Manage]   | [Ready]
-2  Guest Amber · Player 2             Preparing     [Manage]   | [Copy invite]
-3  Guest Blue · Observer              Ready         [Manage]   | [Start game disabled]
-4  Open · Observer                                  [Manage]   | Waiting for you and Guest Amber.
-5  Closed                                                    | [Leave room]
+1  You · Host · Player 1              Preparing     [Choose action ▾] | [Ready]
+2  Guest Amber · Player 2             Preparing     [Choose action ▾] | [Copy invite]
+3  Guest Blue · Observer              Ready         [Choose action ▾] | [Start game disabled]
+4  Open · Observer                                  [Choose action ▾] | Waiting for you and Guest Amber.
+5  Closed                                           [Choose action ▾] | [Leave room]
 [Chat] [Microphone off]   (compact, with feedback when used)
 
 PLAYING · LILAC HARBOR                         [Leave room]
@@ -72,7 +72,7 @@ Close this room for everyone?                  [Close room] [Stay]
 If close fails: Could not close room.          [Retry] [Stay]
 ```
 
-“Manage” is host-only and opens the selected slot's Change role, Remove member, or Open/Close slot actions in that slot's reserved region. It is absent for a guest and for an action that cannot apply. A one-controller game's role explanation appears only when the host manages controller assignments. The Ready action is available only after the member's game and connection prerequisites succeed. Keep current voice permission, chat recovery, save, input, accessibility and local data journeys when their controls are opened.
+The host-only dropdown stays in each slot's reserved region. An occupied guest slot offers every supported player role, Observer, and Kick member; the host's own slot has role choices without Kick. An empty open slot offers legal role choices and Close slot; a closed slot offers Open slot. Kick names the affected guest in a confirmation before removing them. While a role change is pending, its dropdown offers Cancel and, after failure, Retry. A one-controller game offers only Player 1 and Observer. The Ready action is available only after the member's game and connection prerequisites succeed. Keep current voice permission, chat recovery, save, input, accessibility and local data journeys when their controls are opened.
 
 ## Review and implementation proof
 

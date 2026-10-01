@@ -66,9 +66,9 @@ def main():
             host.get_by_role('button',name='Create room',exact=True).click()
             host.get_by_test_id('room-view').wait_for(state='attached')
             invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
-            host.locator('[data-slot-id=slot-2] [data-manage-slot]').click()
-            assert host.get_by_label('Slot 2 role',exact=True).input_value() == 'player2'
-            host.get_by_role('button',name='Done',exact=True).click()
+            actions=host.locator('[data-slot-id=slot-2] [data-slot-action]')
+            assert actions.locator('option[value="role:player2"]').count()==1
+            assert host.evaluate("proof.room.slots[1].role==='player2'")
             host.get_by_role('button',name='Ready',exact=True).click()
             host.get_by_role('button',name='Start game',exact=True).click()
             host.evaluate('releaseFrames()')
