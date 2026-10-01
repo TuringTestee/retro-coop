@@ -91,6 +91,7 @@ def main():
                                               for item in stack['Parameters']]))
     change_id = change['Id']
     executed = False
+    primary_error = None
     try:
         deadline = time.monotonic() + 90
         while True:
@@ -117,9 +118,17 @@ def main():
         group = aws('ec2', 'describe-security-groups', '--group-ids', group_id)['SecurityGroups'][0]
         verify_ingress(group)
         print(f'Live web/TURN ingress verified; relay ports {RELAY_MIN_PORT}–{RELAY_MAX_PORT}.')
+    except Exception as error:
+        primary_error = error
+        raise
     finally:
         if not executed:
-            aws('cloudformation', 'delete-change-set', '--change-set-name', change_id)
+            try:
+                aws('cloudformation', 'delete-change-set', '--change-set-name', change_id)
+            except Exception as cleanup_error:
+                if primary_error is None:
+                    raise
+                primary_error.add_note(f'Change-set cleanup also failed: {cleanup_error}')
 
 
 if __name__ == '__main__':
