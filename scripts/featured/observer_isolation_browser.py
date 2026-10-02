@@ -4,6 +4,7 @@
 import argparse
 from hashlib import sha256
 import json
+import re
 import subprocess
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -87,15 +88,22 @@ def main():
             assert guest_slot.is_visible(), 'The observer row disappeared during play.'
             assert guest.locator('.rc-players [data-testid="room-slot"]').count() == 5
             guest.screenshot(path=str(args.output / 'loaded-observer-connection-failed.png'))
-            guest.get_by_role('button', name='Back to Main Page').click()
-            guest.get_by_role('button', name='Leave lobby').click()
+            host.locator(f'[data-slot-id="{guest_slot_id}"] .slot-row').click()
+            host.locator(f'[data-slot-id="{guest_slot_id}"] .slot-menu').get_by_role('menuitem', name=re.compile('Kick')).click()
+            prompt = host.get_by_role('alertdialog', name=re.compile('Kick'))
+            assert 'cannot rejoin' in prompt.inner_text()
+            host.screenshot(path=str(args.output / 'kick-consequence.png'))
+            prompt.get_by_role('button', name='Kick player').click()
             guest.locator('.rc-listing').wait_for()
             assert guest.locator('canvas').get_attribute('data-frame-count') == '0'
+            guest.locator('.rc-lobby-card').first.click()
+            guest.get_by_text('This lobby is closed, unavailable, or the invitation has expired.').wait_for()
+            assert guest.locator('[data-page="playing"]').count() == 0
             assert not errors, errors
             result = {'result': 'pass', 'source': subprocess.check_output(
                 ['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
                 'browser': browser.version, 'gateway_download': download,
-                'journey': 'host starts with a vacant observer slot; late observer cannot connect; host keeps playing; guest leaves',
+                'journey': 'host keeps playing after late observer loses peer; kick consequence is shown; removed guest cannot rejoin',
                 'errors': errors}
             (args.output / 'observer-isolation.json').write_text(json.dumps(result, indent=2) + '\n')
             print(json.dumps(result, indent=2))
