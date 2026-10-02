@@ -8,7 +8,7 @@ This records the D05 checkpoint. Use the root [Play instructions](../../README.m
 
 ## Run and verify
 
-Use the README's pinned tools and run `sh scripts/demo.sh`. Open the printed local URL and choose an uncompressed NES cartridge. Arrow keys move, X/Z map to A/B, Enter is Start, Shift is Select; choose a detected gamepad in Settings to use it while the screen has focus. Game output starts muted; Unmute affects only the application's gain. Window blur/background pauses play. See [D07 controls and presentation](d07-controls.md) for remapping, controller recovery, filters, volume and fullscreen. Resume continues the existing worker rather than restarting progress.
+Use the README's pinned tools and run `sh scripts/demo.sh`. Follow the current [Play instructions](../../README.md#play) and in-game guide for keyboard controls; this D05 checkpoint's former defaults have been replaced. Choose a detected gamepad in Settings to use it while the screen has focus. Window blur/background pauses play. See [D07 controls and presentation](d07-controls.md) for remapping, controller recovery, filters, volume and fullscreen. Resume continues the existing worker rather than restarting progress.
 
 For a production bundle run `npm run build`. With Playwright 1.58.0 and Chromium installed:
 

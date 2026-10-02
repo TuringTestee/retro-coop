@@ -1,5 +1,5 @@
 import {useEffect,useRef,useState} from 'react';
-import {validControls,type Controls} from './controls.ts';
+import {migrateDefaultKeyboard,validControls,type Controls} from './controls.ts';
 import {readStored,putPreferences,type PreferencesRecord} from './saves.ts';
 export type Preferences={controls:Controls;filter:'nearest'|'scanlines';volume:number};
 export function validPreferences(value:unknown):value is Preferences {
@@ -27,7 +27,7 @@ export function usePreferences(identity:string|undefined,restore:(value:Preferen
    const {generation,record}=await readStored<PreferencesRecord>('preferences',current.identity);
    if(context.current!==current || current.stopped)return;current.generation=generation;
    if(current.pending){write(current,current.pending);current.pending=undefined;return;}
-   if(record){if(validPreferences(record.value))restoreRef.current(record.value);else setIssue('Stored preferences are invalid. Current controls are preserved; export or delete the record in Local data.');}
+   if(record){if(validPreferences(record.value)){const controls=migrateDefaultKeyboard(record.value.controls);const value=controls===record.value.controls?record.value:{...record.value,controls};restoreRef.current(value);if(controls!==record.value.controls)write(current,value);}else setIssue('Stored preferences are invalid. Current controls are preserved; export or delete the record in Local data.');}
   }catch(error){if(context.current===current)setIssue(`Preferences could not be loaded. Your game can still run. ${error instanceof Error ? error.message : ''}`);}
   finally{current.loading=false;}
  };

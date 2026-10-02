@@ -73,6 +73,90 @@ def theme_defaults(browser, url):
         context.close()
 
 
+def expired_guest_recovers(browser, url):
+    expired = 'A' * 43
+    context = browser.new_context()
+    context.add_init_script("""(() => {const Native=WebSocket;window.WebSocket=class extends Native {
+      send(raw) {const command=JSON.parse(raw);if(command.type==='hello'&&!command.token&&sessionStorage.getItem('fail-fresh-hello')==='1') {sessionStorage.removeItem('fail-fresh-hello');this.close();return;}super.send(raw);}
+    };})()""")
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    try:
+        page.goto(url)
+        page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
+        page.evaluate("""async expired => {
+          const db = await new Promise((resolve,reject) => {const request=indexedDB.open('retro-coop-local',3);request.onupgradeneeded=()=>{const db=request.result;db.createObjectStore('saves',{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])db.createObjectStore(name,{keyPath:'identity'});db.createObjectStore('roms',{keyPath:'sha256'});db.createObjectStore('meta');};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+          await new Promise((resolve,reject) => {const tx=db.transaction('saves','readwrite');tx.objectStore('saves').put({identity:'recovery-test',slot:1,savedAt:Date.now(),bytes:new ArrayBuffer(1)});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+          db.close();sessionStorage.setItem('retro-coop-guest',expired);
+        }""", expired)
+        page.reload()
+        page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
+        page.wait_for_function("sessionStorage.getItem('retro-coop-guest') !== '" + expired + "'")
+        assert page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const tx=db.transaction('saves');const request=tx.objectStore('saves').get(['recovery-test',1]);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return row?.bytes?.byteLength===1;}""")
+        assert 'Lobbies unavailable' not in page.locator('body').inner_text()
+        page.get_by_role('button', name='Host a new game').click()
+        page.locator('[data-page=lobby]').wait_for(timeout=10000)
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.get_by_role('button', name='Close lobby').click()
+        page.locator('.rc-listing').wait_for()
+        page.evaluate("sessionStorage.setItem('retro-coop-guest','B'.repeat(43));sessionStorage.setItem('fail-fresh-hello','1')")
+        page.reload()
+        page.get_by_role('button', name='Retry', exact=True).wait_for(timeout=15000)
+        assert 'Lobbies unavailable' in page.locator('body').inner_text()
+        page.get_by_role('button', name='Retry', exact=True).click()
+        page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
+        assert page.evaluate("sessionStorage.getItem('retro-coop-guest') !== 'B'.repeat(43)")
+        assert not errors, errors
+    finally:
+        context.close()
+
+
+def local_shortcuts(browser, url, output):
+    context = browser.new_context(viewport={'width': 1280, 'height': 800})
+    context.add_init_script("""(() => {const Native=Worker;window.Worker=class extends Native {
+      postMessage(message,...rest) {if(message.type==='state-import'&&window.holdQuickLoad){window.releaseQuickLoad=()=>super.postMessage(message,...rest);return;}return super.postMessage(message,...rest);}
+    };})()""")
+    page = context.new_page()
+    try:
+        page.goto(url)
+        page.locator('input[aria-label="NES cartridge file"]').set_input_files(str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
+        page.locator('[data-page=local]').wait_for(timeout=15000)
+        page.keyboard.press('q')
+        page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        page.keyboard.press('e')
+        page.get_by_role('alertdialog', name='Load quick save?').wait_for()
+        page.screenshot(path=str(output / 'local-load-confirmation.png'))
+        page.get_by_role('button', name='Keep playing').click()
+        assert page.get_by_role('alertdialog', name='Load quick save?').count() == 0
+        page.keyboard.press('e')
+        page.get_by_role('alertdialog', name='Load quick save?').wait_for()
+        page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});await new Promise((resolve,reject)=>{const tx=db.transaction('saves','readwrite');const store=tx.objectStore('saves');const request=store.getAll();request.onsuccess=()=>{const row=request.result.find(value=>value.slot===1);store.put({...row,savedAt:row.savedAt+1});};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}""")
+        page.get_by_role('button', name='Load Slot 1').click()
+        page.get_by_text('Quick save changed. Press E again to load the current slot.', exact=True).wait_for(timeout=10000)
+        assert page.locator('[data-page=local]').count() == 1
+        assert page.get_by_role('button', name='Resume', exact=True).count() == 1
+        page.keyboard.press('e')
+        page.get_by_role('button', name='Load Slot 1').click()
+        page.get_by_text('Quick slot 1 loaded. Choose Resume to play.', exact=True).wait_for(timeout=10000)
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Pause', exact=True).wait_for()
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Resume', exact=True).wait_for()
+        page.evaluate('window.holdQuickLoad=true')
+        page.keyboard.press('e')
+        page.get_by_role('button', name='Load Slot 1').click()
+        page.wait_for_function('typeof window.releaseQuickLoad === "function"')
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.locator('.rc-listing').wait_for(timeout=10000)
+        assert 'Quick slot 1 loaded' not in page.locator('body').inner_text()
+        page.evaluate('window.releaseQuickLoad()')
+        page.wait_for_timeout(100)
+        assert 'Quick slot 1 loaded' not in page.locator('body').inner_text()
+    finally:
+        context.close()
+
+
 def automatic_voice(browser, url):
     def participant():
         context = browser.new_context(permissions=['microphone'])
@@ -306,8 +390,21 @@ def exercise(page, url, size, output, play=False):
         choose_section(page, 'Game')
         assert page.locator('.rc-controller-art').is_visible()
         assert guide_fits(page), f'Controller guide overflowed at {size}'
+        assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
+        assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
+        assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        page.keyboard.press('q')
+        page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Prepare to resume').wait_for(timeout=10000)
+        assert guide_fits(page), f'Paused guide overflowed at {size}'
+        assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
         regions(page)
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Resume together').wait_for(timeout=10000)
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Pause', exact=True).wait_for(timeout=15000)
         page.get_by_role('button', name='Expand game to full screen').click()
         expanded = page.locator('.rc-game-fullscreen').bounding_box()
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
@@ -379,12 +476,14 @@ def main():
                 page.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
+                    expired_guest_recovers(browser, url)
+                    local_shortcuts(browser, url, output)
                     automatic_voice(browser, url)
                     restored_battery_preview(browser, url)
                     unavailable_preview_keeps_game(browser, url)
                     abandoned_saved_game_cannot_reopen(browser, url)
                 assert not errors, errors
-                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
+                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'local_shortcuts': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
             finally:
                 browser.close()
     finally:

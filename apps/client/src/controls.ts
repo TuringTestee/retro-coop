@@ -16,6 +16,19 @@ export function conflict(bindings:Bindings, action:Action, binding:string):Actio
 export function inputMask(bindings:Bindings, pressed:ReadonlySet<string>) {
  return actions.slice(0,8).reduce((mask,action,index)=>mask | (bindings[action].some(binding=>pressed.has(binding)) ? 1<<index : 0),0);
 }
+export const rapidKeys = {KeyA:1,KeyD:2} as const;
+export function rapidMask(bindings:Bindings,pressed:ReadonlyMap<string,number>,now:number) {
+ return Object.entries(rapidKeys).reduce((mask,[key,bit])=>{
+  const started=pressed.get(key);
+  return mask | (started!==undefined && !actions.some(action=>bindings[action].includes(key)) && Math.floor((now-started)/50)%2===0 ? bit : 0);
+ },0);
+}
+/** Replace only the former exact defaults, leaving all personal mappings alone. */
+export function migrateDefaultKeyboard(controls:Controls):Controls {
+ const old:Partial<Bindings>={a:['KeyX'],b:['KeyZ'],select:['ShiftLeft','ShiftRight'],start:['Enter'],up:['ArrowUp'],down:['ArrowDown'],left:['ArrowLeft'],right:['ArrowRight'],pushToTalk:['KeyV']};
+ if(!actions.every(action=>JSON.stringify(controls.keyboard[action])===JSON.stringify(old[action])))return controls;
+ return {...controls,keyboard:defaults().keyboard};
+}
 export function padInputs(pad:Pick<Gamepad,'buttons'|'axes'>|null|undefined):Set<string> {
  const pressed = new Set<string>();
  pad?.buttons.forEach((button,index)=>{if(button.pressed) pressed.add(`button:${index}`);});

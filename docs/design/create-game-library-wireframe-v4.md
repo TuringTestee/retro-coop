@@ -171,7 +171,7 @@ Point 2 · 10 seconds ago            [Restore]
 After Restore: Replace current game progress? [Confirm restore] [Cancel]
 
 RETRO COOP / GAME HELP                    [Back to playing]
-Arrows move · X is A · Z is B · Enter is Start · Shift is Select
+Current keyboard bindings appear in the in-game guide.
 Game-specific instructions/credits if available
 ```
 
