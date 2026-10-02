@@ -32,10 +32,10 @@ test('host role swaps are atomic and stable; stale and unauthorized commands can
 });
 test('only empty slots close; removed membership cannot retain room or rejoin authority',()=>{
  const t=setup();const member=t.join(1);assert.throws(()=>t.edit(0,'slotAvailability',{slotId:'slot-2',open:false}),/slot_occupied/);
- const closed=t.edit(0,'slotAvailability',{slotId:'slot-3',open:false});assert.equal(closed.slots[2].open,false);assert.equal(t.join(2).slot,'slot-4');
+ const closed=t.edit(0,'slotAvailability',{slotId:'slot-3',open:false});assert.equal(closed.slots[2].open,false);const next=t.join(2);assert.equal(next.slot,'slot-4');
  assert.throws(()=>t.edit(1,'memberRemove',{membership:member.hostMembership}),/host_only/);
  assert.throws(()=>t.edit(0,'memberRemove',{membership:member.hostMembership}),/membership_changed/);
- const removed=t.edit(0,'memberRemove',{membership:member.chatMembership});assert.equal(removed.slots[1].member,undefined);assert.ok(t.events[1].some(e=>e.type==='ended'&&e.reason==='removed'));
+ const removed=t.edit(0,'memberRemove',{membership:member.chatMembership});assert.equal(removed.slots[1].member?.id,next.chatMembership,'remaining player moves up to the earliest open slot');assert.equal(removed.slots[3].member,undefined);assert.ok(t.events[1].some(e=>e.type==='ended'&&e.reason==='removed'));
  assert.throws(()=>t.act(1,{type:'gameReady',revision:removed.game.controllers.revision,roomRevision:removed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}),/not_in_room/);
  assert.throws(()=>t.join(1),/room_unavailable/);t.edit(0,'slotAvailability',{slotId:'slot-3',open:true});assert.equal(t.view().slots[2].open,true);
 });

@@ -6,7 +6,7 @@ import {hex} from './cartridge.ts';
 let coreHash:Promise<string>|undefined;
 async function loadedCoreHash():Promise<string> {
  coreHash??=fetch(coreUrl,{credentials:'omit',redirect:'error'}).then(async response=>{
-  if(!response.ok)throw Error('The emulator is unavailable. Retry joining this room.');
+  if(!response.ok)throw Error('The emulator is unavailable. Retry joining this lobby.');
   return hex(await crypto.subtle.digest('SHA-256',await response.arrayBuffer()));
  }).catch(error=>{coreHash=undefined;throw error;});
  return coreHash;

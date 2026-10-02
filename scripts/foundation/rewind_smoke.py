@@ -73,14 +73,21 @@ def verify_rewind_ui(browser,url,rom,output):
     enter_create(page)
     page.get_by_label('NES cartridge file').set_input_files({'name':'rewind-local.nes','mimeType':'application/octet-stream','buffer':rom})
     start_solo(page,rom)
-    page.get_by_role('button', name='Tools', exact=True).click()
-    page.get_by_role('button',name='Rewind',exact=True).click();tool_page=page.locator('.rewind.tool-page')
+    def open_rewind():
+        action=page.locator('.rc-side-content:visible').get_by_role('button',name='Rewind',exact=True)
+        if not action.is_visible():
+            page.locator('.rc-game-links').get_by_role('button',name='Settings',exact=True).click()
+        action.click()
+        tool=page.locator('.rc-rewind')
+        tool.wait_for()
+        return tool
+
+    tool_page=open_rewind()
     tool_page.get_by_text('Not enough history yet.',exact=False).wait_for();assert tool_page.get_by_role('button',name='Rewind 1 second',exact=True).is_disabled()
-    page.get_by_role('button',name='Back',exact=True).click();page.get_by_role('button',name='Resume',exact=True).click()
+    page.locator('.rc-tool-back').click();page.get_by_role('button',name='Resume',exact=True).click()
     # Actual user-visible play: do not accelerate the RAF clock or worker frame loop.
     page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>=650",timeout=25000)
-    page.get_by_role('button', name='Tools', exact=True).click()
-    page.get_by_role('button',name='Rewind',exact=True).click();tool_page.get_by_test_id('rewind-history').filter(has_text='10.00 seconds').wait_for()
+    tool_page=open_rewind();tool_page.get_by_test_id('rewind-history').filter(has_text='10.00 seconds').wait_for()
     tool_page.get_by_label('Seconds to rewind').select_option('10');tool_page.get_by_role('button',name='Rewind 10 seconds',exact=True).click()
     page.screenshot(path=str(output.with_suffix('.rewind-before.png')),full_page=False)
     before=page.locator('canvas').get_attribute('data-frame-count');tool_page.get_by_role('button',name='Cancel',exact=True).click();assert page.locator('canvas').get_attribute('data-frame-count')==before
@@ -91,12 +98,12 @@ def verify_rewind_ui(browser,url,rom,output):
     page.set_viewport_size({'width':390,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     page.screenshot(path=str(output.with_suffix('.rewind-mobile.png')),full_page=False)
     audio_before=page.evaluate('rewindAudio.buffers')
-    page.get_by_role('button',name='Back',exact=True).click();page.get_by_role('button',name='Resume',exact=True).click()
+    page.locator('.rc-tool-back').click();page.get_by_role('button',name='Resume',exact=True).click()
     page.wait_for_function("before=>Number(document.querySelector('canvas').dataset.frameCount)>before+3",arg=int(after.split()[0]))
     page.wait_for_function('before=>rewindAudio.buffers>before',arg=audio_before)
     audio=page.evaluate('rewindAudio');assert audio['finite'] and audio['peak']>0
     page.get_by_label('NES cartridge file').set_input_files({'name':'replacement.nes','mimeType':'application/octet-stream','buffer':rom})
-    page.get_by_role('button', name='Tools', exact=True).click()
-    page.get_by_role('button',name='Rewind',exact=True).click();tool_page.get_by_text('Not enough history yet.',exact=False).wait_for()
+    page.wait_for_function("document.querySelector('.rc-status')?.textContent?.includes('Game loaded')")
+    tool_page=open_rewind();tool_page.get_by_text('Not enough history yet.',exact=False).wait_for()
     assert not errors,errors
     page.close();return {'shortHistoryDisabled':True,'cancelPreservesFrame':True,'before':before,'after':after,'confirmedRewindPaused':True,'explicitResumeWorks':True,'replacementClearsHistory':True,'mobileNoOverflow':True,'resumedPcmObserved':audio,'pageErrors':errors}

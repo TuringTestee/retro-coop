@@ -21,3 +21,20 @@ test('late committed checkpoint response cannot publish or release inputs owned 
  pending[1].resolve({type:'peer-checkpoint-imported',operationId:pending[1].operationId,epoch:'new-epoch',frame:20,hash:'hash'});await current;
  assert.equal(flushed,1);assert.equal(released,1);assert.equal((published[0] as {frames:number}).frames,20);
 });
+
+test('an invalid replacement keeps the previous game but reports a failed new selection',async()=>{
+ const previous={romSha256:'old-rom',coreSha256:'old-core'};
+ const states:Array<{loaded:boolean;loading:boolean;selectionPhase?:string;fingerprint?:unknown;status:string}>=[];
+ const player=Object.assign(Object.create(LocalPlayer.prototype),{
+  generation:0,disposed:false,active:{},state:{loaded:true,loading:false,running:false,frames:0,status:'Previous game loaded.',fingerprint:previous},
+  rejectPending(){},activateAudio(){},read:async()=>new Uint8Array([1,2,3]).buffer,
+  update(value:typeof states[number]){states.push(value);}
+ }) as LocalPlayer;
+ await player.load({name:'bad.nes'} as File,undefined,true);
+ const result=states.at(-1)!;
+ assert.equal(result.selectionPhase,'failed');
+ assert.equal(result.loading,false);
+ assert.equal(result.loaded,true);
+ assert.equal(result.fingerprint,previous);
+ assert.match(result.status,/not an NES game/);
+});

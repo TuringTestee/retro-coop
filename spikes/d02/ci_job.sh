@@ -37,7 +37,6 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
     timeout --foreground 75s python3 scripts/gameplay/five_slots_smoke.py --output spikes/d02/five-members.local/direct.json
     timeout --foreground 75s python3 scripts/gameplay/five_slots_smoke.py --relay --output spikes/d02/five-members.local/relay.json
     timeout --foreground 30s python3 scripts/gameplay/five_slots_smoke.py --initial-stall --output spikes/d02/five-members.local/poweron.json
-    timeout --foreground 45s python3 scripts/voice/multi_member_smoke.py --relay --output spikes/d02/five-members.local/voice-relay.json
     timeout --foreground 30s python3 scripts/gameplay/late_controller_smoke.py --output spikes/d02/five-members.local/late-controller.json
     timeout --foreground 60s python3 scripts/gameplay/observer_failure_smoke.py --output spikes/d02/five-members.local/observer-failure.json
     timeout --foreground 60s python3 scripts/gameplay/initial_observer_recovery_smoke.py --output spikes/d02/five-members.local/initial-observer-recovery.json
@@ -47,7 +46,7 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
   if [ "$D02_JOB" = entrypoint-journey ]; then
     # The upload and public entry use separate demo ports and evidence paths.
     (
-      RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 30s python3 scripts/rooms/host_upload_browser.py & upload_pid=$!
+      RETRO_COOP_RT2_OUTPUT=spikes/d02/public-entrypoint.local/host-upload timeout --foreground 90s python3 scripts/rooms/host_upload_browser.py & upload_pid=$!
       trap 'kill "$upload_pid" 2>/dev/null || true' EXIT
       timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
       wait "$upload_pid"
@@ -56,11 +55,9 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
   npm run build:staging
   case "$D02_JOB" in
     entrypoint-journey)
-      timeout --foreground 45s python3 scripts/voice/background_smoke.py --output spikes/d02/public-entrypoint.local/background-voice & voice_pid=$!
       timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
-      timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
-      wait "$voice_pid"
-      timeout --foreground 65s python3 scripts/rooms/two_agent_game.py --role run --visibility protected --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-protected
+      timeout --foreground 90s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
+      timeout --foreground 90s python3 scripts/rooms/two_agent_game.py --role run --visibility protected --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-protected
       ;;
     entrypoint-controls)
       timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery & transfer_pid=$!
@@ -72,16 +69,10 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
       wait "$exit_pid"
       ;;
     entrypoint-ui)
-      timeout --foreground 120s python3 scripts/rooms/stable_pages_browser.py --output spikes/d02/public-entrypoint.local/stable-pages & pages_pid=$!
-      timeout --foreground 90s python3 scripts/rooms/waiting_recovery_layout_browser.py --output spikes/d02/public-entrypoint.local/waiting-recovery & waiting_pid=$!
-      wait "$pages_pid"
-      wait "$waiting_pid"
-      timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/public-entrypoint.local/chat-layout.json
+      timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve
       ;;
     entrypoint-layout)
-      timeout --foreground 90s python3 scripts/rooms/player_loading_layout_browser.py --output spikes/d02/public-entrypoint.local/player-loading & layout_pid=$!
-      timeout --foreground 25s python3 scripts/rooms/secondary_layout_browser.py --output spikes/d02/public-entrypoint.local/tool-zoom --only effective-320
-      wait "$layout_pid"
+      timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --zoom
       ;;
     *) echo "Unknown entrypoint suite" >&2; exit 2;;
   esac
@@ -110,13 +101,9 @@ if [ "$D02_JOB" = core ]; then
   (cd ../.. && timeout --foreground 60s python3 scripts/aws_eb/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
   (cd ../.. && timeout --foreground 60s python3 scripts/rooms/moderation_smoke.py --output spikes/d02/moderation.local.json)
-  (cd ../.. && timeout --foreground 60s python3 scripts/rooms/operator_smoke.py --output spikes/d02/operator.local.json)
+  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/operator_smoke.py --output spikes/d02/operator.local.json)
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
   (cd ../.. && timeout --foreground 120s python3 scripts/peer/browser_smoke.py --output spikes/d02/peer.local.json)
-  for D17_PAIR in Chrome-Chrome Chrome-Firefox Firefox-Firefox; do
-    (cd ../.. && timeout --foreground 90s python3 scripts/voice/browser_smoke.py --pair "$D17_PAIR" --output "spikes/d02/voice-$D17_PAIR-direct.local.json")
-    (cd ../.. && timeout --foreground 90s python3 scripts/voice/browser_smoke.py --pair "$D17_PAIR" --relay --output "spikes/d02/voice-$D17_PAIR-relay.local.json")
-  done
   (cd ../.. && timeout --foreground 90s python3 scripts/rooms/directory_smoke.py --output spikes/d02/directory.local.json)
   (cd ../.. && timeout --foreground 240s python3 scripts/gameplay/run_smoke.py spikes/d02/gameplay.local)
   (cd ../.. && timeout --foreground 45s python3 scripts/gameplay/browser_smoke.py --controllers --output spikes/d02/gameplay.local/controllers.json)

@@ -6,7 +6,7 @@ const memoryNotice='Available in this tab; download again next time.';
 
 /** Catalog and host-room sources use the same verified cache and cross-tab clear guard. */
 export async function acquireVerifiedRom(expected:{bytes:number;sha256:string},fileName:string,signal:AbortSignal,current:()=>boolean,download:()=>Promise<Uint8Array>):Promise<AcquiredRom> {
- const check=()=>{signal.throwIfAborted();if(!current())throw Error('The room changed. Return to rooms and join again.');};
+ const check=()=>{signal.throwIfAborted();if(!current())throw Error('The lobby changed. Return to lobbies and join again.');};
  const file=(bytes:BlobPart)=>new File([bytes],fileName,{type:'application/octet-stream'});
  check();let generation:number|undefined,romGeneration:number|undefined;
  try {

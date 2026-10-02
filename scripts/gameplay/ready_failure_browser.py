@@ -1,4 +1,4 @@
-"""Real lobby recovery when Ready fails at the controller or room service."""
+"""Real lobby recovery when Ready fails at the controller or lobby service."""
 import argparse
 import contextlib
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import time
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 PROBE = r"""
@@ -48,7 +48,9 @@ def main():
         playwright = stack.enter_context(sync_playwright())
         browser = playwright.chromium.launch()
         stack.callback(browser.close)
-        host = browser.new_page(viewport={'width': 1280, 'height': 800})
+        host_context = browser.new_context(viewport={'width': 1280, 'height': 800},
+                                           permissions=['clipboard-read', 'clipboard-write'])
+        host = host_context.new_page()
         guest = browser.new_page(viewport={'width': 390, 'height': 800})
         errors = []
         for page in (host, guest):
@@ -57,72 +59,78 @@ def main():
             page.set_default_timeout(15_000)
 
         host.goto(url)
-        host.get_by_role('button', name='Create game', exact=True).click()
-        host.set_input_files('input[type=file]', str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
-        host.get_by_role('button', name='Create room', exact=True).click()
-        host.get_by_role('button', name='Start game', exact=True).wait_for()
-        invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+        host.get_by_role('button', name='Browse lobbies →').click()
+        host.get_by_role('button', name='Create lobby →').click()
+        host.get_by_label('Lobby name').fill('Ready Recovery')
+        host.get_by_role('button', name='Create lobby →').click()
+        host.get_by_role('button', name='Load NES game').wait_for()
+        host.locator('input[aria-label="NES cartridge file"]').set_input_files(
+            str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
+        host.get_by_role('button', name='Change game').wait_for(timeout=30000)
+        host.get_by_role('button', name='Copy invite').click()
+        invite = host.evaluate('navigator.clipboard.readText()')
         guest.goto(invite)
-        guest.get_by_role('button', name='Join room', exact=True).click()
+        guest.get_by_role('button', name='Join lobby', exact=True).click()
         guest.wait_for_function("readyProbe.room?.matches&&readyProbe.room.slots.find(slot=>slot.member?.id===readyProbe.room.chatMembership)?.member.acquisition==='loaded'", polling=30)
         guest.wait_for_function("readyProbe.room?.peers.some(peer=>peer.status==='connected')", polling=30)
 
-        guest.get_by_role('button', name='Settings', exact=True).click()
+        guest.locator('.rc-game-links').get_by_role('button', name='Settings').click()
+        guest.locator('.rc-mobile-side-panel').get_by_role('button', name='Controls', exact=True).click()
         guest.get_by_label('Input device', exact=True).select_option('0')
         guest.get_by_role('button', name='Back', exact=True).click()
-        action = guest.locator('[data-layout-region=readiness-actions]')
-        base = action.bounding_box()
-        assert base and base['height'] > 0, base
+        footer = guest.locator('.rc-footer-actions')
+        status = guest.locator('.rc-status')
+        base_footer, base_status = footer.bounding_box(), status.bounding_box()
+        assert base_footer and base_status and base_footer['height'] > 0, (base_footer, base_status)
 
-        def error_visible():
-            slot, alert = action.bounding_box(), action.get_by_role('alert').bounding_box()
-            assert slot and alert, (slot, alert)
-            assert slot['x'] <= alert['x'] and slot['y'] <= alert['y'], (slot, alert)
-            assert alert['x'] + alert['width'] <= slot['x'] + slot['width'] + 1, (slot, alert)
-            assert alert['y'] + alert['height'] <= slot['y'] + slot['height'] + 1, (slot, alert)
+        def stable_lanes():
+            assert footer.bounding_box() == base_footer, 'Ready actions moved after failure'
+            assert status.bounding_box() == base_status, 'Status lane moved after failure'
+            assert status.evaluate('node=>node.scrollHeight<=node.clientHeight+1'), \
+                'Ready failure overflowed its reserved status lane'
 
         guest.evaluate('readyProbe.padConnected=false')
-        action.get_by_role('button', name='Ready', exact=True).click()
-        action.get_by_role('alert').get_by_text('Reconnect your controller before shared play.', exact=True).wait_for()
-        error_visible()
-        assert action.get_by_role('button', name='Try again', exact=True).is_visible()
-        assert host.get_by_role('button', name='Start game', exact=True).is_disabled()
+        footer.get_by_role('button', name='Ready', exact=True).click()
+        status.get_by_text('Reconnect your controller before shared play.', exact=True).wait_for()
+        stable_lanes()
+        assert footer.get_by_role('button', name='Try Ready again', exact=True).is_visible()
+        assert host.get_by_role('button', name='Start →', exact=True).is_disabled()
         guest.screenshot(path=str(args.output.with_suffix('.controller-failure-mobile.png')))
-        assert action.bounding_box() == base, 'Readiness slot moved after controller failure'
         guest.evaluate('readyProbe.padConnected=true')
-        action.get_by_role('button', name='Try again', exact=True).click()
+        footer.get_by_role('button', name='Try Ready again', exact=True).click()
         guest.wait_for_function('readyProbe.room?.game.ready.includes(readyProbe.room.chatMembership)', polling=30)
-        assert action.get_by_role('button', name='Not ready', exact=True).is_visible()
-        assert action.bounding_box() == base, 'Readiness slot moved after controller recovery'
+        assert footer.get_by_role('button', name='Cancel Ready', exact=True).is_visible()
+        stable_lanes()
 
-        action.get_by_role('button', name='Not ready', exact=True).click()
+        footer.get_by_role('button', name='Cancel Ready', exact=True).click()
         guest.wait_for_function('!readyProbe.room?.game.ready.includes(readyProbe.room.chatMembership)', polling=30)
         guest.evaluate('readyProbe.rejectOnce=true')
-        action.get_by_role('button', name='Ready', exact=True).click()
-        action.get_by_role('alert').get_by_text('Room changed. Try again.', exact=True).wait_for()
-        error_visible()
+        footer.get_by_role('button', name='Ready', exact=True).click()
+        status.get_by_text('Lobby changed. Try again.', exact=True).wait_for()
+        stable_lanes()
         assert not guest.evaluate('readyProbe.room.game.ready.includes(readyProbe.room.chatMembership)')
         guest.set_viewport_size({'width': 1280, 'height': 800})
         guest.screenshot(path=str(args.output.with_suffix('.rejected-failure-desktop.png')))
-        action.get_by_role('button', name='Try again', exact=True).click()
+        footer.get_by_role('button', name='Try Ready again', exact=True).click()
         guest.wait_for_function('readyProbe.room?.game.ready.includes(readyProbe.room.chatMembership)', polling=30)
 
-        action.get_by_role('button', name='Not ready', exact=True).click()
+        footer.get_by_role('button', name='Cancel Ready', exact=True).click()
         guest.wait_for_function('!readyProbe.room?.game.ready.includes(readyProbe.room.chatMembership)', polling=30)
         guest.evaluate('readyProbe.dropOnce=true')
-        action.get_by_role('button', name='Ready', exact=True).click()
-        action.get_by_role('alert').get_by_text('Room service did not respond. Try again.', exact=True).wait_for(timeout=12_000)
-        error_visible()
+        footer.get_by_role('button', name='Ready', exact=True).click()
+        status.get_by_text('Lobby service did not respond. Try again.', exact=True).wait_for(timeout=12_000)
         assert not guest.evaluate('readyProbe.room.game.ready.includes(readyProbe.room.chatMembership)')
         guest.set_viewport_size({'width': 390, 'height': 800})
+        stable_lanes()
         guest.screenshot(path=str(args.output.with_suffix('.timeout-failure-mobile.png')))
-        action.get_by_role('button', name='Try again', exact=True).click()
+        footer.get_by_role('button', name='Try Ready again', exact=True).click()
         guest.wait_for_function('readyProbe.room?.game.ready.includes(readyProbe.room.chatMembership)', polling=30)
-        assert action.bounding_box() == base, 'Readiness slot moved after timed-out preparation recovery'
+        stable_lanes()
         guest.screenshot(path=str(args.output.with_suffix('.ready-mobile.png')))
+        expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
         host.get_by_role('button', name='Ready', exact=True).click()
         host.wait_for_function('readyProbe.room?.game.ready.length===2', polling=30)
-        host.get_by_role('button', name='Start game', exact=True).click()
+        host.get_by_role('button', name='Start →', exact=True).click()
         for page in (host, guest):
             page.wait_for_function("readyProbe.room?.game.status==='playing'&&readyProbe.room.established", polling=30)
         assert not errors, errors

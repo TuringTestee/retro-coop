@@ -4,7 +4,7 @@ Audience: Agent
 
 This is shipped D19 evidence. The later [room access and automatic routing plan](room-access-and-routing.md) replaces older Public/Unlisted and route-choice examples; catalog identity and verified asset obligations remain.
 
-This document records the earlier D19 catalog delivery and its browser evidence. The current [lobby refactor](lobby-refactor.md) replaces its direct Play and All lobbies controls with ordinary public room rows, host Start, and Public rooms. The exact asset and emulator evidence below remains historical proof for the supplied games.
+This document records the earlier D19 catalog delivery and its browser evidence. The current [unified lobby design](../design/unified-lobbies-wireframe-v6.md) uses Lobbies → Host or Join → Load NES game → Ready → Start. The exact asset and emulator evidence below remains historical proof for the supplied games; its older screenshots do not show the current interface.
 
 ## Candidate behavior
 
@@ -43,20 +43,18 @@ The controller/settings work from merged PR #64 is integrated without restoring 
 
 The exact Super Tilt artifact also ran through the actual browser worker. [Qualification results](d19-catalog/super-tilt/result.json) record boot/menu rendering, a Start-input timeline change, nonzero PCM peak `0.1657758355140686`, and deterministic canonical save/restore replay. [Boot](d19-catalog/super-tilt/boot-menu.png) and [after Start](d19-catalog/super-tilt/after-start.png) are the inspected frames.
 
-Reproduce with:
+Current checks for the catalog and equivalent join journeys use the unified interface. The original D19 page scripts were retired with their page controls; the captures above remain historical evidence, not current UI proof. Run these checks in a browser-capable environment with the verified catalog assets installed:
 
 ```sh
+sh scripts/foundation/prepare.sh
 npm run build:staging
-python3 scripts/featured/catalog_browser.py --output docs/implementation/d19-catalog/browser
-python3 scripts/featured/public_join_browser.py --output docs/implementation/d19-catalog/browser
-python3 scripts/gameplay/browser_smoke.py --pair Chrome-Chrome --seconds 8 --screenshots --output docs/implementation/d19-catalog/browser/shared-session.json
-python3 scripts/gameplay/browser_smoke.py --pair Firefox-Firefox --seconds 8 --output docs/implementation/d19-catalog/browser/shared-firefox-firefox.json
-python3 scripts/gameplay/browser_smoke.py --pair Chrome-Firefox --seconds 8 --output docs/implementation/d19-catalog/browser/shared-chrome-firefox.json
-python3 scripts/gameplay/browser_smoke.py --pair Chrome-Chrome --controllers --seconds 8 --output docs/implementation/d19-catalog/browser/controller-handoff.json
-python3 scripts/featured/qualify_super_tilt.py --rom /path/to/exact/Super_Tilt_Bro_\(E\).nes --wasm apps/client/src/generated/retro_coop_d02.wasm --output docs/implementation/d19-catalog/super-tilt
+python3 scripts/gameplay/catalog_slots_smoke.py --output /tmp/catalog-slots.json
+python3 scripts/rooms/two_agent_game.py --role run --rom apps/client/dist/generated/diagnostic.nes --session-dir /tmp/two-agent-public
+python3 scripts/rooms/two_agent_game.py --role run --visibility protected --rom apps/client/dist/generated/diagnostic.nes --session-dir /tmp/two-agent-protected
+RETRO_COOP_ACCESS_OUTPUT=/tmp/lobby-access python3 scripts/rooms/access_browser.py
 timeout 60s sh scripts/preflight.sh
 ```
 
 ## Honest limits
 
-The browser journey is local same-origin desktop Chrome, not the public Internet route. Super Tilt evidence inspects browser-generated PCM rather than an audible device and does not use a physical controller. Start changed the native input timeline; directional P1/P2 samples at the later sampled menu state did not change pixels. The long shared workload proof uses the diagnostic ROM; the public-directory friend proof separately establishes exact Super Tilt shared play and arbitrary-file admission. Physical-controller play, exhaustive mechanics, exact release-version provenance, Safari, assistive-technology sessions, and final D20/D21 qualification remain with their owning issues.
+The D19 browser journey was local same-origin desktop Chrome, not the public Internet route. Super Tilt evidence inspects browser-generated PCM rather than an audible device and does not use a physical controller. Start changed the native input timeline; directional P1/P2 samples at the later sampled menu state did not change pixels. The long shared workload proof used the diagnostic ROM. Current UI and live join behavior require fresh results from the commands above. Physical-controller play, exhaustive mechanics, exact release-version provenance, Safari, and assistive-technology sessions remain outside this historical evidence.

@@ -7,7 +7,7 @@ export type GameReason=typeof reasons[number];
 const validReason=(value:unknown):value is GameReason=>typeof value==='string'&&(reasons as readonly string[]).includes(value);
 export type ControllerAssignment={owners:[string|null,string|null];revision:number};
 export type RoleTransaction={id:string;revision:number;roles:{slotId:SlotId;role:SlotRole}[];status:'freezing'|'synchronizing'|'failed';reason?:string};
-export type GameView={controllers:ControllerAssignment;pending?:RoleTransaction;ready:string[];startRequested:boolean;status:'waiting'|'starting'|'playing'|'pausing'|'resume_ready'|'paused'|'failed';epoch?:string;delay?:number;frame?:number;reason?:string};
+export type GameView={controllers:ControllerAssignment;pending?:RoleTransaction;ready:string[];startRequested:boolean;status:'waiting'|'starting'|'countdown'|'playing'|'pausing'|'resume_ready'|'paused'|'failed';epoch?:string;delay?:number;startAt?:number;frame?:number;reason?:string};
 export type CheckpointPurpose='observer'|'controller';
 export type GameCommand=
  | {type:'gameReady';requestId:string;revision:number;roomRevision:number;frame:number;fresh:boolean;hash:string;delay:number}

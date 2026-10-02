@@ -1,5 +1,7 @@
 /.agents/preferences.local.json
 node_modules/
+node_modules
+__pycache__/
 dist/
 .env.local
 .env.*.local

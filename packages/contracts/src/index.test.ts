@@ -20,6 +20,8 @@ test('state operations reuse local-file shape and correlation validation', () =>
 
 test('shared worker frames require a valid paired epoch and frame, and hash reuses the local RPC boundary',()=>{
  assert.equal(isWorkerRequest({type:'state-hash',requestId:12}),true);
+ assert.equal(isWorkerRequest({type:'state-preview',requestId:13}),true);
+ assert.equal(isWorkerRequest({type:'state-preview',requestId:-1}),false);
  assert.equal(isWorkerRequest({type:'frame',p1:0,p2:255,epoch:'a'.repeat(24),frame:0}),true);
  for(const tag of [{epoch:'a'.repeat(24)},{frame:0},{epoch:' '.repeat(24),frame:0},{epoch:'a'.repeat(24),frame:-1}])assert.equal(isWorkerRequest({type:'frame',p1:0,p2:0,...tag}),false);
 });

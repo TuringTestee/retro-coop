@@ -2,7 +2,7 @@ Audience: Agent
 
 # Optional voice
 
-Two room members can explicitly enable microphone audio, mute either side, choose a microphone or use push-to-talk. Voice shares the existing peer connection. Permission, device and playback failures have their own recovery controls and preserve the local game and text chat.
+This records the original voice delivery. The current lobby starts voice in push-to-talk mode when a peer connects, and `Settings` owns its controls. Voice shares the existing peer connection. Permission, device and playback failures preserve the game and text chat.
 
 This implements D17 / issue #21 under approved epic #2 and planning PR #3. The functional browser tests do not establish AC-16's 30-minute listening sessions, public-network reliability, echo quality or release-platform qualification. Those remain release gates in #25 and #27; the peer investigation in #53 also remains relevant.
 
@@ -10,7 +10,7 @@ This implements D17 / issue #21 under approved epic #2 and planning PR #3. The f
 
 `Microphone` owns capture, track transmission, cancellation and device replacement. Each capture has a generation; leaving or replacing the peer invalidates pending permission results and stops late tracks. A serialized sender operation cannot attach a previous generation's track to a new peer. Tracks start disabled, then transmit only in the current explicit open-mic or held push-to-talk state.
 
-`VoiceSession` owns one remote audio element, device enumeration and the existing keyboard/gamepad push-to-talk bindings. It supplies media lifecycle hooks to `PeerConnection`; the host offers one audio transceiver, and the guest binds the corresponding sender before answering. No additional peer connection, signaling service, recording or transcript is introduced. `RoomClient` owns the session, and room departure, replacement and disposal close it. The same `VoiceControls` component is shown in the room and Settings.
+`VoiceSession` owns one remote audio element, device enumeration and the existing keyboard/gamepad push-to-talk bindings. It supplies media lifecycle hooks to `PeerConnection`; the host offers one audio transceiver, and the guest binds the corresponding sender before answering. No additional peer connection, signaling service, recording or transcript is introduced. `RoomClient` owns the session, and room departure, replacement and disposal close it. Current voice controls are in `Settings`.
 
 Enable voice requests permission only after a click. Permission denial, unavailable devices and sender attachment failures allow another explicit attempt. Playback denial has a separate sound retry. Device changes replace capture but stay muted until deliberate unmute. The [Background voice amendment](background-voice.md) now governs blur/hidden behavior: release held push-to-talk without changing explicit mute or enabled open microphone. Leave, kick, expiry and peer replacement stop microphone tracks. Reconnecting makes voice opt-in again. Remote mute and volume affect only incoming voice, independently of the game's mute setting.
 
@@ -34,7 +34,7 @@ If a browser cannot negotiate an audio transceiver at all, the UI reports the se
 
 Prepare the application with `npm ci`, `sh scripts/foundation/prepare.sh` and `npm run build`. Use Python Playwright 1.58 with its browser dependencies and Chrome installed for `--chrome`. The fixture uses browser-provided fake microphone devices, not an actual person's microphone. The tests remove Chrome's global mute flag; game output is muted in the application, and incoming voice volume is set to zero through its own UI. Positive inbound RTP packet counts and decoded audio energy prove transported/decoded audio, not human audibility or intelligibility.
 
-Run `python scripts/voice/browser_smoke.py --chrome --pair Chrome-Firefox --output /tmp/voice.json`; use `Chrome-Chrome` or `Firefox-Firefox` for the other pairs. Add `--relay --turnserver /path/to/turnserver` for a local authenticated coturn relay. The fixture's temporary TURN credentials, candidate addresses and raw TURN log are not published; failure evidence contains bounded event types, numeric error codes and transport counters. No ROM, SDP, microphone samples or chat contents enter the evidence.
+The old screen-specific browser probe was retired with the unified lobby. Run `python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve` for the current automatic voice and push-to-talk journey. The historical pairwise and relay results below remain evidence for the earlier delivery, not a current-head qualification.
 
 CI uses Playwright’s full Chromium `channel="chromium"` headless mode, as described in its [browser guide](https://playwright.dev/python/docs/browsers#chromium-new-headless-mode). The first CI voice cell failed because the separate default headless shell returned `NotSupportedError` for the same fake-device microphone request that succeeds in full Chromium and Chrome. This changes the test browser executable, not the voice workload or application behavior.
 

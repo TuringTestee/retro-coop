@@ -20,7 +20,7 @@ export class PeerConnection {
  private send:(command:Command)=>Promise<unknown>;private update:(state:ConnectionState)=>void;private options:PeerOptions;
  constructor(send:(command:Command)=>Promise<unknown>,update:(state:ConnectionState)=>void,options:PeerOptions={}) {this.send=send;this.update=update;this.options=options;}
  close(status='Peer connection closed. Your local game is preserved.') {const epoch=this.epoch;this.epoch=undefined;this.connectedState=undefined;this.reportedRoute=undefined;if(epoch)this.options.closed?.(epoch);this.options.media?.close();clearTimeout(this.timer);clearTimeout(this.routeTimer);clearInterval(this.statsTimer);this.channel?.close();this.checkpoint?.close();this.checkpoint=undefined;this.pc?.close();this.pc=undefined;this.channel=undefined;this.candidates=[];this.update({status});}
- private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry the connection or leave the room.');void this.send({type:'peerFailed',pairId:this.pairId,epoch}).catch(()=>{});}
+ private fail(epoch:string) {if(this.epoch!==epoch) return;this.close('Connection failed. Retry the connection or leave the lobby.');void this.send({type:'peerFailed',pairId:this.pairId,epoch}).catch(()=>{});}
  handle(event:PeerEvent) {
   if(event.type==='peerStop') {if(event.pairId===this.pairId)this.close(event.reason);return;}
   if(event.type==='peerPrepare') {

@@ -31,6 +31,72 @@ test('creation acknowledgement and cancellation never expose stale invitations',
  t.advance(5000);
  assert.throws(()=>t.act(viewer.token,{type:'join',intent:randomUUID(),invite:provisional.invite}),/room_unavailable/);
 });
+test('a lobby can be created and joined before choosing a game',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),viewer=t.guest(),intent=randomUUID();
+ const lobby=t.act(host.token,{type:'createLobby',intent,label:'Game Night',visibility:'public'}).room!;
+ assert.equal(lobby.label,'Game Night');assert.equal(lobby.fingerprint,undefined);assert.equal(lobby.gameTitle,undefined);
+ assert.equal(lobby.slots.length,5);assert.equal(lobby.slots[0].role,'player1');
+ assert.equal(t.act(viewer.token,{type:'directory'}).directory?.find(row=>row.id===lobby.id)?.label,'Game Night');
+ const joined=t.act(guest.token,{type:'join',invite:lobby.invite,intent:randomUUID()}).room!;
+ assert.equal(joined.fingerprint,undefined);assert.equal(joined.slot,'slot-2');
+ assert.throws(()=>t.act(host.token,{type:'startRoom',roomId:lobby.id,membership:lobby.chatMembership,fingerprint}),/game_not_selected/);
+ for(let elapsed=0;elapsed<limits.reservation+1000;elapsed+=10000){t.advance(10000);t.act(host.token,{type:'heartbeat'});t.act(guest.token,{type:'heartbeat'});}
+ assert.equal(t.rooms.attach(guest.token,()=>{},()=>{}).data.room?.id,lobby.id,'waiting for game selection must not expire an admitted guest');
+});
+test('cancelled game-less creation cannot surface a delayed hosted lobby',()=>{
+ const t=setup(),host=t.guest(),viewer=t.guest(),intent=randomUUID();
+ const lobby=t.act(host.token,{type:'createLobby',intent,label:'Game Night',visibility:'public'}).room!;
+ t.act(host.token,{type:'cancelCreate',intent});
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room,undefined);
+ assert.equal(t.act(viewer.token,{type:'directory'}).directory?.some(row=>row.id===lobby.id),false);
+ assert.throws(()=>t.act(host.token,{type:'createLobby',intent,label:'Game Night',visibility:'public'}),/cancelled/);
+ const before=randomUUID();t.act(host.token,{type:'cancelCreate',intent:before});
+ assert.throws(()=>t.act(host.token,{type:'createLobby',intent:before,label:'Game Night',visibility:'public'}),/cancelled/);
+});
+test('password protected game-less lobbies appear in the directory and require the password',async()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),intent=randomUUID();
+ const command={type:'createLobby',requestId:randomUUID(),intent,label:'Private Game Night',visibility:'protected',password:'eight characters'} as const;
+ const lobby=(await t.rooms.authorize(host.token,command,'127.0.0.1')).room!;
+ assert.equal(lobby.fingerprint,undefined);
+ assert.equal(lobby.visibility,'protected');
+ assert.equal(t.act(guest.token,{type:'directory'}).directory?.find(row=>row.id===lobby.id)?.visibility,'protected');
+ await assert.rejects(t.rooms.authorize(guest.token,{type:'joinCode',requestId:randomUUID(),code:lobby.code!,intent:randomUUID()},'127.0.0.1'),/password_required/);
+ await assert.rejects(t.rooms.authorize(guest.token,{type:'joinCode',requestId:randomUUID(),code:lobby.code!,intent:randomUUID(),password:'wrong password'},'127.0.0.1'),/bad_password/);
+ const joined=await t.rooms.authorize(guest.token,{type:'joinCode',requestId:randomUUID(),code:lobby.code!,intent:randomUUID(),password:'eight characters'},'127.0.0.1');
+ assert.equal(joined.room?.id,lobby.id);
+ assert.equal(joined.room?.fingerprint,undefined);
+});
+test('host selects an included game after guests join without moving their slots',()=>{
+ const t=setup(),host=t.guest(),guest=t.guest(),intent=randomUUID();
+ const lobby=t.act(host.token,{type:'createLobby',intent,label:'Game Night',visibility:'public'}).room!;
+ const joined=t.act(guest.token,{type:'join',invite:lobby.invite,intent:randomUUID()}).room!;
+ const game=includedFingerprint('super-tilt-bro-pal');
+ assert.throws(()=>t.act(guest.token,{type:'beginGameSelection',roomId:lobby.id,intent:randomUUID(),expectedRevision:joined.revision,fingerprint:game,title:'Guest choice'}),/host_only/);
+ const selected=t.act(host.token,{type:'beginGameSelection',roomId:lobby.id,intent:randomUUID(),expectedRevision:joined.revision,fingerprint:game,title:'Ignored custom title'}).room!;
+ assert.equal(selected.gameTitle,catalogEntry('super-tilt-bro-pal').title);
+ assert.equal(selected.catalogId,'super-tilt-bro-pal');assert.equal(selected.fingerprint?.romSha256,game.romSha256);
+ assert.equal(selected.matches,true);assert.equal(selected.slots[0].member?.acquisition,'loaded');
+ assert.equal(selected.slots[1].member?.id,joined.chatMembership);assert.equal(selected.slots[1].member?.acquisition,'checking');
+ const preview=t.act(guest.token,{type:'preview',invite:lobby.invite}).preview;
+ assert.equal(preview&&'gameTitle' in preview?preview.gameTitle:undefined,selected.gameTitle);
+});
+test('a custom game is published only after verified upload and cancellation preserves the previous game',()=>{
+ const t=setup(),host=t.guest(),intent=randomUUID(),lobby=t.act(host.token,{type:'createLobby',intent,label:'Game Night',visibility:'public'}).room!;
+ const old=includedFingerprint('super-tilt-bro-pal'),first=randomUUID();
+ const selected=t.act(host.token,{type:'beginGameSelection',roomId:lobby.id,intent:first,expectedRevision:lobby.revision,fingerprint:old,title:'Catalog'}).room!;
+ const pending=randomUUID();t.act(host.token,{type:'beginGameSelection',roomId:lobby.id,intent:pending,expectedRevision:selected.revision,fingerprint,title:'My NES'});
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.fingerprint?.romSha256,old.romSha256,'staging keeps the current game');
+ assert.throws(()=>t.act(host.token,{type:'confirmGameSelection',roomId:lobby.id,intent:pending,expectedRevision:selected.revision}),/upload_required/);
+ t.act(host.token,{type:'cancelGameSelection',roomId:lobby.id,intent:pending});
+ assert.equal(t.rooms.attach(host.token,()=>{},()=>{}).data.room?.fingerprint?.romSha256,old.romSha256);
+ const next=randomUUID();t.act(host.token,{type:'beginGameSelection',roomId:lobby.id,intent:next,expectedRevision:selected.revision,fingerprint,title:'My NES'});
+ const lease=t.rooms.beginUpload(host.token,lobby.id,next,fingerprint.cartridge.bytes);assert.equal(lease.selection,true);
+ t.rooms.commitUpload(lobby.id,lease.id,'/private/verified-nes');
+ const current=t.act(host.token,{type:'confirmGameSelection',roomId:lobby.id,intent:next,expectedRevision:selected.revision}).room!;
+ assert.equal(current.gameTitle,'My NES');assert.equal(current.fingerprint?.romSha256,fingerprint.romSha256);assert.equal(current.revision,selected.revision+1);
+ assert.equal(current.matches,true);assert.equal(current.slots[0].member?.acquisition,'loaded');
+ assert.equal(t.act(host.token,{type:'confirmGameSelection',roomId:lobby.id,intent:next,expectedRevision:selected.revision}).room?.revision,current.revision,'confirmation is idempotent');
+});
 test('room preview excludes hashes and host alone controls room mutations',()=>{
  const t = setup(), host = t.guest(), guest = t.guest(), room = t.host(host.token);
  const preview = t.act(guest.token,{type:'preview',invite:room.invite}).preview!;
@@ -385,7 +451,7 @@ test('real WebSocket clients opt into offers and race for one first-host claim',
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}
 });
 
-test('separate WebSocket browsers reject an unready observer, then admit a late member after confirmed removal and Start',async()=>{
+test('separate WebSocket browsers start with an unready observer, then admit a late member after confirmed removal',async()=>{
  const origin='http://127.0.0.1:5173',server=createCoordinator({origins:[origin]});server.listen(0,'127.0.0.1');await once(server,'listening');
  const url=`ws://127.0.0.1:${(server.address() as {port:number}).port}/ws`,sockets:WebSocket[]=[];
  const connect=async()=>{const socket=new WebSocket(url,{origin});sockets.push(socket);await once(socket,'open');return socket;};
@@ -400,15 +466,17 @@ test('separate WebSocket browsers reject an unready observer, then admit a late 
   assert.equal(joined.occupancy,2);
   const changed=data(await request(host,{type:'slotRole',roomId:room.id,slotId:'slot-2',role:'observer',expectedRevision:joined.revision})).room!;
   data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
-  const notConnected=await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6});
-  assert.equal(notConnected.ok,false);if(!notConnected.ok)assert.equal(notConnected.error,'game_prerequisites');
-  const rejected=await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint});assert.equal(rejected.ok,false);if(!rejected.ok)assert.equal(rejected.error,'game_prerequisites');
-  const removed=data(await request(host,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:changed.revision})).room!;
-  data(await request(host,{type:'gameReady',revision:removed.game.controllers.revision,roomRevision:removed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
+  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
   const started=data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!;
   const epoch=started.game.epoch!;data(await request(host,{type:'gameAck',epoch,hash:'c'.repeat(64)}));
-  assert.equal(started.started,'shared');assert.equal(started.occupancy,1);
-  const preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;assert.equal(preview.status,'playing');assert.equal(preview.occupancy,1);
+  assert.equal(started.started,'shared');assert.equal(started.occupancy,2,'Start never removes an unready observer');
+  let preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;
+  for(let attempt=0;preview.status!=='playing'&&attempt<9;attempt++){
+   await new Promise(resolve=>setTimeout(resolve,500));
+   preview=data(await request(watcher,{type:'directory'})).directory!.find(row=>row.id===room.id)!;
+  }
+  assert.equal(preview.status,'playing');assert.equal(preview.occupancy,2);
+  const removed=data(await request(host,{type:'memberRemove',roomId:room.id,membership:joined.chatMembership,expectedRevision:started.revision})).room!;assert.equal(removed.occupancy,1);
   const late=data(await request(watcher,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;assert.equal(late.slot,'slot-2');assert.equal(late.occupancy,2);assert.equal(late.game.epoch,epoch);
   assert.equal(data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!.id,room.id);
  }finally{for(const socket of sockets)socket.terminate();await shutdown(server);}

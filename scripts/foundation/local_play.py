@@ -1,45 +1,68 @@
-"""Enter local play through the public Create Game flow used by the shipped client."""
+"""Enter unified local play and inspect the active browser worker for tests."""
 import hashlib
 
 
+CORE_PROBE = '''() => {
+  window.localCoreProbe={records:[]};
+  const NativeWorker=Worker;
+  window.Worker=class extends NativeWorker {
+    constructor(...args){
+      super(...args);
+      this.probeRecord={core:null,rom:null,ended:false,digest:Promise.resolve()};
+      localCoreProbe.records.push(this.probeRecord);
+      this.addEventListener('message',event=>{
+        if(event.data?.type==='ready')this.probeRecord.core=event.data.coreSha256;
+      });
+    }
+    postMessage(message,...args){
+      if(message?.type==='load'&&message.rom instanceof ArrayBuffer){
+        const bytes=new Uint8Array(message.rom).slice();
+        this.probeRecord.digest=crypto.subtle.digest('SHA-256',bytes).then(value=>{
+          this.probeRecord.rom=[...new Uint8Array(value)]
+            .map(byte=>byte.toString(16).padStart(2,'0')).join('');
+        });
+      }
+      return super.postMessage(message,...args);
+    }
+    terminate(){this.probeRecord.ended=true;return super.terminate();}
+  };
+  localCoreProbe.active=async()=>{
+    await Promise.all(localCoreProbe.records.map(record=>record.digest));
+    const record=localCoreProbe.records.filter(row=>!row.ended&&row.rom&&row.core).at(-1);
+    return record?`${record.rom} ${record.core}`:null;
+  };
+}'''
+
+
 def enter_create(page):
-    """Use the same entry button a player uses before adding a new cartridge."""
-    page.get_by_role('button', name='Create game', exact=True).click()
-    page.get_by_test_id('create-game').wait_for()
+    """Start local play, with a test-only record of the active emulator core."""
+    page.evaluate(CORE_PROBE)
+    page.get_by_role('button', name='Play locally', exact=True).click()
+    page.locator('[data-page="local"]').wait_for()
 
 
 def read_fingerprint(page, expected=None):
-    """Read the technical identity through Game help, then return to play."""
-    page.get_by_role('button', name='Tools', exact=True).click()
-    page.get_by_role('button', name='Game help', exact=True).click()
-    page.get_by_text('Technical details', exact=True).click()
-    details = page.get_by_test_id('fingerprint')
+    """Read ROM and core hashes from the live worker without showing them in UI."""
     if expected is not None:
-        details.filter(has_text=expected).wait_for()
-    value = details.inner_text()
-    page.get_by_role('button', name='Back', exact=True).click()
+        page.wait_for_function(
+            'async expected=>(await localCoreProbe.active())?.includes(expected)',
+            arg=expected)
+    value = page.evaluate('localCoreProbe.active()')
+    assert value, 'No loaded local emulator worker was found'
     return value
 
 
 def start_solo(page, rom, *, require_start=False):
-    """Leave Create Game for local play, then start the loaded cartridge."""
+    """Wait for a selected cartridge and explicitly resume its local timeline."""
     expected = hashlib.sha256(rom).hexdigest()
-    local = page.get_by_role('button', name='Play locally', exact=True)
-    if page.get_by_test_id('create-game').is_visible():
-        local.wait_for(state='visible')
-        local.click()
-    else:
-        page.get_by_test_id('player-status').filter(has_text='Game loaded').wait_for()
     assert expected in read_fingerprint(page, expected)
+    start = page.get_by_role('button', name='Resume', exact=True)
+    start.wait_for()
+    page.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount)===0")
     if require_start:
-        start = page.get_by_role('button', name='Resume', exact=True)
-        start.wait_for()
         frames = page.locator('canvas')
-        assert frames.get_attribute('data-frame-count') == '0', 'Replacement ran before local Resume'
+        assert frames.get_attribute('data-frame-count') == '0', 'Game advanced before Resume'
         page.wait_for_timeout(200)
         assert frames.get_attribute('data-frame-count') == '0', 'Loaded game advanced before Resume'
-        start.click()
-        page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>5")
-        return
-    page.get_by_role('button', name='Resume', exact=True).click()
+    start.click()
     page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>5")

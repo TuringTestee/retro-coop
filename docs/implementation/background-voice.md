@@ -12,7 +12,7 @@ At `f125ed5`, `Microphone.blur()` calls `mute(true)` and `VoiceSession` calls it
 
 `Microphone` remains the single owner of desired mute and effective track enablement. Replace focus-driven muting with a release operation that clears held push-to-talk state without altering `muted`. `VoiceSession` must clear keyboard, gamepad arming and pointer state immediately on blur/hidden. Input polling must not change open-microphone mute when controls become unavailable. Teardown still resets the microphone endpoint and cancels pending capture generations. Keep desired mute stable during pending permission, including explicit mute/cancel races.
 
-`VoiceControls` exposes an explicit Mute/Unmute action whenever capture is ready in both modes. Compact push-to-talk must not replace the only mute action with Hold to talk. Keep the lobby control discoverable and gameplay/Settings controls consistent. Replace the obsolete “Switching windows mutes” explanation. No cross-tab shared mute storage or focus-return auto-unmute.
+`Settings` exposes an explicit Mute/Unmute action whenever capture is ready in both modes. Push-to-talk must not replace the only mute action with Hold to talk. Keep the lobby control discoverable and gameplay/Settings controls consistent. Replace the obsolete “Switching windows mutes” explanation. No cross-tab shared mute storage or focus-return auto-unmute.
 
 Search all code, tests, browser fixtures and docs for blur, hidden, focus-mute and the old voice copy. Update assertions and current instructions; retain clearly historical evidence as historical. No new transport or recording service is needed for this slice. Five-member sender fanout remains owned by #157 and must preserve this microphone rule.
 

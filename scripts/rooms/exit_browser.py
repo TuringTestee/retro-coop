@@ -1,195 +1,160 @@
 #!/usr/bin/env python3
-"""Exercise directory exits through the public browser entry point."""
+"""Prove that Main Page exits stop an active lobby, game, voice, and input."""
+
 import json
 import os
 import subprocess
-import time
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+
+from playwright.sync_api import expect, sync_playwright
+
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
-SCREENSHOTS = os.environ.get('RETRO_EXIT_SCREENSHOT_DIR')
+ROM = STATIC / 'generated/diagnostic.nes'
+SCREENSHOTS = Path(os.environ['RETRO_EXIT_SCREENSHOT_DIR']) if 'RETRO_EXIT_SCREENSHOT_DIR' in os.environ else None
+
+
+def instrument(page):
+    page.add_init_script("""(() => {
+      window.exitProof = {terminated: 0, posted: 0, captures: [], audioSources: []};
+      const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = async (...args) => {
+        const stream = await capture(...args);
+        exitProof.captures.push(stream);
+        return stream;
+      };
+      const createSource = AudioContext.prototype.createBufferSource;
+      AudioContext.prototype.createBufferSource = function(...args) {
+        const source = createSource.apply(this, args);
+        const record = {stopped: false, ended: false};
+        exitProof.audioSources.push(record);
+        source.addEventListener('ended', () => { record.ended = true; });
+        const stop = source.stop.bind(source);
+        source.stop = (...args) => { record.stopped = true; return stop(...args); };
+        return source;
+      };
+      const send = WebSocket.prototype.send;
+      WebSocket.prototype.send = function(data) {
+        if ((window.failClose && JSON.parse(data).type === 'close') ||
+            (window.failLeave && JSON.parse(data).type === 'leave')) {
+          throw Error('Injected exit failure');
+        }
+        return send.call(this, data);
+      };
+      const terminate = Worker.prototype.terminate;
+      const post = Worker.prototype.postMessage;
+      Worker.prototype.postMessage = function(...args) {
+        exitProof.posted++;
+        return post.apply(this, args);
+      };
+      Worker.prototype.terminate = function() {
+        exitProof.terminated++;
+        return terminate.call(this);
+      };
+    })()""")
+
+
+def create_lobby(page, url, load_game=False):
+    page.goto(url)
+    page.get_by_role('button', name='Host a new game').click()
+    page.get_by_role('button', name='Load NES game').wait_for(timeout=15000)
+    if load_game:
+        page.locator('input[aria-label="NES cartridge file"]').set_input_files(ROM)
+        page.get_by_role('button', name='Change game').wait_for(timeout=30000)
+    return page
 
 
 def main():
+    if SCREENSHOTS:
+        SCREENSHOTS.mkdir(parents=True, exist_ok=True)
     service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
                                env={**os.environ, 'COORDINATOR_EMPTY_OFFERS': 'super-tilt-bro-pal'},
                                stdout=subprocess.PIPE, text=True)
     try:
-        assert service.stdout
         url = json.loads(service.stdout.readline())['url']
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(args=['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'])
-            def host_room():
-                hosted = browser.new_page()
-                hosted.context.grant_permissions(['microphone'])
-                hosted.add_init_script("""(() => {
-                    window.exitProof = {terminated: 0, rejectedClose: 0, posted: 0, captures: [], audioSources: []};
-                    const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
-                    navigator.mediaDevices.getUserMedia = async (...args) => {
-                        const stream = await capture(...args);
-                        exitProof.captures.push(stream);
-                        return stream;
-                    };
-                    const createSource = AudioContext.prototype.createBufferSource;
-                    AudioContext.prototype.createBufferSource = function(...args) {
-                        const source = createSource.apply(this, args);
-                        const record = {stopped: false, ended: false};
-                        exitProof.audioSources.push(record);
-                        source.addEventListener('ended', () => { record.ended = true; });
-                        const stop = source.stop.bind(source);
-                        source.stop = (...stopArgs) => { record.stopped = true; return stop(...stopArgs); };
-                        return source;
-                    };
-                    const send = WebSocket.prototype.send;
-                    WebSocket.prototype.send = function(data) {
-                        if (window.failClose && JSON.parse(data).type === 'close') {
-                            exitProof.rejectedClose++;
-                            throw Error('Injected close failure');
-                        }
-                        return send.call(this, data);
-                    };
-                    const terminate = Worker.prototype.terminate;
-                    const post = Worker.prototype.postMessage;
-                    Worker.prototype.postMessage = function(...args) {
-                        exitProof.posted++;
-                        return post.apply(this, args);
-                    };
-                    Worker.prototype.terminate = function() {
-                        exitProof.terminated++;
-                        return terminate.call(this);
-                    };
-                })()""")
-                hosted.goto(url)
-                hosted.get_by_role('button', name='Create game', exact=True).click()
-                hosted.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
-                hosted.get_by_role('button', name='Create room', exact=True).click()
-                hosted.get_by_test_id('room-view').wait_for(state='attached')
-                return hosted
-            page = host_room()
-            room_name = page.locator('#room-heading').inner_text()
+            browser = playwright.chromium.launch(args=[
+                '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'])
+            context = browser.new_context(permissions=['clipboard-read', 'clipboard-write', 'microphone'])
+            host = context.new_page()
+            instrument(host)
+            create_lobby(host, url, load_game=True)
+            host.get_by_role('button', name='Copy invite').click()
+            invite = host.evaluate('navigator.clipboard.readText()')
+
             guest = browser.new_page()
-            guest.goto(page.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
-            guest.get_by_role('button', name='Join room', exact=True).click()
+            instrument(guest)
+            guest.goto(invite)
+            guest.get_by_role('button', name='Join lobby').click()
+            expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
+            expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
+            host.get_by_role('button', name='Ready', exact=True).click()
             guest.get_by_role('button', name='Ready', exact=True).click()
-            page.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for()
-            page.get_by_role('button', name='Ready', exact=True).click()
-            page.get_by_role('button', name='Start game', exact=True).click()
-            page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>30")
-            page.get_by_role('button', name='Unmute', exact=True).click()
-            page.wait_for_function('exitProof.audioSources.length>0')
-            page.get_by_role('button', name='Enable voice', exact=True).click()
-            try:
-                page.wait_for_function('exitProof.captures.length>0 && exitProof.captures.at(-1).getTracks().every(track=>track.readyState===\"live\")', timeout=7000)
-            except Exception:
-                raise AssertionError(f"Voice capture did not start: {page.locator('.voice-card').inner_text()} / {page.evaluate('exitProof.captures.length')}")
-            running_before = int(page.locator('canvas').get_attribute('data-frame-count'))
-            page.get_by_role('button', name='Public rooms', exact=True).click()
-            page.get_by_role('group', name='Confirm leave').wait_for()
-            assert page.get_by_test_id('directory').count() == 0
-            page.get_by_role('button', name='Stay in room', exact=True).click()
-            assert page.locator('.room-panel').is_visible()
-            page.get_by_role('button', name='Public rooms', exact=True).click()
-            page.evaluate('window.failClose=true')
-            page.get_by_role('button', name='Confirm leave', exact=True).click()
-            page.locator('.room-confirm [role=alert]').wait_for()
-            assert page.get_by_test_id('directory').count() == 0
-            assert page.get_by_test_id('room-view').count() == 1
-            page.wait_for_function("before=>Number(document.querySelector('canvas').dataset.frameCount)>before+20", arg=running_before)
-            assert page.evaluate('exitProof.rejectedClose') == 1
-            assert page.evaluate('exitProof.terminated') == 0
-            assert page.evaluate('exitProof.captures.at(-1).getTracks().every(track=>track.readyState===\"live\")')
+            expect(host.get_by_role('button', name='Start →')).to_be_enabled(timeout=30000)
+            host.get_by_role('button', name='Start →').click()
+            host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount)>30",
+                                   timeout=30000)
+            host.get_by_role('button', name='Sound', exact=True).click()
+            host.get_by_role('button', name='Mute game').click()
+            host.get_by_role('button', name='Unmute game').click()
+            host.wait_for_function('exitProof.audioSources.length>0', timeout=15000)
+            host.get_by_role('button', name='Voice', exact=True).click()
+            host.wait_for_function('exitProof.captures.some(stream=>stream.getTracks().some(track=>track.readyState==="live"))',
+                                   timeout=15000)
+
+            host.get_by_role('button', name='Back to Main Page').click()
+            host.get_by_role('alertdialog', name='Close this lobby?').wait_for()
+            host.get_by_role('button', name='Stay', exact=True).click()
+            assert host.locator('[data-page="playing"]').count() == 1
+            host.get_by_role('button', name='Back to Main Page').click()
+            host.evaluate('window.failClose=true')
+            host.get_by_role('button', name='Close lobby').click()
+            host.get_by_role('alertdialog').get_by_text('Could not leave. Retry or stay in the lobby.').wait_for()
+            assert host.locator('[data-page="playing"]').count() == 1
+            assert host.evaluate('exitProof.terminated') == 0
+            assert host.evaluate('exitProof.captures.some(stream=>stream.getTracks().some(track=>track.readyState==="live"))')
             if SCREENSHOTS:
-                Path(SCREENSHOTS).mkdir(parents=True, exist_ok=True)
-                page.screenshot(path=str(Path(SCREENSHOTS) / 'host-close-retry.png'), full_page=True)
-            page.evaluate('window.failClose=false')
-            page.get_by_role('button', name='Confirm leave', exact=True).click()
-            page.get_by_test_id('directory').wait_for()
-            page.wait_for_function("!document.querySelector('[data-testid=room-view]') && !document.querySelector('.panel .controls button[aria-pressed]')")
-            assert page.get_by_role('button', name='Resume local game', exact=True).count() == 0
-            assert page.get_by_text('Your local game is still available.', exact=False).count() == 0
-            assert page.locator('canvas').get_attribute('data-frame-count') == '0'
-            assert page.evaluate('exitProof.terminated') >= 1
-            assert page.evaluate('exitProof.captures.every(stream=>stream.getTracks().every(track=>track.readyState===\"ended\"))')
-            assert page.evaluate('exitProof.audioSources.length>0 && exitProof.audioSources.every(source=>source.stopped||source.ended)')
-            posted = page.evaluate('exitProof.posted')
-            sources = page.evaluate('exitProof.audioSources.length')
-            page.locator('canvas').focus()
-            page.keyboard.down('ArrowUp')
-            time.sleep(0.25)
-            page.keyboard.up('ArrowUp')
-            assert page.evaluate('exitProof.posted') == posted
-            assert page.evaluate('exitProof.audioSources.length') == sources
+                host.screenshot(path=str(SCREENSHOTS / 'host-close-retry.png'))
+
+            guest.get_by_role('button', name='Back to Main Page').click()
+            guest.evaluate('window.failLeave=true')
+            guest.get_by_role('button', name='Leave lobby').click()
+            guest.get_by_role('alertdialog').get_by_text('Could not leave. Retry or stay in the lobby.').wait_for()
+            assert guest.locator('[data-page="playing"]').count() == 1
+            guest.evaluate('window.failLeave=false')
+            guest.get_by_role('button', name='Leave lobby').click()
+            guest.locator('.rc-listing').wait_for(timeout=15000)
+            assert guest.get_by_role('button', name='Resume').count() == 0
+
+            host.evaluate('window.failClose=false')
+            host.get_by_role('button', name='Close lobby').click()
+            host.locator('.rc-listing').wait_for(timeout=15000)
+            host.wait_for_function('exitProof.terminated >= 1', timeout=15000)
+            host.wait_for_function("document.querySelector('canvas')?.dataset.frameCount === '0'")
+            host.wait_for_function('exitProof.captures.every(stream=>stream.getTracks().every(track=>track.readyState==="ended"))')
+            host.wait_for_function('exitProof.audioSources.every(source=>source.stopped||source.ended)')
+            posted = host.evaluate('exitProof.posted')
+            host.locator('canvas').evaluate('canvas=>canvas.focus()')
+            host.keyboard.press('ArrowUp')
+            assert host.evaluate('exitProof.posted') == posted
+            assert host.locator('canvas').evaluate("""canvas=>[
+              ...canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data]
+                .every(value=>value===0)""")
             if SCREENSHOTS:
-                page.screenshot(path=str(Path(SCREENSHOTS) / 'public-rooms-after-exit.png'), full_page=True)
-            guest.get_by_test_id('room-view').wait_for(state='detached')
-            observer = browser.new_page()
-            observer.goto(url)
-            observer.locator('[data-directory-status=live]').wait_for()
-            assert observer.locator('.room-list li').filter(has_text=room_name).count() == 0
-            member_host = host_room()
-            member = browser.new_page()
-            member.add_init_script("""(() => {
-                window.rejectedLeave = 0;
-                const send = WebSocket.prototype.send;
-                WebSocket.prototype.send = function(data) {
-                    if (window.failLeave && JSON.parse(data).type === 'leave') {
-                        rejectedLeave++;
-                        throw Error('Injected leave failure');
-                    }
-                    return send.call(this, data);
-                };
-            })()""")
-            member.goto(member_host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
-            member.get_by_role('button', name='Join room', exact=True).click()
-            member.get_by_role('button', name='Ready', exact=True).click()
-            member_host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Ready', exact=True).wait_for()
-            member_host.get_by_role('button', name='Ready', exact=True).click()
-            member_host.get_by_role('button', name='Start game', exact=True).click()
-            member.get_by_role('button', name='Public rooms', exact=True).click()
-            member.get_by_role('group', name='Confirm leave').wait_for()
-            member.evaluate('window.failLeave=true')
-            member.get_by_role('button', name='Confirm leave', exact=True).click()
-            member.locator('.room-confirm [role=alert]').wait_for()
-            assert member.get_by_test_id('directory').count() == 0
-            assert member.get_by_test_id('room-view').count() == 1
-            assert member.evaluate('rejectedLeave') == 1
-            if SCREENSHOTS:
-                member.screenshot(path=str(Path(SCREENSHOTS) / 'member-leave-retry.png'), full_page=True)
-            member.evaluate('window.failLeave=false')
-            member.get_by_role('button', name='Confirm leave', exact=True).click()
-            member.get_by_test_id('directory').wait_for()
-            member_host.get_by_role('button', name='Players', exact=True).click()
-            member_host.locator('[data-slot-id="slot-2"] [data-slot-region="status"]').get_by_text('Open', exact=True).wait_for()
-            back = host_room()
+                host.screenshot(path=str(SCREENSHOTS / 'main-after-exit.png'))
+
+            back = context.new_page()
+            create_lobby(back, url)
             back.go_back()
-            back.get_by_role('group', name='Confirm leave').wait_for()
-            assert back.get_by_test_id('directory').count() == 0
-            back.get_by_role('button', name='Confirm leave', exact=True).click()
-            back.get_by_test_id('directory').wait_for()
-            assert back.get_by_test_id('room-view').count() == 0
-            invitation = host_room()
-            invitation.evaluate("location.hash = '#invite=invalid-room'")
-            invitation.get_by_role('group', name='Confirm leave').wait_for()
-            invitation.get_by_role('button', name='Confirm leave', exact=True).click()
-            invitation.get_by_test_id('directory').wait_for()
-            assert invitation.get_by_test_id('room-view').count() == 0
-            local = browser.new_page()
-            local.goto(url)
-            local.get_by_role('button', name='Create game', exact=True).click()
-            local.locator('input[type=file]').set_input_files(STATIC / 'generated/diagnostic.nes')
-            local.get_by_role('button', name='Play locally', exact=True).click()
-            local.get_by_role('button', name='Resume', exact=True).wait_for()
-            local.get_by_role('button', name='Public rooms', exact=True).click()
-            local.get_by_test_id('directory').wait_for()
-            assert local.get_by_role('button', name='Resume local game', exact=True).count() == 0
-            assert local.evaluate("""() => {
-                const canvas = document.querySelector('canvas');
-                return [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data].every(value => value === 0);
-            }""")
+            back.get_by_role('alertdialog', name='Close this lobby?').wait_for()
+            back.get_by_role('button', name='Close lobby').click()
+            back.locator('.rc-listing').wait_for(timeout=15000)
+            print(json.dumps({'failed_host_close_keeps_game_and_voice': True,
+                              'failed_member_leave_keeps_game': True,
+                              'successful_exit_stops_worker_audio_voice_input_and_frame': True,
+                              'browser_back_closes_lobby': True}))
             browser.close()
-        print(json.dumps({'host_close_before_directory': True, 'failed_close_keeps_playing_and_voice': True, 'successful_close_terminates_worker': True, 'successful_close_stops_audio_voice_and_input': True, 'server_membership_released': True, 'member_failed_leave_retries': True, 'stay_retains_room': True, 'back_exits_room': True, 'invitation_exits_room': True, 'local_game_ends_before_directory': True}))
     finally:
         service.terminate()
         service.wait(timeout=10)

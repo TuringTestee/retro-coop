@@ -1,4 +1,3 @@
-import {ScrollRegion} from './ScrollRegion.tsx';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {listLocalData,validSavedAt,clearLocalData,deleteSave,deleteBattery,deletePreferences,deleteRom,downloadSave,type LocalData as Data} from './saves.ts';
 import type {LocalPlayer} from './player.ts';
@@ -7,7 +6,8 @@ import {safeLabel} from './rom-library.ts';
 export function LocalData({open,player,preferencesIdentity,beforeClear,afterClear}:{open:boolean;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void}) {
  const page=useRef<HTMLElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
  const [data,setData]=useState<Data|null>(null),[current,setCurrent]=useState<string[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
- const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null),[focusRevision,setFocusRevision]=useState(0);
+ const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null),[exportFailed,setExportFailed]=useState(false),[focusRevision,setFocusRevision]=useState(0);
+ const [category,setCategory]=useState<'games'|'saves'|'battery'|'preferences'>('games'),[record,setRecord]=useState(0);
  const restoreFocus=()=>{const target=confirmFocus.current;confirmFocus.current=null;if(!target||!open)return;const connected=target.isConnected&&page.current?.contains(target)&&!target.closest('[hidden]');(connected?target:page.current?.querySelector<HTMLElement>('#local-data-title'))?.focus();};
  const setConfirmation=(value:typeof confirmation)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);if(!value)requestAnimationFrame(restoreFocus);};
  useLayoutEffect(()=>{if(focusRevision)restoreFocus();},[focusRevision]);
@@ -29,26 +29,29 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
   catch(error){if(token===epoch.current){setMessage(text(error));try{const records=await listLocalData();if(token===epoch.current)setData(records);}catch{/* Preserve the original recovery error. */}}}
   finally{if(token===epoch.current){setBusy(false);setFocusRevision(value=>value+1);}}
  };
- const exportRecord=(bytes:ArrayBuffer,kind:'state'|'battery'|'preferences')=>{setBackup({bytes,kind});try{downloadSave(bytes,undefined,kind);setMessage('Backup export requested.');}catch(error){setMessage(`Could not export. The backup remains in memory; retry export. ${text(error)}`);}};
+ const exportRecord=(bytes:ArrayBuffer,kind:'state'|'battery'|'preferences')=>{setBackup({bytes,kind});try{downloadSave(bytes,undefined,kind);setExportFailed(false);setMessage('Backup export requested.');}catch(error){setExportFailed(true);setMessage(`Could not export. The backup remains in memory; retry export. ${text(error)}`);}};
  const group=(identity:string)=>current.includes(identity) || identity===preferencesIdentity ? 'Current game and build' : 'Other game or build';
+ const count=data?(category==='games'?data.roms.length:category==='saves'?data.saves.length:category==='battery'?data.batteries.length:data.preferences.length):0;
+ const index=Math.min(record,Math.max(0,count-1));
+ const rom=category==='games'?data?.roms[index]:undefined,save=category==='saves'?data?.saves[index]:undefined,battery=category==='battery'?data?.batteries[index]:undefined,preference=category==='preferences'?data?.preferences[index]:undefined;
  if(!open)return null;
- return <section ref={page} className="settings local-data tool-page" aria-labelledby="local-data-title">
-  <h2 data-layout-region="tool-heading" id="local-data-title" tabIndex={-1}>Local data</h2><ScrollRegion className="tool-content" data-layout-region="tool-content" aria-label="LocalData content"><p>Saved games, saves, and preferences live in this browser. Export save backups before deleting data; browser eviction or site-data removal can erase it.</p>
-<div className="tool-list" data-layout-region="tool-list"><div hidden={!!confirmation}>
-  {data && !data.saves.length && !data.batteries.length && !data.preferences.length && !data.roms.length && <p>No local data yet.</p>}
-  <h3>Saved games</h3>{data&&!data.roms.length&&<p>No games saved in this browser.</p>}
-  <ul>{data?.roms.map(row=><li key={`rom:${row.sha256}`}><span>{safeLabel(row.label??'NES game')} · {row.size<1_000_000?`${Math.max(1,Math.ceil(row.size/1000))} KB`:`${(row.size/1_000_000).toFixed(1)} MB`} · {when(row.savedAt)}</span><button disabled={busy} onClick={()=>setConfirmation({label:'Delete this saved game? Current play stays in memory. Add the file again or download it from a room to reuse it later.',action:()=>deleteRom(row.sha256,data.generation)})}>Delete game</button></li>)}</ul>
-  <ul>{data?.saves.map(row=><li key={`save:${row.identity}:${row.slot}`}><span>Save Slot {row.slot} · {group(row.identity)} · {when(row.savedAt)}</span><button disabled={busy} onClick={()=>exportRecord(row.bytes,'state')}>Export save</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete Save Slot ${row.slot} from ${when(row.savedAt)}? This cannot be undone.`,action:()=>deleteSave(row)})}>Delete save</button></li>)}</ul>
-  <ul>{data?.batteries.map(row=><li key={`battery:${row.identity}`}><span>Battery progress · {group(row.identity)} · {when(row.savedAt)}</span><button disabled={busy} onClick={()=>exportRecord(row.bytes,'battery')}>Export battery</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete battery progress from ${when(row.savedAt)}? The current game stays in memory; select the ROM again to start without this battery data.`,action:()=>deleteBattery(row)})}>Delete battery</button></li>)}</ul>
-  <ul>{data?.preferences.map(row=><li key={`preferences:${row.identity}`}><span>Preferences · {group(row.identity)} · {when(row.savedAt)}</span><button disabled={busy} onClick={()=>exportRecord(new TextEncoder().encode(JSON.stringify(row)).buffer,'preferences')}>Export preferences</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete preferences from ${when(row.savedAt)}? Current controls remain until you select a game again.`,action:()=>deletePreferences(row)})}>Delete preferences</button></li>)}</ul>
-
+ return <section ref={page} className="rc-tool-page rc-local-data" aria-labelledby="local-data-title">
+  <div className="rc-tool-heading"><h2 id="local-data-title" tabIndex={-1}>Local data</h2><nav aria-label="Local data sections">{(['games','saves','battery','preferences'] as const).map(item=><button key={item} aria-current={category===item?'page':undefined} onClick={()=>{setCategory(item);setRecord(0);}}>{item==='preferences'?'Settings':item[0].toUpperCase()+item.slice(1)}</button>)}</nav></div>
+  <div className="rc-tool-body"><div className="rc-tool-stack">
+   {confirmation?<div className="rc-tool-stack" role="alertdialog" aria-label="Confirm local data action"><p>{confirmation.label}</p><div className="rc-tool-actions"><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></div></div>:<>
+    {!message&&!exportFailed&&<p>Data is stored in this browser. Export backups before deleting.</p>}
+    {!data?<p role="status">{message}</p>:<>
+     <div className="rc-tool-actions"><button disabled={index===0} onClick={()=>setRecord(index-1)}>Previous</button><span>{count?`${index+1} of ${count}`:'No records'}</span><button disabled={index+1>=count} onClick={()=>setRecord(index+1)}>Next</button></div>
+     {rom&&<><h3>{safeLabel(rom.label??'NES game')}</h3><p>{rom.size<1_000_000?`${Math.max(1,Math.ceil(rom.size/1000))} KB`:`${(rom.size/1_000_000).toFixed(1)} MB`} · {when(rom.savedAt)}</p><button disabled={busy} onClick={()=>setConfirmation({label:'Delete this saved game? Current play stays in memory. Add the file again or download it from a lobby to reuse it later.',action:()=>deleteRom(rom.sha256,data.generation)})}>Delete game</button></>}
+     {save&&<><h3>Save Slot {save.slot}</h3><p>{group(save.identity)} · {when(save.savedAt)}</p><div className="rc-tool-actions"><button disabled={busy} onClick={()=>exportRecord(save.bytes,'state')}>Export save</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete Save Slot ${save.slot} from ${when(save.savedAt)}? This cannot be undone.`,action:()=>deleteSave(save)})}>Delete save</button></div></>}
+     {battery&&<><h3>Battery progress</h3><p>{group(battery.identity)} · {when(battery.savedAt)}</p><div className="rc-tool-actions"><button disabled={busy} onClick={()=>exportRecord(battery.bytes,'battery')}>Export battery</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete battery progress from ${when(battery.savedAt)}? The current game stays in memory; select the ROM again to start without this battery data.`,action:()=>deleteBattery(battery)})}>Delete battery</button></div></>}
+     {preference&&<><h3>Saved settings</h3><p>{group(preference.identity)} · {when(preference.savedAt)}</p><div className="rc-tool-actions"><button disabled={busy} onClick={()=>exportRecord(new TextEncoder().encode(JSON.stringify(preference)).buffer,'preferences')}>Export settings</button><button disabled={busy} onClick={()=>setConfirmation({label:`Delete settings from ${when(preference.savedAt)}? Current controls remain until you select a game again.`,action:()=>deletePreferences(preference)})}>Delete settings</button></div></>}
+     <button disabled={busy} onClick={()=>setConfirmation({label:'Delete all local data on this device? This cannot be undone.',action:async()=>{beforeClear();await clearLocalData(data.generation);afterClear();}})}>Delete all local data</button>
+    </>}
+    {backup&&exportFailed&&<button disabled={busy} onClick={()=>exportRecord(backup.bytes,backup.kind)}>Retry export</button>}
+    {message&&data&&<p role="status" data-testid="local-data-status">{message}</p>}
+   </>}
   </div></div>
-  <ScrollRegion className="tool-feedback" data-layout-region="tool-status" aria-label="Task feedback">{message && <p role="status" data-testid="local-data-status">{message}</p>}</ScrollRegion>
-  <ScrollRegion className="tool-confirmation" data-layout-region="tool-confirmation" aria-label="Task confirmation">{confirmation && <section role="alertdialog" aria-label="Confirm local data action"><p>{confirmation.label}</p><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></section>}</ScrollRegion>
-    <div className="tool-actions" data-layout-region="tool-actions"><button disabled={busy || !data} onClick={()=>setConfirmation({label:'Delete all local data on this device? This cannot be undone.',action:async()=>{beforeClear();await clearLocalData(data!.generation);afterClear();}})}>Delete all local data</button>
-  {backup && <button disabled={busy} onClick={()=>exportRecord(backup.bytes,backup.kind)}>Retry export</button>}
-  </div>
- </ScrollRegion>
  </section>;
 }
 function text(error:unknown){return error instanceof Error ? error.message : 'Local data is unavailable. Retry later.';}

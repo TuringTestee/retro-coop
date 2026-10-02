@@ -74,10 +74,11 @@ def main():
         url = json.loads(server.stdout.readline())['url']
         playwright = stack.enter_context(sync_playwright())
         contexts = []
-        for _ in range(3):
+        for index in range(3):
             browser = playwright.chromium.launch(ignore_default_args=['--mute-audio'])
             stack.callback(browser.close)
-            contexts.append(browser.new_context(viewport={'width':1440, 'height':1100}))
+            contexts.append(browser.new_context(viewport={'width':1440, 'height':1100},
+                permissions=['clipboard-read', 'clipboard-write'] if index == 0 else []))
         for index in range(5):
             page = contexts[0 if index < 2 else 1 if index < 4 else 2].new_page()
             page.set_default_timeout(20000)
@@ -111,22 +112,27 @@ def main():
 
         def resume():
             for page in (host, owner):
-                page.get_by_role('button', name='Ready to resume', exact=True).click()
+                page.get_by_role('button', name='Prepare to resume', exact=True).click()
             host.wait_for_function("proof.room.game.status==='resume_ready'", polling=20)
             host.get_by_role('button', name='Resume together', exact=True).click()
             playing()
 
         try:
             host.goto(url)
-            host.get_by_role('button', name='Create game', exact=True).click()
-            host.set_input_files('input[type=file]', str(static / 'generated/diagnostic.nes'))
-            host.get_by_role('button', name='Create room', exact=True).click()
-            host.get_by_test_id('room-view').wait_for(state='attached')
-            invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+            host.get_by_role('button', name='Browse lobbies →').click()
+            host.get_by_role('button', name='Create lobby →').click()
+            host.get_by_label('Lobby name').fill('Observer Recovery')
+            host.get_by_role('button', name='Create lobby →').click()
+            host.get_by_role('button', name='Load NES game').wait_for()
+            host.locator('input[aria-label="NES cartridge file"]').set_input_files(
+                str(static / 'generated/diagnostic.nes'))
+            host.get_by_role('button', name='Change game').wait_for(timeout=30000)
+            host.get_by_role('button', name='Copy invite').click()
+            invite = host.evaluate('navigator.clipboard.readText()')
             assert urlsplit(invite).path == '/', 'Displayed invitation must use the canonical room route, never /create'
             for page in pages[1:]:
                 page.goto(invite)
-                page.get_by_role('button', name='Join room', exact=True).click()
+                page.get_by_role('button', name='Join lobby', exact=True).click()
                 page.wait_for_function("proof.room?.matches&&proof.room.slots.find(s=>s.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'", polling=50)
             for page in pages:
                 page.wait_for_function("proof.room.peers.length===4&&proof.room.peers.every(p=>p.status==='connected')", polling=50)
@@ -135,7 +141,7 @@ def main():
             for page in pages:
                 page.get_by_role('button', name='Ready', exact=True).click()
                 page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
-            host.get_by_role('button', name='Start game', exact=True).click()
+            host.get_by_role('button', name='Start →', exact=True).click()
             for page in pages:
                 page.evaluate('releaseFrames()')
             playing()

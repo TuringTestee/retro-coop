@@ -20,21 +20,30 @@ def verify_saves(browser,url,rom,output):
     ''')
     def load(saved=False):
         if saved:
-            page.get_by_role('button',name='private-slots',exact=False).click()
+            page.locator('.rc-game-display').get_by_role('button',name='Load NES game').click()
+            page.locator('.rc-game-picker:visible').get_by_role('button',name='Saved games').click()
+            page.locator('.rc-game-picker:visible').get_by_role('button',name='private-slots',exact=False).click()
         else:
             page.get_by_label('NES cartridge file').set_input_files({'name':'private-slots.nes','mimeType':'application/octet-stream','buffer':rom})
         start_solo(page,rom)
     def open_saves(wait_for_slots=True):
-        page.get_by_role('button', name='Tools', exact=True).click()
-        page.get_by_role('button',name='Saves',exact=True).click()
+        action=page.locator('.rc-side-content:visible').get_by_role('button',name='Saves',exact=True)
+        if not action.is_visible():
+            page.locator('.rc-game-links').get_by_role('button',name='Settings',exact=True).click()
+        action.click()
+        page.locator('.rc-saves').get_by_role('button',name='Current game',exact=True).click()
         page.get_by_role('button',name='Save current point',exact=True).wait_for()
-        if wait_for_slots: page.wait_for_function("!Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Save current point').disabled")
+        if wait_for_slots: page.wait_for_function("Array.from(document.querySelectorAll('button')).find(b=>b.textContent==='Save current point')?.disabled===false")
+    def stored_slots():
+        tool_page.get_by_role('button',name='Saved slots',exact=True).click()
+    def current_game():
+        tool_page.get_by_role('button',name='Current game',exact=True).click()
     def saved():
         page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Saved in Slot')")
     def rows():
         return page.evaluate('''()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves'),q=tx.objectStore('saves').getAll();q.onsuccess=()=>resolve(q.result.map(x=>({...x,bytes:Array.from(new Uint8Array(x.bytes))})));tx.oncomplete=()=>db.close()};r.onerror=()=>reject(r.error)})''')
     page.goto(url);enter_create(page);load();open_saves()
-    tool_page=page.locator('.saves.tool-page')
+    tool_page=page.locator('.rc-saves')
     page.screenshot(path=str(output.with_suffix('.saves-before.png')),full_page=False)
     frames_before=page.locator('canvas').get_attribute('data-frame-count')
     tool_page.get_by_role('button',name='Save current point',exact=True).click();saved()
@@ -50,7 +59,7 @@ def verify_saves(browser,url,rom,output):
     tool_page.get_by_role('button',name='Save current point',exact=True).click();tool_page.get_by_role('button',name='Confirm',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('changed in another tab')")
     assert rows()==first
-    page.get_by_role('button',name='Back',exact=True).click();open_saves()
+    page.locator('.rc-tool-back').click();open_saves()
     page.evaluate('throwNextSave=true')
     tool_page.get_by_role('button',name='Save current point',exact=True).click();tool_page.get_by_role('button',name='Confirm',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('quota')")
@@ -68,21 +77,21 @@ def verify_saves(browser,url,rom,output):
     tool_page.get_by_role('button',name='Confirm',exact=True).click();saved()
     updated=rows();assert updated[0]['savedAt']>first[0]['savedAt'];first=updated
     page.evaluate("()=>{window.nativeUrl=URL.createObjectURL;URL.createObjectURL=()=>{throw Error('download blocked')}}")
-    tool_page.get_by_role('button',name='Export Slot 1',exact=True).click()
+    stored_slots();tool_page.get_by_role('button',name='Export Slot 1',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes(\"Couldn't export\")")
     page.evaluate('()=>{URL.createObjectURL=nativeUrl}')
     with page.expect_download() as download:
         tool_page.get_by_role('button',name='Retry export',exact=True).click()
     assert open(download.value.path(),'rb').read()==bytes(first[0]['bytes'])
     # A saved game and its save slot are both available after a reload.
-    page.reload();enter_create(page);assert page.get_by_role('button',name='Add NES file',exact=True).is_visible()
+    page.reload();enter_create(page);assert page.get_by_role('button',name='Load NES game',exact=True).is_visible()
     assert page.get_by_label('NES cartridge file').evaluate('input=>input.files.length')==0
     load(saved=True);page.evaluate('holdDbOpen=true');open_saves(False)
     page.wait_for_function('!!window.heldDbOpen')
     assert tool_page.get_by_role('button',name='Save current point',exact=True).is_disabled()
     assert tool_page.get_by_role('button',name='Import save',exact=True).is_disabled()
     page.evaluate("heldDbOpen.dispatchEvent(new Event('success'))")
-    tool_page.get_by_role('button',name='Load Slot 1',exact=True).wait_for()
+    stored_slots();tool_page.get_by_role('button',name='Load Slot 1',exact=True).wait_for()
     assert rows()==first
     tool_page.get_by_role('button',name='Load Slot 1',exact=True).click();tool_page.get_by_role('button',name='Cancel',exact=True).click()
     assert page.evaluate("fileCalls.filter(x=>x==='state-import').length")==0
@@ -90,6 +99,7 @@ def verify_saves(browser,url,rom,output):
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Save loaded')")
     assert page.evaluate("fileReplies.some(x=>x.type==='state-imported')")
     # Import inserts a validated slot without replacing current paused progress.
+    current_game()
     tool_page.get_by_label('Save slot').select_option('2')
     calls=page.evaluate("fileCalls.filter(x=>x==='state-import').length")
     canvas=page.locator('canvas').evaluate('c=>c.toDataURL()')
@@ -111,6 +121,7 @@ def verify_saves(browser,url,rom,output):
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('exceeds the supported size')")
     assert page.evaluate("fileCalls.filter(x=>x==='state-validate').length")==validations
     assert rows()==preserved
+    stored_slots()
     tool_page.get_by_role('button',name='Delete Slot 2',exact=True).click();tool_page.get_by_role('button',name='Cancel',exact=True).click();assert rows()==preserved
     tool_page.get_by_role('button',name='Delete Slot 2',exact=True).click()
     page.evaluate("()=>new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{const db=r.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),q=store.getAll();q.onsuccess=()=>{const row=q.result.find(row=>row.slot===2);row.savedAt+=1;store.put(row)};tx.oncomplete=()=>{db.close();resolve()};tx.onabort=()=>reject(tx.error)}})")
@@ -119,7 +130,7 @@ def verify_saves(browser,url,rom,output):
     page.wait_for_function("/changed in another tab|Deleted Slot 2/.test(document.querySelector('[data-testid=save-status]')?.textContent)")
     assert 'changed in another tab' in page.locator('[data-testid=save-status]').inner_text(), 'stale delete reported success'
     assert rows()==replaced, 'stale delete removed the newer record'
-    page.get_by_role('button',name='Back',exact=True).click();open_saves()
+    page.locator('.rc-tool-back').click();open_saves();tool_page.get_by_label('Save slot').select_option('2');stored_slots()
     tool_page.get_by_role('button',name='Delete Slot 2',exact=True).click();tool_page.get_by_role('button',name='Confirm',exact=True).click()
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('Deleted Slot 2')")
     assert len(rows())==1
@@ -127,36 +138,36 @@ def verify_saves(browser,url,rom,output):
     page.set_viewport_size({'width':390,'height':844})
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     page.screenshot(path=str(output.with_suffix('.saves-mobile.png')),full_page=False)
-    page.keyboard.press('Escape');assert page.evaluate("document.activeElement.textContent==='Saves'")
+    page.keyboard.press('Escape');tool_page.wait_for(state='detached')
     # Storage denial still exposes the in-memory export path; play remains usable.
     page.evaluate("()=>{window.nativeOpen=indexedDB.open.bind(indexedDB);indexedDB.open=()=>{throw new DOMException('denied','SecurityError')}}")
     open_saves(False)
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes(\"Couldn't save on this device\")")
+    tool_page.get_by_role('button',name='Backups',exact=True).click()
     with page.expect_download() as download:
         tool_page.get_by_role('button',name='Export current save',exact=True).click()
     assert download.value.suggested_filename.endswith('.rcstate')
-    page.get_by_role('button',name='Back',exact=True).click()
+    page.locator('.rc-tool-back').click()
     page.evaluate('()=>{indexedDB.open=nativeOpen}')
     # A superseded worker's delayed reply cannot populate the replacement game's slots.
-    page.get_by_role('button', name='Tools', exact=True).click()
-    page.evaluate('holdInfo=true');page.get_by_role('button',name='Saves',exact=True).click()
+    page.evaluate('holdInfo=true');open_saves(False)
     page.wait_for_function('!!window.heldInfo');page.evaluate('holdInfo=false')
     page.get_by_label('NES cartridge file').set_input_files({'name':'other-game.nes','mimeType':'application/octet-stream','buffer':rom+b'\x01'})
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('No saves for this game')")
     page.evaluate("heldInfo.worker.dispatchEvent(new MessageEvent('message',{data:heldInfo.data}))")
+    stored_slots()
     assert tool_page.get_by_role('button',name='Load Slot 1',exact=True).count()==0
-    page.get_by_role('button',name='Back',exact=True).click()
+    page.locator('.rc-tool-back').click()
     # An unvalidated profile has an explicit save limitation, not a loading gate.
     # A replacement still waits for explicit Resume and keeps save failure visible.
     variant=bytearray(rom);variant[4]=2;variant[16+16384:16+16384]=rom[16:16+16384];variant[6]=0xd2;variant[7]=0x90
     page.get_by_label('NES cartridge file').set_input_files({'name':'unvalidated.nes','mimeType':'application/octet-stream','buffer':bytes(variant)})
     start_solo(page,variant,require_start=True)
-    page.get_by_role('button', name='Tools', exact=True).click()
-    page.get_by_role('button',name='Saves',exact=True).click()
+    open_saves(False)
     page.wait_for_function("document.querySelector('[data-testid=save-status]')?.textContent.includes('not yet validated')")
     assert tool_page.get_by_role('button',name='Save current point',exact=True).is_disabled()
     assert len(rows())==1
     assert not errors,errors
     assert all(method=='GET' and target.startswith(url) for method,target in requests),requests
-    result={'stale_delete_preserves_new_record_and_requires_fresh_confirmation':True,'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'saved_rom_and_save_reused_after_reload':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_restores_focus':True,'local_play_uses_no_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
+    result={'stale_delete_preserves_new_record_and_requires_fresh_confirmation':True,'quota_failure_keeps_slot_and_backup':True,'concurrent_slot_change_requires_fresh_confirmation':True,'slot_listing_gates_overwrite_decisions':True,'failed_export_keeps_bytes_for_retry':True,'superseded_worker_reply_ignored':True,'storage_denial_keeps_memory_export':True,'oversized_rejected_before_worker':True,'unvalidated_profile_stays_playable':True,'transaction_complete_before_success':True,'aborted_overwrite_preserves_slot':True,'memory_export_after_storage_failure':True,'saved_rom_and_save_reused_after_reload':True,'confirmed_restore':True,'import_validates_without_changing_timeline':True,'wrong_identity_and_malformed_preserve_slots':True,'confirmed_delete_and_cancel':True,'save_does_not_pause':True,'mobile_no_overflow':True,'escape_closes_saves':True,'local_play_uses_no_upload':True,'stored_file_bytes':len(first[0]['bytes']),'page_errors':errors}
     page.close();return result

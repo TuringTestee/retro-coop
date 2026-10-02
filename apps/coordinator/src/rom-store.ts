@@ -13,6 +13,7 @@ type Entry={roomId:string;bytes:number;path:string;request?:IncomingMessage;comm
 /** Private files have server-generated names. The directory belongs to one coordinator process. */
 export class RomStore {
  private entries=new Map<string,Entry>();
+ private pending=new Map<string,Entry>();
  private used=0;
  private limits:RomLimits;
  private lock:string;
@@ -32,24 +33,29 @@ export class RomStore {
   for(const name of readdirSync(this.directory))if(/^(upload|blob)-[a-f0-9]{32}$/.test(name))rmSync(join(this.directory,name),{force:true});
  }
  private path(prefix:'upload'|'blob') {return join(this.directory,`${prefix}-${randomBytes(16).toString('hex')}`);}
- discard(roomId:string) {const entry=this.entries.get(roomId);if(!entry)return;this.entries.delete(roomId);this.used-=entry.bytes;entry.request?.destroy();rmSync(entry.path,{force:true});}
- stop() {for(const roomId of [...this.entries.keys()])this.discard(roomId);rmSync(this.lock,{force:true});}
- private reserve(roomId:string,bytes:number,request:IncomingMessage) {
+ private discardEntry(entries:Map<string,Entry>,roomId:string){const entry=entries.get(roomId);if(!entry)return;entries.delete(roomId);this.used-=entry.bytes;entry.request?.destroy();rmSync(entry.path,{force:true});}
+ discardPending(roomId:string){this.discardEntry(this.pending,roomId);}
+ discard(roomId:string) {this.discardEntry(this.pending,roomId);this.discardEntry(this.entries,roomId);}
+ promote(roomId:string){const entry=this.pending.get(roomId);if(!entry?.committed)throw new RoomError('upload_required');this.discardEntry(this.entries,roomId);this.pending.delete(roomId);this.entries.set(roomId,entry);}
+ stop() {for(const roomId of new Set([...this.entries.keys(),...this.pending.keys()]))this.discard(roomId);rmSync(this.lock,{force:true});}
+ private reserve(roomId:string,bytes:number,request:IncomingMessage,selection:boolean) {
   if(!Number.isSafeInteger(bytes)||bytes<16||bytes>this.limits.file)throw new RoomError('upload_size_limit');
-  if(this.entries.has(roomId))throw new RoomError('upload_unavailable');
-  if(this.used+bytes>this.limits.total || [...this.entries.values()].filter(entry=>!entry.committed).length>=this.limits.concurrent)throw new RoomError('upload_capacity');
-  const entry:Entry={roomId,bytes,path:this.path('upload'),request,committed:false};this.entries.set(roomId,entry);this.used+=bytes;return entry;
+  const target=selection?this.pending:this.entries;
+  if(target.has(roomId))throw new RoomError('upload_unavailable');
+  if(this.used+bytes>this.limits.total || [...this.entries.values(),...this.pending.values()].filter(entry=>!entry.committed).length>=this.limits.concurrent)throw new RoomError('upload_capacity');
+  const entry:Entry={roomId,bytes,path:this.path('upload'),request,committed:false};target.set(roomId,entry);this.used+=bytes;return entry;
  }
  async upload(rooms:Rooms,token:string,roomId:string,intent:string,bytes:number,request:IncomingMessage) {
   const begun=rooms.beginUpload(token,roomId,intent,bytes),lease=begun.id;
+  const target=begun.selection?this.pending:this.entries;
   let entry:Entry|undefined;
   try {
-   entry=this.reserve(roomId,bytes,request);
+   entry=this.reserve(roomId,bytes,request,begun.selection);
    const handle=await open(entry.path,'wx',0o600),hash=createHash('sha256'),header=Buffer.alloc(16);let received=0;
    try {
-    if(this.entries.get(roomId)!==entry)throw new RoomError('upload_cancelled');
+    if(target.get(roomId)!==entry)throw new RoomError('upload_cancelled');
     for await(const chunk of request) {
-     rooms.uploadProgress(roomId,lease);if(!this.entries.has(roomId))throw new RoomError('upload_cancelled');
+     rooms.uploadProgress(roomId,lease);if(target.get(roomId)!==entry)throw new RoomError('upload_cancelled');
      const data=chunk as Buffer;if(received+data.length>bytes)throw new RoomError('length_mismatch');
      if(received<16)data.copy(header,received,0,Math.min(data.length,16-received));
      received+=data.length;hash.update(data);
@@ -67,7 +73,7 @@ export class RomStore {
    return {bytes,sha256:begun.fingerprint.romSha256};
   } catch(error) {
    rooms.failUpload(roomId,lease);
-   if(entry){entry.request=undefined;this.discard(roomId);rmSync(entry.path,{force:true});}
+   if(entry){entry.request=undefined;this.discardEntry(target,roomId);rmSync(entry.path,{force:true});}
    throw error;
   }
  }

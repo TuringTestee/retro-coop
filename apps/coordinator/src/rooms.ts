@@ -16,7 +16,7 @@ export const limits = { rooms:20, sessions:1000, connections:100, reservation:12
 type Session = { directory?:boolean; includeEmptyOffers?:boolean; previewInvite?:string; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
 type Membership={id:string;session:Session;intent:string;file?:Fingerprint;acquisition:AcquisitionPhase;reservationStarted:number;reservationUntil?:number;reconnectUntil?:number;download?:{id:string;lastProgress:number}};
 type Slot={id:SlotId;role:SlotRole;open:boolean;revision:number;member?:Membership};
-type Room={game:GameSession;controllers:ControllerAssignment;revision:number;accessRevision:number;slots:Slot[];catalogId?:CatalogId;hostReady?:boolean;started?:'shared';established?:boolean;chat:RoomChat;id:string;invite:string;code?:string;label:string;visibility:Visibility;host:Session;fingerprint:Fingerprint;intent:string;confirmed:boolean;created:number;uploadAttempted?:boolean;upload?:{id:string;lastProgress:number};content?:string;reconnectUntil?:number;kicked:Set<string>};
+type Room={game:GameSession;controllers:ControllerAssignment;revision:number;accessRevision:number;slots:Slot[];catalogId?:CatalogId;gameTitle?:string;hostReady?:boolean;started?:'shared';established?:boolean;chat:RoomChat;id:string;invite:string;code?:string;label:string;visibility:Visibility;host:Session;fingerprint?:Fingerprint;intent:string;confirmed:boolean;created:number;uploadAttempted?:boolean;upload?:{id:string;lastProgress:number};content?:string;pendingGame?:{intent:string;fingerprint:Fingerprint;title:string;created:number;content?:string};selectedIntent?:string;reconnectUntil?:number;kicked:Set<string>};
 type AccessProof={roomId?:string;accessRevision?:number;verifier?:PasswordVerifier};
 type EmptyOffer = {id:string;code:string;catalogId:CatalogId};
 export type Sender = (event:RoomEvent)=>void;
@@ -40,8 +40,8 @@ export class Rooms {
  private now:()=>number;
  private peers:PeerBroker;
  private codeCandidate:()=>string;
- private transfer?:{requireCustomUpload:boolean;discard:(roomId:string)=>void};
- constructor(now:()=>number = Date.now,codeCandidate:()=>string = ()=>Array.from({length:PUBLIC_CODE_LENGTH},()=>PUBLIC_CODE_ALPHABET[randomInt(PUBLIC_CODE_ALPHABET.length)]).join(''),relay?:RelayConfig,offerCatalogIds:readonly CatalogId[] = [],transfer?:{requireCustomUpload:boolean;discard:(roomId:string)=>void}) {this.now = now;this.codeCandidate=codeCandidate;this.peers=new PeerBroker(now,relay);this.transfer=transfer;for(const id of new Set(offerCatalogIds))this.makeOffer(id);}
+ private transfer?:{requireCustomUpload:boolean;discard:(roomId:string)=>void;discardPending?:(roomId:string)=>void;promote?:(roomId:string)=>void};
+ constructor(now:()=>number = Date.now,codeCandidate:()=>string = ()=>Array.from({length:PUBLIC_CODE_LENGTH},()=>PUBLIC_CODE_ALPHABET[randomInt(PUBLIC_CODE_ALPHABET.length)]).join(''),relay?:RelayConfig,offerCatalogIds:readonly CatalogId[] = [],transfer?:{requireCustomUpload:boolean;discard:(roomId:string)=>void;discardPending?:(roomId:string)=>void;promote?:(roomId:string)=>void}) {this.now = now;this.codeCandidate=codeCandidate;this.peers=new PeerBroker(now,relay);this.transfer=transfer;for(const id of new Set(offerCatalogIds))this.makeOffer(id);}
  private session(token:string) { const session = this.sessions.get(token); if(!session) throw new RoomError('session_expired'); return session; }
  private rate(session:Session,kind:string,count:number,windowMs:number) {
   const now = this.now(), times = (session.rates.get(kind) ?? []).filter(time => time > now-windowMs);
@@ -66,7 +66,7 @@ export class Rooms {
  }
  /** Only the authenticated WebSocket path supplies a trusted network address. */
  async authorize(token:string,command:Exclude<RoomCommand,{type:'hello'}>,address:string,sender?:Sender):Promise<RoomData>{
-  if(command.type==='create'||command.type==='claimCode'||command.type==='visibility'){
+  if(command.type==='create'||command.type==='createLobby'||command.type==='claimCode'||command.type==='visibility'){
    if(command.visibility!=='protected'){
     if(command.password!==undefined)throw new RoomError('invalid_password');
     return this.handle(token,command,sender);
@@ -124,7 +124,7 @@ export class Rooms {
  }
  private members(room:Room){return room.slots.flatMap(slot=>slot.member?[slot.member]:[]);}
  private member(room:Room,session:Session){const member=this.members(room).find(member=>member.session===session);if(!member)throw new RoomError('membership_changed');return member;}
- private slotViews(room:Room):RoomSlot[]{return room.slots.map(slot=>({...slot,member:slot.member?{id:slot.member.id,nickname:slot.member.session.nickname,connected:!!slot.member.session.send&&!slot.member.reconnectUntil,matches:!!slot.member.file&&matchesFile(room.fingerprint,slot.member.file),acquisition:slot.member.acquisition,reconnectUntil:slot.member.reconnectUntil}:undefined}));}
+ private slotViews(room:Room):RoomSlot[]{return room.slots.map(slot=>({...slot,member:slot.member?{id:slot.member.id,nickname:slot.member.session.nickname,connected:!!slot.member.session.send&&!slot.member.reconnectUntil,matches:!!room.fingerprint&&!!slot.member.file&&matchesFile(room.fingerprint,slot.member.file),acquisition:slot.member.acquisition,reconnectUntil:slot.member.reconnectUntil}:undefined}));}
  private assigned(room:Room){return {owners:controllerOwners(this.slotViews(room)),revision:room.controllers.revision+1};}
  private applyRoles(room:Room,pending:RoleTransaction){
   if(room.revision!==pending.revision)throw new RoomError('room_changed');
@@ -132,10 +132,23 @@ export class Rooms {
   room.revision++;room.controllers=this.assigned(room);return room.controllers;
  }
  private makeRoom(data:Omit<Room,'game'|'slots'|'revision'|'accessRevision'|'controllers'>):Room{
-  const roles=controllerRoles(data.catalogId??catalogId(data.fingerprint)),slots:Slot[]=SLOT_IDS.map((id,index)=>({id,role:roles[index]??'observer',open:true,revision:0}));
-  slots[0].member={id:data.intent,intent:data.intent,session:data.host,file:data.fingerprint,acquisition:'loading',reservationStarted:this.now()};
+  const roles:SlotRole[]=data.fingerprint?controllerRoles(data.catalogId??catalogId(data.fingerprint)):['player1','player2'];
+  const slots:Slot[]=SLOT_IDS.map((id,index)=>({id,role:roles[index]??'observer',open:true,revision:0}));
+  slots[0].member={id:data.intent,intent:data.intent,session:data.host,...(data.fingerprint?{file:data.fingerprint}:{}),acquisition:data.fingerprint?'loading':'checking',reservationStarted:this.now()};
   const room:Room={...data,slots,revision:0,accessRevision:0,controllers:{owners:[data.intent,null],revision:0},game:undefined!};
   room.game=new GameSession(this.now,(member,event)=>this.members(room).find(value=>value.id===member)?.session.send?.(event),pending=>this.applyRoles(room,pending));return room;
+ }
+ private selectGame(room:Room,intent:string,fingerprint:Fingerprint,title:string,content?:string){
+  if(room.started||room.established)throw new RoomError('game_already_started');
+  room.game.resetForGameSelection();
+  room.fingerprint=fingerprint;room.catalogId=catalogId(fingerprint);room.gameTitle=room.catalogId?catalogEntry(room.catalogId).title:title.trim();room.content=content;
+  room.pendingGame=undefined;room.selectedIntent=intent;room.hostReady=false;room.upload=undefined;room.uploadAttempted=false;
+  const roles=controllerRoles(room.catalogId??catalogId(fingerprint));
+  for(const [index,slot] of room.slots.entries()){const role=roles[index]??'observer';if(slot.role!==role){slot.role=role;slot.revision++;}}
+  for(const member of this.members(room)){member.file=undefined;member.acquisition='checking';member.download=undefined;member.reservationStarted=this.now();member.reservationUntil=member.session===room.host?undefined:this.now()+limits.reservation;}
+  const host=this.member(room,room.host);host.file=fingerprint;host.acquisition='loaded';
+  room.revision++;room.controllers=this.assigned(room);this.publish(room);
+  return {room:this.view(room,room.host)};
  }
  private reserve(session:Session,room:Room|undefined,intent:string,proof?:AccessProof):RoomData {
   this.rate(session,'join',5,60_000);if(session.cancelled.has(intent))throw new RoomError('cancelled');
@@ -145,41 +158,58 @@ export class Rooms {
   if(proof?.roomId&&(proof.roomId!==room.id||proof.accessRevision!==room.accessRevision))throw new RoomError('room_changed');
   if(room.visibility==='protected'&&(proof?.roomId!==room.id||proof.accessRevision!==room.accessRevision))throw new RoomError('password_required');
   const slot=room.slots.find(slot=>slot.open&&!slot.member);if(!slot)throw new RoomError('room_full');
-  slot.member={id:secret(),session,intent,acquisition:'checking',reservationStarted:this.now(),reservationUntil:this.now()+limits.reservation};slot.revision++;room.revision++;session.room=room.id;session.heartbeat=this.now();
+  slot.member={id:secret(),session,intent,acquisition:'checking',reservationStarted:this.now(),...(room.fingerprint?{reservationUntil:this.now()+limits.reservation}:{})};slot.revision++;room.revision++;session.room=room.id;session.heartbeat=this.now();
   if(!room.started)room.controllers=this.assigned(room);
   this.publish(room);return {room:this.view(room,session)};
  }
- private preview(room:Room):HumanRoomPreview{return {...(room.catalogId?{catalogId:room.catalogId}:{romBytes:room.fingerprint.cartridge.bytes}),id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code?{code:room.code}:{}),status:room.reconnectUntil||this.members(room).some(member=>member.reconnectUntil)?'reconnecting':room.started?room.game.view().status==='playing'?'playing':'paused':this.members(room).length>1?'reserved':'waiting',occupancy:this.members(room).length,openSlots:room.slots.filter(slot=>slot.open&&!slot.member).length};}
- private view(room:Room,session:Session):RoomView{const member=this.member(room,session),slot=room.slots.find(slot=>slot.member===member)!;return {...this.preview(room),game:room.game.view(),hostReady:!!room.hostReady,started:room.started,established:!!room.established,chatMembership:member.id,hostMembership:room.intent,invite:room.invite,role:room.host===session?'host':'member',slot:slot.id,slots:this.slotViews(room),revision:room.revision,accessRevision:room.accessRevision,controllerRoles:controllerRoles(room.catalogId??catalogId(room.fingerprint)),fingerprint:room.fingerprint,connectionPolicy:session.policy,peers:this.peers.views(room.id,member.id),reservationUntil:member.reservationUntil,reservationIntent:member.intent,matches:!!member.file&&matchesFile(room.fingerprint,member.file),hostReconnectUntil:room.reconnectUntil};}
+ private preview(room:Room):HumanRoomPreview{return {...(room.catalogId?{catalogId:room.catalogId}:room.fingerprint?{romBytes:room.fingerprint.cartridge.bytes}:{}),...(room.gameTitle?{gameTitle:room.gameTitle}:{}),id:room.id,label:room.label,host:room.host.nickname,visibility:room.visibility,...(room.code?{code:room.code}:{}),status:room.reconnectUntil||this.members(room).some(member=>member.reconnectUntil)?'reconnecting':room.started?room.game.view().status==='playing'?'playing':'paused':this.members(room).length>1?'reserved':'waiting',occupancy:this.members(room).length,openSlots:room.slots.filter(slot=>slot.open&&!slot.member).length};}
+ private view(room:Room,session:Session):RoomView{const member=this.member(room,session),slot=room.slots.find(slot=>slot.member===member)!;return {...this.preview(room),game:room.game.view(),hostReady:!!room.hostReady,started:room.started,established:!!room.established,chatMembership:member.id,hostMembership:room.intent,invite:room.invite,role:room.host===session?'host':'member',slot:slot.id,slots:this.slotViews(room),revision:room.revision,accessRevision:room.accessRevision,controllerRoles:room.fingerprint?controllerRoles(room.catalogId??catalogId(room.fingerprint)):['player1','player2'],...(room.fingerprint?{fingerprint:room.fingerprint}:{}),connectionPolicy:session.policy,peers:this.peers.views(room.id,member.id),reservationUntil:member.reservationUntil,reservationIntent:member.intent,matches:!!room.fingerprint&&!!member.file&&matchesFile(room.fingerprint,member.file),hostReconnectUntil:room.reconnectUntil};}
  private publish(room:Room,directory=true){
   const members=this.members(room);
+  const startParticipants=new Set([room.intent,...room.controllers.owners.filter((owner):owner is string=>!!owner)]);
   this.peers.syncRoom(room.id,room.confirmed?members.map(member=>({id:member.id,token:member.session.token,policy:member.session.policy,send:member.reconnectUntil?undefined:member.session.send})):[],room.intent);
-  room.game.configure(room.intent,members.map(member=>{const links=this.peers.views(room.id,member.id);return {id:member.id,connected:!!member.session.send&&!member.reconnectUntil,loaded:!!member.file&&matchesFile(room.fingerprint,member.file)&&member.acquisition==='loaded',hostTransport:links.some(peer=>peer.member===room.intent&&peer.status==='connected'),allLinksReady:links.every(peer=>peer.status==='connected')};}),room.controllers,room.revision);
+  room.game.configure(room.intent,members.map(member=>{const links=this.peers.views(room.id,member.id);return {id:member.id,connected:!!member.session.send&&!member.reconnectUntil,loaded:!!room.fingerprint&&!!member.file&&matchesFile(room.fingerprint,member.file)&&member.acquisition==='loaded',hostTransport:links.some(peer=>peer.member===room.intent&&peer.status==='connected'),allLinksReady:links.filter(peer=>startParticipants.has(peer.member)).every(peer=>peer.status==='connected')};}),room.controllers,room.revision);
   for(const member of members)member.session.send?.({type:'room',room:this.view(room,member.session)});
   for(const session of this.sessions.values())if(session.previewInvite===room.invite)session.send?.({type:'preview',preview:this.preview(room)});if(directory)this.publishDirectory();
  }
+ private publishRosterChange(room:Room,reason:string){
+  const owners=controllerOwners(this.slotViews(room)),changed=owners.some((owner,index)=>owner!==room.controllers.owners[index]);
+  if(changed&&room.started&&room.game.view().epoch){
+   this.publish(room);
+   room.game.abortRoles(reason);
+   const target=room.slots.find(slot=>slot.role!=='observer'&&slot.member?.id!==room.controllers.owners[slot.role==='player1'?0:1])??room.slots.find(slot=>slot.role!=='observer');
+   const pending:RoleTransaction={id:secret(),revision:room.revision,roles:target?[{slotId:target.id,role:target.role}]:[],status:'freezing'};
+   room.game.requestRoles(pending,this.assigned(room));this.publish(room);return;
+  }
+  if(changed||!room.started)room.controllers=this.assigned(room);
+  this.publish(room);
+ }
  private releaseMember(room:Room,member:Membership,reason:string){
-  const slot=room.slots.find(slot=>slot.member===member);if(!slot)return;room.chat.leave(member.id);member.session.room=undefined;slot.member=undefined;slot.revision++;room.revision++;if(!room.started)room.controllers=this.assigned(room);
-  member.session.send?.({type:'ended',reason});this.publish(room);
+  const slot=room.slots.find(slot=>slot.member===member);if(!slot)return;room.chat.leave(member.id);member.session.room=undefined;slot.member=undefined;slot.revision++;room.revision++;
+  const open=room.slots.filter(value=>value.open),members=open.flatMap(value=>value.member?[value.member]:[]);
+  for(const [index,value] of open.entries())if(value.member!==members[index]){value.member=members[index];value.revision++;room.revision++;}
+  member.session.send?.({type:'ended',reason});this.publishRosterChange(room,'A player left. Prepare to resume.');
  }
  private close(room:Room,reason:string){this.transfer?.discard(room.id);room.game.stop('The room closed. Your local game is preserved.');this.peers.clearRoom(room.id);this.rooms.delete(room.id);this.verifiers.delete(room.id);this.invites.delete(room.invite);if(room.code)this.codes.delete(room.code);for(const member of this.members(room)){member.session.room=undefined;member.session.send?.({type:'ended',reason});}this.publishDirectory();}
  private room(session:Session) { const room = session.room && this.rooms.get(session.room); if(!room) throw new RoomError('not_in_room'); return room; }
  private hosted(session:Session,expectedRoom?:string) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); if(expectedRoom!==undefined && room.id!==expectedRoom) throw new RoomError('room_changed'); return room; }
  beginUpload(token:string,roomId:string,intent:string,bytes:number) {
   this.sweep();const session=this.session(token),room=this.hosted(session,roomId),now=this.now();
-  if(room.confirmed || room.intent!==intent || room.content || room.upload || now-room.created>=300_000)throw new RoomError('upload_unavailable');
+  const selection=room.confirmed&&room.pendingGame?.intent===intent?room.pendingGame:undefined;
+  if(room.confirmed&&!selection||!room.confirmed&&room.intent!==intent||selection?.content||!selection&&room.content||room.upload||now-(selection?.created??room.created)>=300_000)throw new RoomError('upload_unavailable');
   if(room.host.send===undefined)throw new RoomError('host_disconnected');
-  if(bytes!==room.fingerprint.cartridge.bytes)throw new RoomError('length_mismatch');
+  const expected=selection?.fingerprint??room.fingerprint;
+  if(!expected||bytes!==expected.cartridge.bytes)throw new RoomError('length_mismatch');
   this.rate(session,'upload',5,60_000);
-  const id=secret();room.upload={id,lastProgress:now};room.uploadAttempted=true;return {id,fingerprint:room.fingerprint};
+  const id=secret();room.upload={id,lastProgress:now};room.uploadAttempted=true;return {id,fingerprint:expected,selection:!!selection};
  }
- uploadProgress(roomId:string,id:string) {const room=this.rooms.get(roomId),now=this.now();if(!room?.upload || room.upload.id!==id || room.confirmed || now-room.created>=300_000 || now-room.upload.lastProgress>=30_000)throw new RoomError('upload_expired');room.upload.lastProgress=now;room.host.heartbeat=now;room.host.touched=now;}
- commitUpload(roomId:string,id:string,content:string) {this.uploadProgress(roomId,id);const room=this.rooms.get(roomId)!;room.content=content;room.upload=undefined;}
+ uploadProgress(roomId:string,id:string) {const room=this.rooms.get(roomId),now=this.now();if(!room?.upload || room.upload.id!==id || room.confirmed&&!room.pendingGame || now-(room.pendingGame?.created??room.created)>=300_000 || now-room.upload.lastProgress>=30_000)throw new RoomError('upload_expired');room.upload.lastProgress=now;room.host.heartbeat=now;room.host.touched=now;}
+ commitUpload(roomId:string,id:string,content:string) {this.uploadProgress(roomId,id);const room=this.rooms.get(roomId)!;if(room.confirmed&&room.pendingGame)room.pendingGame.content=content;else room.content=content;room.upload=undefined;}
  failUpload(roomId:string,id:string) {const room=this.rooms.get(roomId);if(room?.upload?.id===id)room.upload=undefined;}
  beginDownload(token:string,roomId:string,membership:string){
   this.sweep();const session=this.session(token),room=this.rooms.get(roomId),now=this.now();if(!room||!room.confirmed||session.room!==roomId||!room.content)throw new RoomError('room_changed');const member=this.member(room,session);
   if(member.id!==membership||session===room.host||member.reservationUntil!==undefined&&member.reservationUntil<=now)throw new RoomError('room_changed');
-  if(member.download&&now-member.download.lastProgress<30_000)throw new RoomError('download_busy');this.rate(session,'download',5,60_000);const id=secret();member.download={id,lastProgress:now};member.session.heartbeat=member.session.touched=now;if(member.session.send)member.reconnectUntil=undefined;return {id,path:room.content,bytes:room.fingerprint.cartridge.bytes,sha256:room.fingerprint.romSha256};
+  if(!room.fingerprint)throw new RoomError('game_not_selected');if(member.download&&now-member.download.lastProgress<30_000)throw new RoomError('download_busy');this.rate(session,'download',5,60_000);const id=secret();member.download={id,lastProgress:now};member.session.heartbeat=member.session.touched=now;if(member.session.send)member.reconnectUntil=undefined;return {id,path:room.content,bytes:room.fingerprint.cartridge.bytes,sha256:room.fingerprint.romSha256};
  }
  downloadProgress(roomId:string,id:string){const room=this.rooms.get(roomId),now=this.now(),member=room&&this.members(room).find(member=>member.download?.id===id);if(!member||now-member.download!.lastProgress>=30_000||member.reservationUntil!==undefined&&(member.reservationUntil<=now||now-member.reservationStarted>=300_000))throw new RoomError('download_expired');member.download!.lastProgress=now;member.session.heartbeat=member.session.touched=now;if(member.session.send)member.reconnectUntil=undefined;if(member.reservationUntil!==undefined)member.reservationUntil=Math.min(member.reservationStarted+300_000,now+limits.reservation);}
  endDownload(roomId:string,id:string){const room=this.rooms.get(roomId),member=room&&this.members(room).find(member=>member.download?.id===id);if(member)member.download=undefined;}
@@ -234,6 +264,43 @@ export class Rooms {
     this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room = room.id;session.heartbeat = this.now();this.publishDirectory();
     return {room:this.view(room,session)};
    }
+   case 'createLobby': {
+    this.rate(session,'create',5,60_000);
+    if(session.cancelled.has(command.intent))throw new RoomError('cancelled');
+    if(session.room){const room=this.room(session);if(room.host===session&&room.intent===command.intent)return {room:this.view(room,session)};throw new RoomError('already_in_room');}
+    if(this.rooms.size>=limits.rooms)throw new RoomError('capacity');
+    if(command.visibility==='protected'&&!proof?.verifier)throw new RoomError('password_required');
+    const id=secret(),code=this.code(id);
+    const room=this.makeRoom({chat:new RoomChat(),id,invite:secret(),code,label:command.label.trim(),visibility:command.visibility,host:session,intent:command.intent,confirmed:true,created:this.now(),kicked:new Set()});
+    if(proof?.verifier)this.verifiers.set(room.id,proof.verifier);
+    this.rooms.set(room.id,room);this.invites.set(room.invite,room.id);session.room=room.id;session.heartbeat=this.now();this.publish(room);
+    return {room:this.view(room,session)};
+   }
+   case 'beginGameSelection': {
+    const room=this.hosted(session,command.roomId);
+    if(!room.confirmed||room.started||room.established)throw new RoomError('game_already_started');
+    if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');
+    const included=catalogId(command.fingerprint);
+    if(room.pendingGame){this.transfer?.discardPending?.(room.id);room.pendingGame=undefined;room.upload=undefined;}
+    if(included){const hadCustomContent=!!room.content,selected=this.selectGame(room,command.intent,command.fingerprint,catalogEntry(included).title);if(hadCustomContent)this.transfer?.discard(room.id);return selected;}
+    room.pendingGame={intent:command.intent,fingerprint:command.fingerprint,title:command.title.trim(),created:this.now()};
+    return {room:this.view(room,session)};
+   }
+   case 'confirmGameSelection': {
+    const room=this.hosted(session,command.roomId);
+    if(room.selectedIntent===command.intent)return {room:this.view(room,session)};
+    if(room.started||room.established)throw new RoomError('game_already_started');
+    if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');
+    const pending=room.pendingGame;if(!pending||pending.intent!==command.intent)throw new RoomError('game_selection_changed');
+    if(!pending.content)throw new RoomError('upload_required');
+    this.transfer?.promote?.(room.id);
+    return this.selectGame(room,command.intent,pending.fingerprint,pending.title,pending.content);
+   }
+   case 'cancelGameSelection': {
+    const room=this.hosted(session,command.roomId);
+    if(room.pendingGame?.intent===command.intent){this.transfer?.discardPending?.(room.id);room.pendingGame=undefined;room.upload=undefined;room.uploadAttempted=false;}
+    return {room:this.view(room,session)};
+   }
    case 'confirmCreate': {const room = this.hosted(session);if(room.intent !== command.intent || session.cancelled.has(command.intent)) throw new RoomError('cancelled');if((this.transfer?.requireCustomUpload || room.uploadAttempted) && !room.content)throw new RoomError('upload_required');room.confirmed = true;this.publishDirectory();return {room:this.view(room,session)};}
    case 'cancelCreate': {
     // A bounded tombstone also rejects a delayed create arriving after cancellation.
@@ -249,16 +316,17 @@ export class Rooms {
     if(room){const member=this.member(room,session);if(member.intent===command.intent){if(room.host===session)this.close(room,'left');else this.releaseMember(room,member,'left');}}
     return {};
    }
-   case 'prepareHost':case 'startRoom':{const room=this.hosted(session,command.roomId);if(!room.confirmed||room.intent!==command.membership)throw new RoomError('membership_changed');if(!matchesFile(room.fingerprint,command.fingerprint))throw new RoomError('game_mismatch');room.hostReady=true;this.member(room,session).acquisition='loaded';this.publish(room,false);if(command.type==='startRoom'&&!room.game.view().epoch){try{room.game.requestStart();if(room.game.view().epoch)room.started='shared';}catch(error){throw new RoomError(error instanceof Error?error.message:'game_prerequisites');}}this.publish(room);return {room:this.view(room,session)};}
+   case 'prepareHost':case 'startRoom':{const room=this.hosted(session,command.roomId);if(!room.confirmed||room.intent!==command.membership)throw new RoomError('membership_changed');if(room.pendingGame)throw new RoomError('game_selection_pending');const selected=room.fingerprint;if(!selected)throw new RoomError('game_not_selected');if(!matchesFile(selected,command.fingerprint))throw new RoomError('game_mismatch');if(command.type==='startRoom'&&room.slots.some(slot=>slot.member&&slot.role!=='observer'&&!controllerRoles(room.catalogId??catalogId(selected)).includes(slot.role)))throw new RoomError('unsupported_role');room.hostReady=true;this.member(room,session).file=command.fingerprint;this.member(room,session).acquisition='loaded';this.publish(room,false);if(command.type==='startRoom'&&!room.game.view().epoch){try{room.game.requestStart();if(room.game.view().epoch)room.started='shared';}catch(error){throw new RoomError(error instanceof Error?error.message:'game_prerequisites');}}this.publish(room);return {room:this.view(room,session)};}
    case 'close':this.close(this.hosted(session,command.roomId),'host_closed');return {};
    case 'memberRemove':{const room=this.hosted(session,command.roomId);if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');const member=this.members(room).find(member=>member.id===command.membership);if(!member||member.session===room.host)throw new RoomError('membership_changed');room.kicked.add(member.session.token);this.releaseMember(room,member,'removed');return {room:this.view(room,session)};}
    case 'slotAvailability':{const room=this.hosted(session,command.roomId),slot=room.slots.find(slot=>slot.id===command.slotId);if(!slot||command.expectedRevision!==room.revision)throw new RoomError('room_changed');if(slot.member)throw new RoomError('slot_occupied');if(slot.open!==command.open){slot.open=command.open;slot.revision++;room.revision++;}this.publish(room);return {room:this.view(room,session)};}
-   case 'slotRole':{const room=this.hosted(session,command.roomId),slot=room.slots.find(slot=>slot.id===command.slotId);if(!slot||command.expectedRevision!==room.revision)throw new RoomError('room_changed');if(command.role!=='observer'&&!controllerRoles(room.catalogId??catalogId(room.fingerprint)).includes(command.role))throw new RoomError('unsupported_role');if(slot.role===command.role)return {room:this.view(room,session)};const other=command.role==='observer'?undefined:room.slots.find(value=>value!==slot&&value.role===command.role);if(!slot.member&&other?.member)throw new RoomError('controller_occupied');const roles=[{slotId:slot.id,role:command.role},...(other?[{slotId:other.id,role:slot.role}]:[])];const pending:RoleTransaction={id:secret(),revision:room.revision,roles,status:'freezing'};if(room.started){const proposed=this.slotViews(room).map(value=>({...value,role:roles.find(role=>role.slotId===value.id)?.role??value.role}));room.game.requestRoles(pending,{owners:controllerOwners(proposed),revision:room.controllers.revision+1});}else this.applyRoles(room,pending);this.publish(room);return {room:this.view(room,session)};}
+   case 'slotMove':{const room=this.hosted(session,command.roomId);if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');if(room.game.view().pending)throw new RoomError('role_change_pending');const source=room.slots.find(slot=>slot.id===command.fromSlotId),target=room.slots.find(slot=>slot.id===command.toSlotId);if(!source?.member)throw new RoomError('slot_empty');if(!target?.open)throw new RoomError('slot_closed');const displaced=target.member;target.member=source.member;source.member=displaced;source.revision++;target.revision++;room.revision++;this.publishRosterChange(room,'Players moved. Prepare to resume.');return {room:this.view(room,session)};}
+   case 'slotRole':{const room=this.hosted(session,command.roomId),slot=room.slots.find(slot=>slot.id===command.slotId);if(!slot||command.expectedRevision!==room.revision)throw new RoomError('room_changed');if(command.role!=='observer'&&!(room.fingerprint?controllerRoles(room.catalogId??catalogId(room.fingerprint)):['player1','player2']).includes(command.role))throw new RoomError('unsupported_role');if(slot.role===command.role)return {room:this.view(room,session)};const other=command.role==='observer'?undefined:room.slots.find(value=>value!==slot&&value.role===command.role);if(!slot.member&&other?.member)throw new RoomError('controller_occupied');const roles=[{slotId:slot.id,role:command.role},...(other?[{slotId:other.id,role:slot.role}]:[])];const pending:RoleTransaction={id:secret(),revision:room.revision,roles,status:'freezing'};if(room.started){const proposed=this.slotViews(room).map(value=>({...value,role:roles.find(role=>role.slotId===value.id)?.role??value.role}));room.game.requestRoles(pending,{owners:controllerOwners(proposed),revision:room.controllers.revision+1});}else this.applyRoles(room,pending);this.publish(room);return {room:this.view(room,session)};}
    case 'visibility': {const room=this.hosted(session,command.roomId);if(command.expectedAccessRevision!==room.accessRevision)throw new RoomError('room_changed');if(command.visibility==='protected'&&!proof?.verifier)throw new RoomError('password_required');if(command.visibility==='public'&&room.visibility==='public')return {room:this.view(room,session)};const code=room.code??this.code(room.id);room.code=code;room.visibility=command.visibility;room.accessRevision++;if(command.visibility==='protected')this.verifiers.set(room.id,proof!.verifier!);else this.verifiers.delete(room.id);this.publish(room);return {room:this.view(room,session)};}
    case 'rename': {const room = this.hosted(session,command.roomId);room.label = command.label.trim();this.publish(room);return {room:this.view(room,session)};}
    case 'nickname': {session.nickname = command.nickname.trim();const room = session.room && this.rooms.get(session.room);if(room) this.publish(room);return {session:{token:session.token,nickname:session.nickname,expiresInMs:limits.sessionIdle}};}
    case 'file':{const room=this.room(session),member=this.member(room,session);if(session===room.host)throw new RoomError('close_before_changing_game');if(member.file&&!matchesFile(member.file,command.fingerprint)&&room.controllers.owners.includes(member.id))room.game.stop('A controller game changed. Play is paused.');member.file=command.fingerprint;this.publish(room);return {room:this.view(room,session)};}
-   case 'memberAcquisition':{const room=this.room(session),member=this.member(room,session);if(room.id!==command.roomId||member.id!==command.membership)throw new RoomError('membership_changed');member.acquisition=command.phase;if(command.phase==='loaded')member.reservationUntil=undefined;this.publish(room,false);return {room:this.view(room,session)};}
+   case 'memberAcquisition':{const room=this.room(session),member=this.member(room,session);if(room.id!==command.roomId||member.id!==command.membership)throw new RoomError('membership_changed');if(!room.fingerprint)throw new RoomError('game_not_selected');member.acquisition=command.phase;if(command.phase==='loaded')member.reservationUntil=undefined;this.publish(room,false);return {room:this.view(room,session)};}
 
   }
   return {};
@@ -269,10 +337,11 @@ export class Rooms {
   // Rooms is the sole publisher of membership plus peer state, including timer transitions.
   for(const id of this.peers.sweep()) {const room=this.rooms.get(id);if(room) this.publish(room,false);}
   for(const room of this.rooms.values()) {
+   if(room.pendingGame&&now-room.pendingGame.created>=300_000){this.transfer?.discardPending?.(room.id);room.pendingGame=undefined;room.upload=undefined;room.uploadAttempted=false;}
    if(!room.confirmed && room.upload && (now-room.created>=300_000 || now-room.upload.lastProgress>=30_000)) {this.close(room,'upload_expired');continue;}
    if(!room.confirmed && now-room.created >= (room.uploadAttempted ? 300_000:5000)) {this.close(room,'creation_expired');continue;}
    for(const token of room.kicked) if(!this.sessions.has(token)) room.kicked.delete(token);
-   if(room.game.sweep()) this.publish(room,false);
+   if(room.game.sweep()){if(room.game.view().status==='playing'){room.established=true;for(const member of this.members(room))if(member.acquisition==='loaded')member.reservationUntil=undefined;}this.publish(room,false);}
    for(const member of [...this.members(room)]){if(member.session===room.host)continue;if(!member.reconnectUntil&&now-member.session.heartbeat>=limits.missedHeartbeat){member.reconnectUntil=member.session.heartbeat+limits.missedHeartbeat+limits.reconnect;this.publish(room);}if(member.reconnectUntil&&now>=member.reconnectUntil){this.releaseMember(room,member,'member_expired');continue;}if(member.download&&now-member.download.lastProgress>=30_000)member.download=undefined;if(member.reservationUntil!==undefined&&member.reservationUntil<=now)this.releaseMember(room,member,'reservation_expired');}
    if(!room.reconnectUntil && now-room.host.heartbeat >= limits.missedHeartbeat) {room.reconnectUntil = room.host.heartbeat+limits.missedHeartbeat+limits.reconnect;this.publish(room);}
    if(room.reconnectUntil && now >= room.reconnectUntil) this.close(room,'host_expired');

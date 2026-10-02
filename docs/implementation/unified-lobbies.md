@@ -1,4 +1,4 @@
-Retro Coop will open on a lobby list, create a public lobby immediately, and keep players, game, game menu, chat, and actions in one fixed shell through play.
+Retro Coop opens on a lobby list, creates a public lobby immediately, and keeps players, game, game menu, chat, and actions in one fixed shell through play.
 
 Audience: Agent
 
