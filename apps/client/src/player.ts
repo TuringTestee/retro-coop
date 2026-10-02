@@ -17,6 +17,7 @@ export type PlayerState = { shared?:boolean; status: string; loading: boolean; s
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && !this.state.loading && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
+ selectionVersion(){return this.generation;}
  private active?: Worker;
  private game?:GameDriver;
  private gameTimer?:ReturnType<typeof setTimeout>;

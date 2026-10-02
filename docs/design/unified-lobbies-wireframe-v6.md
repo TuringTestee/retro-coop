@@ -68,15 +68,15 @@ The row contains no redundant 03 label. Its name and status wrap within the same
 │                    │                                       │  ↑   SEL   │
 │                    │                                       │ ←✚→ START B A│
 │                    │                                       │  ↓         │
-│                    │                                       │ A ─ Keyboard X│
-│                    │                                       │ B ─ Keyboard Z│
-│                    │                                       │ M mute · Q save│
+│                    │                                       │ Controller guide│
+│                    │                                       │ Current bindings│
+│                    │                                       │ Next action key │
 ├ CHAT────────────────────────────────────────────────────────────────┤
 │ messages                                           [entry] [Send]     │
 ├ [Back to Main Page]                                          [Pause]  ┤
 ```
 
-The game stays in the center column; settings change only the right column. Clicking the game fills the window and clicking again or Escape restores this layout. A late P2 first sees Prepare to play, then synchronizes. M1, P3, E1.
+The game stays in the center column; settings change only the right column. Clicking the game fills the window and clicking again or Escape restores this layout. A late P2 first sees Prepare to play, then synchronizes. The [current direction](unified-lobbies-direction.md) owns the actual key bindings. M1, P3, E1.
 
 At 320 CSS pixels, five player places use two fixed columns above the center-game/right-menu row. The toolbar wraps within its reserved row. Chat and footer remain fixed; only chat history scrolls. A confirmation covers the center over a dimmed shell rather than using footer space.
 

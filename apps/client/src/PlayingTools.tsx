@@ -1,9 +1,10 @@
 import React from 'react';
 import {bindingLabel,type Controls} from './controls.ts';
 
-export function PlayingTools({controls,local,canPause}:{controls:Controls;local:boolean;canPause:boolean}){
+export function PlayingTools({controls,local,pauseActionLabel}:{controls:Controls;local:boolean;pauseActionLabel?:string}){
  const keys=controls.keyboard;
  const assigned=new Set(Object.values(keys).flat());
+ const showSecondary=!pauseActionLabel||pauseActionLabel==='Pause';
  const short:Record<string,string>={ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',AltLeft:'Alt',AltRight:'Alt',Space:'Space'};
  const hint=(action:keyof typeof keys)=>[...new Set(keys[action].map(key=>short[key]??bindingLabel(key)))].join(' / ')||'Unbound';
  const mappings=[
@@ -22,6 +23,6 @@ export function PlayingTools({controls,local,canPause}:{controls:Controls;local:
    <span className="rc-action-buttons"><b>B</b><b>A</b></span>
   </div>
   <div className="rc-control-hints" aria-label="Keyboard controls">{mappings.map(item=><div className={`rc-control-line rc-control-${item.tone}`} key={item.name}><strong>{item.name}</strong><span aria-hidden="true"/><b><span className="rc-keyboard-word">Keyboard </span>{item.keys}</b></div>)}</div>
-  <div className="rc-shortcuts" aria-label="Other shortcuts">{canPause&&!assigned.has('KeyP')&&<span><strong>P</strong> Pause</span>}{!assigned.has('KeyM')&&<span><strong>M</strong> Mute</span>}{!assigned.has('KeyQ')&&<span><strong>Q</strong> Save</span>}{local&&!assigned.has('KeyE')&&<span><strong>E</strong> Load</span>}</div>
+  <div className="rc-shortcuts" aria-label="Other shortcuts">{pauseActionLabel&&!assigned.has('KeyP')&&<span><strong>P</strong> {pauseActionLabel}</span>}{showSecondary&&!assigned.has('KeyM')&&<span><strong>M</strong> Mute</span>}{showSecondary&&!assigned.has('KeyQ')&&<span><strong>Q</strong> Save</span>}{local&&!assigned.has('KeyE')&&<span><strong>E</strong> Load</span>}</div>
  </div>;
 }

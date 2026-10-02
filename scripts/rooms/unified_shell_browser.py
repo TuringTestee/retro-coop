@@ -102,6 +102,44 @@ def expired_guest_recovers(browser, url):
         context.close()
 
 
+def local_shortcuts(browser, url, output):
+    context = browser.new_context(viewport={'width': 1280, 'height': 800})
+    context.add_init_script("""(() => {const Native=Worker;window.Worker=class extends Native {
+      postMessage(message,...rest) {if(message.type==='state-import'&&window.holdQuickLoad){window.releaseQuickLoad=()=>super.postMessage(message,...rest);return;}return super.postMessage(message,...rest);}
+    };})()""")
+    page = context.new_page()
+    try:
+        page.goto(url)
+        page.locator('input[aria-label="NES cartridge file"]').set_input_files(str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
+        page.locator('[data-page=local]').wait_for(timeout=15000)
+        page.keyboard.press('q')
+        page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        page.keyboard.press('e')
+        page.get_by_role('alertdialog', name='Load quick save?').wait_for()
+        page.screenshot(path=str(output / 'local-load-confirmation.png'))
+        page.get_by_role('button', name='Keep playing').click()
+        assert page.get_by_role('alertdialog', name='Load quick save?').count() == 0
+        page.keyboard.press('e')
+        page.get_by_role('button', name='Load Slot 1').click()
+        page.get_by_text('Quick slot 1 loaded. Choose Resume to play.', exact=True).wait_for(timeout=10000)
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Pause', exact=True).wait_for()
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Resume', exact=True).wait_for()
+        page.evaluate('window.holdQuickLoad=true')
+        page.keyboard.press('e')
+        page.get_by_role('button', name='Load Slot 1').click()
+        page.wait_for_function('typeof window.releaseQuickLoad === "function"')
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.locator('.rc-listing').wait_for(timeout=10000)
+        assert 'Quick slot 1 loaded' not in page.locator('body').inner_text()
+        page.evaluate('window.releaseQuickLoad()')
+        page.wait_for_timeout(100)
+        assert 'Quick slot 1 loaded' not in page.locator('body').inner_text()
+    finally:
+        context.close()
+
+
 def automatic_voice(browser, url):
     def participant():
         context = browser.new_context(permissions=['microphone'])
@@ -342,8 +380,14 @@ def exercise(page, url, size, output, play=False):
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
         page.keyboard.press('p')
         page.get_by_role('button', name='Prepare to resume').wait_for(timeout=10000)
+        assert guide_fits(page), f'Paused guide overflowed at {size}'
+        assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
         regions(page)
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Resume together').wait_for(timeout=10000)
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Pause', exact=True).wait_for(timeout=15000)
         page.get_by_role('button', name='Expand game to full screen').click()
         expanded = page.locator('.rc-game-fullscreen').bounding_box()
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
@@ -416,12 +460,13 @@ def main():
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
                     expired_guest_recovers(browser, url)
+                    local_shortcuts(browser, url, output)
                     automatic_voice(browser, url)
                     restored_battery_preview(browser, url)
                     unavailable_preview_keeps_game(browser, url)
                     abandoned_saved_game_cannot_reopen(browser, url)
                 assert not errors, errors
-                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
+                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'local_shortcuts': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
             finally:
                 browser.close()
     finally:
