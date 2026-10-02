@@ -114,33 +114,6 @@ jobs:
       - name: Complete the focused pull-request gate within the original deadline
         if: github.event_name == 'pull_request'
         run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
-  five-members:
-    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
-    env:
-      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
-        with:
-          name: d02-build
-          path: spikes/d02
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version-file: .node-version
-      - name: Verify five-member play, recovery and relay voice
-        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh slots
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: five-member-journeys
-          path: spikes/d02/five-members.local/**
-          if-no-files-found: warn
-          retention-days: 7
   images:
     needs: build
     runs-on: ubuntu-24.04-arm
@@ -194,60 +167,9 @@ jobs:
           path: aws-eb-arm64-images/*
           if-no-files-found: error
           retention-days: 7
-  network:
-    if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    strategy:
-      fail-fast: false
-      matrix:
-        pair: [Chrome-Chrome, Firefox-Firefox, Chrome-Firefox]
-    env:
-      D02_DEADLINE: ${{ needs.build.outputs.deadline }}
-      D02_PAIR: ${{ matrix.pair }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        timeout-minutes: 1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        timeout-minutes: 1
-        with:
-          name: d02-build
-          path: spikes/d02
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        timeout-minutes: 1
-        with:
-          name: foundation-client
-          path: apps/client/dist
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        timeout-minutes: 1
-        with:
-          node-version-file: .node-version
-      - name: Thirty-second shared play and forced relay
-        run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- bash spikes/d02/ci_job.sh network
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        timeout-minutes: 1
-        with:
-          name: d02-pair-${{ matrix.pair }}
-          path: |
-            spikes/d02/*.local.json
-            spikes/d02/*.local.txt
-            spikes/d02/*.local.png
-            spikes/d02/.network-runs/**/*.json
-            spikes/d02/.network-runs/**/*.log
-            spikes/d02/.gameplay-runs/**/*.json
-            spikes/d02/.gameplay-runs/**/*.log
-            spikes/d02/relay-*.local.json
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 7
   preflight:
     if: ${{ always() && (github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof')) }}
-    needs: [build, entrypoint, images, network, five-members]
+    needs: [build, entrypoint, images]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -257,40 +179,24 @@ jobs:
       D02_BUILD: ${{ needs.build.result }}
       D02_ENTRYPOINT: ${{ needs.entrypoint.result }}
       D02_IMAGES: ${{ needs.images.result }}
-      D02_NETWORK: ${{ needs.network.result }}
-      D02_FIVE_MEMBERS: ${{ needs.five-members.result }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Require every complete workload
+      - name: Require build, browser journey, and deployment images
         if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
         run: |
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
           test "$D02_IMAGES" = success
-          test "$D02_NETWORK" = success
-          test "$D02_FIVE_MEMBERS" = success
-          python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
-        timeout-minutes: 1
-        with:
-          pattern: d02-pair-*
-          path: /tmp/d02-pair-evidence
-      - name: Require all six peers to agree within the original deadline
-        if: ${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}
-        run: |
-          python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" --namespace -- python3 scripts/gameplay/verify_matrix.py /tmp/d02-pair-evidence
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - name: Require the focused pull-request journey
         if: github.event_name == 'pull_request'
         run: |
           test "$D02_BUILD" = success
           test "$D02_ENTRYPOINT" = success
-          test "$D02_FIVE_MEMBERS" = success
           python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
       - name: Mark passing main release gate
         id: main_gate

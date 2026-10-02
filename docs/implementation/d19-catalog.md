@@ -48,7 +48,6 @@ Current checks for the catalog and equivalent join journeys use the unified inte
 ```sh
 sh scripts/foundation/prepare.sh
 npm run build:staging
-python3 scripts/gameplay/catalog_slots_smoke.py --output /tmp/catalog-slots.json
 python3 scripts/rooms/two_agent_game.py --role run --rom apps/client/dist/generated/diagnostic.nes --session-dir /tmp/two-agent-public
 python3 scripts/rooms/two_agent_game.py --role run --visibility protected --rom apps/client/dist/generated/diagnostic.nes --session-dir /tmp/two-agent-protected
 RETRO_COOP_ACCESS_OUTPUT=/tmp/lobby-access python3 scripts/rooms/access_browser.py

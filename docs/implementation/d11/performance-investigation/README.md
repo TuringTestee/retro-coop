@@ -30,7 +30,7 @@ The known [Mozilla debugger/WASM baseline mechanism](https://bugzilla.mozilla.or
 
 ## Test driver and initialization
 
-`spikes/d02/firefox_driver.py` shares official launch options, page options and provenance between the legacy and production probes. It imports the sole version/archive pins from `prepare_stock_firefox.py`. Production records the installed metadata, executable hash before/after, driver and both browser-instance versions. Its full-workload verifier rejects bundled, missing or mismatched Firefox provenance. Historical bundled short functional captures remain explicitly different coverage.
+The retired Firefox test driver shared official launch options, page options and provenance between the legacy and production probes. The recorded results and browser identities remain historical evidence. Bundled short functional captures remain explicitly different coverage.
 
 Each player owns a separate browser instance, as D02 already did. This preserves actual focus checks: sharing the official browser process made the host lose focus when the second page became active, and the product correctly refused to start.
 
@@ -40,7 +40,7 @@ Retained initialization failures distinguish hash-navigation, real focus, preloa
 
 ## Reproduction
 
-Prepare/build the candidate normally. Install official Firefox with the existing pinned installer, and run the standalone oracle twice, choosing official and bundled executables:
+These reproduction commands belong to the historical test revision; the pinned installer has been retired from the current tree:
 
 ```sh
 python3 spikes/d02/prepare_stock_firefox.py /tmp/d11-official
