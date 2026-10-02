@@ -1,0 +1,14 @@
+The redesigned flow borrows the useful Warcraft III sequence of finding a lobby, seeing stable player places, and starting from the lobby. Retro Coop keeps its own public audience, NES loading, and explicit preparation rules.
+
+Audience: Human
+
+# Unified lobbies: references
+
+| Source | Observed behavior | Decision for this design | Transfer limit |
+|---|---|---|---|
+| [Blizzard Battle.net features](https://classic.battle.net/war3/ladder/features.shtml) | Custom games have an available-games list on the left; selecting one shows map and host information at upper right. Create asks for a name and public/private access, with a password for private play. | Open directly on the lobby list, with one Host a new game row before joinable rooms. Keep the simple Public/Password protected choice and the selected lobby's useful identity visible before Join. | Warcraft III chooses a map before creating; Retro Coop's owner explicitly wants a lobby before NES selection. Its network and account rules do not transfer. |
+| [Blizzard Warcraft III editor overview](https://news.blizzard.com/en-us/article/23395649/revisiting-the-warcraft-iii-editor) and the owner's Warcraft III screen description | A host gathers players around a game identity and starts from the lobby. The owner specifies players on the left, game identity/preview on the right, chat below, and bottom actions. | Use those functional regions in one viewport shell. The artwork, typography, and color system are new for Retro Coop. | The NES must be loaded and verified after lobby creation; Warcraft III's map behavior is not a technical implementation model. |
+| [Blizzard forum discussion of lobby configuration](https://us.forums.blizzard.com/en/warcraft3/t/hosting-custom-game-lobby-improvements/3905) | Players discuss choosing a map and settings while a lobby is open. This is a request in a forum, not proof of shipped behavior. | The owner's direction controls: create first, load NES while waiting. | Do not represent forum suggestions as implemented Warcraft III features. |
+| [Current Retro Coop room UI](../../apps/client/src/RoomPanel.tsx), [slot UI](../../apps/client/src/RoomSlots.tsx), and [CSS](../../apps/client/src/style.css) | Creating requires a selected game; header has Public rooms/Settings/guest text; many non-chat areas use overflow scrolling; slot actions use a select plus a separate kick dialog. | Replace the journey and page composition instead of extending the current scroll regions. Put slot actions on the row, keep action feedback inline, and reserve every area. | Existing room authority, transfer, privacy, and recovery behavior still need implementation proof. |
+
+The owner supplied the most specific interaction evidence for this work. Where a reference is broad or ambiguous, the [direction](unified-lobbies-direction.md) follows that instruction rather than inventing Warcraft III behavior.
