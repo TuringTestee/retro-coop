@@ -12,7 +12,7 @@ import {uploadRoomFile} from './room-upload.ts';
 import {catalogId} from '../../../packages/contracts/src/catalog.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, NewVisibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; hostFailure?:boolean; uploading?:boolean; confirmingRoom?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; needsNewGuest?:boolean; admissionBlocked?:boolean };
+export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; needsNewGuest?:boolean; admissionBlocked?:boolean };
 const messages:Record<string,string> = {
  capacity:'Lobby capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',room_full:'All five slots are occupied or closed. Review the lobby or try another.',
  room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
@@ -49,7 +49,6 @@ export class RoomClient {
  private token?:string;
  private tabSession=new TabSession();
  private tokenCheck?:Promise<void>;
- private intent?:string;
  private lobbyIntent?:string;
  private uploadAbort?:AbortController;
  private generation = 0;
@@ -118,14 +117,14 @@ export class RoomClient {
      // cancelCreate is our own exact-intent command. Its late notice must not replace a newer attempt.
      if(event.reason==='creation_cancelled')return;
      // A canceled, uninstalled claim can still emit ended after a newer selection begins.
-     if(!this.state.room && !this.intent)return;
+     if(!this.state.room && !this.lobbyIntent)return;
      const priorRoom=this.state.room;
      const voluntaryExit=!!this.voluntaryExitRoomId&&(!priorRoom||priorRoom.id===this.voluntaryExitRoomId)&&['left','host_closed'].includes(event.reason);
      this.voluntaryExitRoomId=undefined;
      this.closePeers();this.setRoom(undefined);const status=messages[event.reason] ?? 'This lobby ended. Your local game is preserved.';
-     if(['creation_expired','upload_expired'].includes(event.reason)&&this.intent) {
-      ++this.creationGeneration;this.uploadAbort?.abort();this.uploadAbort=undefined;this.intent=undefined;
-      this.publish({busy:false,uploading:false,hostFailure:true,status:'Upload timed out. Retry upload to create a fresh lobby.',releaseNotice:undefined});
+     if(['creation_expired','upload_expired'].includes(event.reason)&&this.lobbyIntent) {
+      ++this.creationGeneration;this.lobbyIntent=undefined;
+      this.publish({busy:false,uploading:false,status:'Lobby creation expired. Retry hosting.',releaseNotice:undefined});
      }else this.publish({busy:false,status:voluntaryExit&&event.reason==='host_closed'?'Lobby closed.':status,releaseNotice:voluntaryExit||event.reason==='left'||event.reason==='host_closed'&&priorRoom?.role==='host'?undefined:status});}
    };
    socket.onopen = () => {void this.request({type:'hello',...(this.token ? {token:this.token}:{})}).then(async data=>{
@@ -145,7 +144,7 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the lobby service.'});}
- beginSelection() {this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({hostFailure:false,releaseNotice:undefined});}
+ beginSelection() {this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});}
  cancelGameSelection(){const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
  async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
   if(!this.token && !this.state.room) return isCurrent();
@@ -182,30 +181,6 @@ export class RoomClient {
   }catch(error){if(this.gameSelection===intent){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.failure(error);}return {ok:false,message:error instanceof Error?error.message:'Could not add this NES game to the lobby. Retry or choose another.'};}
   finally{if(this.gameSelection===intent){this.gameSelection=undefined;this.uploadAbort=undefined;this.publish({busy:false,uploading:false});}}
  }
- async host(file:File,fingerprint:Fingerprint,visibility:NewVisibility,password:string|undefined,current:()=>boolean) {
-  if(!current()||!this.player()?.isLoaded(fingerprint)||file.size!==fingerprint.cartridge.bytes){this.publish({hostFailure:true,status:'The selected game changed or is not loaded. Select it again.'});return;}
-  this.cancelCreation();const intent = crypto.randomUUID(), generation = this.creationGeneration;this.intent = intent;
-  this.publish({busy:true,hostFailure:false,uploading:false,confirmingRoom:false,status:'Preparing lobby…',retryAfterMs:undefined});
-  try {
-   await this.connect();if(this.intent !== intent || generation !== this.creationGeneration || !current()) return;
-   if(this.state.room)throw Error('Leave the current lobby before creating another.');
-   const created=await this.request({type:'create',intent,visibility,password,fingerprint});
-   if(this.intent !== intent || !current()) {await this.request({type:'cancelCreate',intent});return;}
-   if(!created.room?.id||!this.token)throw Error('The lobby service did not return an upload session. Retry upload.');
-   const controller=new AbortController();this.uploadAbort=controller;
-   this.publish({uploading:true,status:'Uploading game…'});
-   const receipt=await uploadRoomFile(clientConfig.coordinatorUrl,created.room.id,intent,this.token,file,(sent,total)=>{
-    if(this.intent===intent&&generation===this.creationGeneration)this.publish({status:`Uploading game… ${Math.round(sent/1024)} / ${Math.ceil(total/1024)} KiB`});
-   },controller.signal);
-   if(this.uploadAbort===controller)this.uploadAbort=undefined;
-   if(receipt.sha256!==fingerprint.romSha256)throw Error('The lobby server verified a different game. Retry upload.');
-   if(this.intent !== intent || generation !== this.creationGeneration || !current() || !this.player()?.isLoaded(fingerprint)) {await this.request({type:'cancelCreate',intent});return;}
-   this.publish({uploading:false,confirmingRoom:true,status:'Publishing lobby…'});
-   const data = await this.request({type:'confirmCreate',intent});
-   if(this.intent !== intent || !current() || !this.player()?.isLoaded(fingerprint)) {await this.request({type:'cancelCreate',intent});return;}
-   this.apply(data);this.intent = undefined;this.publish({busy:false,uploading:false,confirmingRoom:false,hostFailure:false,status:'Lobby created. Everyone can get Ready, then the host can start.'});
-  }catch(error) {if(this.intent === intent) {this.intent = undefined;this.uploadAbort=undefined;void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({hostFailure:true,uploading:false,confirmingRoom:false});this.failure(error);}}
- }
  async startRoom(fingerprint:Fingerprint) {
   const room=this.state.room;if(!room||room.role!=='host')return;
   if(!this.player()?.isLoaded(fingerprint)){this.publish({status:messages.host_not_ready});return;}
@@ -218,7 +193,7 @@ export class RoomClient {
   finally {this.publish({startingRoom:false});}
  }
  dismissRelease(){this.publish({releaseNotice:undefined});}
- cancelCreation() {++this.creationGeneration;this.uploadAbort?.abort();this.uploadAbort=undefined;const intent = this.intent??this.lobbyIntent;this.intent = undefined;this.lobbyIntent=undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,hostFailure:true,uploading:false,confirmingRoom:false,status:'Creation cancelled. The lobby was not opened.'});}}
+ cancelCreation() {++this.creationGeneration;const intent=this.lobbyIntent;this.lobbyIntent=undefined;if(intent) {void this.request({type:'cancelCreate',intent}).catch(()=>{});this.publish({busy:false,status:'Creation cancelled. The lobby was not opened.'});}}
  async preview(invite:string) {const generation = ++this.generation;this.previewingInvite=invite;this.previewingId=undefined;this.publish({busy:true,status:'Looking up invitation…'});try {await this.connect();if(generation !== this.generation) return;const data = await this.request({type:'preview',invite});if(generation !== this.generation) return;this.previewingId=data.preview?.id;this.apply(data);this.publish({busy:false,status:data.preview&&'openSlots' in data.preview&&data.preview.openSlots===0?'No open slots. Wait for the host or choose another lobby.':'Join reserves a slot and downloads the lobby game.'});}catch(error){if(generation === this.generation){this.publish({preview:undefined});this.failure(error);}}}
  clearPreview(){const pending=!!this.previewingInvite;if(pending)++this.generation;this.previewingInvite=undefined;this.previewingId=undefined;this.publish({preview:undefined,...(pending?{busy:false}:{}),status:'No lobby selected.'});}
  async join(invite:string,password?:string) {return this.joinTarget({type:'join',invite,password});}

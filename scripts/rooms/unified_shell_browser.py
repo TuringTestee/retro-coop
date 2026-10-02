@@ -313,10 +313,30 @@ def exercise(page, url, size, output, play=False):
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
         page.get_by_role('button', name='Return game to lobby').click()
         assert page.locator('.rc-game-fullscreen').count() == 0
+    if size == (1280, 800):
+        page.evaluate("""() => {
+          window.heldInvites=[];
+          Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise((resolve,reject)=>window.heldInvites.push({resolve,reject}))}});
+        }""")
+        page.get_by_role('button', name='Copy invite').click()
+        page.wait_for_function('window.heldInvites.length === 1')
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
+        page.evaluate('window.heldInvites[0].resolve()')
+        page.wait_for_timeout(100)
+        assert 'Invitation copied.' not in page.locator('.rc-status').inner_text()
+        page.get_by_role('button', name='Stay').click()
+        page.get_by_role('button', name='Copy invite').click()
+        page.wait_for_function('window.heldInvites.length === 2')
     page.get_by_role('button', name='Back to Main Page', exact=True).click()
     assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
     page.get_by_role('button', name='Close lobby').click()
     page.locator('.rc-listing').wait_for(timeout=10000)
+    if size == (1280, 800):
+        page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
+        page.wait_for_timeout(100)
+        assert page.get_by_role('dialog', name='Invitation link').count() == 0
+        assert page.locator('main').get_attribute('data-page') == 'main'
     return {'size': size, 'lobby': name, 'regions': list(base), 'played': play}
 
 
