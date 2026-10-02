@@ -1,4 +1,4 @@
-Retro Coop needs a room lifecycle before the proposed lobby UI can work. The service will publish empty included-game rooms, the first visitor will claim Host/P1, and the host will choose when to start. The client will use one directory for included and player-created rooms. Joining after Start is deferred.
+The [unified lobby plan](unified-lobbies.md) now owns immediate hosting, NES selection after creation, and joining a game in progress. The earlier first-host offers and Join-after-Start deferral below are historical.
 
 Audience: Agent
 

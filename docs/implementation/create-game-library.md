@@ -1,4 +1,4 @@
-Create Game becomes a separate page backed by one browser library of exact NES files. The room browser stays focused on joining. The waiting host can open or close an empty Guest place, and all pages keep content in stable regions without overlays. New behavior in this amendment waits for review, user approval of the reviewed version, and merged governing documents.
+The [unified lobby plan](unified-lobbies.md) now owns immediate lobby creation and later NES selection. The separate Create Game page below is historical; exact file validation and storage remain relevant where the unified plan uses them.
 
 Audience: Agent
 

@@ -1,4 +1,4 @@
-The room browser should lead with joinable games. Creating a room moves to its own page, where a player can reuse one of their browser's saved NES games or add a new file.
+The [unified lobby direction](unified-lobbies-direction.md) now owns creation: hosting opens a lobby immediately, and the host selects a NES game there. The earlier separate Create Game page below is historical.
 
 Audience: Human
 

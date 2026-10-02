@@ -4,7 +4,7 @@ Audience: Human
 
 # Five-slot lobbies
 
-The [minimal room journey](minimal-room-journey.md) supersedes this document's assigned-players-only **initial Start** gate: every occupied member, including observers and the host, must prepare and choose Ready. Midgame observer isolation and late joins below remain current.
+The [unified lobby direction](unified-lobbies-direction.md) governs the current **initial Start** gate: occupied controller owners prepare and choose Ready; spectators do not block Start. Midgame spectator isolation and late joins below remain current.
 
 ## Source and scope
 

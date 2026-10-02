@@ -2,13 +2,13 @@ Audience: Agent
 
 # Anonymous rooms and reservations
 
-The current room journey uses five places, Public or Password protected access, automatic connection routing, and an all-member Ready gate before Start. The [minimal room plan](minimal-room-journey.md), [access and routing plan](room-access-and-routing.md), and [README](../../README.md) govern the current behavior; the D08 details below document the earlier room slice.
+The current room journey uses five places, Public or Password protected access, automatic connection routing, and a Ready gate for occupied controller owners before Start. The [unified lobby plan](unified-lobbies.md), [access and routing plan](room-access-and-routing.md), and [README](../../README.md) govern current behavior; the D08 details below document the earlier room slice.
 
 This document records the original D08 room and reservation slice. A valid local NES file creates a public or unlisted room without a naming form, and friends can reserve Player 2 before choosing their own file. The coordinator protects ownership and deadlines. Current shared-play Start behavior is governed by [D11](d11.md) and the [lobby refactor](lobby-refactor.md).
 
 ## Run and inspect
 
-Use the README's pinned Node/npm/Rust tools and run `sh scripts/demo.sh`. Open `http://127.0.0.1:8765/`. Choose **Join as host** on an empty included-game offer, or **Create game** to select a saved, included, or added NES file and Public or Password protected access. A protected room requires its password before a new member enters through the directory or an invitation. A joining member downloads and verifies a host-shared custom game file when needed. Every occupied member, including the host and observers, chooses **Ready** before the host can choose **Start game**. Opening Public rooms closes or leaves the current session first. The [minimal room plan](minimal-room-journey.md) describes recovery and navigation.
+For the current journey, run `sh scripts/demo.sh` and open `http://127.0.0.1:8765/`. **Host a new game** creates a public lobby; the host can set password protection and load a NES game while others join. A protected lobby requires its password before entry. A joining member downloads and verifies a host-shared custom game file when needed. Occupied controller owners choose **Ready** before the host can choose **Start**; spectators do not block it. Back to Main Page closes or leaves the current session first. The [unified lobby plan](unified-lobbies.md) describes recovery and navigation.
 
 For a built preview on port 4173, set `COORDINATOR_ORIGINS=http://127.0.0.1:4173` and configure the static server's `/coordinator/ws` proxy, or set `PUBLIC_COORDINATOR_URL` explicitly when building. Staging requires `COORDINATOR_STAGE=staging` and an explicit comma-separated `COORDINATOR_ORIGINS` allowlist of exact HTTPS client origins. The coordinator accepts `/ws` or `/coordinator/ws`; the test-only gateway in `scripts/rooms/browser-server.ts` demonstrates same-origin routing without choosing a deployment provider.
 

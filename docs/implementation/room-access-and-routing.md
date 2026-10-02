@@ -6,7 +6,7 @@ Audience: Agent
 
 ## Authority and order
 
-The [design amendment](../design/room-access-and-routing.md), [minimal room journey](minimal-room-journey.md) and [issue #169](https://github.com/TuringTestee/retro-coop/issues/169) govern this slice. Merge this plan before product implementation. The host/guest/member and five-slot authorities remain as built; password verification is an admission check **before** slot reservation, ROM transfer, chat, signaling or peer setup. Neither an invitation code nor a directory result grants membership. The existing all-occupied initial Start gate and exit-before-directory path apply after admission.
+The [design amendment](../design/room-access-and-routing.md), [minimal room journey](minimal-room-journey.md) and [issue #169](https://github.com/TuringTestee/retro-coop/issues/169) govern this slice. Merge this plan before product implementation. The host/guest/member and five-slot authorities remain as built; password verification is an admission check **before** slot reservation, ROM transfer, chat, signaling or peer setup. Neither an invitation code nor a directory result grants membership. The current occupied-controller initial Start gate and exit-before-directory path apply after admission.
 
 ## Access model and lifecycle
 

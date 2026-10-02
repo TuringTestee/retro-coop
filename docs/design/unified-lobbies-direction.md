@@ -1,0 +1,26 @@
+Retro Coop should get a person from a lobby list into a shared NES game with one obvious next action at each step. This is the current design direction for the local redesign.
+
+# Unified lobbies: direction
+
+Audience: a general PG-13 public audience. People choose outcomes they can understand; connection routes and controller assignment are product decisions. [Comparable-product notes](unified-lobbies-references.md) record the Warcraft III lobby flow that informed the simple list → lobby → play sequence.
+
+## Agreed behavior
+
+- The first directory row is **Host a new game**. Clicking it creates a public lobby with a generated name immediately. The host can edit only the name value in the fixed header and can change access to password protected in the right menu. The directory shows whole-row join targets, truthful occupancy, and a reason when joining is unavailable. Search and the lobby count share one row.
+- The lobby keeps three fixed columns: **players | game | game menu**, with chat across the bottom of the stage and actions in the large footer. On narrow windows, players move above the game and menu; chat and the footer stay visible. Only chat history scrolls. The game remains in the center track while the right menu changes sections.
+- Settings remain open in the lobby's right column. Their sections cover Lobby access for the host, Game controls during play, Controls, Sound, Voice, and Profile. A person can change sections but cannot close the column. The toolbar above the game contains the game name and **Change game** when applicable; **Copy invite** sits beside the lobby name in the header. The selected game fills its own frame without buttons covering it.
+- Five slot rows have fixed positions. Occupied people can move or swap directly to Player 1, Player 2 when the NES game supports it, or a numbered spectator place. Empty open rows offer only Close slot; closed rows offer Open slot. The product assigns controller roles from physical slot order and the selected game's controller count. A departure shifts remaining people up through open places. The host can kick during play; a newly open place can admit someone while the game continues.
+- The host can start alone once their game is loaded and they are Ready. Any occupied controller owner must also be Ready. The host waits or kicks an unprepared player. Spectators do not block Start. A late player prepares and synchronizes before taking a controller.
+- The live game stays between the player list and right menu. Clicking the game fills the window; clicking again or pressing Escape returns it to the same lobby layout. Game sound starts on. The right menu shows the Famicom keyboard guide and keeps sound controls in its Sound section.
+- The top-right theme control switches between light and dark. Without a manual choice, local time selects light from 09:00 through 16:59 and dark otherwise. Player rows and settings share each theme's surface. The game guide places Select and Start in the controller's center, uses matching colors for each button and its keyboard line, and shows the actual configured keys. M mutes the game, F5 saves to quick slot 1, and F9 loads that slot in local play after confirmation. Loading a save during shared play remains unavailable because it would change only one participant's game state.
+- Voice starts when a peer connects, with push to talk as the default; the browser may ask for microphone access. The configured talk key is shown in the game guide. A denied or missing microphone leaves game and text chat working, with retry in Voice settings. Disabling voice lasts for the current lobby.
+- Battery progress is restored before a game preview. That restore still counts as an unplayed starting state. If preview generation fails for another game, the game can load without a preview only when the emulator confirms the failed attempt left its state unchanged.
+- The header labels **Lobby name** and **Your name** stay in fixed regions; clicking only a value opens a centered name dialog, so editing never resizes the header. On narrow windows the names have separate fixed rows and a readable value area. Own chat messages say **(you)**. Back to Main Page and the RETRO COOP logo take the same exit path. Closing or leaving an active lobby uses a centered blocking confirmation over a dimmed background and ends the session before navigation.
+
+## Removed choices and clutter
+
+There is no creation form, preselection of a NES file, Standard/Relay choice, Public rooms link, Manage/Done dialog, separate settings page, duplicated Ready or Join button, slot index beside an already numbered slot label, or status text that merely repeats an open panel. Public versus password protected is the access choice; transport is automatic.
+
+## Current evidence
+
+The [journeys](unified-lobbies-journeys.md), [scenarios](unified-lobbies-scenarios.md), [v6 wireframe](unified-lobbies-wireframe-v6.md), and [v6 critique](unified-lobbies-critique-v6.md) govern this iteration. The technical contract is in [implementation](../implementation/unified-lobbies.md). Earlier wireframes remain iteration history.
