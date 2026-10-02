@@ -32,14 +32,7 @@ Focused Node tests cover malformed commands, host authority, explicit two-party 
 
 The production browser scenario reads independently emulated controller ports from the diagnostic ROM’s RAM. It starts with native separate P1/P2, swaps the ports, switches to Shared P1 with the guest owner, verifies held keyboard/gamepad neutrality, releases/represses the pad, and passes P1 to the host. Both real browser workers must report the expected controller bytes and equal paused canonical hashes. Decline/cancel must preserve the original hash and one acceptance must not advance frames. Both consent actions use the keyboard. Matched desktop screenshots show assignments before/after and the guest view.
 
-Reproduce after the standard foundation preparation and production build:
-
-```sh
-npm run build
-python3 scripts/gameplay/browser_smoke.py --controllers --output /tmp/controllers-chrome.json
-python3 scripts/gameplay/browser_smoke.py --controllers --pair Chrome-Firefox --firefox-executable /path/to/official/firefox --output /tmp/controllers-mixed.json
-timeout --foreground 60s sh scripts/preflight.sh
-```
+The original D15 browser harness was retired after the lobby redesign. Its results remain historical evidence; the current browser journey and commands are in the [verification strategy](browser-nes-platform.md#verification-strategy).
 
 Use the repository’s pinned Python Playwright/browser environment and official Firefox driver described in the D11 evidence. The browser command writes raw results and screenshots alongside its output. Native source is unchanged; exact accepted PR #59 WASM can be copied into the owned generated directory before building. Local test output directories and native targets must remain isolated.
 

@@ -20,7 +20,7 @@ if [ "$D02_JOB" = build ]; then
   timeout --foreground 60s sh scripts/preflight.sh
   exit
 fi
-if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
+if [[ "$D02_JOB" == entrypoint-* ]]; then
   python3 -m venv /tmp/d02-entrypoint-venv
   /tmp/d02-entrypoint-venv/bin/pip install playwright==1.58.0
   # The pinned Ubuntu runner already has Chromium's libraries. Installing apt
@@ -29,20 +29,6 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
   export PATH="/tmp/d02-entrypoint-venv/bin:$PATH"
   npm ci
   RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
-  if [ "$D02_JOB" = slots ]; then
-    sudo apt-get update -qq
-    sudo apt-get install -y -qq coturn
-    npm run build
-    mkdir -p spikes/d02/five-members.local
-    timeout --foreground 75s python3 scripts/gameplay/five_slots_smoke.py --output spikes/d02/five-members.local/direct.json
-    timeout --foreground 75s python3 scripts/gameplay/five_slots_smoke.py --relay --output spikes/d02/five-members.local/relay.json
-    timeout --foreground 30s python3 scripts/gameplay/five_slots_smoke.py --initial-stall --output spikes/d02/five-members.local/poweron.json
-    timeout --foreground 30s python3 scripts/gameplay/late_controller_smoke.py --output spikes/d02/five-members.local/late-controller.json
-    timeout --foreground 60s python3 scripts/gameplay/observer_failure_smoke.py --output spikes/d02/five-members.local/observer-failure.json
-    timeout --foreground 60s python3 scripts/gameplay/initial_observer_recovery_smoke.py --output spikes/d02/five-members.local/initial-observer-recovery.json
-    timeout --foreground 45s python3 scripts/gameplay/ready_failure_browser.py --output spikes/d02/five-members.local/ready-failure.json
-    exit
-  fi
   if [ "$D02_JOB" = entrypoint-journey ]; then
     # The upload and public entry use separate demo ports and evidence paths.
     (
@@ -78,64 +64,5 @@ if [[ "$D02_JOB" == entrypoint-* ]] || [ "$D02_JOB" = slots ]; then
   esac
   exit
 fi
-python3 -m venv /tmp/d02-browser-venv
-/tmp/d02-browser-venv/bin/pip install playwright==1.58.0
-/tmp/d02-browser-venv/bin/playwright install --with-deps chromium firefox
-export PATH="/tmp/d02-browser-venv/bin:$PATH"
-cd spikes/d02
-python3 ci_resources.py resources-before.local.json
-trap 'python3 ci_resources.py resources-after.local.json' EXIT
-if [ "$D02_JOB" = core ]; then
-  (cd ../.. && npm ci)
-  sudo apt-get update
-  sudo apt-get install -y coturn
-  turnserver --version > turn-version.local.txt
-  (cd ../.. && python3 scripts/aws_eb/turn_smoke.py --turnserver turnserver --turn-client turnutils_uclient)
-  python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/d02-http.log 2>&1 &
-  D02_HTTP_PID=$!
-  trap 'kill "$D02_HTTP_PID"; python3 ci_resources.py resources-after.local.json' EXIT
-  timeout --foreground 1200s python3 browser_probe.py fixture.local.nes --bundled-chromium --output browser-ci.local.json
-  python3 verify_results.py browser-ci.local.json
-  (cd ../.. && timeout --foreground 120s python3 scripts/foundation/browser_smoke.py --output spikes/d02/foundation.local.json)
-  (cd ../.. && timeout --foreground 90s python3 scripts/foundation/banked_ram_smoke.py --output spikes/d02/banked-ram.local.json)
-  (cd ../.. && timeout --foreground 60s python3 scripts/aws_eb/versioned_core_smoke.py --output spikes/d02/versioned-core.local.json)
-  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/browser_smoke.py --output spikes/d02/rooms.local.json)
-  (cd ../.. && timeout --foreground 60s python3 scripts/rooms/moderation_smoke.py --output spikes/d02/moderation.local.json)
-  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/operator_smoke.py --output spikes/d02/operator.local.json)
-  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/chat_smoke.py --output spikes/d02/chat.local.json)
-  (cd ../.. && timeout --foreground 120s python3 scripts/peer/browser_smoke.py --output spikes/d02/peer.local.json)
-  (cd ../.. && timeout --foreground 90s python3 scripts/rooms/directory_smoke.py --output spikes/d02/directory.local.json)
-  (cd ../.. && timeout --foreground 240s python3 scripts/gameplay/run_smoke.py spikes/d02/gameplay.local)
-  (cd ../.. && timeout --foreground 45s python3 scripts/gameplay/browser_smoke.py --controllers --output spikes/d02/gameplay.local/controllers.json)
-elif [ "$D02_JOB" = network ]; then
-  (cd ../.. && npm ci)
-  sudo apt-get update
-  sudo apt-get install -y coturn
-  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-  python3 ci_resources.py resources-before.local.json
-  (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 105s sh scripts/gameplay/network.sh --seconds 30 --pair "$D02_PAIR")
-  (cd ../.. && timeout --foreground 55s python3 scripts/gameplay/browser_smoke.py --seconds 8 --pair "$D02_PAIR" --relay --delay-final-hash --output "spikes/d02/relay-$D02_PAIR.local.json")
-  (cd ../.. && timeout --foreground 45s python3 scripts/gameplay/browser_smoke.py --seconds 8 --pair "$D02_PAIR" --stale-peer-view --output "spikes/d02/stale-peer-$D02_PAIR.local.json")
-elif [ "$D02_JOB" = network-full ]; then
-  (cd ../.. && npm ci)
-  timeout --foreground 180s python3 prepare_stock_firefox.py /tmp/d02-stock-firefox
-  cp /tmp/d02-stock-firefox/browser-build.json stock-firefox-build.local.json
-  # This sink exists only on the ephemeral CI runner, never the user's machine.
-  sudo apt-get update
-  sudo apt-get install -y pulseaudio pulseaudio-utils
-  pulseaudio --start --exit-idle-time=-1
-  pactl load-module module-null-sink sink_name=d02 rate=48000 channels=2
-  pactl set-default-sink d02
-  test "$(pactl get-default-sink)" = d02
-  pulseaudio --version > audio-backend.local.txt
-  pactl list short sinks >> audio-backend.local.txt
-  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-  python3 ci_resources.py resources-before.local.json
-  # Fail on production regressions before spending time on the independent spike.
-  (cd ../.. && GAMEPLAY_EVIDENCE="$(pwd)/spikes/d02/.gameplay-runs" timeout --foreground 750s sh scripts/gameplay/network.sh --seconds 600 --pair "$D02_PAIR" --firefox-executable /tmp/d02-stock-firefox/firefox/firefox)
-  timeout --foreground 900s sh run_network_probe.sh fixture.local.nes --seconds 600 --pair "$D02_PAIR" --bundled-chromium --firefox-executable /tmp/d02-stock-firefox/firefox/firefox --output pair.local.json
-  python3 verify_realtime.py pair.local.json --require-muted
-else
-  echo 'Unknown CI job' >&2
-  exit 1
-fi
+echo "Unknown CI job: $D02_JOB" >&2
+exit 1

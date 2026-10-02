@@ -20,7 +20,6 @@ node --check scripts/gameplay/fixture.js
 node --check scripts/foundation/gamepad_fixture.js
 sh -n spikes/d02/run_network_probe.sh
 sh -n spikes/d02/network_profile.sh
-sh -n scripts/gameplay/network.sh
 bash -n spikes/d02/ci_job.sh
 node --check spikes/d02/realtime-worker.js
 node --check scripts/voice/fixtures.js
