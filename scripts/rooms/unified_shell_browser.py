@@ -73,6 +73,35 @@ def theme_defaults(browser, url):
         context.close()
 
 
+def expired_guest_recovers(browser, url):
+    expired = 'A' * 43
+    context = browser.new_context()
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    try:
+        page.goto(url)
+        page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
+        page.evaluate("""async expired => {
+          const db = await new Promise((resolve,reject) => {const request=indexedDB.open('retro-coop-local',3);request.onupgradeneeded=()=>{const db=request.result;db.createObjectStore('saves',{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])db.createObjectStore(name,{keyPath:'identity'});db.createObjectStore('roms',{keyPath:'sha256'});db.createObjectStore('meta');};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+          await new Promise((resolve,reject) => {const tx=db.transaction('saves','readwrite');tx.objectStore('saves').put({identity:'recovery-test',slot:1,savedAt:Date.now(),bytes:new ArrayBuffer(1)});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
+          db.close();sessionStorage.setItem('retro-coop-guest',expired);
+        }""", expired)
+        page.reload()
+        page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
+        page.wait_for_function("sessionStorage.getItem('retro-coop-guest') !== '" + expired + "'")
+        assert page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const tx=db.transaction('saves');const request=tx.objectStore('saves').get(['recovery-test',1]);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return row?.bytes?.byteLength===1;}""")
+        assert 'Lobbies unavailable' not in page.locator('body').inner_text()
+        page.get_by_role('button', name='Host a new game').click()
+        page.locator('[data-page=lobby]').wait_for(timeout=10000)
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.get_by_role('button', name='Close lobby').click()
+        page.locator('.rc-listing').wait_for()
+        assert not errors, errors
+    finally:
+        context.close()
+
+
 def automatic_voice(browser, url):
     def participant():
         context = browser.new_context(permissions=['microphone'])
@@ -306,6 +335,13 @@ def exercise(page, url, size, output, play=False):
         choose_section(page, 'Game')
         assert page.locator('.rc-controller-art').is_visible()
         assert guide_fits(page), f'Controller guide overflowed at {size}'
+        assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
+        assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
+        assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        page.keyboard.press('q')
+        page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        page.keyboard.press('p')
+        page.get_by_role('button', name='Prepare to resume').wait_for(timeout=10000)
         regions(page)
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.get_by_role('button', name='Expand game to full screen').click()
@@ -379,12 +415,13 @@ def main():
                 page.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
+                    expired_guest_recovers(browser, url)
                     automatic_voice(browser, url)
                     restored_battery_preview(browser, url)
                     unavailable_preview_keeps_game(browser, url)
                     abandoned_saved_game_cannot_reopen(browser, url)
                 assert not errors, errors
-                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
+                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
             finally:
                 browser.close()
     finally:

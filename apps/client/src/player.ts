@@ -1,7 +1,7 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import type { WorkerRequest, WorkerResponse, LocalFileRequest, PeerCheckpointRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
-import { defaults, inputMask, padInputs, ReleasedInputs, type Controls } from './controls.ts';
+import { defaults, inputMask, padInputs, rapidKeys, rapidMask, ReleasedInputs, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
@@ -149,6 +149,7 @@ export class LocalPlayer {
  private generation = 0;
  private disposed = false;
  private keys = new Set<string>();
+ private rapidStarted=new Map<string,number>();
  private controls: Controls = defaults();
  private volume = 1;
  private busy = false;
@@ -175,14 +176,15 @@ export class LocalPlayer {
  private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
  private releasedPad=new ReleasedInputs();
- private release = () => { this.keys.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
+ private release = () => { this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
  releaseControllers(){this.release();}
  private down = (event: KeyboardEvent) => {
-  if(!event.repeat && !this.controls.device && document.activeElement === this.canvas && this.state.running && Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code))) {
-   event.preventDefault(); this.keys.add(event.code);
+  if(!event.repeat && !this.controls.device && document.activeElement === this.canvas && this.state.running) {
+   const mapped=Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code));
+   if(mapped || event.code in rapidKeys){event.preventDefault();this.keys.add(event.code);if(!mapped&&event.code in rapidKeys)this.rapidStarted.set(event.code,performance.now());}
   }
  };
- private up = (event: KeyboardEvent) => { this.keys.delete(event.code); };
+ private up = (event: KeyboardEvent) => { this.keys.delete(event.code);this.rapidStarted.delete(event.code); };
  configureControls(controls: Controls) { this.controls = controls; this.release(); this.publish({inputIssue:undefined}); }
  useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
@@ -203,7 +205,7 @@ export class LocalPlayer {
  private controllerMask(pad:Gamepad|null|undefined) {
   const selected=this.controls.device;
   const pressed=document.activeElement===this.canvas?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
-  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed);
+  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed) | (selected?0:rapidMask(this.controls.keyboard,this.rapidStarted,performance.now()));
  }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);

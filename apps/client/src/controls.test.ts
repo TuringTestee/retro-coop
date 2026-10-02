@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {actions,defaults,conflict,inputMask,padInputs,validControls} from './controls.ts';
+import {actions,defaults,conflict,inputMask,migrateDefaultKeyboard,padInputs,rapidMask,validControls} from './controls.ts';
 import {gamepadMask} from '../../../spikes/d02/demo/runtime/input.js';
 test('all eight NES inputs and reserved talk binding share conflict detection',()=>{
  const settings=defaults();
@@ -8,7 +8,7 @@ test('all eight NES inputs and reserved talk binding share conflict detection',(
  assert.equal(inputMask(settings.keyboard,new Set(['KeyV'])),0);
  assert.equal(conflict(settings.keyboard,'a','KeyV'),'pushToTalk');
  assert.equal(conflict(settings.gamepad,'a','button:10'),'pushToTalk');
- assert.equal(conflict(settings.keyboard,'a','KeyZ'),'b');
+ assert.equal(conflict(settings.keyboard,'a','KeyC'),'b');
  assert.equal(conflict(settings.keyboard,'a','KeyQ'),undefined);
 });
 test('gamepad axes/buttons use the demo-owned defaults and custom assignments',()=>{
@@ -22,7 +22,23 @@ test('gamepad axes/buttons use the demo-owned defaults and custom assignments',(
 });
 test('default restoration returns independent mapping arrays',()=>{
  const one=defaults(),two=defaults();one.keyboard.a[0]='KeyQ';one.gamepad.up.push('button:3');
- assert.deepEqual(two.keyboard.a,['KeyX']);assert.equal(two.gamepad.up.includes('button:3'),false);
+ assert.deepEqual(two.keyboard.a,['KeyZ']);assert.equal(two.gamepad.up.includes('button:3'),false);
+});
+test('rapid fire pulses on held A and D without overriding personal mappings',()=>{
+ const settings=defaults(),held=new Map([['KeyA',100],['KeyD',100]]);
+ assert.equal(rapidMask(settings.keyboard,held,100),3);
+ assert.equal(rapidMask(settings.keyboard,held,149),3);
+ assert.equal(rapidMask(settings.keyboard,held,150),0);
+ assert.equal(rapidMask(settings.keyboard,held,200),3);
+ settings.keyboard.b=['KeyD'];
+ assert.equal(rapidMask(settings.keyboard,held,200),1);
+});
+test('only exact former keyboard defaults migrate; gamepad and custom mappings remain',()=>{
+ const prior=defaults();prior.keyboard={...prior.keyboard,a:['KeyX'],b:['KeyZ'],select:['ShiftLeft','ShiftRight'],start:['Enter']};
+ const upgraded=migrateDefaultKeyboard(prior);
+ assert.deepEqual(upgraded.keyboard,defaults().keyboard);
+ assert.equal(upgraded.gamepad,prior.gamepad);
+ prior.keyboard.b=['KeyB'];assert.equal(migrateDefaultKeyboard(prior),prior);
 });
 
 test('stored controls reject malformed shapes and cross-action conflicts without throwing',()=>{

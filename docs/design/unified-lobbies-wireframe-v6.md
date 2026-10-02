@@ -70,7 +70,7 @@ The row contains no redundant 03 label. Its name and status wrap within the same
 │                    │                                       │  ↓         │
 │                    │                                       │ A ─ Keyboard X│
 │                    │                                       │ B ─ Keyboard Z│
-│                    │                                       │ M mute · F5 save│
+│                    │                                       │ M mute · Q save│
 ├ CHAT────────────────────────────────────────────────────────────────┤
 │ messages                                           [entry] [Send]     │
 ├ [Back to Main Page]                                          [Pause]  ┤

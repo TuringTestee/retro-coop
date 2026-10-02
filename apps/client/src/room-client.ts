@@ -12,10 +12,10 @@ import {uploadRoomFile} from './room-upload.ts';
 import {catalogId} from '../../../packages/contracts/src/catalog.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, NewVisibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; needsNewGuest?:boolean; admissionBlocked?:boolean };
+export type RoomState = { gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; admissionBlocked?:boolean };
 const messages:Record<string,string> = {
  capacity:'Lobby capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',room_full:'All five slots are occupied or closed. Review the lobby or try another.',
- room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired or the service restarted. Start a new guest session to continue.',
+ room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired. Reconnect to continue.',
  room_changed:'That lobby has changed. Review the current lobby before trying again.',membership_changed:'That member has left or rejoined. Review the current slot before trying again.',
  slot_occupied:'Remove the member before closing this slot.',slot_empty:'That player has left. Check the slot and try again.',slot_closed:'Open the destination slot before moving someone there.',controller_occupied:'An empty slot cannot take an occupied controller role.',role_change_pending:'Finish or cancel the current player change first.',game_not_playing:'Finish initial preparation before changing roles. If preparation fails, use Retry shared play.',stale_controllers:'The players changed. Review the current slots and retry.',game_prerequisites:'Wait until every player has the game, is connected, and is Ready before starting.',unsupported_role:'This game does not support that controller role.',
  host_only:'Only the host can change this lobby.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
@@ -43,6 +43,7 @@ export class RoomClient {
  }
 
  private connecting?:Promise<void>;
+ private recoveringGuest?:Promise<void>;
  private heartbeat?:ReturnType<typeof setInterval>;
  private disposed = false;
  private watchingDirectory = false;
@@ -86,6 +87,20 @@ export class RoomClient {
   });
  }
  private async connect() {
+  try {await this.connectOnce();}
+  catch(error){
+   if((error as Error & {code?:string}).code!=='session_expired')throw error;
+   this.recoveringGuest??=(async()=>{
+    this.tabSession.close();this.token=undefined;
+    try{sessionStorage.removeItem('retro-coop-guest');}catch{}
+    this.setRoom(undefined);
+    this.publish({session:undefined,connected:false,directory:undefined,directoryStatus:'loading',directoryError:undefined,status:'Starting a new guest session…'});
+    await this.connectOnce();
+   })().finally(()=>{this.recoveringGuest=undefined;});
+   await this.recoveringGuest;
+  }
+ }
+ private async connectOnce() {
   if(this.state.connected && this.socket?.readyState === WebSocket.OPEN) return;
   if(this.connecting) return this.connecting;
   if(this.token){
@@ -105,7 +120,7 @@ export class RoomClient {
     let event:RoomEvent;try {event = JSON.parse(data);}catch{return;}
     if(event.type === 'result') {
      const pending = this.pending.get(event.requestId);if(!pending) return;clearTimeout(pending.timer);this.pending.delete(event.requestId);
-     if(event.ok) pending.resolve(event.data);else {this.publish({...(pending.kind==='chat' ? {}:{retryAfterMs:event.retryAfterMs}),needsNewGuest:event.error === 'session_expired'});pending.reject(Object.assign(Error(event.error==='place_taken'&&pending.kind==='claimCode'?'Someone claimed Host first. Review the updated row to join an open slot or choose another lobby.':messages[event.error] ?? 'The lobby request was rejected. Your local game is preserved.'),{code:event.error,retryAfterMs:event.retryAfterMs}));}
+     if(event.ok) pending.resolve(event.data);else {if(pending.kind!=='hello'&&pending.kind!=='chat')this.publish({retryAfterMs:event.retryAfterMs});pending.reject(Object.assign(Error(event.error==='place_taken'&&pending.kind==='claimCode'?'Someone claimed Host first. Review the updated row to join an open slot or choose another lobby.':messages[event.error] ?? 'The lobby request was rejected. Your local game is preserved.'),{code:event.error,retryAfterMs:event.retryAfterMs}));}
     } else if(event.type==='chat') this.chat.receive(event);
     else if(event.type.startsWith('game'))this.game.handle(event as GameEvent);
     else if(event.type.startsWith('peer')) this.peerEvent(event as PeerEvent);
@@ -211,7 +226,6 @@ export class RoomClient {
  async watchDirectory() {this.watchingDirectory=true;this.publish({directoryStatus:'loading',directoryError:undefined});const connected=this.state.connected;try {await this.connect();if(connected) await this.refreshDirectory();}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async retryPeer(pairId?:string){for(const peer of this.state.room?.peers??[])if(peer.epoch&&(!pairId||peer.pairId===pairId))await this.act({type:'peerRetry',pairId:peer.pairId,epoch:peer.epoch});}
  async reconnect() {try {await this.connect();if(!this.state.room&&this.previewingInvite){await this.preview(this.previewingInvite);return;}this.publish({status:this.state.room ? 'Lobby connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous lobby or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
- newGuest() {++this.generation;this.cancelCreation();this.tabSession.close();this.token = undefined;try {sessionStorage.removeItem('retro-coop-guest');}catch{}this.socket?.close();this.setRoom(undefined);this.publish({session:undefined,room:undefined,needsNewGuest:false,status:'Guest session cleared. Retry hosting or joining when ready.'});}
  localPlayIntent(){this.game.playIntent();}
  prepareMember(){const room=this.state.room;if(!room?.fingerprint||!this.selectedFile||!matchesFile(room.fingerprint,this.selectedFile)||!this.player()?.isLoaded(this.selectedFile))return;this.game.playIntent();}
  memberToken(){return this.token;}

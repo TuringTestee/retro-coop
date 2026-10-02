@@ -268,7 +268,7 @@ def player():
             page.locator('canvas').focus()
             assert page.evaluate("document.activeElement === document.querySelector('canvas')")
             held_from = page.evaluate('proof.frameCount')
-            page.keyboard.down('x' if args.role == 'host' else 'z')
+            page.keyboard.down('z' if args.role == 'host' else 'c')
             wait_for_page('target => proof.frameCount >= target', arg=max(220, held_from + 60), timeout=30000)
             if EXPECTED_RAM is not None:
                 page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
@@ -279,7 +279,7 @@ def player():
                 controller_ram = None
             save(f'{args.role}-sampled.json', {'controller_ram': controller_ram})
             wait_for(f'{"guest" if args.role == "host" else "host"}-sampled.json', 15)
-            page.keyboard.up('x' if args.role == 'host' else 'z')
+            page.keyboard.up('z' if args.role == 'host' else 'c')
             frames = page.evaluate('proof.frameCount')
             shell = shell_bounds(page)
             screenshot(page, f'{args.role}-playing.png')
