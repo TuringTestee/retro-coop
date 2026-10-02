@@ -1,4 +1,4 @@
-Retro Coop should open on one clear list of public game rooms. The two included games start as empty rooms that players can claim, while a player with any supported local NES file can create another room that friends find and join from the same list.
+The [unified lobby direction](unified-lobbies-direction.md) now owns the lobby list, immediate hosting and later NES selection. The first-host included-game offers below are historical.
 
 Audience: Human
 

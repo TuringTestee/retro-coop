@@ -1,4 +1,4 @@
-Give each existing screen a deterministic layout for its viewport and keep asynchronous content inside reserved regions. Consolidate the current CSS rules, then verify both stable geometry and complete keyboard access through real loading, failure, room, and playing states.
+Give each current screen a deterministic layout for its viewport and keep asynchronous content inside reserved regions. The [unified lobby plan](unified-lobbies.md) owns the current screen map; the earlier screen inventory below is historical.
 
 Audience: Agent
 

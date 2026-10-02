@@ -6,7 +6,7 @@ These scenarios define the visible states and recovery paths of the current lobb
 | --- | --- | --- | --- |
 | D1 | Directory opens empty or with lobbies | Host row first; count and search in one row; each lobby row shows name, game or no game, access and occupancy | Stale service shows Retry; no second Host/Join control |
 | D2 | Available, protected, full, or reconnecting row | Whole available row joins; protected row opens the password field; unavailable row states its reason | Wrong password stays in place; full/reconnecting row remains disabled |
-| H1 | Host creates, renames, changes access, or copies invite | Immediate generated public lobby; fixed header edits only the value; right Lobby menu owns access; toolbar owns invite | Failure preserves current state and offers a local retry or selectable link |
+| H1 | Host creates, renames, changes access, or copies invite | Immediate generated public lobby; fixed header edits only the value; right Lobby menu owns access; header beside the lobby name owns invite | Failure preserves current state and offers a local retry or selectable link |
 | S1 | Host opens occupied row | Attached dropdown lists direct moves/swaps by Player 1, Player 2, or Spectator place, plus Kick for a guest | Toggle row/outside/Escape closes; stale revision shows retry |
 | S2 | Host opens empty or closed row | Empty open has only Close slot; closed has only Open slot | Occupied place cannot close; server keeps member identity |
 | S3 | Person leaves, is kicked, or joins during play | Remaining members compact through open places; host can kick live; newly free place admits a new member | Controller change freezes at a completed frame, transfers state to the replacement, and resumes after confirmation |

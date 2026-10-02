@@ -1,79 +1,9 @@
-Public rooms should lead directly to a game and a clear waiting room. People see only the choices needed now; everyone in the room prepares before the host starts, and opening Public rooms ends the current session first.
+The current lobby journey starts at the lobby list, lets a host load a game after creating a lobby, and ends the active session before returning to the list. Its complete behavior is in the [unified lobby direction](unified-lobbies-direction.md) and [journeys](unified-lobbies-journeys.md).
 
 Audience: Human
 
-# Minimal room journey
+# Earlier minimal-room direction
 
-The later [room access and automatic connection amendment](room-access-and-routing.md) replaces this document's temporary Standard/Relay-only exception and Public/Unlisted wording with automatic routing and Public/Password protected. Its password Join step applies before the shared readiness journey below.
+This document records the intent behind [issue #169](https://github.com/TuringTestee/retro-coop/issues/169). The later [owner clarification](https://github.com/TuringTestee/retro-coop/issues/169#issuecomment-5945916947) and unified lobby direction supersede its former creation screen and all-member Ready rule. The current rule requires each occupied controller owner to prepare and choose Ready; spectators do not block Start. Return to the lobby list closes or leaves the active game first.
 
-## Direction and sources
-
-This amendment originally covered the agreed non-routing portion of [issue #169](https://github.com/TuringTestee/retro-coop/issues/169). The audience is the general public, including teenagers. The current [unified lobby direction](unified-lobbies-direction.md) clarifies the initial Start gate: every occupied controller owner must prepare and choose Ready; spectators do not block a solo host. The owner also asked to remove **all distractions** from the core journey and make return to the public listing exit an active room or game. The later access amendment resolves the deferred routing/access decision. Other supported tasks remain reachable when invoked, rather than filling the ordinary room screen.
-
-The [Warcraft III Custom Game list](https://classic.battle.net/war3/ladder/features.shtml) and [Blizzard lobby walkthrough](https://news.blizzard.com/en-us/article/23395649/revisiting-the-warcraft-iii-editor) show the useful list → lobby slots → Start progression. They do not establish this product's readiness or exit rules. Retro Coop also needs game verification and acquisition, so it keeps progress and recovery while those steps are active. [Issue #158's fixed-region design](stable-lobby-layout.md) owns the exact page geometry; this amendment removes content from those regions without letting their bounds depend on content.
-
-## Keep, remove, and reveal when needed
-
-| State | Keep visible | Remove from ordinary view or reveal only for a task |
-|---|---|---|
-| Public rooms | Search, concise room/game and host identity, available places, protected-room lock, Join, Create game, and relevant loading/empty/error feedback. For host supplied games, name the file source and possible download size before Join. | Repeated status/occupancy text, decorative previews, a second control to clear the search field, and technical route controls. Exact room code is searchable and available when sharing; it need not be repeated in every row. |
-| Create game | Game list/Add NES file, selected game identity, Public/Password protected, Create room, Back, and validation/upload feedback while active. | Always-on preview and technical route selector. Play locally is a secondary action where its separate journey starts, not a competing Create action. |
-| Waiting room | Five numbered slots as the single source for member name, role, game/connection preparation, and readiness; Copy invite, the member's Ready action, host Start game, Leave room. | Duplicate room/role paragraphs, visible invite URL, permanent per-slot management form, performance counters, generic connection detail. Host management opens from the affected slot; chat and optional voice stay compact and usable. |
-| Playing | Game, current player role, a visible Players action, microphone state and mute, Pause/Resume when applicable, Leave room, and a compact way to open Controls, chat, Saves, Help or Settings for their real tasks. | Always-visible key mapping lists, persistent FPS/ping/frame/delay counters, repeated room summary, full five-slot management controls beside the game, technical route status when connected normally. Show connection trouble and Retry only when relevant. |
-
-The [access amendment](room-access-and-routing.md) owns the protected-room password step and automatic connection policy. Routine performance diagnostics remain out of ordinary play.
-
-The Controls action opens the existing Settings mapping list and editor. This replaces the persistent binding readout in the earlier [voice sidebar design](voice-play-sidebar-direction.md); device identity and any unbound action appear when the player asks to inspect controls. While playing, the host opens Players to copy an invitation; the invite action does not occupy the ordinary game rail. The public search field can clear its own query, so it needs no adjacent duplicate button.
-
-## Journeys and recovery
-
-| Journey | One forward path and visible result | Recovery and exit |
-|---|---|---|
-| Find or create | From Public rooms, Join one eligible row, or Create game → select game/access → Create room. An invitation gives the same Join outcome. Game loading/download shows progress inside its reserved area. | Empty/offline directory offers Retry. Invalid game, failed upload/download, full room or stale invitation explains the problem and offers the relevant Retry or Back. Cancel acquisition releases the place. |
-| Prepare and start | The room shows five stable slots. Each occupied controller owner acquires and verifies the same game, reaches a usable connection to current controller peers, then chooses Ready. A host alone has no peer connection prerequisite. Host sees who is waiting. Start game is available only when these controller owners are prepared and ready; spectators and empty/closed slots do not count. | An unprepared or disconnected controller owner blocks Start. Host waits or removes that member with confirmation. A join, role/game change or lost readiness updates the rows and blocks Start when controller ownership changes. A rejected Start refreshes the same room; it never ejects an unready member automatically. A spectator joins and synchronizes without pausing current players merely to satisfy initial Start. |
-| Play and leave | Play opens after Start. Opening Public rooms, browser Back, an invitation, or any route away from the active room uses the same exit sequence. Host sees that closing ends the room for everyone; a member sees that they will leave. Confirm only when the effect merits it. The destination appears after room/game membership, input, audio and voice end. | Failed leave/close keeps the active room visible with Retry or Stay. A local-only game also stops before Public rooms appears. No Return to room or Resume local game background state appears in the directory. |
-
-## Current screen sketch
-
-```text
-PUBLIC ROOMS                                    [Create game]
-Search [________________]
-Game / room                     Host          Places       Action
-Super Tilt Bro                  —             5 open       [Join as host]
-Lilac Harbor                    Guest Amber   3 open       [Join]
-[Rooms unavailable. Retry] appears here only on failure.
-
-CREATE GAME                                                [Back]
-Choose a game
-  Super Tilt Bro
-  From Below
-  [Add NES file]
-Selected: Lilac Harbor · Ready to create
-Access: (●) Public  ( ) Password protected      [Create room]
-If protected: Room password [________] [Show]
-[Checking / Uploading / Retry / Cancel in this reserved area]
-
-WAITING ROOM · LILAC HARBOR
-1  You · Host · Player 1              Preparing     [Choose action ▾] | [Ready]
-2  Guest Amber · Player 2             Preparing     [Choose action ▾] | [Copy invite]
-3  Guest Blue · Observer              Ready         [Choose action ▾] | [Start game disabled]
-4  Open · Observer                                  [Choose action ▾] | Waiting for you and Guest Amber.
-5  Closed                                           [Choose action ▾] | [Leave room]
-[Chat] [Microphone off]   (compact, with feedback when used)
-
-PLAYING · LILAC HARBOR                         [Leave room]
-┌────────────────── GAME ────────────────────┐  [Players]
-│                                             │  [Chat]
-└─────────────────────────────────────────────┘  [Mute]
-[Pause] [Saves] [Help] [Settings]
-
-LEAVING · HOST
-Close this room for everyone?                  [Close room] [Stay]
-If close fails: Could not close room.          [Retry] [Stay]
-```
-
-The host-only dropdown stays in each slot's reserved region. An occupied guest slot offers every supported player role, Observer, and Kick member; the host's own slot has role choices without Kick. An empty open slot offers legal role choices and Close slot; a closed slot offers Open slot. Kick names the affected guest in a confirmation before removing them. While a role change is pending, its dropdown offers Cancel and, after failure, Retry. A one-controller game offers only Player 1 and Observer. The Ready action is available only after the member's game and connection prerequisites succeed. Keep current voice permission, chat recovery, save, input, accessibility and local data journeys when their controls are opened.
-
-## Review and implementation proof
-
-Walk public discovery, creation, invitation, five-member preparation, waiting/removal, initial Start, play, local play and every exit route in real browsers. Check the host, a player and an observer; verify failure and return paths. Inspect whether each visible item changes the next decision, action or current-state understanding; remove it if it does not. Check keyboard and screen-reader paths, short/narrow/zoomed desktop layouts, and fixed regions across loading and errors under #158. This is a design contract, not proof that the running application already behaves this way.
+The older screen tables and wireframes are available in Git history for provenance. Use the unified journey for current UI placement and recovery.

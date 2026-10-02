@@ -1,4 +1,4 @@
-Loading, errors, and changing room information must update inside stable page regions without moving nearby controls. Keep the existing screens and five lobby slots, with readable, reachable content at short, narrow, and zoomed desktop sizes.
+Loading, errors, and changing lobby information must update inside stable regions without moving nearby controls. The [unified lobby direction](unified-lobbies-direction.md) owns the current screens; the earlier screen map below is historical.
 
 Audience: Human
 
