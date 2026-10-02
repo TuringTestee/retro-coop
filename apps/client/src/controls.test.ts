@@ -11,6 +11,13 @@ test('all eight NES inputs and reserved talk binding share conflict detection',(
  assert.equal(conflict(settings.keyboard,'a','KeyC'),'b');
  assert.equal(conflict(settings.keyboard,'a','KeyQ'),undefined);
 });
+test('public Play keys send the documented NES buttons',()=>{
+ const keyboard=defaults().keyboard;
+ assert.equal(inputMask(keyboard,new Set(['KeyZ'])),1);
+ assert.equal(inputMask(keyboard,new Set(['KeyC'])),2);
+ assert.equal(inputMask(keyboard,new Set(['AltLeft'])),4);
+ assert.equal(inputMask(keyboard,new Set(['Space'])),8);
+});
 test('gamepad axes/buttons use the demo-owned defaults and custom assignments',()=>{
  const settings=defaults();
  const pad={buttons:Array.from({length:16},(_,index)=>({pressed:index===0 || index===9,touched:false,value:0})),axes:[-1,1]};

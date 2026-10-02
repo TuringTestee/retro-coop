@@ -13,8 +13,8 @@ RETRO COOP                         Public rooms  Settings
 +--------------------------------+ +---------------------+
 |                                | | CONTROLS · Keyboard |
 |          NES GAME              | | Move       ↑ ← ↓ →  |
-|                                | | A  X       B  Z     |
-|                                | | Start Enter  Select ⇧|
+|                                | | A  Z       B  C     |
+|                                | | Start Space  Select Alt|
 |                                | | Edit controls       |
 |                                | +---------------------+
 |                                | | VOICE · Off         |
@@ -65,8 +65,8 @@ RETRO COOP              Settings
 Pause  Mute  Saves
 +----------------------------+
 | CONTROLS · Keyboard        |
-| Move ↑ ← ↓ →   A X   B Z   |
-| Start Enter  Select Shift  |
+| Move ↑ ← ↓ →   A Z   B C   |
+| Start Space  Select Alt  |
 | Edit controls              |
 +----------------------------+
 | VOICE · Off [Enable voice] |

@@ -267,6 +267,7 @@ def player():
             wait_for_page('proof.frameCount >= 10', timeout=30000)
             page.locator('canvas').focus()
             assert page.evaluate("document.activeElement === document.querySelector('canvas')")
+            page.keyboard.press('Space')
             held_from = page.evaluate('proof.frameCount')
             page.keyboard.down('z' if args.role == 'host' else 'c')
             wait_for_page('target => proof.frameCount >= target', arg=max(220, held_from + 60), timeout=30000)
