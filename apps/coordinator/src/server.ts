@@ -26,7 +26,7 @@ export function config(env: NodeJS.ProcessEnv) {
 }
 export function createCoordinator(options: {origins?:string[]; trustedProxies?:string[]; offerCatalogIds?:readonly CatalogId[]; now?:()=>number; romDirectory?:string; romLimits?:RomLimits; requireCustomUpload?:boolean} = {}) {
  const store=new RomStore(options.romDirectory,options.romLimits);
- const rooms = new Rooms(options.now??Date.now,undefined,relayConfig(process.env),options.offerCatalogIds,{requireCustomUpload:options.requireCustomUpload??false,discard:id=>store.discard(id)});
+ const rooms = new Rooms(options.now??Date.now,undefined,relayConfig(process.env),options.offerCatalogIds,{requireCustomUpload:options.requireCustomUpload??false,discard:id=>store.discard(id),discardPending:id=>store.discardPending(id),promote:id=>store.promote(id)});
  const origins = new Set(options.origins ?? config({}).origins);
  const trustedProxies=new Set(trustedProxyAddresses(options.trustedProxies ?? []));
  const now=options.now??Date.now;

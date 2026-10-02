@@ -81,6 +81,18 @@ class BudgetTests(unittest.TestCase):
 
     def test_namespace_deadline_stops_detached_and_orphan_children(self):
         from ci_namespace_probe import probe
+        if os.environ.get('GITHUB_ACTIONS') != 'true':
+            # The local probe needs user/pid namespaces. Keep the privileged CI
+            # proof mandatory, but report a host capability limit locally.
+            command = ['unshare', '--user', '--map-current-user', '--pid', '--fork',
+                       '--kill-child=KILL', '--mount-proc', 'true']
+            try:
+                capability = subprocess.run(command, capture_output=True, timeout=3)
+            except FileNotFoundError:
+                self.skipTest('unshare is unavailable on this host')
+            if capability.returncode != 0 and b'Operation not permitted' in capability.stderr:
+                self.skipTest('this host denies user/pid namespaces')
+            self.assertEqual(capability.returncode, 0, capability.stderr.decode(errors='replace'))
         with contextlib.redirect_stdout(io.StringIO()):
             probe(ci=os.environ.get('GITHUB_ACTIONS') == 'true')
 

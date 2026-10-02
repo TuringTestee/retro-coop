@@ -54,7 +54,8 @@ def main():
         fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + '\n' + PROBE
 
         def page():
-            context = browser.new_context(viewport={'width': 1280, 'height': 900})
+            context = browser.new_context(viewport={'width': 1280, 'height': 900},
+                                          permissions=['clipboard-read', 'clipboard-write'])
             context.add_init_script(fixture)
             tab = context.new_page()
             tab.set_default_timeout(15_000)
@@ -65,29 +66,43 @@ def main():
         def wait(tab, expression, arg=None, timeout=15_000):
             tab.wait_for_function(expression, arg=arg, timeout=timeout, polling=30)
 
-        def setup():
+        def setup(case):
             host, member = page(), page()
             host.goto(url)
-            host.get_by_role('button', name='Create game', exact=True).click()
-            host.set_input_files('input[type=file]', str(runtime / 'apps/client/dist/generated/diagnostic.nes'))
-            host.get_by_role('button', name='Create room', exact=True).click()
-            host.get_by_role('button', name='Start game', exact=True).wait_for()
-            host.locator('[data-slot-id=slot-1] [data-slot-action]').select_option('role:observer')
+            host.get_by_role('button', name='Browse lobbies →').click()
+            host.get_by_role('button', name='Create lobby →').click()
+            host.get_by_label('Lobby name').fill('Observer Host Recovery')
+            host.get_by_role('button', name='Create lobby →').click()
+            host.get_by_role('button', name='Load NES game').wait_for()
+            host.locator('input[aria-label="NES cartridge file"]').set_input_files(
+                str(runtime / 'apps/client/dist/generated/diagnostic.nes'))
+            host.get_by_role('button', name='Change game').wait_for(timeout=30000)
+            host.get_by_role('button', name='Copy invite').click()
+            invite = host.evaluate('navigator.clipboard.readText()')
+            if case == 'pre-epoch':
+                host.evaluate('window.dropInitialReady=true')
+            row = host.locator('[data-slot-id="slot-1"] .slot-row')
+            row.click()
+            host.locator('[data-slot-id="slot-1"] .slot-menu').get_by_role(
+                'menuitem', name='Set as Observer').click()
             wait(host, "proof.room?.slots[0].role==='observer'")
-            member.goto(host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite"))
-            member.get_by_role('button', name='Join room', exact=True).click()
+            member.goto(invite)
+            member.get_by_role('button', name='Join lobby', exact=True).click()
             member.get_by_role('button', name='Ready', exact=True).click()
-            host.get_by_role('button', name='Ready', exact=True).click()
             wait(host, 'proof.room.game.ready.includes(proof.room.slots[1].member?.id)')
+            if case == 'barrier':
+                wait(host, 'proof.room.game.ready.includes(proof.room.chatMembership)')
             return host, member, host.evaluate('proof.room.id')
 
         def recover(host, member, room_id, case):
             if case == 'pre-epoch':
-                host.get_by_role('button', name='Start game', exact=True).click()
+                host.get_by_role('button', name='Start →', exact=True).click()
             else:
-                member.get_by_role('button', name='Retry shared play', exact=True).click()
+                member.get_by_role('button', name='Prepare to resume', exact=True).click()
                 wait(host, 'proof.room.game.ready.includes(proof.room.slots[1].member?.id)')
-                host.get_by_role('button', name='Retry shared play', exact=True).click()
+                if not host.evaluate('proof.room.game.ready.includes(proof.room.chatMembership)') and \
+                   host.get_by_role('button', name='Prepare to resume', exact=True).count():
+                    host.get_by_role('button', name='Prepare to resume', exact=True).click()
             for tab in (host, member):
                 wait(tab, "proof.room.game.status==='playing'&&proof.room.established")
                 assert tab.evaluate('proof.room.id') == room_id
@@ -95,7 +110,7 @@ def main():
             assert host.evaluate('proof.room.slots[0].role') == 'observer'
             for tab in (host, member):
                 wait(tab, 'proof.frameCount>=120')
-            host.get_by_role('button', name='Pause', exact=True).click()
+            member.get_by_role('button', name='Pause', exact=True).click()
             for tab in (host, member):
                 wait(tab, "proof.room.game.status==='paused'")
             deadline = time.monotonic() + 5
@@ -106,42 +121,36 @@ def main():
                     break
                 assert time.monotonic() < deadline, states
                 host.wait_for_timeout(30)
-            host.get_by_role('button', name='Players', exact=True).click()
-            host.get_by_label('Slot 1 identity', exact=True).scroll_into_view_if_needed()
+            host.locator('.rc-players [data-slot-id="slot-1"] .slot-row').wait_for()
             host.screenshot(path=str(args.output.with_suffix('.' + case + '-recovered.png')))
             assert states[0]['frame'] >= 120
-            host.get_by_role('button', name='Leave room', exact=True).click()
-            host.get_by_role('button', name='Confirm leave', exact=True).click()
+            host.get_by_role('button', name='Back to Main Page').click()
+            host.get_by_role('button', name='Close lobby', exact=True).click()
             for tab in (host, member):
-                tab.get_by_test_id('room-view').wait_for(state='detached')
+                tab.get_by_role('button', name='Browse lobbies →').wait_for(timeout=15000)
             return states
 
         try:
             for case in ['barrier', 'pre-epoch'] if args.case == 'all' else [args.case]:
-                host, member, room_id = setup()
+                host, member, room_id = setup(case)
                 failed_at = time.monotonic()
                 if case == 'barrier':
                     host.evaluate('window.dropGameAck=true')
-                    host.get_by_role('button', name='Start game', exact=True).click()
+                    host.get_by_role('button', name='Start →', exact=True).click()
                     wait(host, 'proof.room.game.startRequested')
                     wait(host, "proof.room.game.status==='starting'&&proof.droppedAcks>0")
                     wait(host, "['failed','paused'].includes(proof.room.game.status)&&!proof.room.established", timeout=20_000)
                 else:
-                    host.get_by_role('button', name='Not ready', exact=True).click()
-                    wait(host, '!proof.room.game.ready.includes(proof.room.chatMembership)')
-                    host.evaluate('window.dropInitialReady=true')
-                    host.get_by_role('button', name='Ready', exact=True).click()
                     wait(host, 'recovery.droppedReady>0&&!proof.room.game.epoch')
-                    assert host.get_by_role('button', name='Start game', exact=True).is_disabled()
+                    host.get_by_role('button', name='Retry game setup', exact=True).wait_for(timeout=12000)
+                    assert host.get_by_role('button', name='Start →', exact=True).is_disabled()
                 elapsed_timeout = time.monotonic() - failed_at
                 host.screenshot(path=str(args.output.with_suffix('.' + case + '-failed.png')))
                 if case == 'pre-epoch':
                     assert not host.evaluate('proof.room.game.epoch')
                 host.evaluate('window.dropGameAck=false;window.dropInitialReady=false')
                 if case == 'pre-epoch':
-                    host.get_by_role('button', name='Cancel preparation', exact=True).click()
-                    wait(host, '!proof.room.game.ready.includes(proof.room.chatMembership)')
-                    host.get_by_role('button', name='Ready', exact=True).click()
+                    host.get_by_role('button', name='Retry game setup', exact=True).click()
                     wait(host, 'proof.room.game.ready.includes(proof.room.chatMembership)')
                 states = recover(host, member, room_id, case)
                 results.append({'case': case, 'failure_observed_seconds': round(elapsed_timeout, 2),

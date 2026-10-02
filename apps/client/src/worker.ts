@@ -14,6 +14,8 @@ let core: Core | undefined;
 const send = (message: WorkerResponse, transfer: Transferable[] = []) => postMessage(message, { transfer });
 function copy(kind: number) { const ptr = core!.local_output(kind); return new Uint8Array(core!.memory.buffer, ptr, core!.local_output_len()).slice().buffer; }
 function check(ok: number) { if (!ok) throw Error(new TextDecoder().decode(copy(0))); }
+// Fresh means no gameplay timeline has begun. A cartridge battery restore can
+// change the starting state while the timeline is still fresh.
 let loading = false, frame=0, fresh=true;
 let rewindIssue:string|undefined,sharedEpoch:string|undefined;
 let checkpointGeneration=0, preparing=false;
@@ -48,7 +50,10 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     core = (await WebAssembly.instantiate(module, imports)).exports as Core;
     const ptr = core.local_alloc(data.rom.byteLength);
     new Uint8Array(core.memory.buffer, ptr, data.rom.byteLength).set(new Uint8Array(data.rom));
-    check(core.local_initialize(ptr, data.rom.byteLength));
+    // Mapper and board diagnostics belong in local probes, not the player-facing status.
+    if (core.local_initialize(ptr, data.rom.byteLength) !== 1) {
+     throw Error('This NES game cannot run here.');
+    }
     const identityPtr = core.local_battery_alloc(coreHash.byteLength);
     if (!identityPtr) throw Error('Cannot allocate core identity');
     new Uint8Array(core.memory.buffer, identityPtr, coreHash.byteLength).set(new Uint8Array(coreHash));
@@ -110,6 +115,24 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     ? {limit:core.local_battery_limit,alloc:core.local_battery_alloc,export:core.local_battery_export,import:core.local_battery_import}
     : {limit:core.local_state_limit,alloc:core.local_state_alloc,export:core.local_state_export,import:core.local_state_import};
    if(data.type==='state-hash') {check(core.local_state_hash());send({type:'state-hash',requestId:data.requestId,info:{hash:hex(copy(0)),frame,fresh}});}
+   else if(data.type==='state-preview') {
+    if(frame!==0||!fresh||sharedEpoch)throw Error('A preview is only available before play starts');
+    check(core.local_state_hash());const originalHash=hex(copy(0));
+    check(core.local_state_export());const saved=copy(0);
+    let pixels:ArrayBuffer|undefined;
+    try {
+     for(let index=0;index<60;index++)check(core.local_frame(0,0));
+     pixels=copy(5);
+    } finally {
+     const ptr=core.local_state_alloc(saved.byteLength);
+     if(!ptr)throw Error('Cannot restore the game after preview');
+     new Uint8Array(core.memory.buffer,ptr,saved.byteLength).set(new Uint8Array(saved));
+     check(core.local_state_import(ptr,saved.byteLength));
+    }
+    check(core.local_state_hash());if(hex(copy(0))!==originalHash)throw Error("The preview changed the game's starting state");
+    if(!pixels||pixels.byteLength!==256*240*4)throw Error('The game preview has an invalid image');
+    send({type:'state-preview',requestId:data.requestId,pixels},[pixels]);
+   }
    else if(data.type==='state-history')send({type:'state-history',requestId:data.requestId,info:historyInfo()});
    else if(data.type==='state-rewind') {check(core.local_rewind(data.seconds));fresh=false;const pixels=copy(0);send({type:'state-rewound',requestId:data.requestId,pixels,info:historyInfo()},[pixels]);}
    else if(data.type==='state-info' || data.type==='battery-info') {
@@ -123,7 +146,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     if (!ptr) throw Error('Local file exceeds the import limit');
     new Uint8Array(core.memory.buffer,ptr,data.bytes.byteLength).set(new Uint8Array(data.bytes));
     if(data.type==='state-validate') {check(core.local_state_validate(ptr,data.bytes.byteLength));send({type:'state-validated',requestId:data.requestId});}
-    else {check(api.import(ptr,data.bytes.byteLength));fresh=false;rewindIssue=undefined;send({type:`${kind}-imported`,requestId:data.requestId});}
+    else {check(api.import(ptr,data.bytes.byteLength));if(kind==='state')fresh=false;rewindIssue=undefined;send({type:`${kind}-imported`,requestId:data.requestId});}
    }
   }
   else if (data.type === 'pause') send({type:'paused'});

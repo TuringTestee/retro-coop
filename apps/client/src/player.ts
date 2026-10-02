@@ -13,7 +13,7 @@ const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the k
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
-export type PlayerState = { shared?:boolean; status: string; loading: boolean; running: boolean; loaded: boolean; frames: number; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
+export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionPhase?:'loading'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && !this.state.loading && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
@@ -100,7 +100,7 @@ export class LocalPlayer {
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
  async loadSave(bytes:ArrayBuffer) {
   if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
-  if(this.shared)throw Error('Shared save loading is not available yet. Leave the room before loading a local save.');
+  if(this.shared)throw Error('Shared save loading is not available yet. Leave the lobby before loading a local save.');
   this.pause();
   await this.fileRequest({type:'state-import',bytes});
   this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
@@ -134,7 +134,7 @@ export class LocalPlayer {
  }
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
-  if(this.shared)throw Error('Shared rewind is not available yet. Leave the room before rewinding locally.');
+  if(this.shared)throw Error('Shared rewind is not available yet. Leave the lobby before rewinding locally.');
   if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
   this.pause();
   const reply=await this.fileRequest({type:'state-rewind',seconds});
@@ -160,7 +160,7 @@ export class LocalPlayer {
  private backgroundClock?:AudioWorkletNode;
  private backgroundClockStarting=false;
  private backgroundClockFailed=false;
- private muted = true;
+ private muted = false;
  private audio = createAudioQueue(() => this.context, () => this.state.running, () => this.gain);
  private state: PlayerState = {status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
  private canvas:HTMLCanvasElement;private update:(state:PlayerState)=>void;
@@ -254,10 +254,10 @@ export class LocalPlayer {
   const next=this.game.next(0);if(!next)return;this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  }
  private abandonCandidate() { this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
- rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,status:message}); }
+ rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,selectionPhase:'failed',status:message}); }
  cancel() {
   this.abandonCandidate();
-  this.publish({loading:false,status:this.state.loaded ? 'Selection cancelled. Your previous game is still here.' : 'Selection cancelled. Choose a game whenever you’re ready.'});
+  this.publish({loading:false,selectionPhase:'cancelled',status:this.state.loaded ? 'Selection cancelled. Your previous game is still here.' : 'Selection cancelled. Choose a game whenever you’re ready.'});
  }
  /** End the local session after a successful room exit or before opening the directory. */
  async quit() {
@@ -269,7 +269,7 @@ export class LocalPlayer {
   this.game=undefined;clearTimeout(this.gameTimer);this.shared=false;this.busy=false;
   this.audio.flush();this.release();
   this.canvas.getContext('2d')?.clearRect(0,0,this.canvas.width,this.canvas.height);
-  this.publish({loaded:false,loading:false,running:false,shared:false,frames:0,fingerprint:undefined,rewind:undefined,batteryAvailable:false,storageIssue:undefined,status:'Choose a game to start playing.'});
+  this.publish({loaded:false,loading:false,selectionPhase:undefined,running:false,shared:false,frames:0,fingerprint:undefined,previewImage:undefined,rewind:undefined,batteryAvailable:false,storageIssue:undefined,status:'Choose a game to start playing.'});
  }
  pause(reason:GameReason='user') {
   if(this.state.loading) this.cancel();
@@ -281,7 +281,7 @@ export class LocalPlayer {
  }
  resume():boolean {
   if(!this.active || this.state.loading) return false;
-  if(this.shared) {this.publish({status:'Shared play is paused. Use the room’s shared controls, or leave the room before resuming locally.'});return false;}
+  if(this.shared) {this.publish({status:'Shared play is paused. Use the lobby’s shared controls, or leave the lobby before resuming locally.'});return false;}
   if(!this.inputDevice().available) { this.publish({inputIssue:disconnectedMessage}); return false; }
   this.activateAudio(); this.last = 0; this.publish({running:true,inputIssue:undefined,status:'Playing locally. The game runs in this browser.'}); this.canvas.focus();return true;
  }
@@ -317,19 +317,19 @@ export class LocalPlayer {
  async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false,selectionCurrent:()=>boolean=()=>true) {
   if(!file || this.disposed || !selectionCurrent()) return; // A chooser cancellation does not replace the valid selection.
   this.abandonCandidate(); const request = this.generation;
-  this.activateAudio(); this.publish({loading:true,status:'Reading your file locally…'});
+  this.activateAudio(); this.publish({loading:true,selectionPhase:'loading',status:'Reading your file locally…'});
   try {
    const rom = await this.read(file);
    if(request !== this.generation || this.disposed || !selectionCurrent()) return;
    const cartridge = inspectCartridge(new Uint8Array(rom));
-   this.publish({status:'Checking the exact file fingerprint…'});
+   this.publish({status:'Checking this NES game…'});
    const romSha256 = hex(await crypto.subtle.digest('SHA-256',rom));
    if(request !== this.generation || this.disposed || !selectionCurrent()) return;
    this.publish({status:'Starting your game…'});
    const worker = new Worker(new URL('./worker.ts',import.meta.url),{type:'module'}); this.candidate = worker;
    const fail = (message: string) => {
     if(this.disposed) return;
-    if(this.candidate === worker) { this.candidate = undefined; worker.terminate(); this.publish({loading:false,status:`Unable to load: ${message} Choose another file.${this.state.loaded ? ' Your previous game is preserved.' : ''}`}); }
+    if(this.candidate === worker) { this.candidate = undefined; worker.terminate(); this.publish({loading:false,selectionPhase:'failed',status:`Unable to load: ${message} Choose another file.${this.state.loaded ? ' Your previous game is preserved.' : ''}`}); }
     else if(this.active === worker) { this.rejectPending('The emulator stopped.'); this.active = undefined; worker.terminate(); this.busy = false; this.audio.flush(); this.publish({loaded:false,running:false,status:`The emulator stopped: ${message} Choose another file to retry.`}); }
    };
    worker.onerror = () => fail('This cartridge could not run in the emulator.');
@@ -347,18 +347,46 @@ export class LocalPlayer {
      const isCurrent=()=>request===this.generation && this.candidate===worker && !this.disposed && selectionCurrent();
      try {
       if(approve && !await approve(fingerprint,isCurrent)) {if(isCurrent()) this.cancel();return;}
-     }catch {if(isCurrent()) fail('Unable to confirm the room change.');return;}
+     }catch {if(isCurrent()) fail('Unable to confirm the lobby change.');return;}
      if(!isCurrent()) {worker.terminate();return;}
      // Flush the old game before reading its identity again for a replacement.
      await this.persistBattery();
      if(!isCurrent()){worker.terminate();return;}
      const battery=data.battery ? await this.prepareBattery(worker,isCurrent) : {};
      if(!isCurrent()) {worker.terminate();return;}
+     this.publish({status:'Preparing the game preview…'});
+     let preview:WorkerResponse|undefined,previewBefore:StateHash|undefined;
+     try {
+      const before=await this.fileRequest({type:'state-hash'},worker);
+      if(before.type!=='state-hash')throw Error('The emulator returned no state hash.');
+      previewBefore=before.info;
+      preview=await this.fileRequest({type:'state-preview'},worker);
+      if(preview.type!=='state-preview')throw Error('The emulator returned no game preview.');
+     }catch{
+      if(!isCurrent()){worker.terminate();return;}
+      // A preview is optional. Keep the game only if the emulator proves the
+      // failed attempt left its state untouched.
+      try {
+       const after=await this.fileRequest({type:'state-hash'},worker);
+       if(!previewBefore||after.type!=='state-hash'||after.info.hash!==previewBefore.hash||after.info.frame!==previewBefore.frame||after.info.fresh!==previewBefore.fresh)throw Error('Preview changed game state');
+       preview=undefined;
+      }catch{if(isCurrent())fail('The emulator could not safely prepare this game.');return;}
+     }
+     if(!isCurrent()) {worker.terminate();return;}
+     let previewImage:string|undefined;
+     try {if(preview?.type==='state-preview'){
+      const surface=document.createElement('canvas');surface.width=256;surface.height=240;
+      const context=surface.getContext('2d');if(!context)throw Error('The game preview could not be drawn.');
+      context.putImageData(new ImageData(new Uint8ClampedArray(preview.pixels),256,240),0,0);
+      previewImage=surface.toDataURL('image/png');
+      if(!previewImage.startsWith('data:image/png'))throw Error('The game preview could not be saved.');
+     }}catch{previewImage=undefined;}
+     if(!isCurrent()) {worker.terminate();return;}
      this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      const {available} = this.inputDevice();
-     this.publish({loading:false,loaded:true,running:available&&!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Preparing shared play…' : available ? 'Playing locally. The game runs in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint});
-     this.canvas.focus(); return;
+     this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:available&&!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Resume whenever you’re ready.' : available ? 'Playing locally. The game runs in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint,previewImage});
+     if(!startPaused)this.canvas.focus();return;
     }
     if(this.active !== worker) return;
     if(data.type === 'frame') {
@@ -376,7 +404,7 @@ export class LocalPlayer {
    };
    this.send(worker,{type:'load',rom},[rom]);
   } catch(error) {
-   if(request === this.generation && !this.disposed) this.publish({loading:false,status:`${error instanceof Error ? error.message : 'Unable to read this file.'}${this.state.loaded ? ' Your previous game is preserved.' : ''}`});
+   if(request === this.generation && !this.disposed) this.publish({loading:false,selectionPhase:'failed',status:`${error instanceof Error ? error.message : 'Unable to read this file.'}${this.state.loaded ? ' Your previous game is preserved.' : ''}`});
   }
  }
  dispose() {

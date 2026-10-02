@@ -16,11 +16,10 @@ def run(host,guest,mode,relay,out):
  guest.evaluate('''frame=>currentWorker.postMessage({type:'frame',epoch:proof.activeEpoch,frame,p1:128,p2:0})''',original['frame'])
  divergent=worker(guest,{'type':'state-hash'})['info'];assert divergent['frame']==original['frame']+1 and divergent['hash']!=original['hash']
  host.evaluate('''mode=>{window.checkpointProofMode=mode;const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){if(this.label==='retro-coop-checkpoint'&&data instanceof ArrayBuffer){if(window.checkpointProofMode==='cancel')return;if(window.checkpointProofMode==='corrupt'){data=data.slice(0);new Uint8Array(data)[data.byteLength-1]^=1;}}return send.call(this,data);}}''',mode)
- for page in pages:page.locator('.room-panel').get_by_role('button',name='Ready to resume',exact=True).click()
+ for page in pages:page.get_by_role('button',name='Prepare to resume',exact=True).click()
  if mode=='cancel':
-  cancel_page.get_by_test_id('game-status').filter(has_text='Synchronizing').wait_for()
-  cancel=cancel_page.get_by_role('button',name='Cancel synchronization',exact=True)
-  cancel.wait_for();cancel.scroll_into_view_if_needed();cancel_page.screenshot(path=str(out.with_suffix('.cancelling.png')))
+  cancel=cancel_page.get_by_role('button',name='Cancel preparation',exact=True)
+  cancel.wait_for();cancel_page.screenshot(path=str(out.with_suffix('.cancelling.png')))
   cancel.click()
  if mode!='success':
   for page in pages:page.wait_for_function("!proof.room.game.ready?.length&&['failed','paused'].includes(proof.room.game.status)",polling=20)
@@ -28,13 +27,13 @@ def run(host,guest,mode,relay,out):
   assert worker(guest,{'type':'state-hash'})['info']==divergent
   assert [membership(page) for page in pages]==members
   if mode=='corrupt':return {'mode':mode,'result':'pass','host_preserved':original,'guest_preserved':divergent}
-  for page in pages:page.get_by_test_id('game-status').filter(has_text='Synchronization cancelled. Game progress is preserved.').wait_for()
-  cancel_page.get_by_role('button',name='Ready to resume',exact=True).scroll_into_view_if_needed();cancel_page.screenshot(path=str(out.with_suffix('.cancelled.png')))
-  cancelled={'actor':'host' if relay else 'guest','host':original,'guest':divergent,'membership_preserved':True,'feedback':guest.get_by_test_id('game-status').inner_text()}
+  for page in pages:page.locator('.rc-status').get_by_text('Synchronization cancelled. Game progress is preserved.',exact=False).wait_for()
+  cancel_page.get_by_role('button',name='Prepare to resume',exact=True).wait_for();cancel_page.screenshot(path=str(out.with_suffix('.cancelled.png')))
+  cancelled={'actor':'host' if relay else 'guest','host':original,'guest':divergent,'membership_preserved':True,'feedback':guest.locator('.rc-status').inner_text()}
   host.evaluate("window.checkpointProofMode='success'")
-  for page in pages:page.locator('.room-panel').get_by_role('button',name='Ready to resume',exact=True).click()
+  for page in pages:page.get_by_role('button',name='Prepare to resume',exact=True).click()
  for page in pages:page.wait_for_function("proof.room.game.status==='resume_ready'",polling=20)
- host.screenshot(path=str(out.with_suffix('.recovered.png')),mask=[host.locator('input[aria-label="Room invitation"]:visible')])
+ host.screenshot(path=str(out.with_suffix('.recovered.png')))
  recovered=[worker(page,{'type':'state-hash'})['info'] for page in pages]
  assert all(state['frame']==original['frame'] and state['hash']==original['hash'] for state in recovered),recovered
  host.get_by_role('button',name='Resume together',exact=True).click()

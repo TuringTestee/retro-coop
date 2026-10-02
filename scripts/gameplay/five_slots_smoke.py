@@ -19,7 +19,7 @@ with contextlib.ExitStack() as stack:
   browsers=[p.chromium.launch(ignore_default_args=['--mute-audio']) for _ in range(3)]
   for browser in browsers:stack.callback(browser.close)
   # Two tabs share one browser context/origin; others use separate processes.
-  contexts=[browsers[0].new_context(viewport={'width':1440,'height':1100}),browsers[1].new_context(viewport={'width':1440,'height':1100}),browsers[2].new_context(viewport={'width':1440,'height':1100})]
+  contexts=[browser.new_context(viewport={'width':1440,'height':1100},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
   for index in range(5):
    page=contexts[0 if index<2 else 1 if index<4 else 2].new_page();page.set_default_timeout(20000);page.add_init_script(path=root/'scripts/gameplay/fixture.js')
    if args.relay:page.add_init_script("window.forceRelayTransport=true")
@@ -28,56 +28,58 @@ with contextlib.ExitStack() as stack:
    page.add_init_script("window.slotEvidence={events:[],imports:[],errors:[],wireerrors:[]};const Socket=WebSocket;window.WebSocket=class extends Socket{constructor(...a){super(...a);this.addEventListener('message',({data})=>{const event=JSON.parse(data);if(event.type.startsWith('game'))slotEvidence.events.push(event);if(event.type==='error')slotEvidence.wireerrors.push(event);})}};const Core=Worker;window.Worker=class extends Core{constructor(...a){super(...a);this.addEventListener('message',({data})=>{if(data.type==='peer-checkpoint-imported')slotEvidence.imports.push(data);if(data.type.includes('error'))slotEvidence.errors.push(data);})}}")
    page.on('pageerror',lambda error:errors.append(str(error)));pages.append(page)
   def boxes(page,label):
-   value=page.evaluate("""()=>{const root=document.querySelector('.room-slots'),origin=root.getBoundingClientRect();return [...root.querySelectorAll('[data-slot-id]')].map(row=>{const r=row.getBoundingClientRect();return {id:row.dataset.slotId,x:r.x-origin.x,y:r.y-origin.y,width:r.width,height:r.height,regions:[...row.querySelectorAll('[data-slot-region]')].map(region=>{const b=region.getBoundingClientRect();return {name:region.dataset.slotRegion,x:b.x-r.x,y:b.y-r.y,width:b.width,height:b.height}})}})}""")
+   value=page.evaluate("""()=>{const root=[...document.querySelectorAll('.room-slots')].find(node=>node.getBoundingClientRect().width>0&&getComputedStyle(node).visibility!=='hidden');const origin=root.getBoundingClientRect();return [...root.querySelectorAll('[data-slot-id]')].map(row=>{const r=row.getBoundingClientRect();return {id:row.dataset.slotId,x:r.x-origin.x,y:r.y-origin.y,width:r.width,height:r.height,regions:[...row.querySelectorAll('.slot-row strong,.slot-state')].map(region=>{const b=region.getBoundingClientRect();return {name:region.className||'name',x:b.x-r.x,y:b.y-r.y,width:b.width,height:b.height}})}})}""")
    assert len(value)==5,value
    for previous in geometry.values():
     if previous[0]['width']==value[0]['width'] and previous[0]['height']==value[0]['height']:assert previous==value,(label,previous,value)
    geometry[label]=value
   def manage(slot):
-   if not host.locator('.room-slots').count():host.get_by_role('button',name='Players',exact=True).click()
-   return host.locator(f'[data-slot-id=slot-{slot}] [data-slot-action]')
+   row=host.locator(f'.rc-players [data-slot-id="slot-{slot}"] .slot-row')
+   row.click()
+   return host.locator(f'.rc-players [data-slot-id="slot-{slot}"] .slot-menu')
   def role(slot,value):
-   manage(slot).select_option(f'role:{value}')
+   manage(slot).get_by_role('menuitem',name={'player1':'Set as Player 1','player2':'Set as Player 2','observer':'Set as Observer'}[value],exact=False).click()
   def remove(slot):
-   manage(slot).select_option('kick')
-   host.get_by_role('button',name='Kick member',exact=True).click()
-  def state(page):return page.evaluate("({room:proof.room,status:document.querySelector('[data-testid=game-status]')?.textContent,evidence:slotEvidence,iceErrors:window.iceErrors})")
+   nickname=host.evaluate('index=>proof.room.slots[index].member.nickname',slot-1)
+   manage(slot).get_by_role('menuitem',name=f'Kick {nickname}',exact=True).click()
+   host.get_by_role('button',name='Kick player',exact=True).click()
+  def state(page):return page.evaluate("({room:proof.room,status:document.querySelector('.rc-status')?.textContent,evidence:slotEvidence,iceErrors:window.iceErrors})")
   def native(page):return page.evaluate("""()=>new Promise((resolve,reject)=>{const requestId=window.nativeRequest=(window.nativeRequest??800000)+1;const timer=setTimeout(()=>reject(Error('native hash timed out')),3000);function done({data}){if(data.requestId!==requestId)return;clearTimeout(timer);currentWorker.removeEventListener('message',done);if(data.type==='error')reject(Error(data.message));else resolve(data.info);}currentWorker.addEventListener('message',done);currentWorker.postMessage({type:'state-hash',requestId});})""")
   def resume_host():
    if host.evaluate("proof.room.game.status")!='resume_ready':
-    try:host.get_by_role('button',name='Ready to resume',exact=True).click(timeout=3000)
+    try:host.get_by_role('button',name='Prepare to resume',exact=True).click(timeout=3000)
     except PlaywrightTimeoutError:
      assert host.evaluate("proof.room.game.status")=='resume_ready',state(host)
    host.get_by_role('button',name='Resume together',exact=True).click()
   try:
-   host=pages[0];host.goto(url);host.get_by_role('button',name='Create game',exact=True).click();host.set_input_files('input[type=file]',{'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Create room',exact=True).click();host.get_by_role('button',name='Copy invite',exact=True).wait_for();invite=host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite");boxes(host,'waiting')
+   host=pages[0];host.goto(url);host.get_by_role('button',name='Browse lobbies →').click();host.get_by_role('button',name='Create lobby →').click();host.get_by_label('Lobby name').fill('Five Members');host.get_by_role('button',name='Create lobby →').click();host.get_by_role('button',name='Load NES game').wait_for();host.locator('input[aria-label="NES cartridge file"]').set_input_files({'name':'original.nes','mimeType':'application/octet-stream','buffer':rom});host.get_by_role('button',name='Change game').wait_for(timeout=30000);host.get_by_role('button',name='Copy invite').click();invite=host.evaluate('navigator.clipboard.readText()');boxes(host,'waiting')
    for page in pages[1:]:
-    page.goto(invite);page.get_by_role('button',name='Join room',exact=True).click();page.wait_for_function("proof.room?.matches&&proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'",polling=50)
+    page.goto(invite);page.get_by_role('button',name='Join lobby',exact=True).click();page.wait_for_function("proof.room?.matches&&proof.room.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'",polling=50)
    for page in pages:
     page.wait_for_function("proof.room?.occupancy===5&&proof.room.peers.length===4&&proof.room.peers.every(peer=>peer.status==='connected')",polling=50)
     assert page.get_by_test_id('room-slot').count()==5
    host.screenshot(path=str(out.with_suffix('.waiting-desktop.png')),full_page=True)
    host.set_viewport_size({'width':390,'height':800})
    host.screenshot(path=str(out.with_suffix('.waiting-mobile.png')),full_page=True)
-   host.locator('.room-panel').evaluate('node=>node.scrollTop=node.scrollHeight')
+   assert host.evaluate('document.documentElement.scrollHeight<=innerHeight+1')
    host.screenshot(path=str(out.with_suffix('.waiting-mobile-actions.png')),full_page=True)
    host.set_viewport_size({'width':1440,'height':1100})
    routes=[page.evaluate("async()=>Promise.all(gamePeers.map(async pc=>{const report=await pc.getStats();const transport=[...report.values()].find(v=>v.type==='transport'&&v.selectedCandidatePairId);const pair=transport&&report.get(transport.selectedCandidatePairId);return {state:pc.connectionState,local:pair&&report.get(pair.localCandidateId)?.candidateType,remote:pair&&report.get(pair.remoteCandidateId)?.candidateType}}))") for page in pages]
    assert all(len(values)==4 for values in routes),routes
    if args.relay:assert all(value['local']=='relay' and value['remote']=='relay' for values in routes for value in values),routes
    boxes(host,'full')
-   for page in pages:page.locator('details.chat-disclosure summary').click()
    for index,page in enumerate(pages):
-    page.get_by_label('Chat message',exact=True).fill(f'Member {index+1} connected');page.get_by_role('button',name='Send message',exact=True).click()
+    page.get_by_label('Message everyone',exact=True).fill(f'Member {index+1} connected');page.get_by_role('button',name='Send',exact=True).click()
    for page in pages:
-    for index in range(5):page.get_by_role('log',name='Room messages').get_by_text(f'Member {index+1} connected',exact=True).wait_for()
+    for index in range(5):page.get_by_role('log',name='Lobby messages').get_by_text(f'Member {index+1} connected',exact=False).wait_for()
    members=[page.evaluate('proof.room.chatMembership') for page in pages];assert len(set(members))==5
    if args.initial_stall:pages[1].evaluate("window.gameFault='drop-input'")
-   for page in pages:
+   for page in pages[:2]:
     page.get_by_role('button',name='Ready',exact=True).click()
     page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)',polling=20)
+   for page in pages[2:]:assert page.get_by_role('button',name='Ready',exact=True).count()==0
    host.screenshot(path=str(out.with_suffix('.everyone-ready.png')),full_page=True)
-   host.get_by_role('button',name='Start game',exact=True).click()
+   host.get_by_role('button',name='Start →',exact=True).click()
    for page in pages:page.evaluate('releaseFrames()')
    if args.initial_stall:
     host.wait_for_function("proof.room.game.status==='paused'",polling=20)
@@ -116,13 +118,13 @@ with contextlib.ExitStack() as stack:
     if all(value==states[0] for value in states):break
     assert time.monotonic()<deadline,states
     time.sleep(.05)
-   initial=states;host.get_by_role('button',name='Players',exact=True).click();boxes(host,'playing-paused')
+   initial=states;boxes(host,'playing-paused')
    host.screenshot(path=str(out.with_suffix('.five.png')))
    # Host administration is independent of controller ownership.
    role(1,'observer')
    host.wait_for_function("proof.room.slots[0].role==='observer'&&proof.room.game.status==='playing'",polling=20)
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=initial[0]['frame'],polling=20)
-   host.get_by_role('button',name='Pause',exact=True).click()
+   pages[1].get_by_role('button',name='Pause',exact=True).click()
    for page in pages:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
    deadline=time.monotonic()+5
    while True:
@@ -136,7 +138,7 @@ with contextlib.ExitStack() as stack:
    role(3,'player2')
    host.wait_for_function("proof.room.slots[2].role==='player2'&&proof.room.slots[1].role==='observer'&&proof.room.game.status==='playing'",polling=20)
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=host_observer[0]['frame'],polling=20)
-   host.get_by_role('button',name='Pause',exact=True).click()
+   pages[2].get_by_role('button',name='Pause',exact=True).click()
    for page in pages:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
    deadline=time.monotonic()+5
    while True:
@@ -153,8 +155,8 @@ with contextlib.ExitStack() as stack:
 
    # A departed owner cannot supply another frame or acknowledgement. Freeze the
    # reachable completed boundary, then replace that owner from an observer slot.
-   pages[2].get_by_role('button',name='Ready to resume',exact=True).click()
-   host.get_by_role('button',name='Ready to resume',exact=True).click()
+   pages[2].get_by_role('button',name='Prepare to resume',exact=True).click()
+   host.get_by_role('button',name='Prepare to resume',exact=True).click()
    host.get_by_role('button',name='Resume together',exact=True).click()
    host.wait_for_function("proof.room.game.status==='playing'",polling=20)
    pages[2].evaluate("window.gameFault='drop-input'")
@@ -170,7 +172,7 @@ with contextlib.ExitStack() as stack:
    imports=pages[3].evaluate('slotEvidence.imports')
    assert any(item['frame']==stalled['frame'] and item['hash']==stalled['hash'] for item in imports)
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=stalled['frame'],polling=20)
-   host.get_by_role('button',name='Pause',exact=True).click()
+   pages[3].get_by_role('button',name='Pause',exact=True).click()
    remaining=[page for index,page in enumerate(pages) if index!=2]
    for page in remaining:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
    deadline=time.monotonic()+5
@@ -183,7 +185,7 @@ with contextlib.ExitStack() as stack:
    host.evaluate('window.holdCheckpoint=true')
    role(5,'player2')
    host.wait_for_function("proof.room.game.pending?.status==='synchronizing'",polling=20)
-   manage(5).select_option('cancel')
+   manage(5).get_by_role('menuitem',name='Cancel role change').click()
    host.wait_for_function("!proof.room.game.pending&&proof.room.slots[3].role==='player2'&&proof.room.slots[4].role==='observer'&&proof.room.game.status==='paused'",polling=20)
    boxes(host,'cancelled');cancelled=[native(page) for page in remaining]
    assert all(value==replacement[0] for value in cancelled),(replacement,cancelled)
@@ -191,25 +193,25 @@ with contextlib.ExitStack() as stack:
    host.evaluate('window.holdCheckpoint=false;window.corruptRoleCheckpoint=true')
    role(5,'player2')
    host.wait_for_function("proof.room.game.pending?.status==='failed'",polling=20)
-   failed=host.evaluate("""()=>{const box=selector=>{const node=document.querySelector(selector),rect=node?.getBoundingClientRect();return rect&&{top:rect.top,bottom:rect.bottom,height:rect.height,scrollHeight:node.scrollHeight,clientHeight:node.clientHeight}};return {transaction:proof.room.game.pending,owners:proof.room.game.controllers.owners,roles:proof.room.slots.map(slot=>slot.role),corruptChunks:window.corruptRoleChunks,geometry:{gameActions:box('.shared-gameplay-actions'),details:box('.room-detail-scroll'),slots:box('.room-slots'),feedback:box('.slot-feedback')}}}""")
+   failed=host.evaluate("""()=>{const box=selector=>{const node=document.querySelector(selector),rect=node?.getBoundingClientRect();return rect&&{top:rect.top,bottom:rect.bottom,height:rect.height,scrollHeight:node.scrollHeight,clientHeight:node.clientHeight}};return {transaction:proof.room.game.pending,owners:proof.room.game.controllers.owners,roles:proof.room.slots.map(slot=>slot.role),corruptChunks:window.corruptRoleChunks,geometry:{footer:box('.rc-footer'),players:box('.rc-players'),slots:box('.rc-players .room-slots'),status:box('.rc-status-copy')}}}""")
    assert failed['corruptChunks']>0 and failed['roles'][3]=='player2' and failed['roles'][4]=='observer',failed
    assert failed['owners'][1]==host.evaluate('proof.room.slots[3].member.id'),failed
    assert native(host)==replacement[0],(failed,replacement[0])
-   assert failed['geometry']['details']['top']>=failed['geometry']['gameActions']['bottom'],failed['geometry']
-   assert failed['geometry']['feedback']['scrollHeight']<=failed['geometry']['feedback']['clientHeight'],failed['geometry']
-   manage(5).locator('option[value="retry"]').wait_for(state='attached')
-   assert manage(5).locator('option[value="retry"]').is_enabled()
-   assert 'Role change failed' in host.locator('[data-slot-id=slot-5] [data-slot-region=status]').inner_text()
-   host.locator('.slot-feedback').scroll_into_view_if_needed()
+   assert failed['geometry']['players']['bottom']<=failed['geometry']['footer']['top'],failed['geometry']
+   assert failed['geometry']['slots']['scrollHeight']<=failed['geometry']['slots']['clientHeight']+1,failed['geometry']
+   assert failed['geometry']['status']['scrollHeight']<=failed['geometry']['status']['clientHeight']+1,failed['geometry']
+   retry=manage(5).get_by_role('menuitem',name='Retry role change')
+   assert retry.is_enabled()
+   assert 'Role change failed' in host.locator('.rc-players [data-slot-id="slot-5"] .slot-state').inner_text()
    host.screenshot(path=str(out.with_suffix('.role-failed.png')))
    host.evaluate('window.corruptRoleCheckpoint=false')
-   manage(5).select_option('retry')
+   retry.click()
    host.wait_for_function("proof.room.game.status==='playing'&&proof.room.game.controllers.owners[1]===proof.room.slots[4].member.id",polling=20)
    retry_start=host.evaluate("slotEvidence.events.filter(event=>event.type==='gameStart').at(-1)")
    assert retry_start['frame']==replacement[0]['frame'] and retry_start['hash']==replacement[0]['hash'],(replacement[0],retry_start)
    assert any(item['frame']==replacement[0]['frame'] and item['hash']==replacement[0]['hash'] for item in pages[4].evaluate('slotEvidence.imports'))
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=replacement[0]['frame'],polling=20)
-   host.get_by_role('button',name='Pause',exact=True).click()
+   pages[4].get_by_role('button',name='Pause',exact=True).click()
    for page in remaining:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
    deadline=time.monotonic()+5
    while True:
@@ -217,20 +219,19 @@ with contextlib.ExitStack() as stack:
     if all(value==retried[0] for value in retried):break
     assert time.monotonic()<deadline,retried
     time.sleep(.05)
-   host.locator('[data-slot-id=slot-5]').scroll_into_view_if_needed()
    host.screenshot(path=str(out.with_suffix('.role-retried.png')))
    # An active owner's reload preserves membership, pauses authority, and imports
    # its current state before the same owner resumes.
-   pages[4].get_by_role('button',name='Ready to resume',exact=True).click();resume_host()
+   pages[4].get_by_role('button',name='Prepare to resume',exact=True).click();resume_host()
    host.wait_for_function("proof.room.game.status==='playing'",polling=20)
    pages[4].reload();pages[4].evaluate('releaseFrames()')
    host.wait_for_function("proof.room.game.status==='paused'",polling=20)
    pages[4].wait_for_function('member=>proof.room?.chatMembership===member&&proof.room.matches&&proof.room.peers.every(peer=>peer.status==="connected")',arg=members[4],polling=20)
    reconnect_boundary=native(host)
-   pages[4].get_by_role('button',name='Ready to resume',exact=True).click();resume_host()
+   pages[4].get_by_role('button',name='Prepare to resume',exact=True).click();resume_host()
    host.wait_for_function('start=>proof.frames.at(-1)?.frame>start+120',arg=reconnect_boundary['frame'],polling=20)
    assert any(item['frame']==reconnect_boundary['frame'] and item['hash']==reconnect_boundary['hash'] for item in pages[4].evaluate('slotEvidence.imports'))
-   host.get_by_role('button',name='Pause',exact=True).click()
+   pages[4].get_by_role('button',name='Pause',exact=True).click()
    for page in remaining:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
    deadline=time.monotonic()+5
    while True:
@@ -239,7 +240,7 @@ with contextlib.ExitStack() as stack:
     assert time.monotonic()<deadline,reconnected
     time.sleep(.05)
    evidence=[page.evaluate('slotEvidence') for page in pages]
-   host.get_by_role('button',name='Leave room',exact=True).click();host.get_by_role('button',name='Confirm leave',exact=True).click()
+   host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
    for page in remaining:page.wait_for_function("gamePeers.every(pc=>pc.connectionState==='closed')",polling=20)
    if turn:
     deadline=time.monotonic()+5

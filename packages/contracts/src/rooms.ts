@@ -20,10 +20,10 @@ import type {CatalogId} from './catalog.ts';
 export {validFingerprint,matchesFile} from './fingerprint.ts';
 export type {Fingerprint} from './fingerprint.ts';
 type PreviewBase = { id:string; label:string; visibility:Visibility; code?:string };
-export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; romBytes?:number; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:number; openSlots:number};
+export type HumanRoomPreview = PreviewBase & {host:string; catalogId?:CatalogId; romBytes?:number; gameTitle?:string; status:'waiting'|'reserved'|'reconnecting'|'playing'|'paused'; occupancy:number; openSlots:number};
 export type EmptyRoomPreview = PreviewBase & {host:'No host'; visibility:'public'; code:string; catalogId:CatalogId; status:'waiting'|'unavailable'; occupancy:0; unavailableReason?:'room_capacity'};
 export type RoomPreview = HumanRoomPreview | EmptyRoomPreview;
-export type RoomView = HumanRoomPreview & {game:GameView;hostReady:boolean;started?:'shared';established:boolean;chatMembership:string;hostMembership:string;invite:string;role:RoomRole;slot:SlotId;slots:RoomSlot[];revision:number;accessRevision:number;controllerRoles:PlayerRole[];connectionPolicy:ConnectionPolicy;peers:PeerView[];reservationUntil?:number;reservationIntent:string;fingerprint:Fingerprint;matches:boolean;hostReconnectUntil?:number};
+export type RoomView = HumanRoomPreview & {game:GameView;hostReady:boolean;started?:'shared';established:boolean;chatMembership:string;hostMembership:string;invite:string;role:RoomRole;slot:SlotId;slots:RoomSlot[];revision:number;accessRevision:number;controllerRoles:PlayerRole[];connectionPolicy:ConnectionPolicy;peers:PeerView[];reservationUntil?:number;reservationIntent:string;fingerprint?:Fingerprint;matches:boolean;hostReconnectUntil?:number};
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string};
 export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
@@ -31,6 +31,10 @@ export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCom
  | { type:'heartbeat'; requestId:string }
  | { type:'preview'; requestId:string; invite:string }
  | { type:'create'; requestId:string; intent:string; visibility:NewVisibility; fingerprint:Fingerprint; password?:string }
+ | { type:'createLobby'; requestId:string; intent:string; label:string; visibility:NewVisibility; password?:string }
+ | { type:'beginGameSelection'; requestId:string; roomId:string; intent:string; expectedRevision:number; fingerprint:Fingerprint; title:string }
+ | { type:'confirmGameSelection'; requestId:string; roomId:string; intent:string; expectedRevision:number }
+ | { type:'cancelGameSelection'; requestId:string; roomId:string; intent:string }
  | { type:'confirmCreate'; requestId:string; intent:string }
  | { type:'cancelCreate'; requestId:string; intent:string }
  | { type:'prepareHost'; requestId:string; roomId:string; membership:string; fingerprint:Fingerprint }
@@ -41,6 +45,7 @@ export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCom
  | { type:'memberRemove'; requestId:string; roomId:string; membership:string; expectedRevision:number }
  | { type:'slotAvailability'; requestId:string; roomId:string; slotId:SlotId; open:boolean; expectedRevision:number }
  | { type:'slotRole'; requestId:string; roomId:string; slotId:SlotId; role:SlotRole; expectedRevision:number }
+ | { type:'slotMove'; requestId:string; roomId:string; fromSlotId:SlotId; toSlotId:SlotId; expectedRevision:number }
  | { type:'rename'; requestId:string; roomId:string; label:string }
  | { type:'nickname'; requestId:string; nickname:string }
  | { type:'visibility'; requestId:string; roomId:string; visibility:NewVisibility; expectedAccessRevision:number; password?:string }
@@ -70,6 +75,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'memberRemove': valid=keys(value,[...base,'roomId','membership','expectedRevision']) && token(value.roomId) && token(value.membership) && Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number)>=0;break;
   case 'slotAvailability': valid=keys(value,[...base,'roomId','slotId','open','expectedRevision']) && token(value.roomId) && validSlotId(value.slotId) && typeof value.open==='boolean' && Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number)>=0;break;
   case 'slotRole': valid=keys(value,[...base,'roomId','slotId','role','expectedRevision']) && token(value.roomId) && validSlotId(value.slotId) && validSlotRole(value.role) && Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number)>=0;break;
+  case 'slotMove': valid=keys(value,[...base,'roomId','fromSlotId','toSlotId','expectedRevision']) && token(value.roomId) && validSlotId(value.fromSlotId) && validSlotId(value.toSlotId) && value.fromSlotId!==value.toSlotId && Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number)>=0;break;
   case 'lookupCode': valid = keys(value,[...base,'code']) && typeof value.code === 'string' && !!publicCode(value.code); break;
   case 'joinCode': valid = keys(value,[...base,'code','intent'],['password']) && (value.password===undefined || typeof value.password==='string'&&Array.from(value.password).length<=128) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent); break;
   case 'claimCode': valid = keys(value,[...base,'code','intent','fingerprint'],['visibility','password']) && (value.visibility===undefined || value.visibility==='public' || value.visibility==='protected') && (value.password===undefined || typeof value.password==='string'&&Array.from(value.password).length<=128) && typeof value.code === 'string' && !!publicCode(value.code) && token(value.intent) && validFingerprint(value.fingerprint); break;
@@ -77,6 +83,10 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
   case 'join': valid = keys(value,[...base,'invite','intent'],['password']) && (value.password===undefined || typeof value.password==='string'&&Array.from(value.password).length<=128) && token(value.invite) && token(value.intent); break;
   case 'leave': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'create': valid = keys(value,[...base,'intent','visibility','fingerprint'],['password']) && token(value.intent) && ['public','protected'].includes(value.visibility as string) && (value.password===undefined || typeof value.password==='string'&&Array.from(value.password).length<=128) && validFingerprint(value.fingerprint); break;
+  case 'createLobby': valid = keys(value,[...base,'intent','label','visibility'],['password']) && token(value.intent) && text(value.label,80) && ['public','protected'].includes(value.visibility as string) && (value.password===undefined || typeof value.password==='string'&&Array.from(value.password).length<=128); break;
+  case 'beginGameSelection': valid=keys(value,[...base,'roomId','intent','expectedRevision','fingerprint','title']) && token(value.roomId) && token(value.intent) && Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number)>=0 && validFingerprint(value.fingerprint) && text(value.title,80);break;
+  case 'confirmGameSelection': valid=keys(value,[...base,'roomId','intent','expectedRevision']) && token(value.roomId) && token(value.intent) && Number.isSafeInteger(value.expectedRevision) && (value.expectedRevision as number)>=0;break;
+  case 'cancelGameSelection': valid=keys(value,[...base,'roomId','intent']) && token(value.roomId) && token(value.intent);break;
   case 'prepareHost': case 'startRoom': valid = keys(value,[...base,'roomId','membership','fingerprint']) && token(value.roomId) && token(value.membership) && validFingerprint(value.fingerprint); break;
   case 'confirmCreate': case 'cancelCreate': valid = keys(value,[...base,'intent']) && token(value.intent); break;
   case 'rename': valid = keys(value,[...base,'roomId','label']) && token(value.roomId) && text(value.label,80); break;

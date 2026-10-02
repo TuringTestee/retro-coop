@@ -6,7 +6,8 @@ def run(host,guest,out,root,errors,source,build_files):
  def native(page):
   return page.evaluate("""()=>new Promise(resolve=>{const requestId=900091;function done({data}){if(data.requestId===requestId){currentWorker.removeEventListener('message',done);resolve(data.info)}}currentWorker.addEventListener('message',done);currentWorker.postMessage({type:'state-hash',requestId})})""")
  def pause():
-  host.get_by_role('button',name='Pause',exact=True).click()
+  owner=host if host.evaluate('proof.room.game.controllers.owners.includes(proof.room.chatMembership)') else guest
+  owner.get_by_role('button',name='Pause',exact=True).click()
   for page in pages:page.wait_for_function("proof.room.game.status==='paused'",polling=20)
   deadline=time.monotonic()+5
   while True:
@@ -16,12 +17,12 @@ def run(host,guest,out,root,errors,source,build_files):
    time.sleep(.02)
  def assign(slot,role):
   before=native(host);old=host.evaluate('proof.room.game.epoch')
-  if host.get_by_test_id('room-slot').count()==0:host.get_by_role('button',name='Players',exact=True).click()
-  actions=host.locator(f'[data-slot-id=slot-{slot}] [data-slot-action]')
-  actions.select_option(f'role:{role}')
+  row=host.locator(f'.rc-players [data-slot-id="slot-{slot}"] .slot-row')
+  row.click()
+  host.locator(f'.rc-players [data-slot-id="slot-{slot}"] .slot-menu').get_by_role('menuitem',name={'player1':'Set as Player 1','player2':'Set as Player 2','observer':'Set as Observer'}[role],exact=False).click()
   for page in pages:page.wait_for_function("v=>proof.room.game.status==='playing'&&proof.room.game.epoch!==v",arg=old,polling=20)
-  actions.focus()
-  host.wait_for_function("document.activeElement?.hasAttribute('data-slot-action')")
+  row.focus()
+  host.wait_for_function("document.activeElement?.classList.contains('slot-row')")
   host.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
   results.append({'assigned_slot':slot,'role':role,'preserved_boundary':before})
  def sample(expected,label):
@@ -35,7 +36,7 @@ def run(host,guest,out,root,errors,source,build_files):
  for page,key in [(host,'x'),(guest,'z')]:page.locator('canvas').focus();page.keyboard.up(key);page.keyboard.down(key)
  sample([64,128],'member P1, host P2');pause()
  # A held physical pad must be released when checkpoint/role ownership changes.
- guest.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());guest.get_by_role('button',name='Settings',exact=True).click();guest.get_by_label('Input device',exact=True).select_option('0');guest.get_by_role('button',name='Back',exact=True).click();guest.evaluate('padButtons=[0]')
+ guest.evaluate((root/'scripts/foundation/gamepad_fixture.js').read_text());guest.locator('.rc-game-links').get_by_role('button',name='Settings').click();guest.locator('.rc-side-panel').get_by_role('button',name='Controls',exact=True).click();guest.get_by_label('Input device',exact=True).select_option('0');guest.get_by_role('button',name='Back',exact=True).click();guest.evaluate('padButtons=[0]')
  assign(1,'observer')
  host.locator('canvas').focus();host.evaluate("window.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyX',repeat:true}))")
  sample([0,0],'held pad released and host observer input ignored')
@@ -46,9 +47,8 @@ def run(host,guest,out,root,errors,source,build_files):
  sample([128,0],'host P1, former owner remains observer despite held pad')
  final=pause()
  for page in pages:
-  if page.get_by_test_id('room-slot').count()==0:page.get_by_role('button',name='Players',exact=True).click()
-  assert page.get_by_test_id('room-slot').count()==5
-  page.locator('.room-panel').evaluate('(panel)=>panel.scrollTop=0')
+  assert page.locator('.rc-players [data-testid="room-slot"]:visible').count()==5
+  assert page.evaluate('document.documentElement.scrollHeight<=innerHeight+1')
  host.screenshot(path=str(out.with_suffix('.after.png')));guest.screenshot(path=str(out.with_suffix('.member.png')))
  assert not errors,errors
  result={'result':'pass','source':source,'build_files':build_files,'scenarios':results,'initial_native_state':baseline,'final_equal_native_state':final,'cancel_recovery_owner':'five_slots_smoke.py public role cancellation and retry','page_errors':errors,'seconds':round(time.monotonic()-started,2)}

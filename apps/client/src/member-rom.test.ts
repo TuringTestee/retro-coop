@@ -42,7 +42,7 @@ test('individual game deletion prevents an in-flight download from recreating it
 test('partial, changed, and stale-operation downloads cannot load or persist',async()=>{
  const current=await readRom(hash);await clearLocalData(current.generation);
  for(const data of [bytes.subarray(0,-1),Uint8Array.from(bytes,x=>x^1)])await assert.rejects(acquireMemberRom(room,token,signal,()=>{},()=>true,(async()=>new Response(data.slice())) as typeof fetch));
- let active=true;await assert.rejects(acquireMemberRom(room,token,signal,()=>{},()=>active,(async()=>{active=false;return response();}) as typeof fetch),/room changed/i);
+ let active=true;await assert.rejects(acquireMemberRom(room,token,signal,()=>{},()=>active,(async()=>{active=false;return response();}) as typeof fetch),/lobby changed/i);
  assert.equal((await readRom(hash)).record,undefined);
 });
 test('storage denial keeps verified bytes available for this tab',async()=>{

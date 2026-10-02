@@ -21,20 +21,20 @@ function setup(count=5){
  const load=(who:number)=>{if(who===0)act(0,{type:'prepareHost',roomId:view().id,membership:members[0],fingerprint});else{act(who,{type:'file',fingerprint});act(who,{type:'memberAcquisition',roomId:view().id,membership:members[who],phase:'loaded'});}};
  const ready=(who:number,extra={})=>act(who,{type:'gameReady',revision:view().game.controllers.revision,roomRevision:view().revision,frame:0,fresh:true,hash,delay:who===0?3:8,...extra});
  const start=()=>act(0,{type:'startRoom',roomId:view().id,membership:members[0],fingerprint});
- const begin=()=>{for(let i=0;i<count;i++)load(i);for(let i=0;i<count;i++)ready(i);const epoch=start().room!.game.epoch!;for(const who of count>1?[0,1]:[0])act(who,{type:'gameAck',epoch,hash});return epoch;};
+ const begin=()=>{for(let i=0;i<count;i++)load(i);for(let i=0;i<count;i++)ready(i);const epoch=start().room!.game.epoch!;for(const who of count>1?[0,1]:[0])act(who,{type:'gameAck',epoch,hash});assert.equal(view().game.status,'countdown');now+=3000;rooms.sweep();assert.equal(view().game.status,'playing');return epoch;};
  const role=(slotId:string,role:string)=>act(0,{type:'slotRole',roomId:view().id,expectedRevision:view().revision,slotId,role});
  const captures=()=>events[0].filter(e=>e.type==='gameCapture');
  const authorize=(transfer:Extract<RoomEvent,{type:'gameCapture'}>,frame=917)=>{act(0,{type:'gameCaptured',epoch:transfer.epoch,transferId:transfer.transferId,frame,hash});const who=members.indexOf(transfer.recipient);act(who,{type:'gameCheckpointReady',epoch:transfer.epoch,transferId:transfer.transferId});return who;};
  const ack=(transfer:Extract<RoomEvent,{type:'gameCapture'}>,who:number,frame=917)=>act(who,{type:'gameCheckpointAck',epoch:transfer.epoch,transferId:transfer.transferId,frame,hash});
  return {rooms,sessions,senders,events,members,intents,act,view,load,ready,start,begin,role,captures,authorize,ack,advance(ms:number){while(ms>0){const step=Math.min(ms,10000);now+=step;ms-=step;for(let i=0;i<count;i++)act(i,{type:'heartbeat'});rooms.sweep();}}};
 }
-test('every occupied member is ready before initial Start; only owners acknowledge live play',()=>{
+test('only controller owners are ready before initial Start; observers do not block',()=>{
  const t=setup();assert.throws(()=>t.ready(1),/game_prerequisites/);t.act(1,{type:'file',fingerprint:{...fingerprint,romSha256:otherHash}});assert.throws(()=>t.ready(1),/game_prerequisites/);
- for(let i=0;i<5;i++)t.load(i);for(let i=0;i<4;i++)t.ready(i);assert.throws(()=>t.start(),/game_prerequisites/);assert.equal(t.view().started,undefined);assert.equal(t.view().occupancy,5);
- t.ready(4);assert.notEqual(t.view().game.status,'starting');const epoch=t.start().room!.game.epoch!;assert.equal(t.view().game.delay,8);assert.equal(t.view().established,false);assert.equal(t.start().room!.game.epoch,epoch);
+ t.load(0);t.load(1);t.ready(0);assert.throws(()=>t.start(),/game_prerequisites/);assert.equal(t.view().started,undefined);assert.equal(t.view().occupancy,5);
+ t.ready(1);const epoch=t.start().room!.game.epoch!;assert.equal(t.view().game.delay,8);assert.equal(t.view().established,false);assert.equal(t.start().room!.game.epoch,epoch);
  assert.throws(()=>t.act(2,{type:'gameAck',epoch,hash}),/stale_game/);assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash:otherHash}),/stale_game/);
- t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);
- assert.equal(t.events[2].some(e=>e.type==='gamePrepare'),false);assert.equal(t.view().occupancy,5,'prepared observers remain outside the owner acknowledgement barrier');
+ t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'countdown');assert.equal(t.view().established,false);assert.equal(t.view().game.startAt,4000);t.advance(2999);assert.equal(t.view().game.status,'countdown');t.advance(1);assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);
+ assert.equal(t.events[2].some(e=>e.type==='gamePrepare'),false);assert.equal(t.view().occupancy,5,'unprepared observers remain outside the owner acknowledgement barrier');
 });
 test('host membership/file authority and explicit readiness cancellation remain enforced',()=>{
  const t=setup(2),room=t.view();
@@ -74,14 +74,21 @@ test('host may become observer; role labels and controller mapping commit only a
  t.act(4,{type:'gameUnready',revision:old.game.controllers.revision});assert.equal(t.view().game.pending?.status,'synchronizing');
  const first=t.authorize(transfers[0]);t.ack(transfers[0],first);assert.equal(t.view().game.pending?.id,pending.id);assert.deepEqual(t.view().game.controllers,old.game.controllers);
  const second=t.authorize(transfers[1]);t.ack(transfers[1],second);assert.equal(t.view().game.pending,undefined);assert.equal(t.view().slots[0].role,'observer');assert.equal(t.view().hostMembership,t.members[0]);assert.deepEqual(t.view().game.controllers.owners,[t.members[2],t.members[1]]);assert.equal(t.view().game.frame,917);
- const next=t.view().game.epoch!;for(const who of [0,1,2])t.act(who,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'playing');
+ const next=t.view().game.epoch!;for(const who of [0,1,2])t.act(who,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');
 });
-test('departed stalled controller can be replaced without another packet or acknowledgement from that member',()=>{
+test('departed stalled controller shifts the next member into P2 and synchronizes without the departed member',()=>{
  const t=setup(),epoch=t.begin(),old=t.view().game.controllers;
- t.act(0,{type:'memberRemove',roomId:t.view().id,membership:t.members[1],expectedRevision:t.view().revision});assert.equal(t.view().game.status,'pausing');t.role('slot-3','player2');
+ t.act(0,{type:'memberRemove',roomId:t.view().id,membership:t.members[1],expectedRevision:t.view().revision});assert.equal(t.view().game.status,'pausing');assert.equal(t.view().slots[1].member?.id,t.members[2]);
  t.act(0,{type:'gameFrozen',epoch,frame:917,hash});assert.deepEqual(t.view().game.controllers,old);const transfer=t.captures().at(-1)!;assert.equal(transfer.recipient,t.members[2]);
  assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash}),/not_in_room/);t.ack(transfer,t.authorize(transfer));assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);assert.equal(t.view().game.frame,917);
- const next=t.view().game.epoch!;for(const who of [0,2])t.act(who,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'playing');
+ const next=t.view().game.epoch!;for(const who of [0,2])t.act(who,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');
+});
+test('controller departure replaces an in-flight role change with the new compacted roster',()=>{
+ const t=setup(),epoch=t.begin();t.role('slot-3','player2');const old=t.view().game.pending!.id;
+ t.act(0,{type:'memberRemove',roomId:t.view().id,membership:t.members[1],expectedRevision:t.view().revision});
+ assert.equal(t.view().slots[1].member?.id,t.members[2]);assert.notEqual(t.view().game.pending?.id,old);assert.equal(t.view().game.status,'pausing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const transfer=t.captures().at(-1)!;assert.equal(transfer.recipient,t.members[2]);
+ t.ack(transfer,t.authorize(transfer));assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);
 });
 test('failed checkpoint retry preserves prior roles until commit; cancel preserves exact paused boundary',()=>{
  const t=setup(),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');const transactionId=t.view().game.pending!.id;t.act(0,{type:'gameFrozen',epoch,frame:917,hash});let transfer=t.captures().at(-1)!;
@@ -106,20 +113,21 @@ test('fresh retry after initial state mismatch starts a new barrier instead of s
  const t=setup(2);t.load(0);t.load(1);t.ready(0,{frame:12,fresh:false});t.ready(1);t.start();assert.equal(t.view().game.status,'failed');
  t.ready(0);t.ready(1);t.start();assert.equal(t.view().game.status,'starting');
 });
-test('unready member revokes initial readiness before Start',()=>{
+test('unready controller owner revokes initial readiness before Start',()=>{
  const t=setup(3);for(let i=0;i<3;i++){t.load(i);t.ready(i);}t.act(2,{type:'gameUnready',revision:t.view().game.controllers.revision});
+ t.act(1,{type:'gameUnready',revision:t.view().game.controllers.revision});
  assert.equal(t.view().game.startRequested,false);assert.throws(()=>t.start(),/game_prerequisites/);assert.equal(t.view().started,undefined);
- t.ready(2);assert.equal(t.start().room!.game.status,'starting');
+ t.ready(1);assert.equal(t.start().room!.game.status,'starting');
 });
-test('a disconnected or failed observer loses Ready before initial Start',()=>{
+test('a disconnected or failed observer does not block initial Start',()=>{
  const failed=setup(3);for(let i=0;i<3;i++){failed.load(i);failed.ready(i);}
  failed.act(2,{type:'memberAcquisition',roomId:failed.view().id,membership:failed.members[2],phase:'failed'});
- assert.equal(failed.view().game.ready.includes(failed.members[2]),false);assert.throws(()=>failed.start(),/game_prerequisites/);
+ assert.equal(failed.view().game.ready.includes(failed.members[2]),false);assert.equal(failed.start().room!.game.status,'starting');
  const disconnected=setup(3);for(let i=0;i<3;i++){disconnected.load(i);disconnected.ready(i);}
  disconnected.rooms.detach(disconnected.sessions[2].token,disconnected.senders[2]);
- assert.equal(disconnected.view().game.ready.includes(disconnected.members[2]),false);assert.throws(()=>disconnected.start(),/game_prerequisites/);
+ assert.equal(disconnected.view().game.ready.includes(disconnected.members[2]),false);assert.equal(disconnected.start().room!.game.status,'starting');
 });
-test('non-host link loss clears initial Ready without pausing an established game',()=>{
+test('observer link loss leaves controller Ready and initial Start intact',()=>{
  const pairBetweenMembers=(t:ReturnType<typeof setup>)=>{
   const event=t.events[1].filter(item=>item.type==='room').at(-1);
   if(event?.type!=='room')throw Error('Missing member room view');
@@ -130,18 +138,15 @@ test('non-host link loss clears initial Ready without pausing an established gam
  const waiting=setup(3);for(let i=0;i<3;i++){waiting.load(i);waiting.ready(i);}
  const oldPair=pairBetweenMembers(waiting);
  waiting.act(1,{type:'peerRetry',pairId:oldPair.pairId,epoch:oldPair.epoch});
- assert.equal(waiting.view().game.ready.includes(waiting.members[1]),false);
+ assert.equal(waiting.view().game.ready.includes(waiting.members[1]),true);
  assert.equal(waiting.view().game.ready.includes(waiting.members[2]),false);
- assert.throws(()=>waiting.ready(1),/game_prerequisites/);
- assert.throws(()=>waiting.start(),/game_prerequisites/);
+ assert.equal(waiting.start().room!.game.status,'starting');
  const retry=pairBetweenMembers(waiting);
  for(const type of ['peerAck','peerConnected'])for(const who of [1,2])waiting.act(who,{type,pairId:retry.pairId,epoch:retry.epoch});
- waiting.ready(1);waiting.ready(2);
- assert.equal(waiting.start().room!.game.status,'starting');
  const startingPair=pairBetweenMembers(waiting);
  waiting.act(1,{type:'peerRetry',pairId:startingPair.pairId,epoch:startingPair.epoch});
- assert.equal(waiting.view().game.status,'paused');
- assert.equal(waiting.view().game.startRequested,false);
+ assert.equal(waiting.view().game.status,'starting');
+ assert.equal(waiting.view().game.startRequested,true);
 
  const playing=setup(3);playing.begin();const livePair=pairBetweenMembers(playing);
  playing.act(1,{type:'peerRetry',pairId:livePair.pairId,epoch:livePair.epoch});
@@ -167,6 +172,14 @@ test('retracted starting owner cannot use an already issued barrier acknowledgem
  const t=setup(2);t.load(0);t.load(1);t.ready(0);t.ready(1);const epoch=t.start().room!.game.epoch!;
  t.act(1,{type:'gameUnready',revision:t.view().game.controllers.revision});assert.notEqual(t.view().game.status,'starting');assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash}),/stale_game/);assert.equal(t.view().established,false);
 });
+test('countdown is shared and a player becoming unready cancels play',()=>{
+ const t=setup(2);t.load(0);t.load(1);t.ready(0);t.ready(1);const epoch=t.start().room!.game.epoch!;
+ t.act(0,{type:'gameAck',epoch,hash});t.act(1,{type:'gameAck',epoch,hash});
+ assert.equal(t.view().game.status,'countdown');assert.equal(t.view().game.startAt,4000);
+ assert.equal(t.events[0].some(event=>event.type==='gameStart'),false);
+ t.act(1,{type:'gameUnready',revision:t.view().game.controllers.revision});t.advance(3000);
+ assert.notEqual(t.view().game.status,'playing');assert.equal(t.events[0].some(event=>event.type==='gameStart'),false);
+});
 test('unready Start rejection remains waiting until all members explicitly prepare',()=>{
  const t=setup(2);t.load(0);t.load(1);t.ready(1);assert.throws(()=>t.start(),/game_prerequisites/);t.advance(10000);assert.equal(t.view().game.status,'waiting');
  t.ready(0);t.start();assert.equal(t.view().game.status,'starting');assert.equal(t.view().occupancy,2);
@@ -176,7 +189,7 @@ test('expired initial barrier retries from explicit fresh offers without becomin
  assert.equal(t.view().game.status,'failed');assert.equal(t.view().established,false);
  t.ready(1);t.ready(0);const next=t.view().game.epoch!;assert.notEqual(next,old);assert.equal(t.view().game.status,'starting');
  assert.throws(()=>t.act(1,{type:'gameAck',epoch:old,hash}),/stale_game/);
- t.act(0,{type:'gameAck',epoch:next,hash});t.act(1,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);assert.equal(t.view().game.frame,0);
+ t.act(0,{type:'gameAck',epoch:next,hash});t.act(1,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);assert.equal(t.view().game.frame,0);
 });
 
 test('ordinary pause retains bounded observer catch-up while a fresh epoch cancels it without a barrier',()=>{
@@ -191,10 +204,10 @@ test('pre-Start room and role revisions revoke old Ready offers',()=>{
  const t=setup(3);for(let i=0;i<3;i++){t.load(i);t.ready(i);}
  const priorRevision=t.view().revision;t.act(0,{type:'slotAvailability',roomId:t.view().id,slotId:'slot-5',open:false,expectedRevision:priorRevision});assert.deepEqual(t.view().game.ready,[]);assert.throws(()=>t.ready(1,{roomRevision:priorRevision}),/room_changed/);assert.deepEqual(t.view().game.ready,[]);assert.throws(()=>t.start(),/game_prerequisites/);
  for(let i=0;i<3;i++)t.ready(i);t.role('slot-1','observer');assert.deepEqual(t.view().game.ready,[]);assert.throws(()=>t.start(),/game_prerequisites/);
- for(let i=0;i<3;i++)t.ready(i);const epoch=t.start().room!.game.epoch!;for(const who of [0,1])t.act(who,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'playing');
+ for(let i=0;i<3;i++)t.ready(i);const epoch=t.start().room!.game.epoch!;for(const who of [0,1])t.act(who,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');
 });
 test('observing host remains an authority readiness owner when retrying the first barrier',()=>{
  const t=setup(2);t.role('slot-1','observer');t.load(0);t.load(1);t.ready(0);t.ready(1);const prior=t.start().room!.game.epoch!;t.advance(10000);
  assert.equal(t.view().established,false);t.ready(0);t.ready(1);const epoch=t.view().game.epoch!;assert.notEqual(epoch,prior);
- t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().slots[0].role,'observer');
+ t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');assert.equal(t.view().slots[0].role,'observer');
 });

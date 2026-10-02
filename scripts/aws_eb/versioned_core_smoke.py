@@ -75,47 +75,52 @@ with tempfile.TemporaryDirectory(prefix='retro-versioned-core-') as directory:
             browser = playwright.chromium.launch(
                 **({'channel': 'chrome'} if args.chrome else {}),
                 ignore_default_args=['--mute-audio'])
-            old = browser.new_page()
+            def page():
+                tab = browser.new_page()
+                tab.add_init_script('''window.coreReady=[];
+                  const NativeWorker=Worker;
+                  window.Worker=class extends NativeWorker {
+                    constructor(...args){super(...args);
+                      this.addEventListener('message',event=>{
+                        if(event.data?.type==='ready')coreReady.push(event.data.coreSha256);
+                      });
+                    }
+                  };''')
+                return tab
+
+            old = page()
             old.goto(url)
             rom = (site / 'generated/diagnostic.nes').read_bytes()
 
             def load(page, expected, *, existing=False):
                 if not existing:
-                    page.get_by_role('button', name='Create game', exact=True).click()
-                page.set_input_files('input[type=file]', {
+                    page.get_by_role('button', name='Play locally', exact=True).click()
+                    page.locator('[data-page="local"]').wait_for()
+                prior = page.evaluate('coreReady.length')
+                page.locator('input[aria-label="NES cartridge file"]').set_input_files({
                     'name': 'private-original.nes', 'mimeType': 'application/octet-stream',
                     'buffer': rom})
-                if existing:
-                    page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Game loaded. Preparing shared play')")
-                    page.get_by_role('button', name='Resume', exact=True).click()
-                else:
-                    start = page.get_by_role('button', name='Play locally', exact=True)
-                    start.wait_for()
-                    frames = page.locator('canvas')
-                    assert frames.get_attribute('data-frame-count') == '0', 'Create Game advanced before local play'
-                    page.wait_for_timeout(200)
-                    assert frames.get_attribute('data-frame-count') == '0', 'Create Game advanced before local play'
-                    start.click()
-                    page.get_by_role('button', name='Resume', exact=True).click()
-                page.wait_for_function("document.querySelector('[data-testid=player-status]').textContent.startsWith('Playing locally')")
+                page.wait_for_function('prior=>coreReady.length>prior', arg=prior)
+                assert page.evaluate('coreReady.at(-1)') == expected, {
+                    'expected_core': expected, 'ready_cores': page.evaluate('coreReady')}
+                page.wait_for_function("document.querySelector('.rc-status')?.textContent?.includes('Game loaded. Resume') && Number(document.querySelector('canvas')?.dataset.frameCount)===0")
+                start = page.get_by_role('button', name='Resume', exact=True)
+                start.wait_for()
+                frames = page.locator('canvas')
+                assert frames.get_attribute('data-frame-count') == '0', 'Game advanced before Resume'
+                page.wait_for_timeout(200)
+                assert frames.get_attribute('data-frame-count') == '0', 'Game advanced before Resume'
+                start.click()
                 page.wait_for_function("Number(document.querySelector('canvas').dataset.frameCount)>10")
-                page.get_by_role('button', name='Tools', exact=True).click()
-                page.get_by_role('button', name='Game help', exact=True).click()
-                page.get_by_text('Technical details', exact=True).click()
-                observed = page.get_by_test_id('fingerprint').text_content()
-                assert expected in observed, {'expected_core': expected, 'fingerprint': observed}
-                page.get_by_role('button', name='Back', exact=True).click()
-                # The game is muted through its own setting, never a browser-wide flag.
-                assert page.get_by_role('button', name='Unmute', exact=True).count() == 1
                 page.get_by_role('button', name='Pause', exact=True).click()
 
             publish(releases[1][0])
             load(old, releases[0][2])
-            current = browser.new_page()
+            current = page()
             current.goto(url)
             load(current, releases[1][2])
             publish(releases[0][0])
-            rollback = browser.new_page()
+            rollback = page()
             rollback.goto(url)
             load(rollback, releases[0][2])
             load(current, releases[1][2], existing=True)

@@ -1,113 +1,135 @@
 #!/usr/bin/env python3
-"""Exercise protected room creation, directory and invitation admission in Chromium."""
-import json,os,subprocess
+"""Exercise public and password-protected lobby admission in the built app."""
+
+import json
+import os
+import subprocess
 from pathlib import Path
+
 from playwright.sync_api import sync_playwright
-root=Path(__file__).resolve().parents[2]
-initial_password='🦊'*100
-updated_password='🌈'*100
-screens=Path(os.environ['RETRO_COOP_ACCESS_OUTPUT']) if 'RETRO_COOP_ACCESS_OUTPUT' in os.environ else None
-if screens: screens.mkdir(parents=True,exist_ok=True)
-service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=root,env={**os.environ,'COORDINATOR_EMPTY_OFFERS':'super-tilt-bro-pal'},stdout=subprocess.PIPE,text=True)
-try:
- url=json.loads(service.stdout.readline())['url']
- with sync_playwright() as p:
-  browser=p.chromium.launch()
-  host=browser.new_context(permissions=['clipboard-read','clipboard-write'],viewport={'width':1280,'height':800}).new_page()
-  host.goto(url)
-  host.get_by_role('button',name='Create game',exact=True).click()
-  host.locator('input[type=file]').set_input_files(root/'apps/client/dist/generated/diagnostic.nes')
-  host.get_by_label('Room access').select_option('protected')
-  host.get_by_label('Room password').fill(initial_password)
-  assert host.get_by_label('Room password').input_value()==initial_password
-  host.get_by_role('button',name='Create room',exact=True).click()
-  host.get_by_test_id('room-view').wait_for(state='attached')
-  host.get_by_role('button',name='Copy invite',exact=True).click()
-  invite=host.evaluate('navigator.clipboard.readText()')
-  guest=browser.new_page(viewport={'width':1280,'height':800})
-  guest.goto(url)
-  if screens: guest.screenshot(path=str(screens/'public-rooms.png'))
-  guest.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
-  if screens: guest.screenshot(path=str(screens/'password-step.png'))
-  guest.get_by_label('Room password').fill('wrong-password')
-  guest.get_by_role('button',name='Join room',exact=True).click()
-  guest.get_by_role('alert').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
-  if screens: guest.screenshot(path=str(screens/'wrong-password.png'))
-  assert guest.get_by_test_id('room-view').count()==0
-  guest.get_by_label('Room password').fill(initial_password)
-  assert guest.get_by_label('Room password').input_value()==initial_password
-  guest.get_by_role('button',name='Join room',exact=True).click()
-  guest.get_by_test_id('room-view').wait_for(state='attached')
-  assert guest.locator('#room-heading').inner_text()==host.locator('#room-heading').inner_text()
-  invited=browser.new_page(viewport={'width':390,'height':800})
-  invited.goto(invite)
-  invited.get_by_role('button',name='Join room',exact=True).click()
-  invited.get_by_label('Room password').fill(initial_password)
-  assert invited.get_by_label('Room password').input_value()==initial_password
-  invited.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
-  invited.get_by_test_id('room-view').wait_for(state='attached')
-  if screens: invited.screenshot(path=str(screens/'joined-mobile.png'))
-  host.get_by_text('Room settings',exact=True).click()
-  host.get_by_role('button',name='Change password',exact=True).click()
-  host.get_by_label('New room password').fill(updated_password)
-  assert host.get_by_label('New room password').input_value()==updated_password
-  host.get_by_role('button',name='Save new password',exact=True).click()
-  host.get_by_text('Room access: Password protected',exact=True).wait_for()
-  stale=browser.new_page()
-  stale.goto(url)
-  stale.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
-  stale.get_by_label('Room password').fill(initial_password)
-  stale.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
-  stale.locator('.room-password-dialog [role=alert]').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
-  assert stale.get_by_test_id('room-view').count()==0
-  stale.close()
-  changed=browser.new_page()
-  changed.goto(invite)
-  changed.get_by_role('button',name='Join room',exact=True).click()
-  changed.get_by_label('Room password').fill(initial_password)
-  changed.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
-  changed.locator('.room-password-dialog [role=alert]').get_by_text("Password didn't work. Try again.",exact=True).wait_for()
-  changed.get_by_label('Room password').fill(updated_password)
-  changed.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
-  try: changed.get_by_test_id('room-view').wait_for(state='attached',timeout=5000)
-  except Exception:
-   print('changed status:',changed.locator('.room-panel').inner_text());raise
-  hold_join="""(() => {
-    const send=WebSocket.prototype.send;
-    window.heldJoins=[];
-    WebSocket.prototype.send=function(raw){
-      let command;try{command=JSON.parse(raw)}catch{}
-      if(command?.type==='join'||command?.type==='joinCode'){
-        window.heldJoins.push(()=>send.call(this,raw));return;
-      }
-      return send.call(this,raw);
-    };
-    window.releaseHeldJoin=()=>{for(const release of window.heldJoins.splice(0))release();};
-  })();"""
-  slot_identities=host.locator('.room-slots [data-slot-region=identity]').all_inner_texts()
-  for route,exit_action in [('directory','Back'),('invite','Escape')]:
-   cancelled=browser.new_page()
-   cancelled.add_init_script(hold_join)
-   cancelled.goto(url if route=='directory' else invite)
-   if route=='directory':
-    cancelled.locator('.room-list li').filter(has_text='Password required').get_by_role('button',name='Join',exact=True).first.click()
-   else: cancelled.get_by_role('button',name='Join room',exact=True).click()
-   cancelled.get_by_label('Room password').fill(updated_password)
-   cancelled.locator('.room-password-dialog').get_by_role('button',name='Join room',exact=True).click()
-   cancelled.wait_for_function('window.heldJoins.length===1')
-   if exit_action=='Back':cancelled.locator('.room-password-dialog').get_by_role('button',name='Back',exact=True).click()
-   else:cancelled.keyboard.press('Escape')
-   cancelled.locator('.room-password-dialog').wait_for(state='detached')
-   cancelled.evaluate('window.releaseHeldJoin()')
-   cancelled.wait_for_timeout(800)
-   assert cancelled.get_by_test_id('room-view').count()==0
-   assert cancelled.locator('.room-password-dialog').count()==0
-   assert host.locator('.room-slots [data-slot-region=identity]').all_inner_texts()==slot_identities
-   cancelled.close()
-  host.get_by_role('button',name='Make public',exact=True).click()
-  host.get_by_role('button',name='Confirm public access',exact=True).click()
-  host.get_by_text('Room access: Public',exact=True).wait_for()
-  print(json.dumps({'protected_create':True,'listed_locked':True,'wrong_password_denied':True,'correct_password_joined':True,'invite_password_joined':True,'password_change':True,'stale_directory_password_denied':True,'pending_join_cancelled_by_back_and_escape':True,'public_change':True}))
-  browser.close()
-finally:
- service.terminate();service.wait(timeout=10)
+from ui_helpers import protect_lobby, rename_lobby
+
+
+ROOT = Path(__file__).resolve().parents[2]
+PASSWORD = '🦊' * 100
+SCREENS = Path(os.environ['RETRO_COOP_ACCESS_OUTPUT']) if 'RETRO_COOP_ACCESS_OUTPUT' in os.environ else None
+
+
+def create_lobby(page, url, name, protected=False):
+    page.goto(url)
+    page.get_by_role('button', name='Host a new game').click()
+    rename_lobby(page, name)
+    if protected:
+        protect_lobby(page, PASSWORD)
+    page.get_by_role('button', name='Load NES game').wait_for(timeout=15000)
+    assert page.get_by_role('button', name='Start →').count() == 0
+
+
+def browse(page, url, name):
+    page.goto(url)
+    page.locator('.rc-listing').wait_for()
+    page.get_by_placeholder('Search lobbies').fill(name)
+    card = page.locator('.rc-lobby-card').filter(has_text=name)
+    card.wait_for(timeout=15000)
+    return card
+
+
+def hold_join(page):
+    page.add_init_script("""(() => {
+      const send = WebSocket.prototype.send;
+      window.heldJoins = [];
+      WebSocket.prototype.send = function(raw) {
+        let command;
+        try { command = JSON.parse(raw); } catch {}
+        if (command?.type === 'join' || command?.type === 'joinCode') {
+          window.heldJoins.push(() => send.call(this, raw));
+          return;
+        }
+        return send.call(this, raw);
+      };
+      window.releaseHeldJoin = () => {
+        for (const release of window.heldJoins.splice(0)) release();
+      };
+    })();""")
+
+
+def main():
+    if SCREENS:
+        SCREENS.mkdir(parents=True, exist_ok=True)
+    service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
+                               env={**os.environ, 'COORDINATOR_EMPTY_OFFERS': 'super-tilt-bro-pal'},
+                               stdout=subprocess.PIPE, text=True)
+    try:
+        url = json.loads(service.stdout.readline())['url']
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            host = browser.new_context(permissions=['clipboard-read', 'clipboard-write'],
+                                       viewport={'width': 1280, 'height': 800}).new_page()
+            create_lobby(host, url, 'Private Arcade', protected=True)
+            host.get_by_role('button', name='Copy invite').click()
+            invite = host.evaluate('navigator.clipboard.readText()')
+            assert '#invite=' in invite
+
+            guest = browser.new_page(viewport={'width': 1280, 'height': 800})
+            card = browse(guest, url, 'Private Arcade')
+            assert 'Password' in card.inner_text()
+            card.click()
+            guest.get_by_label('Lobby password').fill('wrong-password')
+            guest.get_by_role('button', name='Join lobby', exact=True).click()
+            guest.locator('.rc-join-detail').get_by_role('alert').get_by_text(
+                "Password didn't work. Try again.", exact=True).wait_for()
+            assert guest.get_by_role('button', name='Load NES game').count() == 0
+            if SCREENS:
+                guest.screenshot(path=str(SCREENS / 'wrong-password.png'))
+            guest.get_by_label('Lobby password').fill(PASSWORD)
+            assert guest.locator('.rc-join-detail').get_by_role('alert').count() == 0
+            guest.get_by_role('button', name='Join lobby', exact=True).click()
+            guest.get_by_text('Waiting for the host to load a NES game').wait_for(timeout=15000)
+            assert 'Private Arcade' in guest.locator('.rc-trail').inner_text()
+
+            invited = browser.new_page(viewport={'width': 390, 'height': 700})
+            invited.goto(invite)
+            invited.get_by_role('heading', name='Private Arcade').wait_for(timeout=15000)
+            invited.get_by_label('Lobby password').fill('wrong-password')
+            invited.get_by_role('button', name='Join lobby', exact=True).click()
+            invited.locator('.rc-status').get_by_text(
+                "Password didn't work. Try again.", exact=True).wait_for()
+            invited.get_by_label('Lobby password').fill(PASSWORD)
+            invited.get_by_role('button', name='Join lobby', exact=True).click()
+            invited.get_by_text('Waiting for the host to load a NES game').wait_for(timeout=15000)
+            if SCREENS:
+                invited.screenshot(path=str(SCREENS / 'joined-mobile.png'))
+
+            pending = browser.new_page(viewport={'width': 1024, 'height': 600})
+            hold_join(pending)
+            browse(pending, url, 'Private Arcade').click()
+            pending.get_by_label('Lobby password').fill(PASSWORD)
+            pending.get_by_role('button', name='Join lobby', exact=True).click()
+            pending.wait_for_function('window.heldJoins.length === 1')
+            pending.locator('.rc-join-detail').get_by_role('button', name='Cancel').click()
+            pending.evaluate('window.releaseHeldJoin()')
+            pending.wait_for_timeout(500)
+            assert pending.get_by_role('button', name='Load NES game').count() == 0
+            assert pending.locator('.rc-listing').is_visible()
+            pending.close()
+
+            public_host = browser.new_page()
+            create_lobby(public_host, url, 'Open Arcade')
+            public_guest = browser.new_page()
+            public_card = browse(public_guest, url, 'Open Arcade')
+            assert 'Public' in public_card.inner_text()
+            public_card.click()
+            public_guest.get_by_text('Waiting for the host to load a NES game').wait_for(timeout=15000)
+            assert public_guest.get_by_label('Lobby password').count() == 0
+            print(json.dumps({'protected_creation_without_game': True,
+                              'directory_and_invite_password_recovery': True,
+                              'pending_protected_join_cancelled': True,
+                              'public_join_without_password': True}))
+            browser.close()
+    finally:
+        service.terminate()
+        service.wait(timeout=10)
+
+
+if __name__ == '__main__':
+    main()

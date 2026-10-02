@@ -26,16 +26,16 @@ export class GameClient {
  private authority(){return !!this.room&&this.self()===this.room.hostMembership;}
  private observerSlot(){return this.room?.slots.find(slot=>slot.member?.id===this.self())?.role==='observer';}
  private ownsInput(controllers=this.controllers){return controllers.owners.includes(this.self());}
- private loaded(){return !!this.room&&!!this.file&&this.room.matches&&matchesFile(this.room.fingerprint,this.file)&&!!this.player()?.isLoaded(this.file);}
+ private loaded(){return !!this.room?.fingerprint&&!!this.file&&this.room.matches&&matchesFile(this.room.fingerprint,this.file)&&!!this.player()?.isLoaded(this.file);}
  enter(room?:RoomView){
-  const prior=this.room;if(prior&&(!room||room.id!==prior.id||room.chatMembership!==prior.chatMembership))this.clear('Room membership changed. Your game is preserved.',true);
+  const prior=this.room;if(prior&&(!room||room.id!==prior.id||room.chatMembership!==prior.chatMembership))this.clear('Lobby membership changed. Your game is preserved.',true);
   if(room&&(!prior||room.id!==prior.id||room.chatMembership!==prior.chatMembership)){this.intent=false;this.offered=undefined;this.publish({intent:false,preparationError:undefined});}
   this.room=room;if(!room)return;
   // A room revision can change the roster or roles while a local checksum is
   // still being prepared. That earlier click does not authorize a new offer.
   if(prior&&prior.id===room.id&&prior.chatMembership===room.chatMembership&&prior.revision!==room.revision&&!room.started){
    ++this.serial;this.intent=false;this.offered=undefined;this.offering=false;
-   this.publish({intent:false,busy:false,preparationError:undefined,status:'Room changed. Choose Ready again.'});
+   this.publish({intent:false,busy:false,preparationError:undefined,status:'Lobby changed. Choose Ready again.'});
   }
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
   if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;}
@@ -50,10 +50,11 @@ export class GameClient {
  retryConnection(){}
  async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
  async resumeTogether(){const epoch=this.room?.game.epoch;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){this.publish({status:String(error),busy:false});}}
+ requestPause(){this.pause('user');}
  observe(){const room=this.room;if(!room||!this.loaded()||room.game.status!=='playing'||room.game.controllers.owners.includes(this.self())||this.authority()||this.links.get(room.hostMembership)?.channel.readyState!=='open'||room.peers.find(peer=>peer.member===room.hostMembership)?.status!=='connected'||room.slots.find(slot=>slot.member?.id===this.self())?.member?.acquisition!=='loaded')return;this.intent=true;const epoch=room.game.epoch!;this.observeRequested=epoch;this.publish({busy:true,synchronizing:true,intent:true,status:'Requesting the current game for observation…'});void this.send({type:'gameObserve',revision:room.game.controllers.revision}).catch(error=>{if(this.observeRequested===epoch){this.observeRequested=undefined;this.publish({busy:false,synchronizing:false,status:String(error)});}});}
  cancelIntent(){const room=this.room;if(!room){this.intent=false;this.offered=undefined;this.publish({intent:false});return;}this.clear('Synchronization cancelled. Game progress is preserved.');void this.send({type:'gameUnready',revision:room.game.controllers.revision}).catch(()=>{});}
  private async offer(){
-  const room=this.room;if(!room||!this.intent||!this.loaded()||this.offering||this.incoming||room.game.pending||(['playing','starting','pausing'].includes(room.game.status)&&room.game.controllers.owners.includes(this.self())))return;
+  const room=this.room;if(!room||!this.intent||!this.loaded()||this.offering||this.incoming||room.game.pending||(['playing','starting','countdown','pausing'].includes(room.game.status)&&room.game.controllers.owners.includes(this.self())))return;
   if(!this.authority()&&this.links.get(room.hostMembership)?.channel.readyState!=='open')return;
   const key=room.id+room.revision+room.game.controllers.revision+(room.game.epoch??'initial');if(this.offered===key)return;
   const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,preparationError:undefined,status:'Checking the completed machine state…'});
@@ -61,7 +62,7 @@ export class GameClient {
    const rtt=Math.max(0,...[...this.links.values()].map(link=>link.roundTripMs));await this.send({type:'gameReady',revision:room.game.controllers.revision,roomRevision:room.revision,...info,delay:proposeInputDelay(rtt,this.player()!.frameRate())});
    if(serial===this.serial)this.publish({busy:false,status:'Ready. Waiting for everyone.'});
   }catch(error){if(serial===this.serial){const message=error instanceof Error?error.message:String(error);const code=error instanceof Error?(error as Error & {code?:string}).code:undefined;
-   const display=code==='room_changed'?'Room changed. Try again.':message.startsWith('The room service did not respond.')?'Room service did not respond. Try again.':message;
+   const display=code==='room_changed'?'Lobby changed. Try again.':message.startsWith('The lobby service did not respond.')?'Lobby service did not respond. Try again.':message;
    this.offered=undefined;this.intent=false;this.publish({busy:false,intent:false,preparationError:display,status:message});}}finally{if(serial===this.serial)this.offering=false;}
  }
  ready(member:string,channel:RTCDataChannel,epoch:string,roundTripMs=0){

@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 import time
 
@@ -87,14 +86,23 @@ with contextlib.ExitStack() as stack:
                       catalogProof.imports.push({frame:data.frame,hash:data.hash});if(catalogProof.imports.length>64)catalogProof.imports.shift();}})}};""")
             host = pages[0]
             host.goto(url)
-            host.get_by_role('button', name='Create game', exact=True).click()
-            host.get_by_role('button', name=re.compile('^' + re.escape(entry['title']))).click()
-            host.get_by_role('button', name='Create room', exact=True).click()
+            host.get_by_role('button', name='Browse lobbies →').click()
+            host.get_by_role('button', name='Create lobby →').click()
+            host.get_by_role('button', name='Create lobby →').click()
+            host.get_by_role('button', name='Load NES game').click()
+            host.get_by_role('button', name=entry['title'], exact=True).click()
+            host.wait_for_function('id=>proof.room?.catalogId===id', arg=entry['id'])
+            if entry['controllers'] == 1:
+                row = host.locator('.rc-players [data-slot-id="slot-2"] .slot-row')
+                row.click()
+                host.locator('.rc-players [data-slot-id="slot-2"] .slot-menu').get_by_role(
+                    'menuitem', name='Set as Observer').click()
+                host.wait_for_function("proof.room.slots[1].role==='observer'")
             host.get_by_role('button', name='Copy invite', exact=True).wait_for()
-            invite = host.evaluate("location.origin + '/#invite=' + document.querySelector('[data-testid=room-view]').dataset.invite")
+            invite = host.evaluate("`${location.origin}/#invite=${proof.room.invite}`")
             for page in pages[1:]:
                 page.goto(invite)
-                page.get_by_role('button', name='Join room', exact=True).click()
+                page.get_by_role('button', name='Join lobby', exact=True).click()
                 page.wait_for_function("proof.room?.matches&&proof.room.slots.find(s=>s.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'", polling=50)
             for page in pages:
                 page.wait_for_function("proof.room?.occupancy===3&&proof.room.peers.length===2&&proof.room.peers.every(p=>p.status==='connected')", polling=50)
@@ -104,11 +112,16 @@ with contextlib.ExitStack() as stack:
             expected_roles = ['player1', 'player2' if entry['controllers'] == 2 else 'observer', 'observer', 'observer', 'observer']
             assert host.evaluate('proof.room.slots.map(s=>s.role)') == expected_roles
             if entry['controllers'] == 1:
-                assert host.get_by_label('Slot 3 actions', exact=True).locator('option[value="role:player2"]').count() == 0
-            for page in pages:
+                host.locator('.rc-players [data-slot-id="slot-3"] .slot-row').click()
+                assert host.locator('.rc-players [data-slot-id="slot-3"] .slot-menu').get_by_role(
+                    'menuitem', name='Set as Player 2', exact=False).is_disabled()
+                host.locator('.rc-players [data-slot-id="slot-3"] .slot-row').click()
+            for page in pages[:entry['controllers']]:
                 page.get_by_role('button', name='Ready', exact=True).click()
                 page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)', polling=20)
-            host.get_by_role('button', name='Start game', exact=True).click()
+            for page in pages[entry['controllers']:]:
+                assert page.get_by_role('button', name='Ready', exact=True).count() == 0
+            host.get_by_role('button', name='Start →', exact=True).click()
             for page in pages:
                 page.evaluate('releaseFrames()')
             for page in pages[1 if entry['controllers'] == 1 else 2:]:
@@ -120,9 +133,9 @@ with contextlib.ExitStack() as stack:
             host.screenshot(path=str(args.output.with_suffix(f".{entry['id']}.before.png")))
             role = 'player1' if entry['controllers'] == 1 else 'player2'
             promoted = pages[2].evaluate('proof.room.chatMembership')
-            if host.locator('.room-slots').count()==0:
-                host.get_by_role('button', name='Players', exact=True).click()
-            host.get_by_label('Slot 3 actions', exact=True).select_option(f'role:{role}')
+            host.locator('.rc-players [data-slot-id="slot-3"] .slot-row').click()
+            host.locator('.rc-players [data-slot-id="slot-3"] .slot-menu').get_by_role(
+                'menuitem', name=f'Set as Player {1 if role == "player1" else 2}', exact=False).click()
             host.wait_for_function("owner=>proof.room.game.status==='playing'&&proof.room.game.controllers.owners.includes(owner)", arg=promoted, polling=20)
             assert host.evaluate('proof.room.slots.map(s=>s.role)')[entry['controllers'] - 1] == 'observer'
             boundary = {'frame': before[0]['frame'], 'hash': before[0]['hash']}

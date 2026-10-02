@@ -36,9 +36,9 @@ test('failed preparation exposes the reason, stops retrying in the background, a
 });
 test('rejected readiness can be retried without hiding the error or sending in the background',async()=>{
  const t=setup();try{
-  t.send(command=>command.type==='gameReady'?Promise.reject(Error('The room service did not respond. Retry or cancel.')):Promise.resolve());
+  t.send(command=>command.type==='gameReady'?Promise.reject(Error('The lobby service did not respond. Retry or cancel.')):Promise.resolve());
   t.game.playIntent();await tick();
-  assert.equal(t.updates.at(-1)?.preparationError,'Room service did not respond. Try again.');
+  assert.equal(t.updates.at(-1)?.preparationError,'Lobby service did not respond. Try again.');
   assert.equal(t.updates.at(-1)?.intent,false);
   t.game.enter(room());await tick();assert.equal(t.commands.filter(command=>command.type==='gameReady').length,1);
   t.send(undefined);t.game.playIntent();await tick();
