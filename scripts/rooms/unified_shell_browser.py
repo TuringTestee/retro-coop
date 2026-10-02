@@ -76,6 +76,9 @@ def theme_defaults(browser, url):
 def expired_guest_recovers(browser, url):
     expired = 'A' * 43
     context = browser.new_context()
+    context.add_init_script("""(() => {const Native=WebSocket;window.WebSocket=class extends Native {
+      send(raw) {const command=JSON.parse(raw);if(command.type==='hello'&&!command.token&&sessionStorage.getItem('fail-fresh-hello')==='1') {sessionStorage.removeItem('fail-fresh-hello');this.close();return;}super.send(raw);}
+    };})()""")
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -97,6 +100,13 @@ def expired_guest_recovers(browser, url):
         page.get_by_role('button', name='Back to Main Page', exact=True).click()
         page.get_by_role('button', name='Close lobby').click()
         page.locator('.rc-listing').wait_for()
+        page.evaluate("sessionStorage.setItem('retro-coop-guest','B'.repeat(43));sessionStorage.setItem('fail-fresh-hello','1')")
+        page.reload()
+        page.get_by_role('button', name='Retry', exact=True).wait_for(timeout=15000)
+        assert 'Lobbies unavailable' in page.locator('body').inner_text()
+        page.get_by_role('button', name='Retry', exact=True).click()
+        page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
+        assert page.evaluate("sessionStorage.getItem('retro-coop-guest') !== 'B'.repeat(43)")
         assert not errors, errors
     finally:
         context.close()
@@ -119,6 +129,13 @@ def local_shortcuts(browser, url, output):
         page.screenshot(path=str(output / 'local-load-confirmation.png'))
         page.get_by_role('button', name='Keep playing').click()
         assert page.get_by_role('alertdialog', name='Load quick save?').count() == 0
+        page.keyboard.press('e')
+        page.get_by_role('alertdialog', name='Load quick save?').wait_for()
+        page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});await new Promise((resolve,reject)=>{const tx=db.transaction('saves','readwrite');const store=tx.objectStore('saves');const request=store.getAll();request.onsuccess=()=>{const row=request.result.find(value=>value.slot===1);store.put({...row,savedAt:row.savedAt+1});};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}""")
+        page.get_by_role('button', name='Load Slot 1').click()
+        page.get_by_text('Quick save changed. Press E again to load the current slot.', exact=True).wait_for(timeout=10000)
+        assert page.locator('[data-page=local]').count() == 1
+        assert page.get_by_role('button', name='Resume', exact=True).count() == 1
         page.keyboard.press('e')
         page.get_by_role('button', name='Load Slot 1').click()
         page.get_by_text('Quick slot 1 loaded. Choose Resume to play.', exact=True).wait_for(timeout=10000)
