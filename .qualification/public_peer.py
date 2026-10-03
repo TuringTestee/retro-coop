@@ -48,11 +48,17 @@ with sync_playwright() as pw:
    print('HOST_READY '+json.dumps({'lobby':a.lobby,'rom':result['rom_sha256']}),flush=True)
    wait('proof.room?.occupancy===2',480000)
   else:
+   def reject_first_download(route):
+    page.unroute('**/rooms/*/rom',reject_first_download);route.abort('failed')
+   page.route('**/rooms/*/rom',reject_first_download)
    page.get_by_placeholder('Search lobbies').fill(a.lobby)
    page.locator('.rc-lobby-card').filter(has_text=a.lobby).wait_for(timeout=60000);page.locator('.rc-lobby-card').filter(has_text=a.lobby).click()
    wait('proof.room?.role==="member"')
    result['rom_sha256']=page.evaluate('proof.room.fingerprint.romSha256')
    chat('REMOTE GUEST JOINED')
+   page.get_by_role('button',name='Retry game',exact=True).wait_for();capture('download-failed')
+   result['download_failure_visible']=True
+   page.get_by_role('button',name='Retry game',exact=True).click()
   expect(page.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=60000);page.get_by_role('button',name='Ready',exact=True).click()
   if a.role=='host':
    expect(page.get_by_role('button',name='Start →')).to_be_enabled(timeout=60000);page.get_by_role('button',name='Start →').click()
