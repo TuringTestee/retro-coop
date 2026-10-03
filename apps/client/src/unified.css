@@ -594,6 +594,12 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-status { padding: 0 6px; line-height: 19px; }
   .rc-status-dot { display: none; }
   .rc-status-copy { max-height: 38px; font-family: Arial, sans-serif; font-weight: 500; }
+  .rc-footer-back { flex: 0 0 110px; }
+  .rc-footer-back button { width: 100%; }
+  .rc-footer-actions { flex: 1; justify-content: flex-end; }
+  .rc-action-slot { flex: none; }
+  .rc-footer button { white-space: normal; font-size: 14px; line-height: 18px; }
+  .rc-footer button:focus-visible { outline-width: 2px; outline-offset: -3px; }
   .rc-chat > .rc-section-head { position: absolute; top: 3px; left: 6px; right: 6px; display: block; background: var(--menu); }
   .rc-chat > .rc-section-head .rc-eyebrow { display: none; }
   .rc-chat > .rc-section-head small { font-size: 12px; line-height: 13px; }
@@ -619,7 +625,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-inline-settings .rc-mapping-actions button { min-width: 0; padding: 1px 4px; }
   .rc-inline-settings .rc-play-tools { grid-column: auto; grid-row: auto; grid-template-rows: 44px minmax(0,1fr) 24px; gap: 2px; }
   .rc-inline-settings .rc-play-tools .rc-section-head { display: none; }
-  .rc-inline-settings .rc-controller-art { display: grid; grid-template-columns: 22px minmax(0,1fr); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 0; padding: 1px; border-width: 1px; border-radius: 13px; }
+  .rc-inline-settings .rc-controller-art { display: grid; grid-template-columns: 32px minmax(0,1fr); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 0; padding: 1px; border-width: 1px; border-radius: 13px; }
   .rc-pad { grid-row: 1 / 3; font-size: 10px; }
   .rc-system-buttons, .rc-action-buttons { justify-content: center; }
   .rc-system-buttons, .rc-action-buttons { gap: 1px; }
@@ -629,7 +635,8 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-keyboard-word { display: none; }
   .rc-control-line { grid-template-columns: auto minmax(0,1fr) auto; gap: 2px; font-size: 10px; }
   .rc-control-line > span { display: none; }
-  .rc-shortcuts { gap: 2px; padding-top: 0; font-size: 9px; }
+  .rc-shortcuts { gap: 0; padding-top: 0; font-size: 9px; }
+  .rc-shortcuts span { min-width: min-content; overflow-wrap: normal; }
   .rc-shared-playing .rc-play-tools.rc-playing-menu, .rc-mobile-side-panel:not([hidden]).rc-playing-menu { grid-column: 2; grid-row: 3; }
   .rc-controller-art { min-height: 0; }
   .rc-load-game { flex-wrap: wrap; gap: 3px; }

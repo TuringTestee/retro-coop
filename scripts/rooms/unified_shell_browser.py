@@ -93,6 +93,17 @@ def regions(page):
             rects.every(a => other.every(b => Math.min(a.right,b.right)-Math.max(a.left,b.left)<=1
               || Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<=1))));
         }"""), row.inner_text()
+    footer_controls = [node for node in page.locator('.rc-footer button').all() if node.is_visible()]
+    for control in footer_controls:
+        assert text_fits(control), control.inner_text()
+        control_visibility(control)
+    for index, control in enumerate(footer_controls):
+        a = control.bounding_box()
+        for other in footer_controls[index + 1:]:
+            b = other.bounding_box()
+            overlap_x = min(a['x'] + a['width'], b['x'] + b['width']) - max(a['x'], b['x'])
+            overlap_y = min(a['y'] + a['height'], b['y'] + b['height']) - max(a['y'], b['y'])
+            assert overlap_x <= 1 or overlap_y <= 1, (control.inner_text(), other.inner_text())
     assert page.locator('.rc-chat-history').evaluate('(node) => getComputedStyle(node).overflowY === "auto"')
     return boxes
 
