@@ -71,11 +71,16 @@ def energy(page, active, sender=None):
 
 
 def recovery_bounds(page):
-    # Observe one ready DOM snapshot, not a locator handle detached by reflow.
+    # CSS changes before React receives the media event; measure the settled variant.
     result = page.wait_for_function("""() => {
       const node=document.querySelector('.rc-voice-recovery');
       const error=node?.querySelector('p'),button=node?.querySelector('button');
       if(!node?.isConnected||!error||!button)return false;
+      const settings=node.closest('section'),selector=settings?.querySelector('.rc-settings-select');
+      const voice=node.closest('.rc-voice-settings');
+      if(!selector||!voice)return false;
+      const compact=getComputedStyle(selector).display!=='none';
+      if(voice.classList.contains('rc-voice-compact')!==compact)return false;
       const rect = item => {const r=item.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
       const range=document.createRange();range.selectNodeContents(error);
       return {container:rect(node.closest('.rc-tool-body')),error:rect(error),button:rect(button),
