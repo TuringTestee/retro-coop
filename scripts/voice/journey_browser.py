@@ -136,7 +136,11 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     for t in [host, guest]:
         t.wait_for_function('captures.length===1&&captures[0].getAudioTracks()[0].readyState==="live"')
         assert not t.evaluate('captures[0].getAudioTracks()[0].enabled')
+        t.get_by_role('button', name='Sound', exact=True).click()
+        t.get_by_role('button', name='Mute game', exact=True).click()
         voice(t)
+        # Decode real audio without playing a generated test tone through host speakers.
+        t.locator('.rc-voice-settings input[type=range]').fill('0')
         t.screenshot(path=str(out / ('host-voice.png' if t == host else 'guest-voice.png')))
         t.get_by_label('Voice mode').select_option('open')
     mic(guest, False)
