@@ -14,7 +14,7 @@ function slotStatus(room:RoomView,slot:RoomSlot){
  if(!room.fingerprint)return 'Waiting for game';
  if(!member.matches||member.acquisition!=='loaded')return ({checking:'Checking game',downloading:'Downloading game',loading:'Loading game',failed:'Game failed',loaded:'Game mismatch'})[member.acquisition];
  if(peer&&peer.status!=='connected')return 'Connecting';
- if(room.game.pending?.roles.some(value=>value.slotId===slot.id))return room.game.pending.status==='failed'?'Role change failed':'Changing role';
+ if(room.game.pending?.roles.some(value=>value.slotId===slot.id))return room.game.pending.status==='failed'?(room.role==='host'?'Retry player change':'Waiting for host'):'Changing role';
  if(room.started)return slot.role==='observer'?'Watching':!room.game.controllers.owners.includes(member.id)?'Waiting to play':room.game.status==='playing'?'Playing':'Paused';
  if(slot.role==='observer')return 'Can watch';
  return room.game.ready.includes(member.id)?'Ready':'Not ready';
