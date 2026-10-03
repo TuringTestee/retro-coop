@@ -443,6 +443,7 @@ def exercise(page, url, size, output, play=False):
         assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
         assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
         canvas = page.locator('.rc-game-display canvas').bounding_box()
         scale = min(canvas['width'] / 256, canvas['height'] / 240)
         rendered_game = {'width': 256 * scale, 'height': 240 * scale}
