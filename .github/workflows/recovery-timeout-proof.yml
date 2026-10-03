@@ -1,0 +1,81 @@
+name: Release recovery timeout proof
+on:
+  push:
+    branches: [proof/release-recovery-timeout-204]
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        timeout-minutes: 1
+      - name: Record simulated previous release
+        id: release
+        timeout-minutes: 1
+        run: |
+          echo 'previous=main-111111111111' >> "$GITHUB_OUTPUT"
+          echo 'version=main-222222222222' >> "$GITHUB_OUTPUT"
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Stall deployment
+        id: deploy
+        timeout-minutes: 1
+        run: sleep 90
+      - name: Confirm simulated release
+        id: confirm
+        timeout-minutes: 1
+        run: echo 'This step should be skipped after the deployment timeout.'
+      - name: Restore simulated previous release
+        id: recovery
+        if: ${{ failure() && steps.release.outputs.previous != '' && (steps.deploy.outcome == 'failure' || steps.confirm.outcome == 'failure') }}
+        timeout-minutes: 1
+        env:
+          EB_APPLICATION_NAME: simulated-application
+          EB_ENVIRONMENT_NAME: simulated-environment
+          AWS_REGION: us-east-1
+          SITE_URL: https://example.test
+          PREVIOUS_VERSION: ${{ steps.release.outputs.previous }}
+          ATTEMPTED_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import io, json, os, subprocess, sys
+          from unittest.mock import patch
+          sys.path.insert(0, 'scripts/aws_eb')
+          import release_recovery
+          state = {'VersionLabel': os.environ['ATTEMPTED_VERSION'], 'Status': 'Ready', 'Health': 'Red'}
+          updates = []
+          def aws(args, **kwargs):
+              if args[2] == 'describe-application-versions':
+                  result = {'ApplicationVersions': [{'VersionLabel': os.environ['PREVIOUS_VERSION']}]}
+              elif args[2] == 'describe-environments':
+                  result = {'Environments': [state]}
+              elif args[2] == 'update-environment':
+                  updates.append(args)
+                  state.update(VersionLabel=args[args.index('--version-label')+1], Health='Green')
+                  result = {}
+              else:
+                  raise AssertionError(args)
+              return subprocess.CompletedProcess(args, 0, json.dumps(result))
+          sys.argv = ['release_recovery.py', '--previous', os.environ['PREVIOUS_VERSION'], '--attempted', os.environ['ATTEMPTED_VERSION']]
+          with patch.object(release_recovery.subprocess, 'run', side_effect=aws), patch.object(release_recovery.urllib.request, 'urlopen', side_effect=lambda *args, **kwargs: io.StringIO('{"status":"ok","service":"retro-coop-coordinator"}')):
+              release_recovery.main()
+          assert len(updates) == 1
+          assert state['VersionLabel'] == os.environ['PREVIOUS_VERSION']
+          print('The actual recovery command restored the simulated prior release after the deployment step timed out.')
+          PY
+      - name: Verify timeout reached recovery within the job deadline
+        if: always()
+        timeout-minutes: 1
+        env:
+          DEPLOY_RESULT: ${{ steps.deploy.outcome }}
+          CONFIRM_RESULT: ${{ steps.confirm.outcome }}
+          RECOVERY_RESULT: ${{ steps.recovery.outcome }}
+          STARTED: ${{ steps.release.outputs.started }}
+        run: |
+          elapsed=$(( $(date +%s) - STARTED ))
+          test "$DEPLOY_RESULT" = failure
+          test "$CONFIRM_RESULT" = skipped
+          test "$RECOVERY_RESULT" = success
+          test "$elapsed" -lt 300
+          echo "Deployment=$DEPLOY_RESULT, confirmation=$CONFIRM_RESULT, recovery=$RECOVERY_RESULT, elapsed=${elapsed}s. The job must retain its failed conclusion."
