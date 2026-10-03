@@ -588,7 +588,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-game-toolbar { grid-column: 2; grid-row: 1; flex-wrap: wrap; align-content: center; gap: 2px 5px; padding: 2px 6px; }
   .rc-game-heading { font-size: 13px; }
   .rc-game-links { flex-wrap: wrap; justify-content: flex-start; gap: 2px 4px; }
-  .rc-game-links button { font-size: 11px; }
+  .rc-game-links button { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 11px; }
   .rc-game-links .rc-direct-action { min-height: 26px; padding: 2px 5px; }
   .rc-game-display, .rc-shared-playing .rc-game-display, .rc-session.rc-has-side .rc-game-display { grid-column: 2; grid-row: 2; margin: 3px 5px; }
   .rc-mobile-side-panel:not([hidden]), .rc-mobile-picker-panel:not([hidden]), .rc-shared-playing.rc-has-side .rc-mobile-side-panel { grid-column: 2; grid-row: 3; margin-top: 0; }
