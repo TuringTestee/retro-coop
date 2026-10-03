@@ -2,13 +2,13 @@ The revised sketch reserves usable thumb targets in expanded play; it does not p
 
 Audience: Human
 
-# Mobile controller wireframe v 2 — current proposal
+# Mobile controller wireframe v2 — current proposal
 
-Sources: [direction/owner choices](mobile-controller-direction.md), [references](mobile-controller-references.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md), [v 1 critique](mobile-controller-critique-v 1.md). Planning only: no implemented layout, touch usability or input proof.
+Sources: [direction/owner choices](mobile-controller-direction.md), [references](mobile-controller-references.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md), [v1 critique](mobile-controller-critique-v1.md). Planning only: no implemented layout, touch usability or input proof.
 
-## Desktop preparation and inline editing / J 1
+## Desktop preparation and inline editing / J1
 
-Keep v 1's players | NES preview | settings, fixed chat and footer. The controller sits in a reserved band below the game, inside its center column. Select/Start are centered; connected key lines surround their actual targets:
+Keep v1's players | NES preview | settings, fixed chat and footer. The controller sits in a reserved band below the game, inside its center column. Select/Start are centered; connected key lines surround their actual targets:
 
 ```text
  Arrow keys ── [ + ]   Alt ─ [Select][Start] ─ Space   [ B ] ─ C
@@ -18,7 +18,7 @@ Keep v 1's players | NES preview | settings, fixed chat and footer. The controll
 
 Edit → choose NES action in the same band → key capture with current/draft line → [Save][Cancel]. Conflict: “Z is used for A. Choose another.” Save stays blocked until valid. Keep the band position/size and configured colors in empty/loading/error states. Live play hides mapping lines and Edit by default, retaining buttons; selecting Controls reveals the same editor. Remove the old duplicated NES keyboard rows/static Game guide after this replacement is verified.
 
-## Portrait expanded play,320×568 / J 2–J 4
+## Portrait expanded play,320×568 / J2–J4
 
 ```text
 ┌───────────────────────────[Return to lobby view]┐ 44px top region
@@ -37,7 +37,7 @@ Concrete horizontal targets at 320px before safe-area accommodation: pad x 8..10
 
 Full slots/chat/settings remain in the unchanged lobby view reached by the top-right action. The same session continues; host kick, role changes and chat are still reachable. Automatic versus manual entry is unresolved and must be chosen before implementation.
 
-## Landscape expanded play,568×320 / J 3
+## Landscape expanded play,568×320 / J3
 
 ```text
 ┌ NES game ─────────────────────[Return to lobby view]┐
@@ -55,4 +55,4 @@ Spectator/preparing: existing role/preparation state remains authoritative; no v
 
 ## Final design check
 
-Complete journeys, feature support, just-in-time information, one forward path and concise names are specified in J 1–J 6/S 1–S 9 and the above action/result labels; mobile entry and whether canvas click remains are still owner decisions. Stable geometry is proposed with explicit target bounds; rendered fit, idle visibility, physical reach, screen readers and simultaneous game input remain unproven. Borrowed arrangement/origin mechanics are sourced, with limits explicit. No production build is authorized by this sketch alone.
+Complete journeys, feature support, just-in-time information, one forward path and concise names are specified in J1–J6/S1–S9 and the above action/result labels; mobile entry and whether canvas click remains are still owner decisions. Stable geometry is proposed with explicit target bounds; rendered fit, idle visibility, physical reach, screen readers and simultaneous game input remain unproven. Borrowed arrangement/origin mechanics are sourced, with limits explicit. No production build is authorized by this sketch alone.

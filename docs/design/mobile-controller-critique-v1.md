@@ -2,13 +2,13 @@ The portrait sketch cannot fit. Keep existing lobby content intact and separate 
 
 Audience: Human
 
-# Mobile controller critique v 1
+# Mobile controller critique v1
 
 | Screen | Supports / missing / remove / exact revision |
 |---|---|
-| Desktop | Supports J 1 and preparation feedback. Current source has a second NES mapping list: remove its duplicated NES keyboard rows when the controller editor becomes authoritative; keep gamepad/talk configuration. Live editing must enter the same controller editor through Controls, not a new page. |
-| Portrait lobby | Supports lobby/chat/slot actions, but adding controls exceeds 568px and the 96px game track. Failed J 2: buttons cannot be reached without covering another required region. Revise to expanded-play view, with an explicit owner decision about automatic versus manual entry. Do not call an undersized controller an implementation of the request. |
-| Landscape expanded | Supports J 2/J 3, but minimum dimensions/idle/exit need explicit bounds. Add 96px pad,64px A/B targets,44px Select/Start and fullscreen target; keep a visible idle target and clear holds before layout changes. |
+| Desktop | Supports J1 and preparation feedback. Current source has a second NES mapping list: remove its duplicated NES keyboard rows when the controller editor becomes authoritative; keep gamepad/talk configuration. Live editing must enter the same controller editor through Controls, not a new page. |
+| Portrait lobby | Supports lobby/chat/slot actions, but adding controls exceeds 568px and the 96px game track. Failed J2: buttons cannot be reached without covering another required region. Revise to expanded-play view, with an explicit owner decision about automatic versus manual entry. Do not call an undersized controller an implementation of the request. |
+| Landscape expanded | Supports J2/J3, but minimum dimensions/idle/exit need explicit bounds. Add 96px pad,64px A/B targets,44px Select/Start and fullscreen target; keep a visible idle target and clear holds before layout changes. |
 
 Seven-rule assessment (D desktop, P portrait lobby, L expanded landscape):
 

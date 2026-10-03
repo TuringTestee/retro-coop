@@ -4,7 +4,7 @@ Audience: Agent
 
 # Mobile controller delivery plan
 
-Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/216), based on `a 8eed 786`. Governing proposal: [current wireframe](../design/mobile-controller-wireframe-v 2.md) and [direction](../design/mobile-controller-direction.md). Implement only after the owner resolves both listed choices and the reviewed plan merges. #208 readable layout and #207 authoritative role recovery must integrate before final implementation proof; #210 voice recovery remains an independent owned PR. Existing repository Project authority and issue 216 are the delivery source; create no duplicate planning issue.
+Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/216), based on `a8eed786`. Governing proposal: [current wireframe](../design/mobile-controller-wireframe-v2.md) and [direction](../design/mobile-controller-direction.md). Implement only after the owner resolves both listed choices and the reviewed plan merges. #208 readable layout and #207 authoritative role recovery must integrate before final implementation proof; #210 voice recovery remains an independent owned PR. Existing repository Project authority and issue 216 are the delivery source; create no duplicate planning issue.
 
 ## Current responsibility and bounded replacement
 
@@ -20,7 +20,7 @@ Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/2
 
 ## One bounded vertical delivery
 
-Owner: assigned resolver after plan acceptance; root supervises independent review/merge. Acceptance completes J 1–J 6 across desktop prep→edit/save→Ready/Start, live multitouch/rotation, lobby return/chat, ownership transitions and leave. No implementation dispatch from this planning handoff. No additional browser suite or browser matrix.
+Owner: assigned resolver after plan acceptance; root supervises independent review/merge. Acceptance completes J1–J6 across desktop prep→edit/save→Ready/Start, live multitouch/rotation, lobby return/chat, ownership transitions and leave. No implementation dispatch from this planning handoff. No additional browser suite or browser matrix.
 
 Extend the maintained controls tests for contact union/release, eight-way deadzone, stale-release generations, and preserved defaults/conflicts. Extend the existing Chromium public-entrypoint gate with the affected journey, using real browser multi-contact input (e.g. CDP touch dispatch) and observed emulator/controller results, not mocked click callbacks. Reuse current two-player and five-slot fixtures; avoid all viewport-equality branches. Remove superseded guide assertions/resources only after inventory of callers proves the replacement covers them.
 

@@ -2,9 +2,9 @@ This first sketch preserves all lobby regions and tests whether the requested co
 
 Audience: Human
 
-# Mobile controller wireframe v 1
+# Mobile controller wireframe v1
 
-## Desktop preparation / J 1
+## Desktop preparation / J1
 
 ```text
 ┌ Lobby name: Pixel Harbor [Invite] ─ Your name: Alex ─ Theme ┐
@@ -24,7 +24,7 @@ Audience: Human
 
 Edit replaces its own mapping band with focused key capture and Save/Cancel; duplicate-key feedback stays in that band. Loaded/empty/error content changes only the reserved preview. Game start hides key lines but keeps button positions.
 
-## Portrait lobby play at 320×568 / J 2–J 4 (does not fit)
+## Portrait lobby play at 320×568 / J2–J4 (does not fit)
 
 ```text
 ┌ Lobby name / Invite / Your name / Theme ┐ 104px
@@ -40,7 +40,7 @@ Edit replaces its own mapping band with focused key capture and Save/Cancel; dup
 
 Existing rows already consume 568px. New controls exceed height and need 312px in one row before spacing, not the 96px game track. This sketch cannot be built faithfully by clipping, reducing name text or obscuring chat.
 
-## Expanded landscape / J 3
+## Expanded landscape / J3
 
 ```text
 ┌ NES game ──────────────────────────────[Return to lobby]┐
