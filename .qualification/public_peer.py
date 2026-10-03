@@ -72,7 +72,14 @@ with sync_playwright() as pw:
   energy="async()=>{let n=0;for(const p of pcs)for(const s of(await p.getStats()).values())if(s.type==='inbound-rtp'&&s.kind==='audio')n+=s.totalAudioEnergy||0;return n}"
   e0=page.evaluate(energy);page.wait_for_timeout(1500);result['received_audio_energy']=page.evaluate(energy)-e0
   assert result['received_audio_energy']>1e-5,result
-  page.locator('canvas').focus();page.keyboard.down('z' if a.role=='host' else 'c');wait('proof.frameCount>=220');page.keyboard.up('z' if a.role=='host' else 'c')
+  page.locator('canvas').focus();page.keyboard.down('z' if a.role=='host' else 'c')
+  play_at=time.monotonic();frame0=page.evaluate('proof.frameCount');previous=frame0
+  while time.monotonic()-play_at<10:
+   page.wait_for_function('n=>proof.frameCount>n',arg=previous,timeout=5000);previous=page.evaluate('proof.frameCount')
+   assert page.evaluate('proof.room.game.status==="playing"')
+   page.wait_for_timeout(100)
+  result['play_seconds']=round(time.monotonic()-play_at,2);result['measured_fps']=round((previous-frame0)/result['play_seconds'],2)
+  wait('proof.frameCount>=220');page.keyboard.up('z' if a.role=='host' else 'c')
   result['selected_candidates']=page.evaluate("""async()=>{const all=[];for(const pc of pcs){const s=await pc.getStats();for(const t of s.values())if(t.type==='transport'&&t.selectedCandidatePairId){const p=s.get(t.selectedCandidatePairId),l=s.get(p.localCandidateId),r=s.get(p.remoteCandidateId);all.push({local:l.candidateType,remote:r.candidateType,protocol:l.protocol,roundTripSeconds:p.currentRoundTripTime})}}return all}""")
   assert result['selected_candidates']
   assert all(('relay' in [x['local'],x['remote']])==(a.mode=='relay') for x in result['selected_candidates']),result['selected_candidates']
