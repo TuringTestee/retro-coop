@@ -12,14 +12,6 @@ window.RTCPeerConnection=class extends Native{constructor(...args){super(...args
 const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async c=>{
 const s=await capture(c);captures.push(s);return s};
 
-// Observe only counts: never retain ROM/save bytes or frame inputs.
-window.timelineWrites={workers:0,loads:0,imports:0};
-const NativeWorker=Worker;
-window.Worker=class extends NativeWorker {
- constructor(...args){super(...args);timelineWrites.workers++;}
- postMessage(message,...args){if(message.type==='load')timelineWrites.loads++;if(message.type==='state-import'||message.type==='battery-import')timelineWrites.imports++;return super.postMessage(message,...args);}
-};
-
 // Invoke the installed production callback to model a source ending; a synthetic
 // event does not unplug hardware. Actual hardware removal remains a release check.
 const endedCallbacks=new WeakMap(),trackListen=MediaStreamTrack.prototype.addEventListener;
