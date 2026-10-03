@@ -28,6 +28,7 @@ def text_fits(locator):
       let clip = {left: 0, top: 0, right: innerWidth, bottom: innerHeight};
       for (let parent = node; parent; parent = parent.parentElement) {
         const style = getComputedStyle(parent), box = parent.getBoundingClientRect();
+        if (style.display === "contents") continue;
         if (/(hidden|clip|auto|scroll)/.test(style.overflowX)) {
           clip.left = Math.max(clip.left, box.left + parent.clientLeft);
           clip.right = Math.min(clip.right, box.left + parent.clientLeft + parent.clientWidth);
@@ -76,6 +77,7 @@ def regions(page):
         assert box['x'] >= -1 and box['y'] >= -1, (name, box)
         assert box['x'] + box['width'] <= page.evaluate('innerWidth') + 1, (name, box)
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
+    assert text_fits(page.locator('.rc-game-toolbar')), page.locator('.rc-game-toolbar').inner_text()
     assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
     for row in page.locator('.rc-players .slot-row').all():
         assert text_fits(row), row.inner_text()
@@ -362,6 +364,20 @@ def exercise(page, url, size, output, play=False):
     assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
     assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
     page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
+    # Synthetic text-only capacity probe; real multi-member composition is supplied in PR proof.
+    slot_text = page.locator('.rc-players .slot-row').evaluate_all("""rows => rows.map((row,index) => {
+      const saved = {cls: row.className, name: row.querySelector('strong').textContent, status: row.querySelector('.slot-state').textContent};
+      row.classList.remove('slot-empty');
+      row.querySelector('strong').textContent = index < 2 ? `P${index+1} · ${'W'.repeat(32)}` : 'W'.repeat(32);
+      row.querySelector('.slot-state').textContent = 'Waiting for game';
+      return saved;
+    })""")
+    regions(page)
+    page.screenshot(path=str(output / f'maximum-peer-text-{size[0]}x{size[1]}.png'))
+    page.locator('.rc-players .slot-row').evaluate_all("""(rows,saved) => rows.forEach((row,index) => {
+      row.className=saved[index].cls;row.querySelector('strong').textContent=saved[index].name;row.querySelector('.slot-state').textContent=saved[index].status;
+    })""", slot_text)
+
     page.get_by_role('button', name='Edit your name: ' + 'W' * 32).click()
     page.get_by_role('textbox', name='Your name', exact=True).fill('Alex')
     page.get_by_role('button', name='Save name', exact=True).click()
@@ -430,6 +446,7 @@ def exercise(page, url, size, output, play=False):
         page.get_by_role('textbox', name='Message everyone').fill('hello')
         page.get_by_role('button', name='Send').click()
         page.get_by_text('(you) Alex: hello', exact=True).wait_for()
+        assert text_fits(page.get_by_text('(you) Alex: hello', exact=True))
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start →').click(timeout=30000)
         page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)
@@ -445,6 +462,10 @@ def exercise(page, url, size, output, play=False):
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
         page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
         canvas = page.locator('.rc-game-display canvas').bounding_box()
+        game_region = page.locator('.rc-game-display').bounding_box()
+        assert canvas['x'] >= game_region['x'] - 1 and canvas['y'] >= game_region['y'] - 1, (canvas, game_region)
+        assert canvas['x'] + canvas['width'] <= game_region['x'] + game_region['width'] + 1, (canvas, game_region)
+        assert canvas['y'] + canvas['height'] <= game_region['y'] + game_region['height'] + 1, (canvas, game_region)
         scale = min(canvas['width'] / 256, canvas['height'] / 240)
         rendered_game = {'width': 256 * scale, 'height': 240 * scale}
         assert rendered_game['height'] >= 90, rendered_game
@@ -481,8 +502,11 @@ def exercise(page, url, size, output, play=False):
     page.get_by_role('button', name='Stay').click()
     page.get_by_role('button', name='Copy invite').click()
     page.wait_for_function('window.heldInvites.length === 2')
-    page.get_by_role('button', name='Back to Main Page', exact=True).click()
+    page.locator('.rc-logo').click()
     assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
+    exit_box = page.get_by_role('alertdialog', name='Close this lobby?').bounding_box()
+    assert abs(exit_box['x'] + exit_box['width'] / 2 - size[0] / 2) <= 1
+    assert abs(exit_box['y'] + exit_box['height'] / 2 - size[1] / 2) <= 1
     page.get_by_role('button', name='Close lobby').click()
     page.locator('.rc-listing').wait_for(timeout=10000)
     page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
