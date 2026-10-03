@@ -55,7 +55,7 @@ with sync_playwright() as pw:
    page.route('**/rooms/*/rom',reject_first_download)
    page.get_by_placeholder('Search lobbies').fill(a.lobby)
    page.locator('.rc-lobby-card').filter(has_text=a.lobby).wait_for(timeout=60000);page.locator('.rc-lobby-card').filter(has_text=a.lobby).click()
-   wait('proof.room?.role==="member"')
+   wait('proof.room?.role==="member" && proof.room.fingerprint')
    print('GUEST_ROOM '+json.dumps(page.evaluate('proof.room')),flush=True)
    result['rom_sha256']=page.evaluate('proof.room.fingerprint.romSha256')
    chat('REMOTE GUEST JOINED')
