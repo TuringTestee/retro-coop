@@ -69,6 +69,12 @@ def game_progress(page):
     page.wait_for_function('before => Number(document.querySelector("canvas").dataset.frameCount) > before', arg=before)
 
 
+def chat(sender, receiver, text):
+    sender.get_by_label('Message everyone').fill(text)
+    sender.get_by_role('button', name='Send', exact=True).click()
+    receiver.get_by_text(text, exact=False).wait_for()
+
+
 def stop_service(service):
     service.terminate()
     try:
@@ -180,9 +186,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     assert not host.evaluate('captures.at(-1).getAudioTracks()[0].enabled')
     host.keyboard.up('v')
     result['focus_releases_push_to_talk'] = True
-    host.get_by_label('Message everyone').fill('voice keeps text working')
-    host.get_by_role('button', name='Send', exact=True).click()
-    guest.get_by_text('voice keeps text working', exact=False).wait_for()
+    chat(host, guest, 'voice keeps text working')
     host.get_by_label('Message everyone').focus()
     host.keyboard.down('v')
     host.wait_for_timeout(150)
@@ -197,6 +201,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.get_by_role('button', name='Enable voice', exact=True).click()
     host.get_by_text('Microphone access was denied.', exact=False).wait_for()
     host.screenshot(path=str(out / 'permission.png'))
+    chat(host, guest, 'Text works while microphone permission is denied')
     for t in (host, guest):
         game_progress(t)
     host.context.grant_permissions(['microphone'])
@@ -214,6 +219,8 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     result['device_replacement'] = energy(guest, True)
     host.evaluate('modelMicrophoneRemoval(captures.at(-1).getAudioTracks()[0])')
     host.get_by_text('Microphone disconnected.', exact=False).wait_for()
+    for t in (host, guest):
+        game_progress(t)
     host.get_by_role('button', name='Try microphone again', exact=True).click()
     result['device_retry'] = energy(guest, True)
     for t, n in zip([host, guest], frames):
@@ -225,6 +232,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.get_by_role('button', name='Mute others', exact=True).click()
     host.get_by_role('button', name='Unmute others', exact=True).click()
     host.get_by_text('Remote voice playback was blocked.', exact=True).wait_for()
+    chat(host, guest, 'Text works while voice playback is blocked')
     host.screenshot(path=str(out / 'compact-playback-recovery.png'))
     peer_count = host.evaluate('pcs.length')
     capture_count = host.evaluate('captures.length')
@@ -245,6 +253,8 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.evaluate('window.rejectAttachment=true')
     host.get_by_role('button', name='Enable voice', exact=True).click()
     host.get_by_role('button', name='Retry microphone', exact=True).wait_for()
+    for t in (host, guest):
+        game_progress(t)
     capture_count = host.evaluate('captures.length')
     host.evaluate('window.rejectAttachment=false')
     host.get_by_role('button', name='Retry microphone', exact=True).click()
