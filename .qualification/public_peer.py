@@ -1,4 +1,4 @@
-import argparse, hashlib, json, math, struct, time, wave
+import argparse, hashlib, json, math, struct, time, wave, os, platform, urllib.request
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 import sys
@@ -11,7 +11,8 @@ url='https://retro-coop.atobot.cloud/'
 tone=out/'voice.wav'
 with wave.open(str(tone),'wb') as w:
  w.setparams((1,2,48000,0,'NONE','not compressed'));w.writeframes(b''.join(struct.pack('<h',int(6000*math.sin(2*math.pi*440*i/48000))) for i in range(48000)))
-started=time.monotonic();result={'role':a.role,'mode':a.mode,'url':url,'lobby':a.lobby,'page_errors':[]}
+public_ip=urllib.request.urlopen('https://api.ipify.org',timeout=10).read().strip()
+started=time.monotonic();result={'public_ip_sha256':hashlib.sha256(public_ip).hexdigest(),'platform':platform.platform(),'github_run_id':os.environ.get('GITHUB_RUN_ID'),'role':a.role,'mode':a.mode,'url':url,'lobby':a.lobby,'page_errors':[]}
 with sync_playwright() as pw:
  b=pw.chromium.launch(ignore_default_args=['--mute-audio'],args=['--use-fake-device-for-media-stream',f'--use-file-for-fake-audio-capture={tone.resolve()}'])
  result['browser']=b.version
