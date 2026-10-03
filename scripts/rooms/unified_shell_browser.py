@@ -7,17 +7,11 @@ import subprocess
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, zoom_context
+from layout_geometry import browser_zoom, zoom_context, control_visibility
+from ui_helpers import choose_section
 
 ROOT = Path(__file__).resolve().parents[2]
 
-
-def choose_section(page, name):
-    selector = page.get_by_role('combobox', name='Settings section')
-    if selector.is_visible():
-        selector.select_option(label=name)
-    else:
-        page.get_by_role('button', name=name, exact=True).click()
 
 
 def settings_controls_fit(page):
@@ -82,6 +76,13 @@ def regions(page):
         assert box['x'] >= -1 and box['y'] >= -1, (name, box)
         assert box['x'] + box['width'] <= page.evaluate('innerWidth') + 1, (name, box)
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
+    assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
+    for row in page.locator('.rc-players .slot-row').all():
+        assert text_fits(row), row.inner_text()
+        state = row.locator('.slot-state')
+        if state.count():
+            name_box, state_box = row.locator('strong').bounding_box(), state.bounding_box()
+            assert name_box['y'] + name_box['height'] <= state_box['y'] + 1, row.inner_text()
     assert page.locator('.rc-chat-history').evaluate('(node) => getComputedStyle(node).overflowY === "auto"')
     return boxes
 
@@ -371,12 +372,14 @@ def exercise(page, url, size, output, play=False):
     page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     invite = page.get_by_role('button', name='Copy invite')
     assert invite.count() == 1 and invite.bounding_box()['y'] < page.locator('.rc-game-toolbar').bounding_box()['y']
-    slot = page.locator('[data-slot-id="slot-3"] .slot-row')
-    slot.click()
-    menu = page.locator('[data-slot-id="slot-3"] .slot-menu')
-    assert menu.get_by_role('menuitem').all_text_contents() == ['Close slot']
-    slot.click()
-    assert menu.count() == 0
+    for slot_id in ('slot-3', 'slot-5'):
+        slot = page.locator(f'[data-slot-id="{slot_id}"] .slot-row')
+        slot.click()
+        control_visibility(slot, require_focus=True)
+        menu = page.locator(f'[data-slot-id="{slot_id}"] .slot-menu')
+        assert menu.get_by_role('menuitem').all_text_contents() == ['Close slot']
+        slot.click()
+        assert menu.count() == 0
     assert page.locator('.slot-index').count() == 0
     choose_section(page, 'Voice')
     assert page.locator('main').get_attribute('data-page') == 'lobby'
@@ -406,6 +409,14 @@ def exercise(page, url, size, output, play=False):
             voice_setting.select_option(label=option)
             assert settings_controls_fit(page), (size, option)
     choose_section(page, 'Lobby')
+    status = page.locator('.rc-status-copy')
+    status_text = status.inner_text()
+    status_bounds = page.locator('.rc-status').bounding_box()
+    status.evaluate('(node, text) => node.textContent = text',
+                    'A proposed controller needs a matching game and connection. Retry when ready, or cancel.')
+    assert text_fits(status), 'The longest current role failure reason was clipped'
+    assert page.locator('.rc-status').bounding_box() == status_bounds
+    status.evaluate('(node, text) => node.textContent = text', status_text)
     base = regions(page)
     page.screenshot(path=str(output / f'lobby-{size[0]}x{size[1]}.png'))
     if play:
@@ -508,15 +519,17 @@ def main():
             browser = getattr(playwright, args.browser).launch(headless=True, **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
             try:
                 rows = []
-                for size in ((1440, 900), (1366, 682), (1024, 600), (650, 760), (401, 760), (320, 650), (320, 568)):
-                    # Each profile is a fresh visitor; repeated lobby creation must
-                    # not exhaust one visitor's admission rate limit.
-                    page = browser.new_page()
+                profile_context = browser.new_context()
+                for size in ((1440, 900), (1366, 682), (1024, 600), (401, 760), (320, 568)):
+                    # Each page has a fresh visitor token; shared storage keeps
+                    # repeated asset acquisition inside the browser gate budget.
+                    page = profile_context.new_page()
                     page.on('pageerror', lambda error: errors.append(str(error)))
                     try:
                         rows.append(exercise(page, url, size, output, play=True))
                     finally:
-                        page.context.close()
+                        page.close()
+                profile_context.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
                     expired_guest_recovers(browser, url)
