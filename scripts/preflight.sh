@@ -23,6 +23,7 @@ node --check scripts/voice/fixtures.js
 python3 -c 'import ast, pathlib; root=pathlib.Path("spikes/d02"); [ast.parse(p.read_text()) for p in [*root.glob("*.py"), *pathlib.Path("scripts").glob("*.py"), *pathlib.Path("scripts/foundation").glob("*.py"), *pathlib.Path("scripts/rooms").glob("*.py"), *pathlib.Path("scripts/peer").glob("*.py"), *pathlib.Path("scripts/featured").glob("*.py"), *pathlib.Path("scripts/voice").glob("*.py"), *pathlib.Path("scripts/gameplay").glob("*.py"), *pathlib.Path("scripts/aws_eb").glob("*.py")]]'
 (cd spikes/d02 && python3 original_fixture.py fixture.local.nes && cargo +1.95.0 fmt --check && cargo +1.95.0 test --locked --offline --release --lib)
 python3 -m unittest discover -s spikes/d02 -p 'test_ci*.py'
+python3 -m unittest discover -s scripts/aws_eb -p 'test_release_recovery.py'
 npm run typecheck
 npm test
 echo 'Pre-flight passed (repository hygiene and D02 codec regression tests).'
