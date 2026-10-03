@@ -71,14 +71,17 @@ def energy(page, active, sender=None):
 
 
 def recovery_bounds(page):
-    result = page.locator('.rc-voice-recovery').evaluate("""node => {
+    # Observe one ready DOM snapshot, not a locator handle detached by reflow.
+    result = page.wait_for_function("""() => {
+      const node=document.querySelector('.rc-voice-recovery');
+      const error=node?.querySelector('p'),button=node?.querySelector('button');
+      if(!node?.isConnected||!error||!button)return false;
       const rect = item => {const r=item.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
-      const error=node.querySelector('p'),button=node.querySelector('button');
       const range=document.createRange();range.selectNodeContents(error);
       return {container:rect(node.closest('.rc-tool-body')),error:rect(error),button:rect(button),
               text:[...range.getClientRects()].map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom})),
               viewport:{right:innerWidth,bottom:innerHeight}};
-    }""")
+    }""").json_value()
     box = result['container']
     for rect in [result['error'], result['button'], *result['text']]:
         assert rect['left'] >= box['left'] - 1 and rect['top'] >= box['top'] - 1, result
@@ -123,8 +126,8 @@ def stop_service(service):
         service.wait()
 
 
-def microphone_input(path):
-    samples = [struct.pack('<h', int(6000 * math.sin(2 * math.pi * 440 * index / 48000))) for index in range(48000)]
+def microphone_input(path, frequency):
+    samples = [struct.pack('<h', int(6000 * math.sin(2 * math.pi * frequency * index / 48000))) for index in range(48000)]
     with wave.open(str(path), 'wb') as output:
         output.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
         output.writeframes(b''.join(samples))
@@ -143,9 +146,15 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         a.url = json.loads(line)['url']
     parsed_url = urlsplit(a.url)
     origin = f'{parsed_url.scheme}://{parsed_url.netloc}'
-    tone = microphone_input(Path(s.enter_context(tempfile.TemporaryDirectory())) / 'voice.wav')
+    input_dir = Path(s.enter_context(tempfile.TemporaryDirectory()))
+    microphone_inputs = []
 
     def launch():
+        # Independent visitors need independent stimuli: identical input and
+        # received playback can legitimately be removed as echo.
+        frequency = 440 + 137 * len(microphone_inputs)
+        tone = microphone_input(input_dir / f'voice-{len(microphone_inputs)}.wav', frequency)
+        microphone_inputs.append({'frequency_hz': frequency, 'sha256': hashlib.sha256(tone.read_bytes()).hexdigest()})
         b = pw.chromium.launch(channel='chromium', ignore_default_args=['--mute-audio'], args=['--use-fake-device-for-media-stream', f'--use-file-for-fake-audio-capture={tone}'])
         s.callback(b.close)
         return b
@@ -197,7 +206,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     mic(guest, False)
     result = {'mode': a.mode, 'browser': b.version,
               'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
-              'tone_sha256':hashlib.sha256(tone.read_bytes()).hexdigest(),
+              'microphone_inputs':microphone_inputs,
               'capture_settings': {name:tab.evaluate('captures.at(-1).getAudioTracks()[0].getSettings()')
                                    for name,tab in (('host',host),('guest',guest))},
               'url': a.url, 'host_audio': energy(guest, True, sender=host)}
