@@ -7,6 +7,7 @@ Build with PUBLIC_CATALOG_GAMES=super-tilt-bro-pal before starting the gateway.
 """
 import argparse
 import contextlib
+import hashlib
 import json
 import math
 import struct
@@ -33,7 +34,7 @@ started = time.monotonic()
 errors = []
 ENERGY = "async()=>{let sum=0;for(const pc of pcs.filter(p=>p.connectionState==='connected'))for(const s of(await pc.getStats()).values())if(s.type==='inbound-rtp'&&s.kind==='audio')sum+=s.totalAudioEnergy??0;return sum;}"
 
-def energy(page, active):
+def energy(page, active, sender=None):
     last = page.evaluate(ENERGY)
     start = last
     deadline = time.monotonic() + 8
@@ -48,19 +49,39 @@ def energy(page, active):
         if not active and time.monotonic() - stable > 1:
             return now - start
         last = now
-    raise AssertionError(('audio active' if active else 'audio silent', start, last))
+    inspect = """async () => ({
+      focus: document.hasFocus(), hidden: document.hidden,
+      capture: captures.at(-1)?.getAudioTracks().map(track => ({
+        enabled:track.enabled, muted:track.muted, state:track.readyState,
+        settings:track.getSettings()
+      })),
+      audio:voiceAudio.map(audio=>({paused:audio.paused,muted:audio.muted,volume:audio.volume})),
+      peers: await Promise.all(pcs.map(async pc=>({
+        connection:pc.connectionState,
+        senders:pc.getSenders().map(sender=>({id:sender.track?.id, enabled:sender.track?.enabled,state:sender.track?.readyState})),
+        transceivers:pc.getTransceivers().map(t=>({direction:t.direction,current:t.currentDirection})),
+        stats:[...(await pc.getStats()).values()].filter(s=>
+          ['inbound-rtp','outbound-rtp','media-source'].includes(s.type) && s.kind==='audio')
+      })))
+    })"""
+    diagnostics = {'receiver':page.evaluate(inspect)}
+    if sender:
+        diagnostics['sender'] = sender.evaluate(inspect)
+    raise AssertionError(('audio active' if active else 'audio silent', start, last, diagnostics))
 
 def voice(page):
     page.get_by_role('button', name='Voice', exact=True).click()
 
 def mic(page, on):
+    # This helper toggles explicit mute while the microphone is in open mode.
     page.get_by_role('button', name='Unmute microphone' if on else 'Mute microphone', exact=True).click()
+    page.wait_for_function('enabled => captures.at(-1).getAudioTracks()[0].enabled === enabled', arg=on)
 
 def leave(page):
     page.get_by_role('button', name='Back to Main Page', exact=True).click()
     dialog = page.get_by_role('alertdialog')
-    if dialog.count():
-        dialog.get_by_role('button', name='Close lobby' if page.get_by_role('heading', name='Close this lobby?').count() else 'Leave lobby', exact=True).click()
+    dialog.wait_for()
+    dialog.get_by_role('button', name='Close lobby' if page.get_by_role('heading', name='Close this lobby?').count() else 'Leave lobby', exact=True).click()
     page.locator('.rc-listing').wait_for()
 
 
@@ -84,6 +105,14 @@ def stop_service(service):
         service.wait()
 
 
+def microphone_input(path):
+    samples = [struct.pack('<h', int(6000 * math.sin(2 * math.pi * 440 * index / 48000))) for index in range(48000)]
+    with wave.open(str(path), 'wb') as output:
+        output.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
+        output.writeframes(b''.join(samples))
+    return path
+
+
 with sync_playwright() as pw, contextlib.ExitStack() as s:
     if a.serve:
         server_log = s.enter_context((out / 'server.log').open('w'))
@@ -96,10 +125,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         a.url = json.loads(line)['url']
     parsed_url = urlsplit(a.url)
     origin = f'{parsed_url.scheme}://{parsed_url.netloc}'
-    tone = Path(s.enter_context(tempfile.TemporaryDirectory())) / 'tone.wav'
-    with wave.open(str(tone), 'wb') as w:
-        w.setparams((1, 2, 48000, 0, 'NONE', 'not compressed'))
-        w.writeframes(b''.join((struct.pack('<h', int(6000 * math.sin(2 * math.pi * 440 * i / 48000))) for i in range(48000))))
+    tone = microphone_input(Path(s.enter_context(tempfile.TemporaryDirectory())) / 'voice.wav')
 
     def launch():
         b = pw.chromium.launch(channel='chromium', ignore_default_args=['--mute-audio'], args=['--use-fake-device-for-media-stream', f'--use-file-for-fake-audio-capture={tone}'])
@@ -145,14 +171,18 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         t.get_by_role('button', name='Sound', exact=True).click()
         t.get_by_role('button', name='Mute game', exact=True).click()
         voice(t)
-        # Decode real audio without playing a generated test tone through host speakers.
-        t.locator('.rc-voice-settings input[type=range]').fill('0')
+        # Keep incoming voice audible: zero element volume also suppresses
+        # the browser's received-energy measurement.
+        assert t.evaluate('voiceAudio.every(audio=>audio.volume===1)')
         t.screenshot(path=str(out / ('host-voice.png' if t == host else 'guest-voice.png')))
         t.get_by_label('Voice mode').select_option('open')
     mic(guest, False)
     result = {'mode': a.mode, 'browser': b.version,
               'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
-              'url': a.url, 'host_audio': energy(guest, True)}
+              'tone_sha256':hashlib.sha256(tone.read_bytes()).hexdigest(),
+              'capture_settings': {name:tab.evaluate('captures.at(-1).getAudioTracks()[0].getSettings()')
+                                   for name,tab in (('host',host),('guest',guest))},
+              'url': a.url, 'host_audio': energy(guest, True, sender=host)}
     for t in [host, guest]:
         t.context.new_cdp_session(t).send('Emulation.setFocusEmulationEnabled', {'enabled': False})
     target = guest
@@ -163,19 +193,19 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     target.bring_to_front()
     host.wait_for_function('!document.hasFocus()')
     assert host.evaluate('captures.at(-1).getAudioTracks()[0].enabled')
-    result['background_audio'] = energy(guest, True)
+    result['background_audio'] = energy(guest, True, sender=host)
     host.bring_to_front()
     mic(host, False)
     energy(guest, False)
     mic(guest, True)
-    result['guest_audio'] = energy(host, True)
+    result['guest_audio'] = energy(host, True, sender=guest)
     mic(guest, False)
     mic(host, True)
     host.get_by_label('Voice mode').select_option('push')
     host.get_by_role('button', name='Back to Main Page').focus()
     host.keyboard.down('v')
     host.wait_for_function('captures.at(-1).getAudioTracks()[0].enabled')
-    result['ptt_audio'] = energy(guest, True)
+    result['ptt_audio'] = energy(guest, True, sender=host)
     host.keyboard.up('v')
     energy(guest, False)
     host.keyboard.down('v')
@@ -207,7 +237,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.context.grant_permissions(['microphone'])
     host.get_by_role('button', name='Try microphone again', exact=True).click()
     host.wait_for_function('captures.at(-1).getAudioTracks()[0].readyState==="live"')
-    result['permission_retry'] = energy(guest, True)
+    result['permission_retry'] = energy(guest, True, sender=host)
     host.get_by_role('button', name='Devices', exact=True).click()
     devices = host.get_by_role('combobox', name='Microphone')
     devices.wait_for()
@@ -216,13 +246,13 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     devices.select_option(values[0])
     host.get_by_role('button', name='Unmute microphone', exact=True).wait_for()
     mic(host, True)
-    result['device_replacement'] = energy(guest, True)
+    result['device_replacement'] = energy(guest, True, sender=host)
     host.evaluate('modelMicrophoneRemoval(captures.at(-1).getAudioTracks()[0])')
     host.get_by_text('Microphone disconnected.', exact=False).wait_for()
     for t in (host, guest):
         game_progress(t)
     host.get_by_role('button', name='Try microphone again', exact=True).click()
-    result['device_retry'] = energy(guest, True)
+    result['device_retry'] = energy(guest, True, sender=host)
     for t, n in zip([host, guest], frames):
         assert int(t.locator('canvas').get_attribute('data-frame-count')) > n, 'Voice recovery interrupted gameplay'
     result['game_continuity'] = True
@@ -261,7 +291,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.get_by_role('button', name='Retry microphone', exact=True).wait_for(state='detached')
     assert host.evaluate('captures.length') == capture_count
     assert host.evaluate('pcs.length') == peer_count
-    result['compact_attachment_retry'] = energy(guest, True)
+    result['compact_attachment_retry'] = energy(guest, True, sender=host)
     for t in (host, guest):
         game_progress(t)
     guest_captures = guest.evaluate('captures.length')
@@ -275,7 +305,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     guest.get_by_label('Voice mode').select_option('open')
     host.set_viewport_size({'width':1366, 'height':768})
     mic(host, False)
-    result['rejoin_audio'] = energy(host, True)
+    result['rejoin_audio'] = energy(host, True, sender=guest)
     guest.screenshot(path=str(out / 'rejoined-voice.png'))
     leave(guest)
     guest.wait_for_function('captures.every(s=>s.getTracks().every(t=>t.readyState==="ended"))')
