@@ -28,20 +28,48 @@ def settings_controls_fit(page):
     }""")
 
 
-def guide_fits(page):
-    return page.locator('.rc-inline-settings').evaluate("""panel => {
-      const edge = panel.getBoundingClientRect();
-      const rows = [...panel.querySelectorAll('.rc-control-line,.rc-shortcuts')];
-      return rows.length === 7 && rows.every(row => {
-        const rect = row.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && rect.left >= edge.left - 1 && rect.right <= edge.right + 1 && rect.bottom <= edge.bottom + 1
-          && row.scrollWidth <= row.clientWidth + 1 && [...row.querySelectorAll('strong,b')].every(text => {
-            const box = text.getBoundingClientRect();
-            return box.left >= rect.left - 1 && box.right <= rect.right + 1 && box.top >= rect.top - 1 && box.bottom <= rect.bottom + 1
-              && text.scrollWidth <= text.clientWidth + 1;
-          });
-      });
+def text_fits(locator):
+    """Check glyph bounds through every clipping ancestor, including wrapped text."""
+    return locator.evaluate("""node => {
+      let clip = {left: 0, top: 0, right: innerWidth, bottom: innerHeight};
+      for (let parent = node; parent; parent = parent.parentElement) {
+        const style = getComputedStyle(parent), box = parent.getBoundingClientRect();
+        if (/(hidden|clip|auto|scroll)/.test(style.overflowX)) {
+          clip.left = Math.max(clip.left, box.left + parent.clientLeft);
+          clip.right = Math.min(clip.right, box.left + parent.clientLeft + parent.clientWidth);
+        }
+        if (/(hidden|clip|auto|scroll)/.test(style.overflowY)) {
+          clip.top = Math.max(clip.top, box.top + parent.clientTop);
+          clip.bottom = Math.min(clip.bottom, box.top + parent.clientTop + parent.clientHeight);
+        }
+      }
+      for (const child of node.querySelectorAll('*')) {
+        const style = getComputedStyle(child);
+        if (child.getClientRects().length && /(hidden|clip)/.test(style.overflowX)
+          && child.scrollWidth > child.clientWidth + 1) return false;
+      }
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let text;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent.trim()) continue;
+        const range = document.createRange(); range.selectNodeContents(text);
+        for (const box of range.getClientRects()) {
+          if (box.width && box.height && (box.left < clip.left - 1 || box.right > clip.right + 1
+            || box.top < clip.top - 1 || box.bottom > clip.bottom + 1)) return false;
+        }
+      }
+      return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
     }""")
+
+
+def names_fit(page):
+    for node in page.locator('.rc-header-name').all():
+        assert text_fits(node), node.inner_text()
+
+
+def guide_fits(page):
+    nodes = page.locator('.rc-inline-settings .rc-control-line,.rc-inline-settings .rc-shortcuts,.rc-inline-settings .rc-controller-art')
+    return nodes.count() == 8 and all(text_fits(node) for node in nodes.all())
 
 
 def regions(page):
@@ -294,44 +322,53 @@ def exercise(page, url, size, output, play=False):
     name = host(page, url)
     assert name
     before = page.locator('.rc-identity').bounding_box()
+    names_fit(page)
+    header_boxes = {selector: page.locator(selector).bounding_box() for selector in ('.rc-header', '.rc-trail', '.rc-identity')}
+    name_boxes = page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
     original_identity = page.locator('.rc-identity').inner_text()
     page.get_by_role('button', name='Edit your name:', exact=False).click()
     dialog = page.get_by_role('dialog', name='Change your name')
     assert dialog.is_visible()
+    box = dialog.bounding_box()
+    assert abs(box['x'] + box['width'] / 2 - size[0] / 2) <= 1
+    assert abs(box['y'] + box['height'] / 2 - size[1] / 2) <= 1
     assert page.locator('.rc-identity').bounding_box() == before
     field = dialog.get_by_role('textbox', name='Your name')
     assert field.bounding_box()['width'] >= 200
-    field.fill('Alex')
+    field.fill('W' * 32)
     dialog.get_by_role('button', name='Cancel').click()
     assert page.locator('.rc-identity').inner_text() == original_identity
     page.get_by_role('button', name='Edit your name:', exact=False).click()
     page.get_by_role('dialog', name='Change your name').get_by_role('textbox', name='Your name').fill('Alex')
     page.get_by_role('dialog', name='Change your name').get_by_role('button', name='Save name').click()
     page.get_by_role('button', name='Edit your name: Alex').wait_for()
-    if size[0] <= 650:
-        # The name must retain a readable track between the lobby title and theme control.
-        identity_name = page.locator('.rc-identity .rc-header-edit').bounding_box()
-        assert identity_name['width'] >= 120, (size, identity_name)
-        assert page.locator('.rc-identity .rc-header-edit').evaluate(
-            'node => node.scrollWidth <= node.clientWidth + 1'), size
     page.get_by_role('button', name='Edit lobby name:', exact=False).click()
     assert page.get_by_role('dialog', name='Change lobby name').is_visible()
     page.get_by_role('textbox', name='Lobby name').fill('Test Lobby')
     page.get_by_role('textbox', name='Lobby name').press('Enter')
     page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     assert page.locator('.rc-identity').bounding_box() == before
-    if size[0] == 320:
-        long_name = 'The Very Long Lobby Name That Should Remain Readable On Small Screens'
-        page.get_by_role('button', name='Edit lobby name: Test Lobby').click()
-        page.get_by_role('textbox', name='Lobby name').fill(long_name)
-        page.get_by_role('button', name='Save name').click()
-        page.get_by_role('button', name=f'Edit lobby name: {long_name}').wait_for()
-        assert page.locator('.rc-lobby-heading').evaluate('node => node.scrollHeight <= node.clientHeight')
-        assert page.locator('.rc-identity').bounding_box() == before
-        page.get_by_role('button', name=f'Edit lobby name: {long_name}').click()
-        page.get_by_role('textbox', name='Lobby name').fill('Test Lobby')
-        page.get_by_role('button', name='Save name').click()
-        page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
+    long_name = 'W' * 80
+    page.get_by_role('button', name='Edit lobby name: Test Lobby').click()
+    page.get_by_role('textbox', name='Lobby name').fill(long_name)
+    page.get_by_role('button', name='Save name').click()
+    page.get_by_role('button', name=f'Edit lobby name: {long_name}').wait_for()
+    page.get_by_role('button', name='Edit your name: Alex').click()
+    page.get_by_role('textbox', name='Your name', exact=True).fill('W' * 32)
+    page.get_by_role('button', name='Save name', exact=True).click()
+    page.get_by_role('button', name='Edit your name: ' + 'W' * 32).wait_for()
+    names_fit(page)
+    assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
+    assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
+    page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
+    page.get_by_role('button', name='Edit your name: ' + 'W' * 32).click()
+    page.get_by_role('textbox', name='Your name', exact=True).fill('Alex')
+    page.get_by_role('button', name='Save name', exact=True).click()
+    assert page.locator('.rc-identity').bounding_box() == before
+    page.get_by_role('button', name=f'Edit lobby name: {long_name}').click()
+    page.get_by_role('textbox', name='Lobby name').fill('Test Lobby')
+    page.get_by_role('button', name='Save name').click()
+    page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     invite = page.get_by_role('button', name='Copy invite')
     assert invite.count() == 1 and invite.bounding_box()['y'] < page.locator('.rc-game-toolbar').bounding_box()['y']
     slot = page.locator('[data-slot-id="slot-3"] .slot-row')
@@ -359,21 +396,23 @@ def exercise(page, url, size, output, play=False):
         page.get_by_role('button', name='Done').click()
     assert page.get_by_role('heading', name='Settings').is_visible()
     assert page.get_by_text('Who can join?', exact=True).is_visible()
-    if size[0] <= 650:
-        for section in ('Controls', 'Sound', 'Voice', 'Profile'):
-            choose_section(page, section)
-            assert settings_controls_fit(page), (size, section)
-        page.get_by_role('combobox', name='Settings section').select_option(label='Voice')
+    for section in ('Controls', 'Sound', 'Voice', 'Profile'):
+        choose_section(page, section)
+        assert settings_controls_fit(page), (size, section)
+    voice_setting = page.get_by_role('combobox', name='Voice setting')
+    choose_section(page, 'Voice')
+    if voice_setting.is_visible():
         for option in ('Other players', 'Devices'):
-            page.get_by_role('combobox', name='Voice setting').select_option(label=option)
+            voice_setting.select_option(label=option)
             assert settings_controls_fit(page), (size, option)
-        choose_section(page, 'Lobby')
+    choose_section(page, 'Lobby')
     base = regions(page)
     page.screenshot(path=str(output / f'lobby-{size[0]}x{size[1]}.png'))
     if play:
         page.get_by_role('button', name='Load NES game').click()
         page.get_by_role('button', name='From Below', exact=True).click()
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
+        assert regions(page) == base
         assert page.get_by_role('button', name='Change game').count() == 1
         assert page.locator('.rc-preview-actions').count() == 0
         assert page.locator('.rc-game-display button', has_text='Change game').count() == 0
@@ -395,11 +434,12 @@ def exercise(page, url, size, output, play=False):
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        playing_regions = regions(page)
         page.keyboard.press('p')
         page.get_by_role('button', name='Prepare to resume').wait_for(timeout=10000)
         assert guide_fits(page), f'Paused guide overflowed at {size}'
         assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
-        regions(page)
+        assert regions(page) == playing_regions
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.keyboard.press('p')
         page.get_by_role('button', name='Resume together').wait_for(timeout=10000)
@@ -410,30 +450,28 @@ def exercise(page, url, size, output, play=False):
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
         page.get_by_role('button', name='Return game to lobby').click()
         assert page.locator('.rc-game-fullscreen').count() == 0
-    if size == (1280, 800):
-        page.evaluate("""() => {
-          window.heldInvites=[];
-          Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise((resolve,reject)=>window.heldInvites.push({resolve,reject}))}});
-        }""")
-        page.get_by_role('button', name='Copy invite').click()
-        page.wait_for_function('window.heldInvites.length === 1')
-        page.get_by_role('button', name='Back to Main Page', exact=True).click()
-        assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
-        page.evaluate('window.heldInvites[0].resolve()')
-        page.wait_for_timeout(100)
-        assert 'Invitation copied.' not in page.locator('.rc-status').inner_text()
-        page.get_by_role('button', name='Stay').click()
-        page.get_by_role('button', name='Copy invite').click()
-        page.wait_for_function('window.heldInvites.length === 2')
+    page.evaluate("""() => {
+      window.heldInvites=[];
+      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise((resolve,reject)=>window.heldInvites.push({resolve,reject}))}});
+    }""")
+    page.get_by_role('button', name='Copy invite').click()
+    page.wait_for_function('window.heldInvites.length === 1')
+    page.get_by_role('button', name='Back to Main Page', exact=True).click()
+    assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
+    page.evaluate('window.heldInvites[0].resolve()')
+    page.wait_for_timeout(100)
+    assert 'Invitation copied.' not in page.locator('.rc-status').inner_text()
+    page.get_by_role('button', name='Stay').click()
+    page.get_by_role('button', name='Copy invite').click()
+    page.wait_for_function('window.heldInvites.length === 2')
     page.get_by_role('button', name='Back to Main Page', exact=True).click()
     assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
     page.get_by_role('button', name='Close lobby').click()
     page.locator('.rc-listing').wait_for(timeout=10000)
-    if size == (1280, 800):
-        page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
-        page.wait_for_timeout(100)
-        assert page.get_by_role('dialog', name='Invitation link').count() == 0
-        assert page.locator('main').get_attribute('data-page') == 'main'
+    page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
+    page.wait_for_timeout(100)
+    assert page.get_by_role('dialog', name='Invitation link').count() == 0
+    assert page.locator('main').get_attribute('data-page') == 'main'
     return {'size': size, 'lobby': name, 'regions': list(base), 'played': play}
 
 
@@ -469,11 +507,16 @@ def main():
                 return
             browser = getattr(playwright, args.browser).launch(headless=True, **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
             try:
-                page = browser.new_page()
-                page.on('pageerror', lambda error: errors.append(str(error)))
-                rows = [exercise(page, url, size, output, play=size in ((1280, 800), (320, 568)))
-                        for size in ((1280, 800), (650, 760), (401, 760), (320, 650), (320, 568))]
-                page.close()
+                rows = []
+                for size in ((1440, 900), (1366, 682), (1024, 600), (650, 760), (401, 760), (320, 650), (320, 568)):
+                    # Each profile is a fresh visitor; repeated lobby creation must
+                    # not exhaust one visitor's admission rate limit.
+                    page = browser.new_page()
+                    page.on('pageerror', lambda error: errors.append(str(error)))
+                    try:
+                        rows.append(exercise(page, url, size, output, play=True))
+                    finally:
+                        page.context.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
                     expired_guest_recovers(browser, url)
