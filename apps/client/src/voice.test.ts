@@ -4,13 +4,13 @@ import {VoiceSession} from './voice.ts';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function environment(){
  const tracks:({enabled:boolean;stopped:boolean}&EventTarget)[]=[],audios:AudioMock[]=[];let captures=0;
- class AudioMock{srcObject:unknown;muted=false;volume=1;paused=false;plays=0;constructor(){audios.push(this);}pause(){this.paused=true;}async play(){this.plays++;}}
+ class AudioMock{srcObject:unknown;muted=false;volume=1;paused=false;plays=0;playResult?:()=>Promise<void>;constructor(){audios.push(this);}pause(){this.paused=true;}async play(){this.plays++;await this.playResult?.();}}
  class Stream{tracks:unknown[];constructor(tracks:unknown[]){this.tracks=tracks;}getTracks(){return this.tracks;}getAudioTracks(){return this.tracks;}}
  const win=new EventTarget(),doc=Object.assign(new EventTarget(),{hidden:false,activeElement:null,hasFocus:()=>false});
  const media=Object.assign(new EventTarget(),{enumerateDevices:async()=>[],getUserMedia:async()=>{captures++;const track=Object.assign(new EventTarget(),{enabled:true,stopped:false,stop(){this.stopped=true;}});tracks.push(track);return new Stream([track]);}});
  const globals={Audio:AudioMock,MediaStream:Stream,window:win,document:doc,navigator:{mediaDevices:media,getGamepads:()=>[]},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{}};
  const saved=new Map<string,PropertyDescriptor|undefined>();for(const [key,value] of Object.entries(globals)){saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,value});}
- return {tracks,audios,win,doc,captures:()=>captures,restore(){for(const [key,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}};
+ return {tracks,audios,win,doc,media,captures:()=>captures,restore(){for(const [key,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}}};
 }
 function connection(){
  const sent:(MediaStreamTrack|null)[]=[],target=new EventTarget(),sender={replaceTrack:async(track:MediaStreamTrack|null)=>{sent.push(track);}},transceiver={sender,receiver:{track:{kind:'audio'}},direction:'sendrecv',currentDirection:'sendrecv'};
@@ -42,5 +42,36 @@ test('answerer binding and stale peer close/track events cannot disturb replacem
   const replacement=voice.forPeer('pair'),fresh=connection();replacement.prepare(fresh.pc,false);replacement.answer(fresh.pc);replacement.connected();fresh.track();await tick();
   first.close();first.answer(old.pc);old.track();await tick();
   assert.equal(fresh.sent.at(-1),env.tracks[0]);assert.equal(stable.sent.at(-1),env.tracks[0]);assert.equal(env.tracks[0].stopped,false);assert.equal(env.tracks[0].enabled,true);assert.equal(env.audios[0].srcObject,null);assert.notEqual(env.audios[2].srcObject,null);assert.equal(voice.current().connected,true);
+ }finally{voice.dispose();env.restore();}
+});
+
+test('a late playback failure cannot replace a newer successful retry',async()=>{
+ const env=environment(),voice=new VoiceSession(()=>{});
+ try{
+  const peer=voice.forPeer('pair'),pc=connection();peer.prepare(pc.pc,true);peer.connected();pc.track();await voice.enable();
+  let reject!:(error:Error)=>void;
+  env.audios[0].playResult=()=>new Promise<void>((_resolve,no)=>{reject=no;});
+  const stale=voice.play();await tick();env.audios[0].playResult=undefined;await voice.play();
+  reject(Error('old playback failed'));await stale;
+  assert.equal(voice.current().playbackError,undefined);
+  env.audios[0].playResult=()=>new Promise<void>((_resolve,no)=>{reject=no;});
+  const replaced=voice.play();await tick();const fresh=connection();peer.prepare(fresh.pc,true);peer.connected();fresh.track();await tick();
+  reject(Error('replaced playback failed'));await replaced;assert.equal(voice.current().playbackError,undefined);
+  env.audios.at(-1)!.playResult=()=>new Promise<void>((_resolve,no)=>{reject=no;});
+  const departed=voice.play();await tick();voice.close();reject(Error('departed playback failed'));await departed;
+  assert.equal(voice.current().playbackError,undefined);assert.equal(voice.current().listening,false);
+ }finally{voice.dispose();env.restore();}
+});
+test('a late device-list failure cannot replace a newer successful refresh',async()=>{
+ const env=environment(),voice=new VoiceSession(()=>{});
+ try{
+  let reject!:(error:Error)=>void;
+  env.media.enumerateDevices=()=>new Promise((_resolve,no)=>{reject=no;});
+  const stale=voice.listDevices();env.media.enumerateDevices=async()=>[];await voice.listDevices();
+  reject(Error('old enumeration failed'));await stale;
+  assert.equal(voice.current().deviceError,undefined);
+  env.media.enumerateDevices=()=>new Promise((_resolve,no)=>{reject=no;});
+  const departed=voice.listDevices();voice.close();reject(Error('departed enumeration failed'));await departed;
+  assert.equal(voice.current().deviceError,undefined);
  }finally{voice.dispose();env.restore();}
 });
