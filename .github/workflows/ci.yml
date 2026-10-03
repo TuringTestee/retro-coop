@@ -258,7 +258,7 @@ jobs:
           mkdir -p /tmp/retro-eb-tools
           tar -xzf /tmp/go-containerregistry.tar.gz -C /tmp/retro-eb-tools crane
       - name: Publish checked images and bundle
-        timeout-minutes: 4
+        timeout-minutes: 3
         run: |
           set -euo pipefail
           python3 scripts/aws_eb/build_release.py --crane /tmp/retro-eb-tools/crane \
@@ -284,12 +284,18 @@ jobs:
           echo "previous=$previous" >> "$GITHUB_OUTPUT"
           echo "bucket=$bucket" >> "$GITHUB_OUTPUT"
           echo "version=main-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - name: Prepare the live Chromium check
+        timeout-minutes: 2
+        run: |
+          python3 -m venv /tmp/retro-live-check
+          /tmp/retro-live-check/bin/pip install --quiet playwright==1.58.0
+          /tmp/retro-live-check/bin/python -m playwright install --with-deps chromium
       - name: Reconcile reviewed TURN ingress
-        timeout-minutes: 4
+        timeout-minutes: 3
         run: python3 scripts/aws_eb/relay_capacity.py --apply
       - name: Deploy to EB
         id: deploy
-        timeout-minutes: 8
+        timeout-minutes: 5
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ steps.credentials.outputs.aws-access-key-id }}
@@ -332,8 +338,22 @@ jobs:
             echo "Public endpoint: $SITE_URL"
             echo "Release elapsed after gate: $(( $(date +%s) - GATE_COMPLETED )) seconds"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify 30 seconds of live host-and-guest play
+        id: live
+        timeout-minutes: 2
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          /tmp/retro-live-check/bin/python scripts/rooms/two_agent_game.py --role run \
+            --url "$SITE_URL" --rom apps/client/src/assets/super-tilt-bro-e.nes --play-seconds 30 \
+            --session-dir "$RUNNER_TEMP/live-release-$GITHUB_RUN_ID"
+          {
+            echo '### Live game check'
+            echo 'Two fresh Chromium processes hosted, joined, and played for 30 seconds with matching paused state.'
+            cat "$RUNNER_TEMP/live-release-$GITHUB_RUN_ID/result.json"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Restore the previous release after deployment failure
-        if: ${{ failure() && steps.release.outputs.previous != '' && (steps.deploy.outcome == 'failure' || steps.confirm.outcome == 'failure') }}
+        if: ${{ failure() && steps.release.outputs.previous != '' && (steps.deploy.outcome == 'failure' || steps.confirm.outcome == 'failure' || steps.live.outcome == 'failure') }}
         timeout-minutes: 5
         env:
           EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
@@ -342,3 +362,11 @@ jobs:
           PREVIOUS_VERSION: ${{ steps.release.outputs.previous }}
           ATTEMPTED_VERSION: ${{ steps.release.outputs.version }}
         run: python3 scripts/aws_eb/release_recovery.py --previous "$PREVIOUS_VERSION" --attempted "$ATTEMPTED_VERSION"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        timeout-minutes: 1
+        with:
+          name: live-release-proof
+          path: ${{ runner.temp }}/live-release-${{ github.run_id }}
+          if-no-files-found: ignore
+          retention-days: 7
