@@ -6,6 +6,8 @@ from contextlib import ExitStack
 import hashlib
 import json
 import os
+import math
+import statistics
 import subprocess
 import struct
 import sys
@@ -30,10 +32,14 @@ parser.add_argument('--session-dir', type=Path, required=True)
 parser.add_argument('--width', type=int, default=1366)
 parser.add_argument('--height', type=int, default=682)
 parser.add_argument('--zoom', type=int, choices=(1, 2), default=1)
+parser.add_argument('--play-seconds', type=int, default=0)
 args = parser.parse_args()
 ROOT = args.runtime_root.resolve()
 SESSION = args.session_dir.resolve()
 SESSION.mkdir(parents=True, exist_ok=True)
+if not 0 <= args.play_seconds <= 30:
+    parser.error('--play-seconds must be between 0 and 30')
+LOBBY_NAME = 'Play check ' + hashlib.sha256(str(SESSION).encode()).hexdigest()[:10]
 EXPECTED_RAM = [int(value) for value in args.expect_controller_ram.split(',')] if args.expect_controller_ram else None
 if EXPECTED_RAM is not None and (len(EXPECTED_RAM) != 2 or any(value < 0 or value > 255 for value in EXPECTED_RAM)):
     parser.error('--expect-controller-ram needs two byte values')
@@ -97,6 +103,13 @@ def verify():
     assert guest['rom_argument_received'] is False and guest['file_chooser_count'] == 0
     assert host['filename_absent_from_websocket']
     assert not host['page_errors'] and not guest['page_errors']
+    assert host['continuous_play_seconds'] >= args.play_seconds
+    assert guest['continuous_play_seconds'] >= args.play_seconds
+    if args.play_seconds:
+        for player in (host, guest):
+            assert player['measured_fps'] > 0
+            assert player['ping_ms'] >= 0 and math.isfinite(player['ping_ms'])
+            assert player['routes'] and all(route in ('direct', 'relay') for route in player['routes'])
     for role in ('host','guest'):
         for view in ('playing','paused'):
             assert (SESSION / f'{role}-{view}.png').stat().st_size > 0
@@ -112,6 +125,9 @@ def verify():
         'host_filename_absent_from_websocket': True,
         'host_elapsed_seconds': host['elapsed_seconds'],
         'guest_elapsed_seconds': guest['elapsed_seconds'],
+        'continuous_play_seconds': min(host['continuous_play_seconds'], guest['continuous_play_seconds']),
+        'host_metrics': {key: host[key] for key in ('measured_fps', 'ping_ms', 'routes')},
+        'guest_metrics': {key: guest[key] for key in ('measured_fps', 'ping_ms', 'routes')},
     }
     save('result.json', result)
     print(json.dumps(result, indent=2))
@@ -123,13 +139,16 @@ def run_pair():
     if any((SESSION / name).exists() for name in ('host-ready.json','host.json','guest.json')):
         parser.error('run needs a fresh --session-dir')
     with (SESSION / 'server.log').open('w') as server_log:
-        service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
-                                   stdout=subprocess.PIPE, stderr=server_log, text=True)
+        service = None
         try:
-            line = service.stdout.readline()
-            if not line:
-                raise RuntimeError('The browser gateway exited before reporting its URL')
-            url = json.loads(line)['url']
+            url = args.url
+            if not url:
+                service = subprocess.Popen(['node', 'scripts/rooms/browser-server.ts'], cwd=ROOT,
+                                           stdout=subprocess.PIPE, stderr=server_log, text=True)
+                line = service.stdout.readline()
+                if not line:
+                    raise RuntimeError('The browser gateway exited before reporting its URL')
+                url = json.loads(line)['url']
             workers = []
             with (SESSION / 'host.log').open('w') as host_log, (SESSION / 'guest.log').open('w') as guest_log:
                 for role, log in (('host',host_log),('guest',guest_log)):
@@ -137,7 +156,8 @@ def run_pair():
                     command = [sys.executable, __file__, '--role', role, '--url', url,
                                *rom_arg, '--runtime-root', str(ROOT), '--session-dir', str(SESSION),
                                '--width', str(args.width), '--height', str(args.height),
-                               '--zoom', str(args.zoom), '--visibility', args.visibility]
+                               '--zoom', str(args.zoom), '--visibility', args.visibility,
+                               '--play-seconds', str(args.play_seconds)]
                     if args.expect_controller_ram:
                         command.extend(['--expect-controller-ram', args.expect_controller_ram])
                     workers.append(subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT))
@@ -164,8 +184,9 @@ def run_pair():
                     print(f'{role} log:\n{log.read_text()[-6000:]}', file=sys.stderr)
             raise
         finally:
-            service.terminate()
-            service.wait(timeout=5)
+            if service:
+                service.terminate()
+                service.wait(timeout=5)
     verify()
 
 
@@ -215,7 +236,7 @@ def player():
 
             if args.role == 'host':
                 page.get_by_role('button', name='Host a new game').click()
-                rename_lobby(page, 'Shared Lab')
+                rename_lobby(page, LOBBY_NAME)
                 if args.visibility == 'protected':
                     protect_lobby(page, 'blue-sky-room')
                 page.get_by_role('button', name='Load NES game').wait_for()
@@ -250,8 +271,8 @@ def player():
                     page.get_by_role('button', name='Join lobby', exact=True).click()
                 else:
                     page.locator('.rc-listing').wait_for()
-                    page.get_by_placeholder('Search lobbies').fill('Shared Lab')
-                    page.locator('.rc-lobby-card').filter(has_text='Shared Lab').click()
+                    page.get_by_placeholder('Search lobbies').fill(LOBBY_NAME)
+                    page.locator('.rc-lobby-card').filter(has_text=LOBBY_NAME).click()
                 wait_for_page('proof.room?.role==="member"')
                 assert page.evaluate('proof.room.id') == expected['room_id']
                 rom_hash = page.evaluate('proof.room.fingerprint.romSha256')
@@ -270,6 +291,26 @@ def player():
             page.keyboard.press('Space')
             held_from = page.evaluate('proof.frameCount')
             page.keyboard.down('z' if args.role == 'host' else 'c')
+            play_started = time.monotonic()
+            play_frame = held_from
+            while time.monotonic() - play_started < args.play_seconds:
+                wait_for_page('previous => proof.frameCount > previous', arg=play_frame, timeout=5000)
+                play_frame = page.evaluate('proof.frameCount')
+                assert page.evaluate('proof.room?.game?.status === "playing" && !proof.workloadStopped'), 'Shared play stopped during the live check'
+                page.wait_for_timeout(250)
+            continuous_play_seconds = round(time.monotonic() - play_started, 2)
+            measured_fps = round((play_frame-held_from)/continuous_play_seconds, 2) if args.play_seconds else None
+            rtts = page.evaluate('proof.admission.nonceRttMs')
+            ping_ms = round(statistics.median(rtts), 2) if rtts else None
+            reported_routes = {}
+            for raw in sent_frames:
+                try:
+                    packet = json.loads(raw)
+                except (ValueError, UnicodeDecodeError):
+                    continue
+                if packet.get('type') == 'peerRoute':
+                    reported_routes[packet['pairId']] = packet['route']
+            routes = [reported_routes.get(peer['pairId']) for peer in page.evaluate('proof.room.peers')]
             wait_for_page('target => proof.frameCount >= target', arg=max(220, held_from + 60), timeout=30000)
             if EXPECTED_RAM is not None:
                 page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
@@ -284,6 +325,8 @@ def player():
             frames = page.evaluate('proof.frameCount')
             shell = shell_bounds(page)
             screenshot(page, f'{args.role}-playing.png')
+            save(f'{args.role}-playing-captured.json', {'frames': frames})
+            wait_for(f'{"guest" if args.role == "host" else "host"}-playing-captured.json', 15)
             if args.role == 'guest':
                 page.keyboard.press('p')
                 save('guest-200.json', {'frames': frames})
@@ -316,6 +359,8 @@ def player():
                 'file_chooser_count':len(file_choosers),'zoom_verified':verify_zoom(zoom_worker,zoom_receipt) if zoom_worker else None,
                 'filename_absent_from_websocket':filename_absent,
                 'elapsed_seconds':round(time.monotonic()-started,2),'page_errors':errors,
+                'continuous_play_seconds':continuous_play_seconds,
+                'measured_fps':measured_fps,'ping_ms':ping_ms,'routes':routes,
             }
             save(f'{args.role}.json', evidence)
             wait_for(f'{"guest" if args.role == "host" else "host"}.json', 15)
@@ -328,6 +373,17 @@ def player():
                 'status':page.locator('.rc-status').all_inner_texts(),'page_errors':errors,
             })
             raise
+        finally:
+            if args.role == 'host':
+                try:
+                    page.set_default_timeout(3000)
+                    back = page.get_by_role('button', name='Back to Main Page')
+                    if back.is_visible():
+                        back.click()
+                        page.get_by_role('button', name='Close lobby', exact=True).click()
+                        page.locator('.rc-listing').wait_for()
+                except Exception as error:
+                    print(f'Test lobby cleanup failed: {error}', file=sys.stderr)
 
 
 if args.role == 'verify':
