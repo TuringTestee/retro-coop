@@ -64,4 +64,4 @@ Preserve the approved five-developer-day **combined initial feasibility package*
 
 ## Verification
 
-Source inspection and metadata consistency are the relevant D01 checks. The accompanying [verification procedure](d01/verification.md) checks pins, file hashes, mapper enumeration, fixture header/hash and status honesty from exact source checkouts. Run the README preflight and existing bounded CI as well. No product test suite, browser replay, performance measurement, fixture execution, visual proof, or post-submit soak is claimed for this inventory-only change.
+Source inspection and metadata consistency are the relevant D01 checks. The [archived verification procedure](https://github.com/TuringTestee/retro-coop/blob/a8eed786407c16b16dcbac2d8f4ad2679c91661a/docs/implementation/d01/verification.md) checks pins, file hashes, mapper enumeration, fixture header/hash and status honesty from exact source checkouts. Run the README preflight and existing bounded CI as well. No product test suite, browser replay, performance measurement, fixture execution, visual proof, or post-submit soak is claimed for this inventory-only change.
