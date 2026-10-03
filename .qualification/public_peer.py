@@ -59,7 +59,9 @@ with sync_playwright() as pw:
    page.get_by_role('button',name='Retry game',exact=True).wait_for();capture('download-failed')
    result['download_failure_visible']=True
    page.get_by_role('button',name='Retry game',exact=True).click()
+  if a.role=='host':marker('GUEST PREPARED')
   expect(page.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=60000);page.get_by_role('button',name='Ready',exact=True).click()
+  if a.role=='guest':chat('GUEST PREPARED')
   if a.role=='host':
    expect(page.get_by_role('button',name='Start →')).to_be_enabled(timeout=60000);page.get_by_role('button',name='Start →').click()
   wait('proof.room?.game?.status==="playing"');page.evaluate('releaseFrames()');wait('proof.frameCount>=10')
