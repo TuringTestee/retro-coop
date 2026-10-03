@@ -28,7 +28,6 @@ A configured coordinator accepts `TURN_URLS` (comma-separated turn/turns URLs), 
 npm test
 timeout 60s sh scripts/preflight.sh
 python3 scripts/peer/browser_smoke.py --output /tmp/peer.local.json
-python3 scripts/rooms/browser_smoke.py --output /tmp/rooms.local.json
 python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
 ```
 
