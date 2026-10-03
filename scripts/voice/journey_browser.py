@@ -293,6 +293,9 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.get_by_role('button', name='Enable voice sound', exact=True).click()
     host.get_by_text('Remote voice playback was blocked.', exact=True).wait_for(state='detached')
     assert host.evaluate('voiceAudio.at(-1).paused===false')
+    mic(guest, True)
+    result['compact_playback_retry_audio'] = energy(host, True, sender=guest)
+    mic(guest, False)
     assert host.evaluate('pcs.length') == peer_count
     assert host.evaluate('captures.length') == capture_count
     result['compact_playback_recovered'] = True
