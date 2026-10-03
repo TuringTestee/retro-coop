@@ -40,4 +40,4 @@ This implements the local part of U5/S12 and AC-07 in [issue #10](https://github
 
 ## Reproduction
 
-Use the README preparation, then `timeout 60s sh scripts/preflight.sh`. Run `sh scripts/foundation/prepare.sh`, `npm run build` and `python3 scripts/foundation/browser_smoke.py --chrome --output /tmp/foundation.local.json` for actual WASM/browser proof. Existing CI's `foundation.local.*.png` pattern retains the rewind screenshots. No job/deadline increase is introduced. Native qualification lives in the normal library suite; browser proof remains outside the one-minute local preflight. Audio tests use only application gain mute.
+Current verification uses the README preflight and the Chromium public-entry journeys in `spikes/d02/ci_job.sh`. The obsolete standalone UI probes have been removed; their delivery-time results remain historical evidence.

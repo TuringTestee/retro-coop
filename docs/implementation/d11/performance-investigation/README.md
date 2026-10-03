@@ -38,21 +38,9 @@ Stock BiDi preload scripts produced `Permission denied to access property "lengt
 
 Retained initialization failures distinguish hash-navigation, real focus, preload errors and an author-found script-scope collision from product failures. The scope collision was corrected by preserving the separate scopes of the original preload scripts.
 
-## Reproduction
+## Historical reproduction
 
-These reproduction commands belong to the historical test revision; the pinned installer has been retired from the current tree:
-
-```sh
-python3 spikes/d02/prepare_stock_firefox.py /tmp/d11-official
-ORACLE_FIREFOX=/tmp/d11-official/firefox/firefox python3 scripts/gameplay/performance_probe.py /tmp/official.json
-ORACLE_FIREFOX=/path/to/playwright/firefox python3 scripts/gameplay/performance_probe.py /tmp/bundled.json
-```
-
-`performance_automated.py` runs the same workload through the patched Playwright driver used for the compiler experiments. Both scripts share `performance-workload.js`, `performance-worker.js` and the existing actual-worker lifecycle helper. `managed-*-oracle.json` verifies the checked-in standalone harness.
-
-For rejected compiler experiments, use a disposable checkout of the measured source. The included patches describe the isolated PPU/output changes. Thin LTO used `CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1` with `cargo +1.95.0 build --locked --offline --release --lib --target wasm32-unknown-unknown` from `spikes/d02`; default release optimization already used level 3. Copy that generated core to `apps/client/src/generated/`, rebuild the client, then run the exact-output oracle. Do not combine rejected changes or treat them as the delivered fix.
-
-All three required production pairs still need 600 seconds under the original kernel impairment, input-delay range, periodic hashes, real-time frame count and one-second stall/debt limits. The current failed run is not reclassified; the repaired final candidate requires new CI qualification and independent review.
+The Firefox performance probes and compiler-experiment workload have been retired. Their recorded results describe the historical revision; current Chromium gameplay checks live in `spikes/d02/ci_job.sh`.
 
 ## Current repair checks
 

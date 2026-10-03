@@ -17,7 +17,6 @@ sh -n scripts/preflight.sh
 sh -n scripts/demo.sh
 python3 scripts/public_entrypoint_smoke.py --source-only
 node --check scripts/gameplay/fixture.js
-node --check scripts/foundation/gamepad_fixture.js
 bash -n spikes/d02/ci_job.sh
 node --check scripts/voice/fixtures.js
 python3 -c 'import ast, pathlib; root=pathlib.Path("spikes/d02"); [ast.parse(p.read_text()) for p in [*root.glob("*.py"), *pathlib.Path("scripts").glob("*.py"), *pathlib.Path("scripts/foundation").glob("*.py"), *pathlib.Path("scripts/rooms").glob("*.py"), *pathlib.Path("scripts/peer").glob("*.py"), *pathlib.Path("scripts/featured").glob("*.py"), *pathlib.Path("scripts/voice").glob("*.py"), *pathlib.Path("scripts/gameplay").glob("*.py"), *pathlib.Path("scripts/aws_eb").glob("*.py")]]'
