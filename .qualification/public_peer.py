@@ -34,7 +34,7 @@ with sync_playwright() as pw:
   field=page.get_by_role('textbox',name='Message everyone');field.fill(text);field.press('Enter')
  def marker(text,timeout=120000):
   page.get_by_role('log',name='Lobby messages').get_by_text(text,exact=False).wait_for(timeout=timeout)
- def wait(expr,timeout=60000):page.wait_for_function(expr,timeout=timeout)
+ def wait(expr,timeout=60000):page.wait_for_function(expr,timeout=timeout,polling=100)
  def capture(name):page.screenshot(path=str(out/f'{a.role}-{name}.png'))
  try:
   page.goto(url);page.locator('.rc-listing').wait_for()
@@ -48,17 +48,21 @@ with sync_playwright() as pw:
    print('HOST_READY '+json.dumps({'lobby':a.lobby,'rom':result['rom_sha256']}),flush=True)
    wait('proof.room?.occupancy===2',480000)
   else:
+   first_download=[True]
    def reject_first_download(route):
-    page.unroute('**/rooms/*/rom',reject_first_download);route.abort('failed')
+    if first_download[0]:first_download[0]=False;route.abort('failed')
+    else:route.continue_()
    page.route('**/rooms/*/rom',reject_first_download)
    page.get_by_placeholder('Search lobbies').fill(a.lobby)
    page.locator('.rc-lobby-card').filter(has_text=a.lobby).wait_for(timeout=60000);page.locator('.rc-lobby-card').filter(has_text=a.lobby).click()
    wait('proof.room?.role==="member"')
+   print('GUEST_ROOM '+json.dumps(page.evaluate('proof.room')),flush=True)
    result['rom_sha256']=page.evaluate('proof.room.fingerprint.romSha256')
    chat('REMOTE GUEST JOINED')
    page.get_by_role('button',name='Retry game',exact=True).wait_for();capture('download-failed')
    result['download_failure_visible']=True
    page.get_by_role('button',name='Retry game',exact=True).click()
+   page.unroute('**/rooms/*/rom',reject_first_download)
   if a.role=='host':marker('GUEST PREPARED')
   expect(page.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=60000);page.get_by_role('button',name='Ready',exact=True).click()
   if a.role=='guest':chat('GUEST PREPARED')
@@ -101,7 +105,7 @@ with sync_playwright() as pw:
    assert any(r['status']==200 and r['sha256']==result['rom_sha256'] for r in result['rom_downloads']),result['rom_downloads']
   result['result']='pass'
  except Exception as e:
-  result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();capture('failure');raise
+  result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');capture('failure');raise
  finally:
   try:
    page.set_default_timeout(3000)
