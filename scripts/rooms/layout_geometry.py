@@ -159,7 +159,8 @@ def browser_zoom(page, worker, factor=2):
     settings = worker.evaluate('''async ({url,factor})=>{
       const matches=(await chrome.tabs.query({})).filter(t=>t.url===url);
       if(matches.length!==1)throw Error('Zoom target must have a unique URL');
-      const tab=matches[0];await chrome.tabs.setZoomSettings(tab.id,{mode:'automatic',scope:'per-tab'});
+      // Origin scope preserves real browser zoom through same-origin navigation.
+      const tab=matches[0];await chrome.tabs.setZoomSettings(tab.id,{mode:'automatic',scope:'per-origin'});
       await chrome.tabs.setZoom(tab.id,factor);
       return {tabId:tab.id,zoom:await chrome.tabs.getZoom(tab.id),settings:await chrome.tabs.getZoomSettings(tab.id)};
     }''', {'url': page.url, 'factor': factor})

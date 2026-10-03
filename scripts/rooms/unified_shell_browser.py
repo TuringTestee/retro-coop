@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, zoom_context, control_visibility
+from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom
 from ui_helpers import choose_section
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -321,8 +321,8 @@ def host(page, url):
 
 
 def exercise(page, url, size, output, play=False):
-    page.set_viewport_size({'width': size[0], 'height': size[1]})
     name = host(page, url)
+    assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     assert name
     before = page.locator('.rc-identity').bounding_box()
     names_fit(page)
@@ -513,6 +513,7 @@ def exercise(page, url, size, output, play=False):
     page.wait_for_timeout(100)
     assert page.get_by_role('dialog', name='Invitation link').count() == 0
     assert page.locator('main').get_attribute('data-page') == 'main'
+    assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     return {'size': size, 'lobby': name, 'regions': list(base), 'played': play, 'rendered_game': rendered_game if play else None}
 
 
@@ -541,7 +542,12 @@ def main():
                     page.goto(url, wait_until='domcontentloaded')
                     zoom = browser_zoom(page, worker, 2)
                     page.on('pageerror', lambda error: errors.append(str(error)))
-                    rows = [exercise(page, url, (320, 568), output, play=True)]
+                    actual_size = tuple(page.evaluate('[innerWidth, innerHeight]'))
+                    verify_zoom(worker, zoom)
+                    rows = [exercise(page, url, actual_size, output, play=True)]
+                    verify_zoom(worker, zoom)
+                    zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
+                    assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
                     page.close()
                 assert not errors, errors
                 print(json.dumps({'result': 'pass', 'zoom': zoom, 'checks': rows}), flush=True)
@@ -554,6 +560,7 @@ def main():
                     # Each page has a fresh visitor token; shared storage keeps
                     # repeated asset acquisition inside the browser gate budget.
                     page = profile_context.new_page()
+                    page.set_viewport_size({'width': size[0], 'height': size[1]})
                     page.on('pageerror', lambda error: errors.append(str(error)))
                     try:
                         rows.append(exercise(page, url, size, output, play=True))
