@@ -94,4 +94,11 @@ with sync_playwright() as pw:
  except Exception as e:
   result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();capture('failure');raise
  finally:
+  try:
+   page.set_default_timeout(3000)
+   if page.get_by_role('button',name='Back to Main Page').is_visible():
+    page.get_by_role('button',name='Back to Main Page').click()
+    page.get_by_role('alertdialog').get_by_role('button',name='Close lobby' if a.role=='host' else 'Leave lobby',exact=True).click()
+    page.locator('.rc-listing').wait_for()
+  except Exception as cleanup_error:result['cleanup_error']=str(cleanup_error)
   result['elapsed_seconds']=round(time.monotonic()-started,2);(out/f'{a.role}.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True);b.close()
