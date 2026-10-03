@@ -30,7 +30,7 @@ with sync_playwright() as pw:
  init=(ROOT/'scripts/gameplay/fixture.js').read_text()+"""
  window.captureFailures=[];const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async(...args)=>{try{return await capture(...args)}catch(e){captureFailures.push({name:e.name,message:e.message});throw e}};
  window.pcs=[];const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(config,...args){super({...config,...(MODE==='relay'?{iceTransportPolicy:'relay'}:{})},...args);pcs.push(this)}};
- const WS=WebSocket;window.WebSocket=class extends WS{constructor(...args){super(...args);this.addEventListener('message',event=>{try{const p=JSON.parse(event.data);if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room}catch{}})}};
+ window.readyRequests={};window.readyResults=[];const WS=WebSocket;window.WebSocket=class extends WS{send(raw){try{const v=JSON.parse(raw);if(v.type==='gameReady')readyRequests[v.requestId]={revision:v.revision,roomRevision:v.roomRevision,frame:v.frame,fresh:v.fresh,delay:v.delay}}catch{}return super.send(raw)}constructor(...args){super(...args);this.addEventListener('message',event=>{try{const p=JSON.parse(event.data);if(p.type==='result'&&readyRequests[p.requestId])readyResults.push({request:readyRequests[p.requestId],ok:p.ok,error:p.error});if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room}catch{}})}};
  """.replace('MODE',json.dumps(a.mode))
  page.add_init_script(init)
  def chat(text):
@@ -70,6 +70,11 @@ with sync_playwright() as pw:
    page.unroute('**/rooms/*/rom',reject_first_download)
   expect(page.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=60000);page.get_by_role('button',name='Ready',exact=True).click()
   if a.role=='host':
+   wait('proof.room.game.ready.includes(proof.room.peers[0].member)')
+   retry=page.get_by_role('button',name='Try Ready again',exact=True)
+   if retry.count():
+    capture('ready-retry');result['ready_retry_visible']=True;retry.click()
+   wait('proof.room.game.ready.includes(proof.room.chatMembership)')
    expect(page.get_by_role('button',name='Start →')).to_be_enabled(timeout=60000);page.get_by_role('button',name='Start →').click()
   wait('proof.room?.game?.status==="playing"');page.evaluate('releaseFrames()');wait('proof.frameCount>=10')
   page.get_by_role('button',name='Sound',exact=True).click();page.get_by_role('button',name='Mute game',exact=True).click()
@@ -93,6 +98,7 @@ with sync_playwright() as pw:
    page.wait_for_timeout(100)
   result['play_seconds']=round(time.monotonic()-play_at,2);result['measured_fps']=round((previous-frame0)/result['play_seconds'],2)
   wait('proof.frameCount>=220');page.keyboard.up('z' if a.role=='host' else 'c')
+  result['ready_results']=page.evaluate('window.readyResults')
   result['received_gameplay']=page.evaluate('proof.admission.received')
   assert result['received_gameplay']['input' if a.role=='host' else 'frame']>0,result['received_gameplay']
   result['selected_candidates']=page.evaluate("""async()=>{const all=[];for(const pc of pcs){const s=await pc.getStats();for(const t of s.values())if(t.type==='transport'&&t.selectedCandidatePairId){const p=s.get(t.selectedCandidatePairId),l=s.get(p.localCandidateId),r=s.get(p.remoteCandidateId);all.push({local:l.candidateType,remote:r.candidateType,protocol:l.protocol,roundTripSeconds:p.currentRoundTripTime})}}return all}""")
@@ -116,7 +122,7 @@ with sync_playwright() as pw:
    assert any(r['status']==200 and r['sha256']==result['rom_sha256'] for r in result['rom_downloads']),result['rom_downloads']
   result['result']='pass'
  except Exception as e:
-  result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();result['capture_failures']=page.evaluate('window.captureFailures');result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');capture('failure');raise
+  result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();result['ready_results']=page.evaluate('window.readyResults');result['capture_failures']=page.evaluate('window.captureFailures');result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');capture('failure');raise
  finally:
   try:
    page.set_default_timeout(3000)
