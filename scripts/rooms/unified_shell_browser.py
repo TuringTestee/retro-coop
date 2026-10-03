@@ -108,6 +108,58 @@ def regions(page):
     return boxes
 
 
+def chat_recovery(page, output, label):
+    """Use the actual outbox after a rejected transport send, with keyboard recovery."""
+    page.evaluate("""() => {
+      window.chatNativeSend = WebSocket.prototype.send;
+      WebSocket.prototype.send = function(raw) {
+        if (JSON.parse(raw).type === 'chat' && window.rejectNextChat) {
+          window.rejectNextChat = false; throw Error('Injected transport send failure');
+        }
+        return window.chatNativeSend.call(this, raw);
+      };
+    }""")
+    entry = page.get_by_role('textbox', name='Message everyone')
+    history = page.get_by_role('log', name='Lobby messages')
+    baseline = regions(page)
+    try:
+        for text, action in (('Retry preserves my message', 'Retry'), ('Discard only my unsent message', 'Discard')):
+            entry.fill(text)
+            page.evaluate('window.rejectNextChat = true')
+            page.get_by_role('button', name='Send', exact=True).click()
+            retry = page.get_by_role('button', name='Retry', exact=True)
+            retry.wait_for()
+            discard = page.get_by_role('button', name='Discard', exact=True)
+            for control in (retry, discard):
+                assert text_fits(control), control.inner_text()
+                control_visibility(control)
+            feedback = page.locator('.rc-chat-feedback')
+            assert text_fits(feedback), feedback.inner_text()
+            assert feedback.evaluate('n => n.parentElement.classList.contains("rc-chat-history")')
+            assert entry.input_value() == text and entry.get_attribute('readonly') is not None
+            history.focus()
+            control_visibility(history, require_focus=True)
+            page.keyboard.press('Home')
+            page.wait_for_function('document.querySelector(".rc-chat-history").scrollTop <= 1')
+            page.keyboard.press('End')
+            page.wait_for_function("""() => {const n=document.querySelector('.rc-chat-history');
+              return n.scrollHeight-n.clientHeight-n.scrollTop <= 1;}""")
+            entry.focus()
+            page.keyboard.press('Tab')
+            control_visibility(retry, require_focus=True)
+            if action == 'Discard':
+                page.keyboard.press('Tab')
+                control_visibility(discard, require_focus=True)
+            page.screenshot(path=str(output / f'chat-{action.lower()}-{label}.png'))
+            page.keyboard.press('Enter')
+            page.wait_for_function('document.querySelector(".rc-chat input").value === ""')
+            assert page.locator('.rc-chat-history li').filter(has_text=text).count() == (1 if action == 'Retry' else 0)
+            assert page.get_by_text('(you) Alex: hello', exact=True).count() == 1
+            assert regions(page) == baseline
+    finally:
+        page.evaluate('() => {WebSocket.prototype.send = window.chatNativeSend;}')
+
+
 def theme_defaults(browser, url):
     for hour, expected in ((10, 'light'), (22, 'dark')):
         context = browser.new_context()
@@ -470,6 +522,7 @@ def exercise(page, url, size, output, play=False):
         page.get_by_role('button', name='Send').click()
         page.get_by_text('(you) Alex: hello', exact=True).wait_for()
         assert text_fits(page.get_by_text('(you) Alex: hello', exact=True))
+        chat_recovery(page, output, f'{size[0]}x{size[1]}')
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start →').click(timeout=30000)
         page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)

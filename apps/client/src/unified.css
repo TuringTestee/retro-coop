@@ -256,8 +256,9 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-chat-history::-webkit-scrollbar { width: 8px; }
 .rc-chat-history::-webkit-scrollbar-track { background: var(--chat-track); }
 .rc-chat-history::-webkit-scrollbar-thumb { background: var(--ink); border: 1px solid var(--chat-track); border-radius: 6px; }
+.rc-chat-history:focus-visible { outline: 2px solid var(--orange); outline-offset: -2px; }
 .rc-chat-history li { margin: 1px 0 5px; overflow-wrap: anywhere; font-size: 14px; }
-.rc-chat form { display: grid; grid-template-columns: minmax(0, 1fr) 122px; gap: 7px; min-height: 0; }
+.rc-chat form { display: grid; grid-template-columns: minmax(0, 1fr) 152px; gap: 7px; min-height: 0; }
 .rc-chat input { width: 100%; height: 100%; }
 .rc-chat form button { min-width: 66px; border: 0; border-radius: 4px; background: var(--ink); color: var(--paper); font-weight: 750; }
 .rc-chat-recovery { display: flex; width: 100%; gap: 4px; }
@@ -589,6 +590,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-chat { position: relative; grid-template-rows: 19px 31px; gap: 0; padding: 0 6px; border-top: 0; }
   .rc-chat-history { font-size: 14px; line-height: 19px; }
   .rc-chat-history li { margin: 0; }
+  .rc-chat form { grid-template-columns: minmax(0,1fr) 132px; }
   .rc-chat form input { height: 31px; padding: 4px 6px; }
   .rc-chat :where(input,button):focus-visible { outline-width: 2px; outline-offset: -3px; }
   .rc-status { padding: 0 6px; line-height: 19px; }
@@ -600,9 +602,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-action-slot { flex: none; }
   .rc-footer button { white-space: normal; font-size: 14px; line-height: 18px; }
   .rc-footer button:focus-visible { outline-width: 2px; outline-offset: -3px; }
-  .rc-chat > .rc-section-head { position: absolute; top: 3px; left: 6px; right: 6px; display: block; background: var(--menu); }
-  .rc-chat > .rc-section-head .rc-eyebrow { display: none; }
-  .rc-chat > .rc-section-head small { font-size: 12px; line-height: 13px; }
+  .rc-chat > .rc-section-head { display: none; }
   .rc-session.rc-local-session, .rc-session.rc-local-session.rc-has-side { grid-template-columns: 0px minmax(0,1fr); }
   .rc-mobile-side-panel:not([hidden]) { display: block; }
   .rc-playing-menu { display: block !important; margin-top: 0; padding: 3px 4px !important; }
