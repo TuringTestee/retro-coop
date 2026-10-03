@@ -18,6 +18,13 @@ with sync_playwright() as pw:
  result['browser']=b.version
  c=b.new_context(viewport={'width':1366,'height':768},permissions=['microphone','clipboard-read','clipboard-write']);page=c.new_page();page.set_default_timeout(30000)
  page.on('pageerror',lambda e:result['page_errors'].append(str(e)))
+ result['rom_downloads']=[];result['file_chooser_count']=0
+ def response(r):
+  if r.url.endswith('/rom') and r.request.method=='GET':
+   result['rom_downloads'].append({'status':r.status,'sha256':hashlib.sha256(r.body()).hexdigest()})
+ page.on('response',response)
+ def chooser(_):result['file_chooser_count']+=1
+ page.on('filechooser',chooser)
  init=(ROOT/'scripts/gameplay/fixture.js').read_text()+"""
  window.pcs=[];const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(config,...args){super({...config,...(MODE==='relay'?{iceTransportPolicy:'relay'}:{})},...args);pcs.push(this)}};
  const WS=WebSocket;window.WebSocket=class extends WS{constructor(...args){super(...args);this.addEventListener('message',event=>{try{const p=JSON.parse(event.data);if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room}catch{}})}};
@@ -74,6 +81,9 @@ with sync_playwright() as pw:
    page.get_by_role('button',name='Back to Main Page').click();page.get_by_role('alertdialog').get_by_role('button',name='Leave lobby',exact=True).click();page.locator('.rc-listing').wait_for();result['left']=True
   else:
    wait('proof.room?.occupancy===1');page.get_by_role('button',name='Back to Main Page').click();page.get_by_role('alertdialog').get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for();result['closed']=True
+  if a.role=='guest':
+   assert result['file_chooser_count']==0
+   assert any(r['status']==200 and r['sha256']==result['rom_sha256'] for r in result['rom_downloads']),result['rom_downloads']
   result['result']='pass'
  except Exception as e:
   result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();capture('failure');raise
