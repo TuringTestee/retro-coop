@@ -1,20 +1,22 @@
-import argparse, hashlib, json, math, struct, time, wave, os, platform, urllib.request
+import argparse, hashlib, json, math, struct, time, wave, os, platform, urllib.request, signal
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts/rooms'))
 from ui_helpers import rename_lobby
-p=argparse.ArgumentParser();p.add_argument('--role',choices=['host','guest'],required=True);p.add_argument('--lobby',required=True);p.add_argument('--mode',choices=['direct','relay'],required=True);p.add_argument('--output',required=True);a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--role',choices=['host','guest'],required=True);p.add_argument('--lobby',required=True);p.add_argument('--mode',choices=['direct','relay'],required=True);p.add_argument('--output',required=True);p.add_argument('--url',default='https://retro-coop.atobot.cloud/');p.add_argument('--check-enter',action='store_true');a=p.parse_args()
+def stop(signum,frame):raise RuntimeError('Qualification interrupted')
+signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
 out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
-url='https://retro-coop.atobot.cloud/'
+url=a.url
 tone=out/'voice.wav'
 with wave.open(str(tone),'wb') as w:
  w.setparams((1,2,48000,0,'NONE','not compressed'));w.writeframes(b''.join(struct.pack('<h',int(6000*math.sin(2*math.pi*440*i/48000))) for i in range(48000)))
 public_ip=urllib.request.urlopen('https://api.ipify.org',timeout=10).read().strip()
 started=time.monotonic();result={'public_ip_sha256':hashlib.sha256(public_ip).hexdigest(),'platform':platform.platform(),'github_run_id':os.environ.get('GITHUB_RUN_ID'),'role':a.role,'mode':a.mode,'url':url,'lobby':a.lobby,'page_errors':[]}
 with sync_playwright() as pw:
- b=pw.chromium.launch(ignore_default_args=['--mute-audio'],args=['--use-fake-device-for-media-stream',f'--use-file-for-fake-audio-capture={tone.resolve()}'])
+ b=pw.chromium.launch(channel='chromium',ignore_default_args=['--mute-audio'],args=['--use-fake-device-for-media-stream',f'--use-file-for-fake-audio-capture={tone.resolve()}'])
  result['browser']=b.version
  c=b.new_context(viewport={'width':1366,'height':768},permissions=['microphone','clipboard-read','clipboard-write']);page=c.new_page();page.set_default_timeout(30000)
  page.on('pageerror',lambda e:result['page_errors'].append(str(e)))
@@ -26,12 +28,16 @@ with sync_playwright() as pw:
  def chooser(_):result['file_chooser_count']+=1
  page.on('filechooser',chooser)
  init=(ROOT/'scripts/gameplay/fixture.js').read_text()+"""
+ window.captureFailures=[];const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async(...args)=>{try{return await capture(...args)}catch(e){captureFailures.push({name:e.name,message:e.message});throw e}};
  window.pcs=[];const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(config,...args){super({...config,...(MODE==='relay'?{iceTransportPolicy:'relay'}:{})},...args);pcs.push(this)}};
  const WS=WebSocket;window.WebSocket=class extends WS{constructor(...args){super(...args);this.addEventListener('message',event=>{try{const p=JSON.parse(event.data);if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room}catch{}})}};
  """.replace('MODE',json.dumps(a.mode))
  page.add_init_script(init)
  def chat(text):
-  field=page.get_by_role('textbox',name='Message everyone');field.fill(text);field.press('Enter')
+  field=page.get_by_role('textbox',name='Message everyone')
+  expect(field).to_be_editable();expect(field).to_have_value('');field.fill(text)
+  page.get_by_role('button',name='Send',exact=True).click()
+  marker(text);expect(field).to_have_value('')
  def marker(text,timeout=120000):
   page.get_by_role('log',name='Lobby messages').get_by_text(text,exact=False).wait_for(timeout=timeout)
  def wait(expr,timeout=60000):page.wait_for_function(expr,timeout=timeout,polling=100)
@@ -58,14 +64,11 @@ with sync_playwright() as pw:
    wait('proof.room?.role==="member" && proof.room.fingerprint')
    print('GUEST_ROOM '+json.dumps(page.evaluate('proof.room')),flush=True)
    result['rom_sha256']=page.evaluate('proof.room.fingerprint.romSha256')
-   chat('REMOTE GUEST JOINED')
    page.get_by_role('button',name='Retry game',exact=True).wait_for();capture('download-failed')
    result['download_failure_visible']=True
    page.get_by_role('button',name='Retry game',exact=True).click()
    page.unroute('**/rooms/*/rom',reject_first_download)
-  if a.role=='host':marker('GUEST PREPARED')
   expect(page.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=60000);page.get_by_role('button',name='Ready',exact=True).click()
-  if a.role=='guest':chat('GUEST PREPARED')
   if a.role=='host':
    expect(page.get_by_role('button',name='Start →')).to_be_enabled(timeout=60000);page.get_by_role('button',name='Start →').click()
   wait('proof.room?.game?.status==="playing"');page.evaluate('releaseFrames()');wait('proof.frameCount>=10')
@@ -73,6 +76,12 @@ with sync_playwright() as pw:
   page.get_by_role('button',name='Voice',exact=True).click();page.get_by_label('Voice mode').select_option('open')
   chat('HOST PLAYING' if a.role=='host' else 'GUEST PLAYING')
   marker('GUEST PLAYING' if a.role=='host' else 'HOST PLAYING')
+  if a.check_enter:
+   field=page.get_by_role('textbox',name='Message everyone');expect(field).to_be_editable();expect(field).to_have_value('')
+   text='HOST ENTER CHAT' if a.role=='host' else 'GUEST ENTER CHAT'
+   field.press_sequentially(text);result['enter_before']=field.evaluate('(n)=>({value:n.value,readOnly:n.readOnly,disabled:n.disabled,sendDisabled:n.form.querySelector("button").disabled})')
+   field.press('Enter');marker(text,10000);marker('GUEST ENTER CHAT' if a.role=='host' else 'HOST ENTER CHAT',10000)
+   result['enter_chat_acknowledged_both']=True
   energy="async()=>{let n=0;for(const p of pcs)for(const s of(await p.getStats()).values())if(s.type==='inbound-rtp'&&s.kind==='audio')n+=s.totalAudioEnergy||0;return n}"
   e0=page.evaluate(energy);page.wait_for_timeout(1500);result['received_audio_energy']=page.evaluate(energy)-e0
   assert result['received_audio_energy']>1e-5,result
@@ -84,13 +93,15 @@ with sync_playwright() as pw:
    page.wait_for_timeout(100)
   result['play_seconds']=round(time.monotonic()-play_at,2);result['measured_fps']=round((previous-frame0)/result['play_seconds'],2)
   wait('proof.frameCount>=220');page.keyboard.up('z' if a.role=='host' else 'c')
+  result['received_gameplay']=page.evaluate('proof.admission.received')
+  assert result['received_gameplay']['input' if a.role=='host' else 'frame']>0,result['received_gameplay']
   result['selected_candidates']=page.evaluate("""async()=>{const all=[];for(const pc of pcs){const s=await pc.getStats();for(const t of s.values())if(t.type==='transport'&&t.selectedCandidatePairId){const p=s.get(t.selectedCandidatePairId),l=s.get(p.localCandidateId),r=s.get(p.remoteCandidateId);all.push({local:l.candidateType,remote:r.candidateType,protocol:l.protocol,roundTripSeconds:p.currentRoundTripTime})}}return all}""")
   assert result['selected_candidates']
   assert all(('relay' in [x['local'],x['remote']])==(a.mode=='relay') for x in result['selected_candidates']),result['selected_candidates']
   capture('playing');chat('HOST SAMPLED' if a.role=='host' else 'GUEST SAMPLED');marker('GUEST SAMPLED' if a.role=='host' else 'HOST SAMPLED')
   if a.role=='host':page.locator('canvas').focus();page.keyboard.press('p')
   wait('proof.room?.game?.status==="paused"');page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900003})");wait('proof.hashes.length>0');page.wait_for_timeout(200)
-  result['paused_hash']=page.evaluate('proof.hashes.at(-1)');result['room_id']=page.evaluate('proof.room.id');result['frames']=page.evaluate('proof.frameCount');capture('paused')
+  result['page_url']=page.url;result['paused_hash']=page.evaluate('proof.hashes.at(-1)');result['room_id']=page.evaluate('proof.room.id');result['frames']=page.evaluate('proof.frameCount');capture('paused')
   chat('HOST PAUSED' if a.role=='host' else 'GUEST PAUSED');marker('GUEST PAUSED' if a.role=='host' else 'HOST PAUSED')
   page.locator('canvas').focus();page.keyboard.press('p')
   if a.role=='host':wait('proof.room?.game?.status==="resume_ready"');page.keyboard.press('p')
@@ -105,7 +116,7 @@ with sync_playwright() as pw:
    assert any(r['status']==200 and r['sha256']==result['rom_sha256'] for r in result['rom_downloads']),result['rom_downloads']
   result['result']='pass'
  except Exception as e:
-  result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');capture('failure');raise
+  result['result']='fail';result['error']=str(e);result['body']=page.locator('body').inner_text();result['capture_failures']=page.evaluate('window.captureFailures');result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');capture('failure');raise
  finally:
   try:
    page.set_default_timeout(3000)
