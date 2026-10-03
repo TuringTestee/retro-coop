@@ -21,17 +21,14 @@ with sync_playwright() as pw:
  c=b.new_context(viewport={'width':1366,'height':768},permissions=['microphone','clipboard-read','clipboard-write']);page=c.new_page();page.set_default_timeout(30000)
  page.on('pageerror',lambda e:result['page_errors'].append(str(e)))
  result['rom_downloads']=[];result['file_chooser_count']=0
- def response(r):
-  if r.url.endswith('/rom') and r.request.method=='GET':
-   result['rom_downloads'].append({'status':r.status,'sha256':hashlib.sha256(r.body()).hexdigest()})
- page.on('response',response)
  def chooser(_):result['file_chooser_count']+=1
  page.on('filechooser',chooser)
  init=(ROOT/'scripts/gameplay/fixture.js').read_text()+"""
+ window.romDownloaded=[];const nativeFetch=window.fetch.bind(window);window.fetch=async(...args)=>{const response=await nativeFetch(...args);if(new URL(response.url).pathname.endsWith('/rom')){const bytes=await response.clone().arrayBuffer();const hash=await crypto.subtle.digest('SHA-256',bytes);romDownloaded.push({status:response.status,bytes:bytes.byteLength,sha256:Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('')})}return response};
  window.captureFailures=[];const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async(...args)=>{try{return await capture(...args)}catch(e){captureFailures.push({name:e.name,message:e.message});throw e}};
- window.pcs=[];const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(config,...args){super({...config,...(MODE==='relay'?{iceTransportPolicy:'relay'}:{})},...args);pcs.push(this)}};
+ window.rejectRelay=MODE==='relay'&&ROLE==='guest';window.pcs=[];const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(config,...args){super({...config,...(MODE==='relay'?{iceTransportPolicy:'relay'}:{}),...(window.rejectRelay?{iceServers:config.iceServers.map(s=>({...s,credential:'qualification-invalid-credential'}))}:{})},...args);pcs.push(this)}};
  window.readyRequests={};window.readyResults=[];const WS=WebSocket;window.WebSocket=class extends WS{send(raw){try{const v=JSON.parse(raw);if(v.type==='gameReady')readyRequests[v.requestId]={revision:v.revision,roomRevision:v.roomRevision,frame:v.frame,fresh:v.fresh,delay:v.delay}}catch{}return super.send(raw)}constructor(...args){super(...args);this.addEventListener('message',event=>{try{const p=JSON.parse(event.data);if(p.type==='result'&&readyRequests[p.requestId])readyResults.push({request:readyRequests[p.requestId],ok:p.ok,error:p.error});if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room}catch{}})}};
- """.replace('MODE',json.dumps(a.mode))
+ """.replace('MODE',json.dumps(a.mode)).replace('ROLE',json.dumps(a.role))
  page.add_init_script(init)
  def chat(text):
   field=page.get_by_role('textbox',name='Message everyone')
@@ -68,6 +65,10 @@ with sync_playwright() as pw:
    result['download_failure_visible']=True
    page.get_by_role('button',name='Retry game',exact=True).click()
    page.unroute('**/rooms/*/rom',reject_first_download)
+   if a.mode=='relay':
+    page.get_by_role('button',name='Retry connection',exact=True).wait_for(timeout=60000);capture('relay-failed');result['induced_relay_auth_failure_visible']=True
+    page.evaluate('window.rejectRelay=false');page.get_by_role('button',name='Retry connection',exact=True).click()
+    wait('proof.room.peers.every(p=>p.status==="connected")');result['relay_retry_connected']=True
   expect(page.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=60000);page.get_by_role('button',name='Ready',exact=True).click()
   if a.role=='host':
    wait('proof.room.game.ready.includes(proof.room.peers[0].member)')
@@ -109,6 +110,13 @@ with sync_playwright() as pw:
   wait('proof.room?.game?.status==="paused"');page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900003})");wait('proof.hashes.length>0');page.wait_for_timeout(200)
   result['page_url']=page.url;result['paused_hash']=page.evaluate('proof.hashes.at(-1)');result['room_id']=page.evaluate('proof.room.id');result['frames']=page.evaluate('proof.frameCount');capture('paused')
   chat('HOST PAUSED' if a.role=='host' else 'GUEST PAUSED');marker('GUEST PAUSED' if a.role=='host' else 'HOST PAUSED')
+  if a.mode=='relay':
+   if a.role=='guest':
+    chat('GUEST RECONNECTING');marker('HOST RECONNECT READY');membership=page.evaluate('proof.room.chatMembership');epoch=page.evaluate('proof.room.peers[0].epoch')
+    page.evaluate('proof.roomSocket.close()');page.get_by_role('button',name='Retry connection',exact=True).wait_for();capture('signaling-disconnected')
+    page.get_by_role('button',name='Retry connection',exact=True).click();wait('proof.room.peers[0].status==="connected" && proof.room.peers[0].epoch!=='+json.dumps(epoch))
+    assert page.evaluate('proof.room.chatMembership')==membership;result['same_membership_reconnected']=True;capture('reconnected');chat('GUEST RECONNECTED')
+   else:marker('GUEST RECONNECTING');chat('HOST RECONNECT READY');marker('GUEST RECONNECTED')
   page.locator('canvas').focus();page.keyboard.press('p')
   if a.role=='host':wait('proof.room?.game?.status==="resume_ready"');page.keyboard.press('p')
   wait('proof.room?.game?.status==="playing"');before=page.evaluate('proof.frameCount');page.wait_for_function('n=>proof.frameCount>n+30',arg=before)
@@ -118,6 +126,7 @@ with sync_playwright() as pw:
   else:
    wait('proof.room?.occupancy===1');page.get_by_role('button',name='Back to Main Page').click();page.get_by_role('alertdialog').get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for();result['closed']=True
   if a.role=='guest':
+   result['rom_downloads']=page.evaluate('romDownloaded')
    assert result['file_chooser_count']==0
    assert any(r['status']==200 and r['sha256']==result['rom_sha256'] for r in result['rom_downloads']),result['rom_downloads']
   result['result']='pass'
