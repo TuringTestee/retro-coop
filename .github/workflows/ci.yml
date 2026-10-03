@@ -219,10 +219,12 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 1
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Require this push to be current main
+        timeout-minutes: 1
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
@@ -231,10 +233,12 @@ jobs:
           git checkout -B main "$GITHUB_SHA"
           test -z "$(git status --porcelain)"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
         with:
           name: aws-eb-arm64-images
           path: aws-eb-arm64-images
       - name: Obtain temporary AWS credentials
+        timeout-minutes: 1
         id: credentials
         uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
@@ -244,6 +248,7 @@ jobs:
           output-credentials: true
           mask-aws-account-id: true
       - name: Install pinned image publisher
+        timeout-minutes: 1
         run: |
           set -euo pipefail
           curl --fail --location --silent --show-error \
@@ -253,12 +258,14 @@ jobs:
           mkdir -p /tmp/retro-eb-tools
           tar -xzf /tmp/go-containerregistry.tar.gz -C /tmp/retro-eb-tools crane
       - name: Publish checked images and bundle
+        timeout-minutes: 4
         run: |
           set -euo pipefail
           python3 scripts/aws_eb/build_release.py --crane /tmp/retro-eb-tools/crane \
             --artifact-dir "$GITHUB_WORKSPACE/aws-eb-arm64-images" \
             --output "$GITHUB_WORKSPACE/retro-coop-release.zip"
       - name: Select existing Elastic Beanstalk environment
+        timeout-minutes: 1
         id: release
         env:
           EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
@@ -278,9 +285,11 @@ jobs:
           echo "bucket=$bucket" >> "$GITHUB_OUTPUT"
           echo "version=main-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
       - name: Reconcile reviewed TURN ingress
+        timeout-minutes: 4
         run: python3 scripts/aws_eb/relay_capacity.py --apply
       - name: Deploy to EB
         id: deploy
+        timeout-minutes: 8
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ steps.credentials.outputs.aws-access-key-id }}
@@ -297,6 +306,7 @@ jobs:
           wait_for_environment_recovery: 120
       - name: Confirm live version and HTTPS
         id: confirm
+        timeout-minutes: 1
         env:
           EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
           EB_ENVIRONMENT_NAME: ${{ vars.EB_ENVIRONMENT_NAME }}
