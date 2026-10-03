@@ -12,14 +12,7 @@ For the current journey, run `sh scripts/demo.sh` and open `http://127.0.0.1:876
 
 For a built preview on port 4173, set `COORDINATOR_ORIGINS=http://127.0.0.1:4173` and configure the static server's `/coordinator/ws` proxy, or set `PUBLIC_COORDINATOR_URL` explicitly when building. Staging requires `COORDINATOR_STAGE=staging` and an explicit comma-separated `COORDINATOR_ORIGINS` allowlist of exact HTTPS client origins. The coordinator accepts `/ws` or `/coordinator/ws`; the test-only gateway in `scripts/rooms/browser-server.ts` demonstrates same-origin routing without choosing a deployment provider.
 
-Run `npm test` for model and actual WebSocket checks, and the README's complete `timeout 60s sh scripts/preflight.sh`. With the built client and Playwright 1.58.0/Chromium installed:
-
-```sh
-python3 scripts/rooms/browser_smoke.py --output /tmp/rooms.local.json
-python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
-```
-
-Use `--chrome` for installed Chrome. The room suite launches its own coordinator and static gateway on private ephemeral loopback ports. The original D08 evidence covered public/unlisted creation, invite preview, independent-client slot races, mismatch correction, cancel/retry, host settings, text rendering, close, stale creation cancellation and service failure. Current access and shared-play acceptance requires the additional journeys in the [access plan](room-access-and-routing.md) and [minimal room plan](minimal-room-journey.md). The original suite inspected outgoing messages for private filenames and forbidden upload fields. It never recorded raw session tokens in JSON evidence; screenshots used synthetic invitations that expired when the test service exited. Application gain remained muted; no system/browser-global audio changes occurred.
+Run `npm test` for model and WebSocket checks and the README pre-flight. The [verification strategy](browser-nes-platform.md#verification-strategy) owns the maintained browser gates.
 
 ## Contracts and state ownership
 
