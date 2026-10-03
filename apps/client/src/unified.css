@@ -593,7 +593,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-chat :where(input,button):focus-visible { outline-width: 2px; outline-offset: -3px; }
   .rc-status { padding: 0 6px; line-height: 19px; }
   .rc-status-dot { display: none; }
-  .rc-status-copy { max-height: 38px; font-weight: 500; }
+  .rc-status-copy { max-height: 38px; font-family: Arial, sans-serif; font-weight: 500; }
   .rc-chat > .rc-section-head { position: absolute; top: 3px; left: 6px; right: 6px; display: block; background: var(--menu); }
   .rc-chat > .rc-section-head .rc-eyebrow { display: none; }
   .rc-chat > .rc-section-head small { font-size: 12px; line-height: 13px; }
