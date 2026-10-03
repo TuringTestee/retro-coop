@@ -502,7 +502,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-session.rc-has-side .rc-game-zone, .rc-session.rc-has-picker .rc-game-zone { grid-column: 1; grid-row: 2; }
   .rc-mobile-side-panel:not([hidden]), .rc-mobile-picker-panel:not([hidden]) { grid-column: 2; grid-row: 2; }
   .rc-session.rc-has-side, .rc-session.rc-has-picker { grid-template-rows: 120px minmax(180px,1fr) 90px; }
-  .rc-session.rc-has-side .rc-players .room-slots, .rc-session.rc-has-picker .rc-players .room-slots { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,40px); }
+  .rc-session.rc-has-side .rc-players .room-slots, .rc-session.rc-has-picker .rc-players .room-slots { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,42px); }
   .rc-session.rc-has-side .rc-players .slot-row, .rc-session.rc-has-picker .rc-players .slot-row { grid-template-rows: 20px 18px; }
   .rc-session.rc-has-side .rc-chat, .rc-session.rc-has-picker .rc-chat { grid-row: 3; }
   .rc-shared-playing, .rc-shared-playing.rc-has-side { grid-template-columns: minmax(0,1fr) clamp(150px,45vw,220px); }
@@ -566,10 +566,14 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-shortcuts span { min-width: 0; overflow-wrap: anywhere; }
 .rc-shortcuts strong { color: var(--guide-system); }
 @media (max-width: 650px) {
-  .rc-shell { grid-template-rows: 152px 64px minmax(0,1fr) 72px; }
+  .rc-shell { grid-template-rows: 168px 64px minmax(0,1fr) 72px; }
+  .rc-header { grid-template-rows: 114px 48px; }
+  .rc-trail { height: 114px; }
   .rc-session, .rc-shared-playing, .rc-shared-playing.rc-has-side, .rc-session.rc-has-side, .rc-session.rc-has-picker { grid-template-rows: 126px 38px minmax(0,1fr) 70px; gap: 2px; }
   .rc-players, .rc-shared-playing .rc-players, .rc-shared-playing.rc-has-side .rc-players, .rc-session.rc-has-side .rc-players { grid-column: 1 / -1; grid-row: 1; }
   .rc-players { background: transparent; pointer-events: none; }
+  .rc-players .slot-state { grid-column: 1 / -1; }
+  .rc-players .slot-row > span:last-child:not(.slot-state) { grid-row: 1; }
   .rc-players .slot-wrap { background: var(--menu); pointer-events: auto; }
   .rc-players .room-slots { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,42px); }
   .rc-game-toolbar { grid-column: 1; grid-row: 2; flex-wrap: wrap; align-content: center; gap: 2px 5px; padding: 2px 6px; }
