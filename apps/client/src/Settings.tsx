@@ -60,26 +60,31 @@ function VoiceSettings({voice,state,compact}:{voice?:VoiceSession;state?:VoiceSt
  const [mobilePage,setMobilePage]=useState<'mic'|'sound'|'devices'>('mic');
  const mic=state?.microphone;
  if(!voice||!state||!mic)return <div className="rc-tool-stack"><p>Voice is off.</p></div>;
- const issue=mic.error||state.connectionError||state.playbackError||state.deviceError;
+ const hasIssue=!!(mic.error||state.connectionError||state.playbackError||state.deviceError);
  if(compact)return <div className="rc-tool-stack rc-voice-settings rc-voice-compact">
   <select className="rc-voice-mobile-select" aria-label="Voice setting" value={mobilePage} onChange={event=>setMobilePage(event.target.value as typeof mobilePage)}><option value="mic">Microphone</option><option value="sound">Other players</option><option value="devices">Devices</option></select>
   {mobilePage==='mic'&&<><div className="rc-tool-actions">{mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:<><button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute mic':'Mute mic'}</button><button onClick={()=>voice.microphone.disable()}>Disable voice</button></>}</div>{mic.phase!=='off'&&mic.phase!=='requesting'&&<select aria-label="Voice mode" value={mic.mode} onChange={event=>voice.microphone.mode(event.target.value as 'open'|'push')}><option value="open">Open microphone</option><option value="push">Push to talk</option></select>}</>}
   {mobilePage==='sound'&&<><label>Other players' volume {Math.round(state.volume*100)}%<input type="range" min="0" max="100" value={Math.round(state.volume*100)} onChange={event=>voice.volume(Number(event.target.value)/100)}/></label><button onClick={()=>voice.remoteMute(!state.remoteMuted)}>{state.remoteMuted?'Unmute others':'Mute others'}</button></>}
   {mobilePage==='devices'&&<><select aria-label="Microphone" value={mic.device} onChange={event=>void voice.device(event.target.value)}><option value="default">Default microphone</option>{mic.device!=='default'&&!state.devices.some(device=>device.id===mic.device)&&<option value={mic.device} disabled>Selected microphone unavailable</option>}{state.devices.map(device=><option key={device.id} value={device.id}>{device.label}</option>)}</select><button onClick={()=>void voice.listDevices()}>Refresh devices</button></>}
-  <VoiceRecovery voice={voice} state={state} issue={issue}/>
+  <VoiceRecovery voice={voice} state={state} microphoneActionShown={mobilePage==='mic'&&mic.phase==='error'} deviceActionShown={mobilePage==='devices'}/>
  </div>;
  return <div className="rc-tool-stack rc-voice-settings">
   <p role="status">{mic.phase==='ready'?(mic.muted?'Microphone muted':'Microphone on'):mic.phase==='requesting'?'Requesting microphone…':mic.phase==='error'?'Microphone unavailable':'Microphone off'}</p>
   <div className="rc-tool-actions">{mic.phase==='requesting'?<button onClick={()=>voice.microphone.disable()}>Cancel microphone request</button>:mic.phase==='off'||mic.phase==='error'?<button disabled={!state.connected||!!state.connectionError} onClick={()=>void voice.enable()}>{mic.phase==='error'?'Try microphone again':'Enable voice'}</button>:<><button onClick={()=>voice.microphone.mute(!mic.muted)}>{mic.muted?'Unmute microphone':'Mute microphone'}</button><button onClick={()=>voice.microphone.disable()}>Disable microphone</button></>}</div>
   <nav className="rc-voice-pages" aria-label="Voice options"><button aria-current={page==='sound'?'page':undefined} onClick={()=>setPage('sound')}>Sound</button><button aria-current={page==='devices'?'page':undefined} onClick={()=>setPage('devices')}>Devices</button></nav>
-  {page==='sound'&&!issue&&<><label>Voice mode<select value={mic.mode} onChange={event=>voice.microphone.mode(event.target.value as 'open'|'push')}><option value="open">Open microphone</option><option value="push">Push to talk</option></select></label><label>Other players' volume {Math.round(state.volume*100)}%<input type="range" min="0" max="100" value={Math.round(state.volume*100)} onChange={event=>voice.volume(Number(event.target.value)/100)}/></label><button onClick={()=>voice.remoteMute(!state.remoteMuted)}>{state.remoteMuted?'Unmute others':'Mute others'}</button></>}
+  {page==='sound'&&!hasIssue&&<><label>Voice mode<select value={mic.mode} onChange={event=>voice.microphone.mode(event.target.value as 'open'|'push')}><option value="open">Open microphone</option><option value="push">Push to talk</option></select></label><label>Other players' volume {Math.round(state.volume*100)}%<input type="range" min="0" max="100" value={Math.round(state.volume*100)} onChange={event=>voice.volume(Number(event.target.value)/100)}/></label><button onClick={()=>voice.remoteMute(!state.remoteMuted)}>{state.remoteMuted?'Unmute others':'Mute others'}</button></>}
   {page==='devices'&&<><label>Microphone<select value={mic.device} onChange={event=>void voice.device(event.target.value)}><option value="default">Default microphone</option>{mic.device!=='default'&&!state.devices.some(device=>device.id===mic.device)&&<option value={mic.device} disabled>Selected microphone unavailable</option>}{state.devices.map(device=><option key={device.id} value={device.id}>{device.label}</option>)}</select></label><button onClick={()=>void voice.listDevices()}>Refresh devices</button></>}
-  <VoiceRecovery voice={voice} state={state} issue={issue}/>
+  <VoiceRecovery voice={voice} state={state} microphoneActionShown={mic.phase==='error'} deviceActionShown={page==='devices'}/>
  </div>;
 }
 
-function VoiceRecovery({voice,state,issue}:{voice:VoiceSession;state:VoiceState;issue?:string}){
+function VoiceRecovery({voice,state,microphoneActionShown,deviceActionShown}:{voice:VoiceSession;state:VoiceState;microphoneActionShown:boolean;deviceActionShown:boolean}){
  const mic=state.microphone;
- if(!issue)return null;
- return <div className="rc-voice-recovery"><p role="status">{issue}</p>{state.connectionError?<button onClick={()=>voice.retryBinding()}>Retry voice connection</button>:state.playbackError?<button onClick={()=>voice.retrySound()}>Enable voice sound</button>:mic.connectionFailure?<button onClick={()=>void voice.microphone.retryConnection()}>Retry microphone</button>:state.deviceError?<button onClick={()=>void voice.listDevices()}>Refresh devices</button>:null}</div>;
+ // Select feedback and its action together: concurrent failures must not mix owners.
+ const recovery=state.connectionError?{message:state.connectionError,label:'Retry voice connection',retry:()=>voice.retryBinding()}:
+  state.playbackError?{message:state.playbackError,label:'Enable voice sound',retry:()=>voice.retrySound()}:
+  mic.error?{message:mic.error,label:mic.connectionFailure?'Retry microphone':mic.phase==='error'&&!microphoneActionShown?'Try microphone again':undefined,retry:()=>void (mic.connectionFailure?voice.microphone.retryConnection():voice.enable())}:
+  state.deviceError?{message:state.deviceError,label:deviceActionShown?undefined:'Refresh devices',retry:()=>void voice.listDevices()}:undefined;
+ if(!recovery)return null;
+ return <div className="rc-voice-recovery"><p role="status">{recovery.message}</p>{recovery.label&&<button onClick={recovery.retry}>{recovery.label}</button>}</div>;
 }

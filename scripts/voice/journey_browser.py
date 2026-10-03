@@ -309,9 +309,22 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.screenshot(path=str(out / 'compact-playback-restored.png'))
     host.get_by_role('combobox', name='Voice setting', exact=True).select_option('mic')
     host.get_by_role('button', name='Disable voice', exact=True).click()
-    host.evaluate('window.rejectAttachment=true')
+    host.evaluate('window.blockPlayback=true;window.rejectAttachment=true')
     host.get_by_role('button', name='Enable voice', exact=True).click()
+    # Both errors must select one matching message/action, in both layouts.
+    host.get_by_text('Remote voice playback was blocked.', exact=True).wait_for()
+    for width in (1366, 320):
+        host.set_viewport_size({'width': width, 'height': 700})
+        host.get_by_role('button', name='Enable voice sound', exact=True).wait_for()
+        assert ' '.join(host.locator('.rc-voice-recovery').inner_text().split()) == 'Remote voice playback was blocked. Enable voice sound'
+        recovery_bounds(host)
+    result['overlapping_recovery_matches_both_layouts'] = True
+    host.screenshot(path=str(out / 'overlapping-playback-recovery.png'))
+    host.evaluate('window.blockPlayback=false')
+    host.get_by_role('button', name='Enable voice sound', exact=True).click()
     host.get_by_role('button', name='Retry microphone', exact=True).wait_for()
+    assert 'A peer microphone connection failed.' in host.locator('.rc-voice-recovery').inner_text()
+    host.screenshot(path=str(out / 'overlapping-microphone-recovery.png'))
     result['compact_attachment_bounds'] = recovery_bounds(host)
     for t in (host, guest):
         game_progress(t)
@@ -322,6 +335,22 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     assert host.evaluate('captures.length') == capture_count
     assert host.evaluate('pcs.length') == peer_count
     result['compact_attachment_retry'] = energy(guest, True, sender=host)
+    host.evaluate('modelMicrophoneRemoval(captures.at(-1).getAudioTracks()[0]);window.blockPlayback=true')
+    host.get_by_role('combobox', name='Voice setting', exact=True).select_option('sound')
+    host.get_by_role('button', name='Mute others', exact=True).click()
+    host.get_by_role('button', name='Unmute others', exact=True).click()
+    host.get_by_text('Remote voice playback was blocked.', exact=True).wait_for()
+    host.evaluate('window.blockPlayback=false')
+    host.get_by_role('button', name='Enable voice sound', exact=True).click()
+    host.get_by_role('button', name='Try microphone again', exact=True).wait_for()
+    assert 'Microphone disconnected.' in host.locator('.rc-voice-recovery').inner_text()
+    host.get_by_role('combobox', name='Voice setting', exact=True).select_option('devices')
+    assert host.get_by_role('button', name='Try microphone again', exact=True).count() == 1
+    host.get_by_role('combobox', name='Voice setting', exact=True).select_option('mic')
+    assert host.get_by_role('button', name='Try microphone again', exact=True).count() == 1
+    host.get_by_role('button', name='Try microphone again', exact=True).click()
+    result['overlapping_device_ended_retry'] = energy(guest, True, sender=host)
+
     for t in (host, guest):
         game_progress(t)
     guest_captures = guest.evaluate('captures.length')
