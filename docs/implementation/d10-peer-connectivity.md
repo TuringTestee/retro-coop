@@ -20,18 +20,16 @@ At exhausted or unavailable relay capacity, the affected pair reports the reason
 
 ## Run and reproduce
 
-For the maintained gamer entrypoint, use the README's pinned tools and run `sh scripts/demo.sh`; it starts the coordinator and client with both included games configured. The lower-level `npm run build` and browser harness commands below are connectivity diagnostics, not a second public setup path. The harness forces direct and relay conditions to verify automatic fallback and honest failure/retry. Existing local games survive connection failures.
+Use the README’s pinned tools and `sh scripts/demo.sh` for the maintained player entrypoint. Current Chromium host/join checks live in `spikes/d02/ci_job.sh`; direct and forced-TURN release proof remains a separate public-network gate.
 
 A configured coordinator accepts `TURN_URLS` (comma-separated turn/turns URLs), `TURN_SECRET` (at least 32 characters), and the pair limit described above. These are operator settings, not browser-exposed shared secrets. Coturn must use the matching REST authentication secret and enforce its own allocation/bandwidth quotas. The service issues member-only credentials with 300-second expiry; it never logs credentials or SDP. TURN allocation quotas must include transient allocations from replaced ICE epochs, not only current pair count; browser closure does not guarantee immediate relay deallocation. Zero configured capacity denies Relay only before creating peers. Standard may use direct connectivity when relay capacity is unavailable; Relay only never changes to Standard automatically.
 
 ```sh
 npm test
 timeout 60s sh scripts/preflight.sh
-python3 scripts/peer/browser_smoke.py --output /tmp/peer.local.json
-python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
 ```
 
-The peer suite requires Playwright 1.58.0, Chromium and `turnserver` (coturn). Use `--chrome` for installed Chrome and `--turnserver /path/to/turnserver` for an unprivileged local extraction. It launches a temporary, loopback-only authenticated relay with bounded allocations/bandwidth and random credentials in a mode-0600 temporary file. No public service or account is provisioned. The post-submit core job retains this suite and installs coturn on its disposable runner; current scheduling and budgets follow the governing [verification strategy](browser-nes-platform.md#verification-strategy). Version and aggregate route evidence are retained; raw SDP, tokens, credentials and candidate addresses are not published.
+The standalone peer UI suite and its private loopback coturn fixture have been removed. Current test scheduling and budgets follow the [verification strategy](browser-nes-platform.md#verification-strategy); historical route measurements do not prove current public-network qualification.
 
 ## Ownership and lifecycle
 

@@ -40,12 +40,4 @@ Direct dependencies use exact versions and the committed npm lockfile: React/Rea
 
 Fast checks: `npm run typecheck`, `npm test`, and the complete README `timeout 60s sh scripts/preflight.sh` after preparing native Rust tests as documented there. Node tests exercise actual HTTP requests and SIGTERM in a child process, plus malformed worker requests.
 
-Real browser check, after preparing assets/building and installing the repository's pinned Playwright 1.58.0 and Chromium:
-
-```sh
-python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
-```
-
-Use `--chrome` to check installed Chrome instead of bundled Chromium. This check observes changed canvas pixels from controller input, real nonzero PCM buffers scheduled through a muted game gain, stable pause output, mobile overflow, browser errors and network requests. It captures matched empty/running screenshots and a mobile view. It never changes system/browser-global audio settings. The current public-entrypoint smoke verifies the maintained launcher and browser journey; shared runtime extraction remains covered by the current client tests.
-
-CI builds the application alongside the emulator, transfers the immutable client artifact to the core job, runs the browser smoke there, and retains its raw JSON/screenshots. The root preflight includes TypeScript and service/contract checks. Current test scheduling and budgets are owned by the governing [verification strategy](browser-nes-platform.md#verification-strategy); this D04 note records its delivery-time evidence.
+Current verification uses the README preflight and the Chromium public-entry journeys in `spikes/d02/ci_job.sh`. The obsolete standalone UI probes have been removed; their delivery-time results remain historical evidence.
