@@ -2,22 +2,13 @@ Audience: Agent
 
 # From Below: selected-game runtime evidence
 
-The exact selected From Below release starts in all three modes in the current local worker. These short checks support its single-player presentation: P1 moves the piece, while the tested P2 inputs leave the video unchanged. They complement the earlier browser and network experiments; they do not complete release qualification.
+Historical checks showed the exact selected From Below release starting in all three modes in the then-current local worker. These short checks support its single-player presentation: P1 moves the piece, while the tested P2 inputs leave the video unchanged. They complement the earlier browser and network experiments; they do not complete release qualification.
 
 ## Identity and reproduction
 
 The creator's NES 1.0 Final download from [the game page](https://mhughson.itch.io/from-below) matches the original selected file: 40,976 bytes, SHA-256 `1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555`. No header patch or alternate release was used. The binary stays outside Git. The [content handoff](featured-from-below.md) owns credits, presentation and included-game requirements.
 
-Build the pinned local WASM with the [application guide](d05-local-play.md). With Python Playwright and Google Chrome installed, run from the repository root:
-
-```sh
-python3 scripts/featured/qualify.py \
-  --rom /path/to/from_below_2020_09_16_v_1_0_0.nes \
-  --wasm apps/client/dist/generated/retro_coop_d02.wasm \
-  --output /tmp/from-below-qualification
-```
-
-The command rejects a different file before launching the browser. It serves only a small canvas harness, the existing worker and supplied WASM over loopback; ROM bytes enter the worker locally. It creates no audio output device and inspects generated PCM instead. This is not a test of the application picker, controls dialog or network room UI.
+The standalone canvas probe is retired. Its [historical source](https://github.com/TuringTestee/retro-coop/blob/fe5cf26dc52b258826a0491be5d099bf21a97074/scripts/featured/qualify.py) and the separate [Super Tilt Bro probe](https://github.com/TuringTestee/retro-coop/blob/fe5cf26dc52b258826a0491be5d099bf21a97074/scripts/featured/qualify_super_tilt.py) remain available for inspecting the original results. Current product checks use the [verification strategy](browser-nes-platform.md#verification-strategy). No equivalent new browser qualification is claimed by this cleanup.
 
 ## Observed results
 

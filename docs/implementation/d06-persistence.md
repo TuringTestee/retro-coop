@@ -24,7 +24,7 @@ Local data is reachable from Settings and storage-error recovery. It lists all s
 
 ## Evidence and reproduction
 
-Run the README preparation, `timeout 60s sh scripts/preflight.sh`, and `python3 scripts/foundation/browser_smoke.py --chrome --output /tmp/foundation.local.json`. `persistence_smoke.py` extends the existing actual-WASM browser workload; CI's existing `foundation.local.*.png` artifact pattern includes its Local data screenshots. There is no new job or increased deadline.
+Current verification uses the README preflight and the Chromium public-entry journeys in `spikes/d02/ci_job.sh`. The obsolete standalone UI probes have been removed; their delivery-time results remain historical evidence.
 
 The browser fixture reads battery RAM at boot into CPU RAM, writes nonzero progress, waits for the real ten-second timer, reloads through the UI, and independently inspects exported machine state to prove that the CPU saw restored battery data before its first instruction. It also proves v1 slot preservation, exact-game preference restoration, raw other-identity export, corrupt-record preservation/recovery, cancellation, cross-tab generation protection, denied-storage play/export, no ROM fields in database records and no outgoing file upload. Older identity coverage uses an explicitly synthetic identity, not a claim of testing an unavailable historical core.
 

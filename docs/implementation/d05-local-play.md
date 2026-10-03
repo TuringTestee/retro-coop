@@ -10,13 +10,7 @@ This records the D05 checkpoint. Use the root [Play instructions](../../README.m
 
 Use the README's pinned tools and run `sh scripts/demo.sh`. Follow the current [Play instructions](../../README.md#play) and in-game guide for keyboard controls; this D05 checkpoint's former defaults have been replaced. Choose a detected gamepad in Settings to use it while the screen has focus. Window blur/background pauses play. See [D07 controls and presentation](d07-controls.md) for remapping, controller recovery, filters, volume and fullscreen. Resume continues the existing worker rather than restarting progress.
 
-For a production bundle run `npm run build`. With Playwright 1.58.0 and Chromium installed:
-
-```sh
-python3 scripts/foundation/browser_smoke.py --output /tmp/foundation.local.json
-```
-
-`--chrome` uses installed Chrome. The browser check uses the original generated diagnostic, never a downloaded commercial title. It observes rendered changes from input and nonzero PCM scheduled through the muted game gain; checks picker/drop, invalid file/hardware preservation, cancellation and late digest completion; compares exact ROM and WASM hashes; proves audio denial leaves frames running and explicit retry recovers; loads representative mapper headers 0/1/2/3/4/7 and an NES 2.0 file over 8 MiB; inspects outbound methods/URLs and mobile overflow. These fixtures exercise admission and basic execution, not bank switching or the complete D20 compatibility matrix. Browser evidence and screenshots are retained by CI's existing `foundation.local.*.png` artifact pattern.
+Current verification uses the README preflight and the Chromium public-entry journeys in `spikes/d02/ci_job.sh`. The obsolete standalone UI probes have been removed; their delivery-time results remain historical evidence.
 
 The README's full `timeout 60s sh scripts/preflight.sh` includes focused header tests, generated-name isolation and existing TypeScript/service/codec checks. Current test scheduling and budgets follow the governing [verification strategy](browser-nes-platform.md#verification-strategy). No additional long post-submit test was introduced for this slice. The release-level 30-attempt cross-browser startup budgets remain D21/D23 qualification; the single browser smoke is not a p95 claim.
 
