@@ -1,6 +1,7 @@
 """Install the pinned Linux CI runtime from Node's checksum-verified release."""
 import argparse
 import hashlib
+from http.client import IncompleteRead, RemoteDisconnected
 import json
 import math
 import os
@@ -15,14 +16,41 @@ import tarfile
 import tempfile
 import time
 from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 
 
 def download(url, destination, deadline):
-    with urlopen(url, timeout=min(10, deadline - time.time())) as response:
-        if not response.geturl().startswith('https://nodejs.org/'):
-            raise ValueError('Node release redirected outside its official HTTPS origin')
-        with destination.open('wb') as output:
-            shutil.copyfileobj(response, output)
+    interrupted = (ConnectionResetError, ConnectionAbortedError, RemoteDisconnected, IncompleteRead)
+    for attempt in range(3):
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise TimeoutError('No download time remains inside the shared deadline')
+        try:
+            with urlopen(url, timeout=min(10, remaining)) as response:
+                if not response.geturl().startswith('https://nodejs.org/'):
+                    raise ValueError('Node release redirected outside its official HTTPS origin')
+                with destination.open('wb') as output:
+                    shutil.copyfileobj(response, output)
+                length = response.headers.get('Content-Length')
+                if length is not None and destination.stat().st_size != int(length):
+                    raise IncompleteRead(b'', int(length) - destination.stat().st_size)
+            return
+        except interrupted as error:
+            failure = error
+        except HTTPError as error:
+            if error.code not in (408, 429, 500, 502, 503, 504):
+                raise
+            failure = error
+        except URLError as error:
+            if not isinstance(error.reason, interrupted):
+                raise
+            failure = error
+        # TimeoutError is deliberately not caught: SIGALRM owns the total deadline.
+        delay = 0.25 * (attempt + 1)
+        if attempt == 2 or deadline - time.time() <= delay:
+            raise failure
+        print(f'Node download interrupted; retry {attempt + 1}/2: {failure}', file=sys.stderr)
+        time.sleep(delay)
 
 
 def verify_archive(archive, checksums):
