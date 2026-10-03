@@ -104,7 +104,7 @@ def control_visibility(locator, require_focus=False):
     """Check full bounds + focused outline against every clipping ancestor."""
     result = locator.evaluate(r"""n=>{
       const b=n.getBoundingClientRect(),style=getComputedStyle(n),focused=n===document.activeElement;
-      const outline=focused ? Math.max(0,parseFloat(style.outlineWidth)||0)+Math.max(0,parseFloat(style.outlineOffset)||0):0;
+      const outline=focused ? Math.max(0,(parseFloat(style.outlineWidth)||0)+(parseFloat(style.outlineOffset)||0)):0;
       let clip={left:0,top:0,right:innerWidth,bottom:innerHeight}; const ancestors=[];
       for(let p=n.parentElement;p;p=p.parentElement){if(p===document.body||p===document.documentElement)continue;
         const s=getComputedStyle(p),r=p.getBoundingClientRect();

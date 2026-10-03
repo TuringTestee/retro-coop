@@ -81,10 +81,18 @@ def regions(page):
     assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
     for row in page.locator('.rc-players .slot-row').all():
         assert text_fits(row), row.inner_text()
-        state = row.locator('.slot-state')
-        if state.count():
-            name_box, state_box = row.locator('strong').bounding_box(), state.bounding_box()
-            assert name_box['y'] + name_box['height'] <= state_box['y'] + 1, row.inner_text()
+        assert row.evaluate("""row => {
+          const fields = [...row.querySelectorAll('strong,.slot-state,.slot-chevron')].map(node => {
+            const range = document.createRange(); range.selectNodeContents(node);
+            return [...range.getClientRects()].filter(rect => rect.width && rect.height);
+          });
+          const bounds = row.getBoundingClientRect();
+          return fields.every(rects => rects.every(rect => rect.left>=bounds.left-1
+            && rect.right<=bounds.right+1 && rect.top>=bounds.top-1 && rect.bottom<=bounds.bottom+1))
+            && fields.every((rects,index) => fields.slice(index+1).every(other =>
+            rects.every(a => other.every(b => Math.min(a.right,b.right)-Math.max(a.left,b.left)<=1
+              || Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<=1))));
+        }"""), row.inner_text()
     assert page.locator('.rc-chat-history').evaluate('(node) => getComputedStyle(node).overflowY === "auto"')
     return boxes
 
@@ -338,7 +346,7 @@ def exercise(page, url, size, output, play=False):
     assert page.locator('.rc-identity').bounding_box() == before
     field = dialog.get_by_role('textbox', name='Your name')
     assert field.bounding_box()['width'] >= 200
-    field.fill('W' * 32)
+    field.fill('漢' * 32)
     dialog.get_by_role('button', name='Cancel').click()
     assert page.locator('.rc-identity').inner_text() == original_identity
     page.get_by_role('button', name='Edit your name:', exact=False).click()
@@ -351,15 +359,15 @@ def exercise(page, url, size, output, play=False):
     page.get_by_role('textbox', name='Lobby name').press('Enter')
     page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     assert page.locator('.rc-identity').bounding_box() == before
-    long_name = 'W' * 80
+    long_name = '漢' * 80
     page.get_by_role('button', name='Edit lobby name: Test Lobby').click()
     page.get_by_role('textbox', name='Lobby name').fill(long_name)
     page.get_by_role('button', name='Save name').click()
     page.get_by_role('button', name=f'Edit lobby name: {long_name}').wait_for()
     page.get_by_role('button', name='Edit your name: Alex').click()
-    page.get_by_role('textbox', name='Your name', exact=True).fill('W' * 32)
+    page.get_by_role('textbox', name='Your name', exact=True).fill('漢' * 32)
     page.get_by_role('button', name='Save name', exact=True).click()
-    page.get_by_role('button', name='Edit your name: ' + 'W' * 32).wait_for()
+    page.get_by_role('button', name='Edit your name: ' + '漢' * 32).wait_for()
     names_fit(page)
     assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
     assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
@@ -368,17 +376,19 @@ def exercise(page, url, size, output, play=False):
     slot_text = page.locator('.rc-players .slot-row').evaluate_all("""rows => rows.map((row,index) => {
       const saved = {cls: row.className, name: row.querySelector('strong').textContent, status: row.querySelector('.slot-state').textContent};
       row.classList.remove('slot-empty');
-      row.querySelector('strong').textContent = index < 2 ? `P${index+1} · ${'W'.repeat(32)}` : 'W'.repeat(32);
+      row.querySelector('strong').textContent = index < 2 ? `P${index+1} · ${'漢'.repeat(32)}` : '漢'.repeat(32);
       row.querySelector('.slot-state').textContent = 'Waiting for game';
       return saved;
     })""")
     regions(page)
     page.screenshot(path=str(output / f'maximum-peer-text-{size[0]}x{size[1]}.png'))
+    page.locator('.rc-players .slot-state').evaluate_all("nodes => nodes.forEach(node => node.textContent = 'Retry player change')")
+    regions(page)
     page.locator('.rc-players .slot-row').evaluate_all("""(rows,saved) => rows.forEach((row,index) => {
       row.className=saved[index].cls;row.querySelector('strong').textContent=saved[index].name;row.querySelector('.slot-state').textContent=saved[index].status;
     })""", slot_text)
 
-    page.get_by_role('button', name='Edit your name: ' + 'W' * 32).click()
+    page.get_by_role('button', name='Edit your name: ' + '漢' * 32).click()
     page.get_by_role('textbox', name='Your name', exact=True).fill('Alex')
     page.get_by_role('button', name='Save name', exact=True).click()
     assert page.locator('.rc-identity').bounding_box() == before
@@ -390,10 +400,12 @@ def exercise(page, url, size, output, play=False):
     assert invite.count() == 1 and invite.bounding_box()['y'] < page.locator('.rc-game-toolbar').bounding_box()['y']
     for slot_id in ('slot-3', 'slot-5'):
         slot = page.locator(f'[data-slot-id="{slot_id}"] .slot-row')
-        slot.click()
-        control_visibility(slot, require_focus=True)
+        slot.focus()
+        slot.press('ArrowDown')
         menu = page.locator(f'[data-slot-id="{slot_id}"] .slot-menu')
         assert menu.get_by_role('menuitem').all_text_contents() == ['Close slot']
+        page.wait_for_function('document.activeElement?.matches(".slot-menu button")')
+        control_visibility(menu.get_by_role('menuitem'), require_focus=True)
         slot.click()
         assert menu.count() == 0
     assert page.locator('.slot-index').count() == 0
