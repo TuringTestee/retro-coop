@@ -280,6 +280,7 @@ jobs:
       - name: Reconcile reviewed TURN ingress
         run: python3 scripts/aws_eb/relay_capacity.py --apply
       - name: Deploy to EB
+        id: deploy
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ steps.credentials.outputs.aws-access-key-id }}
@@ -295,6 +296,7 @@ jobs:
           use_existing_version_if_available: true
           wait_for_environment_recovery: 120
       - name: Confirm live version and HTTPS
+        id: confirm
         env:
           EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
           EB_ENVIRONMENT_NAME: ${{ vars.EB_ENVIRONMENT_NAME }}
@@ -320,3 +322,13 @@ jobs:
             echo "Public endpoint: $SITE_URL"
             echo "Release elapsed after gate: $(( $(date +%s) - GATE_COMPLETED )) seconds"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Restore the previous release after deployment failure
+        if: ${{ failure() && steps.release.outputs.previous != '' && (steps.deploy.outcome == 'failure' || steps.confirm.outcome == 'failure') }}
+        timeout-minutes: 5
+        env:
+          EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+          EB_ENVIRONMENT_NAME: ${{ vars.EB_ENVIRONMENT_NAME }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          PREVIOUS_VERSION: ${{ steps.release.outputs.previous }}
+          ATTEMPTED_VERSION: ${{ steps.release.outputs.version }}
+        run: python3 scripts/aws_eb/release_recovery.py --previous "$PREVIOUS_VERSION" --attempted "$ATTEMPTED_VERSION"

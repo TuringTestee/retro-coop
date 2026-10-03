@@ -16,6 +16,7 @@ from pathlib import Path
 
 from package import ROOT, IMAGE
 from render_turn import RELAY_MIN_PORT, RELAY_MAX_PORT
+from release_recovery import restore_release
 
 
 ACCOUNT = os.environ.get("RETRO_AWS_ACCOUNT_ID")
@@ -560,15 +561,8 @@ def rollback(args: argparse.Namespace) -> None:
     current = environment()
     if not current or current["Status"] != "Ready":
         raise ValueError("The named EB environment is not ready")
-    versions = aws("elasticbeanstalk", "describe-application-versions", "--application-name", APP,
-                   "--version-labels", args.version)["ApplicationVersions"]
-    if len(versions) != 1 or not re.fullmatch(r"main-[a-f0-9]{12}", args.version):
-        raise ValueError("Rollback target must be an existing immutable Retro Coop main version")
-    if current["VersionLabel"] == args.version:
-        raise ValueError("The requested version is already active")
-    command("elasticbeanstalk", "update-environment", "--environment-name", ENV, "--version-label", args.version)
-    finished = wait_for_environment("Ready")
-    print(json.dumps({"rolledBackTo": finished["VersionLabel"], "health": finished.get("Health"),
+    finished = restore_release(APP, ENV, REGION, args.version, current["VersionLabel"], f'https://{HOST}')
+    print(json.dumps({"rolledBackTo": finished["live"], "health": finished["health"],
                       "note": "Ephemeral rooms restart; players recover by creating or joining a room again."}))
 
 
