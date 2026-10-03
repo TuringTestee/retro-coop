@@ -69,6 +69,24 @@ def energy(page, active, sender=None):
         diagnostics['sender'] = sender.evaluate(inspect)
     raise AssertionError(('audio active' if active else 'audio silent', start, last, diagnostics))
 
+
+def recovery_bounds(page):
+    result = page.locator('.rc-voice-recovery').evaluate("""node => {
+      const rect = item => {const r=item.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
+      const error=node.querySelector('p'),button=node.querySelector('button');
+      const range=document.createRange();range.selectNodeContents(error);
+      return {container:rect(node.closest('.rc-tool-body')),error:rect(error),button:rect(button),
+              text:[...range.getClientRects()].map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom})),
+              viewport:{right:innerWidth,bottom:innerHeight}};
+    }""")
+    box = result['container']
+    for rect in [result['error'], result['button'], *result['text']]:
+        assert rect['left'] >= box['left'] - 1 and rect['top'] >= box['top'] - 1, result
+        assert rect['right'] <= min(box['right'], result['viewport']['right']) + 1, result
+        assert rect['bottom'] <= min(box['bottom'], result['viewport']['bottom']) + 1, result
+    return result
+
+
 def voice(page):
     page.get_by_role('button', name='Voice', exact=True).click()
 
@@ -270,6 +288,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         game_progress(t)
     result['compact_playback_retry_available'] = host.get_by_role('button', name='Enable voice sound', exact=True).count() > 0
     assert result['compact_playback_retry_available'], 'Compact voice has no playback retry'
+    result['compact_playback_bounds'] = recovery_bounds(host)
     host.evaluate('window.blockPlayback=false')
     host.get_by_role('button', name='Enable voice sound', exact=True).click()
     host.get_by_text('Remote voice playback was blocked.', exact=True).wait_for(state='detached')
@@ -283,6 +302,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.evaluate('window.rejectAttachment=true')
     host.get_by_role('button', name='Enable voice', exact=True).click()
     host.get_by_role('button', name='Retry microphone', exact=True).wait_for()
+    result['compact_attachment_bounds'] = recovery_bounds(host)
     for t in (host, guest):
         game_progress(t)
     capture_count = host.evaluate('captures.length')

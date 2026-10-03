@@ -318,6 +318,8 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-input-test, .rc-capture { min-height: 30px; padding: 5px; border: 1px solid var(--rule); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rc-voice-recovery { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; }
 .rc-voice-recovery p { overflow-wrap: anywhere; }
+.rc-voice-compact .rc-voice-recovery { grid-template-columns: minmax(0, 1fr); }
+.rc-voice-compact .rc-voice-recovery p { margin: 0; }
 .rc-local-data .rc-tool-heading nav button { font-size: 14px; }
 
 @media (max-width: 900px) {
