@@ -256,6 +256,13 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.get_by_role('button', name='Try microphone again', exact=True).click()
     host.wait_for_function('captures.at(-1).getAudioTracks()[0].readyState==="live"')
     result['permission_retry'] = energy(guest, True, sender=host)
+    # Revoking an origin permission also ends the other capture in shared tabs.
+    # Recover that actual state through its visible action before later two-way proof.
+    if guest.evaluate('captures.at(-1).getAudioTracks()[0].readyState === "ended"'):
+        guest.get_by_role('button', name='Try microphone again', exact=True).click()
+        guest.wait_for_function('captures.at(-1).getAudioTracks()[0].readyState === "live"')
+        mic(guest, False)
+        result['other_capture_permission_retry'] = True
     host.get_by_role('button', name='Devices', exact=True).click()
     devices = host.get_by_role('combobox', name='Microphone')
     devices.wait_for()
