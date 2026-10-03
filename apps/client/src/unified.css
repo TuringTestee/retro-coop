@@ -573,6 +573,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-session, .rc-shared-playing, .rc-shared-playing.rc-has-side, .rc-session.rc-has-side, .rc-session.rc-has-picker { grid-template-columns: 224px minmax(0,1fr); grid-template-rows: 80px minmax(0,1fr) var(--rc-guide-height,244px); row-gap: 2px; column-gap: 0; }
   .rc-players, .rc-shared-playing .rc-players, .rc-shared-playing.rc-has-side .rc-players, .rc-session.rc-has-side .rc-players { grid-column: 1; grid-row: 1 / 4; }
   .rc-header-name, .rc-players .slot-row strong { font-family: ui-monospace, monospace; }
+  .rc-header-name, .rc-identity .rc-header-name { padding: 0 4px; gap: 1px; }
   .rc-header-name .rc-edit-hint { display: none; }
   .rc-players { background: transparent; pointer-events: none; }
   .rc-players .slot-wrap { background: var(--menu); pointer-events: auto; }
