@@ -76,6 +76,12 @@ export class GameSession {
   this.state.pending=pending;this.proposed=owners;if(this.state.status!=='pausing')this.freeze('Changing roles at the last completed frame.');
  }
  abortRoles(reason:string){if(!this.state.pending)return;this.state.pending=undefined;this.proposed=undefined;this.stop(reason);}
+ retryRoles(member:string,transactionId:string,revision:number,owners:ControllerAssignment){
+  const pending=this.state.pending;
+  if(member!==this.host||pending?.id!==transactionId||pending.status!=='failed')throw Error('stale_controllers');
+  this.state.pending={...pending,revision,status:'freezing',reason:undefined};this.proposed=owners;
+  this.freeze('Retrying the player change at the preserved frame.');
+ }
  private failTransaction(reason:string){
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,reason);
   if(this.state.pending)this.state.pending={...this.state.pending,status:'failed',reason};
@@ -112,10 +118,9 @@ export class GameSession {
    if(transfers.some(transfer=>transfer.purpose==='controller'))this.stop('Synchronization cancelled. Game progress is preserved.');
    else {for(const transfer of transfers)this.cancelTransfer(transfer,'Synchronization cancelled. Game progress is preserved.');this.offers.delete(member);if((!this.state.epoch||this.owners().includes(member))&&(this.state.startRequested||['starting','countdown'].includes(this.state.status)))this.stop('Preparation cancelled. Members must prepare again.');}return;
   }
-  if(command.type==='gameRoleCancel'||command.type==='gameRoleRetry'){
+  if(command.type==='gameRoleCancel'){
    if(member!==this.host||this.state.pending?.id!==command.transactionId)throw Error('stale_controllers');
-   if(command.type==='gameRoleCancel'){this.state.pending=undefined;this.proposed=undefined;this.stop('Role change cancelled. Previous roles and game progress are preserved.');}
-   else {this.state.pending.status='freezing';this.state.pending.reason=undefined;this.freeze('Retrying the role change at the preserved frame.');}return;
+   this.state.pending=undefined;this.proposed=undefined;this.stop('Role change cancelled. Previous roles and game progress are preserved.');return;
   }
   if(!('epoch' in command)||command.epoch!==this.state.epoch)throw Error('stale_game');
   if(command.type==='gamePause'){
