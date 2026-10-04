@@ -462,6 +462,15 @@ impl Memory {
         }
     }
 
+    /// Restrict writes to a mapped CHR window without making physical CHR-ROM writable.
+    pub fn set_chr_writable(&mut self, addr: u16, size: usize, writable: bool) {
+        let slot = (addr as usize >> PAGE_SHIFT) & CHR_PAGE_MASK;
+        for i in 0..(size >> PAGE_SHIFT) {
+            let page = &mut self.chr_pages[(slot + i) & CHR_PAGE_MASK];
+            *page = Page::new(page.offset(), writable && self.chr_writable);
+        }
+    }
+
     /// Override whether a mapped CPU window accepts writes, for boards that can write-protect
     /// PRG-RAM.
     pub fn set_prg_writable(&mut self, addr: u16, size: usize, writable: bool) {
