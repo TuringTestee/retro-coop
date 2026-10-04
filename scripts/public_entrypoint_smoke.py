@@ -103,9 +103,15 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.goto(url)
         guest.locator('.rc-lobby-card').first.click()
         guest.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
-        guest.get_by_label("Message everyone").fill("Ready when you are")
-        guest.get_by_role("button", name="Send").click()
-        host.get_by_text("Ready when you are", exact=False).wait_for(timeout=15000)
+        from playwright.sync_api import expect
+        for sender, receiver, text in ((guest, host, "Ready when you are"),
+                                       (host, guest, "Hosting and chatting")):
+            field = sender.get_by_label("Message everyone")
+            field.press_sequentially(text)
+            expect(field).to_have_value(text)
+            field.press("Enter")
+            expect(receiver.get_by_role("log", name="Lobby messages")).to_contain_text(text)
+            expect(field).to_have_value("")
         assert host.get_by_role("button", name="Start →").count() == 0
         host.get_by_role("button", name="Load NES game").click()
         host.get_by_role("button", name="Super Tilt Bro", exact=False).click()
@@ -119,6 +125,12 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_text("Game starts in", exact=False).wait_for(timeout=15000)
         host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
         guest.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
+        field = guest.get_by_label("Message everyone")
+        field.press_sequentially("Chat while playing Z C A D P Q E")
+        expect(field).to_have_value("Chat while playing Z C A D P Q E")
+        field.press("Enter")
+        expect(host.get_by_role("log", name="Lobby messages")).to_contain_text("Chat while playing Z C A D P Q E")
+        expect(field).to_have_value("")
         for page, size in ((host, {"width": 390, "height": 700}), (guest, {"width": 320, "height": 568})):
             page.set_viewport_size(size)
             fits(page)
@@ -134,7 +146,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             .every(value => value === 0)"""), 'The previous game frame survived the lobby exit.'
         fits(host)
         browser.close()
-    return {"empty_lobby_before_game": True, "guest_chat_and_readiness": True,
+    return {"empty_lobby_before_game": True, "guest_chat_and_readiness": True, "incremental_chat_and_enter": True,
             "synchronized_start": True, "mobile_shell": True, "exit_to_main": True,
             "game_worker_and_frame_cleared": True}
 

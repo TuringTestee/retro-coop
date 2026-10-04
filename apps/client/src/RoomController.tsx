@@ -21,10 +21,9 @@ export type RoomControllerHandle={
 };
 
 export const RoomController=forwardRef<RoomControllerHandle,{
- onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;
+ state:RoomState;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;
  onVoice:(state:VoiceState|undefined)=>void;onNickname:(name:string)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void;onNotice:(message:string)=>void;onGameProgress:(message:string)=>void;
-}>(function RoomController({onAcquired,selectionLoading,controls,fingerprint,player,onVoice,onNickname,onConnection,onRoomChange,onState,onNotice,onGameProgress},ref){
- const [state,setState]=useState<RoomState>({status:'No lobby selected.',busy:false,connected:false});
+}>(function RoomController({state,onAcquired,selectionLoading,controls,fingerprint,player,onVoice,onNickname,onConnection,onRoomChange,onState,onNotice,onGameProgress},ref){
  const [invite,setInvite]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const client=useRef<RoomClient|null>(null),member=useRef<Operation|undefined>(undefined),included=useRef<IncludedOperation|undefined>(undefined);
  const room=useRef<RoomView|undefined>(undefined),connected=useRef(false),seenFile=useRef<Fingerprint|undefined>(undefined),sentFile=useRef(''),attemptedIncluded=useRef('');
@@ -68,7 +67,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
   finally{clearTimeout(timeout);}
  };
 
- useEffect(()=>{const rooms=new RoomClient(setState,player);client.current=rooms;void rooms.watchDirectory();return()=>{cancelIncluded();cancelMember();rooms.dispose();client.current=null;};},[]);
+ useEffect(()=>{const rooms=new RoomClient(onState,player);client.current=rooms;void rooms.watchDirectory();return()=>{cancelIncluded();cancelMember();rooms.dispose();client.current=null;};},[]);
  useEffect(()=>{if(invite)void client.current?.preview(invite);else client.current?.clearPreview();},[invite]);
  useEffect(()=>{client.current?.voice.configureControls(controls);},[controls]);
  useEffect(()=>onVoice(state.voice),[state.voice,onVoice]);
@@ -76,7 +75,6 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useEffect(()=>onConnection(connectionStatus(state)),[state.connection,state.room?.peers,onConnection]);
  useEffect(()=>{if(state.session)onNickname(state.session.nickname);},[state.session,onNickname]);
  useEffect(()=>onRoomChange(state.room),[state.room,onRoomChange]);
- useEffect(()=>onState(state),[state,onState]);
  useEffect(()=>{if(included.current&&included.current.membership!==membership)cancelIncluded();if(state.releaseNotice){cancelIncluded();cancelMember();}},[membership,state.releaseNotice]);
  useEffect(()=>{const target=room.current;if(target?.role==='member'&&!target.catalogId&&target.fingerprint){if(fingerprint&&matchesFile(target.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){void client.current?.memberAcquisition(target.id,target.chatMembership,'loaded');onNotice('');}else void acquireMember(target);}else cancelMember();return()=>cancelMember();},[membership,state.room?.fingerprint?.romSha256]);
  useEffect(()=>{if(!state.connected&&member.current){cancelMember();onNotice('Connection lost. Reconnect to retry the game download.');}},[state.connected]);
