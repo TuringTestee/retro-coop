@@ -44,7 +44,7 @@ These are high-level delivery packages; the epic and 24-outcome snapshot below p
 
 The original critical path was approval/merged plan → issue/Project organization → P1 → P2 → P3 → P4 → P5 → P6. The live epic and Project now govern completed and remaining dependencies. P0 content identity is complete; D19 waits only for the reviewed catalog amendment to merge, while D20/D21 retain qualification and integrated acceptance. Overlap only independent work with satisfied prerequisites; agent concurrency does not remove review and merge gates.
 
-[Shared timeline controls](shared-timeline-controls.md) governs the existing D14 manual Save/Load, rewind and reset delivery, including the public later-use path and atomic replacement barrier.
+[Shared Save and Load](shared-timeline-controls.md) governs #236 manual Save/Load, including its public later-use path and atomic replacement barrier. Historical shared rewind/reset remain deferred under the current epic scope.
 
 ## Verification strategy
 
