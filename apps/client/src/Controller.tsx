@@ -27,6 +27,7 @@ export function Controller({
   onMask,
   onChange,
   onEditing,
+  onRequestEdit,
   editorHost,
   phone,
   storageIssue,
@@ -40,6 +41,7 @@ export function Controller({
   onMask: (mask: number) => void;
   onChange: (controls: Controls, current: () => boolean) => Promise<boolean>;
   onEditing: (editing: boolean) => void;
+  onRequestEdit: () => void;
   editorHost: React.RefObject<HTMLDivElement | null>;
   phone: boolean;
   storageIssue?: string;
@@ -458,7 +460,7 @@ export function Controller({
               </div>
               {!controls.device && (
                 <button
-                  onClick={beginEdit}
+                  onClick={onRequestEdit}
                 >
                   Edit
                 </button>
