@@ -42,7 +42,8 @@ export class GameClient {
   if(room.game.status==='resume_ready'&&(this.incoming?.purpose==='controller'||[...this.outgoing.values()].some(value=>value.request.purpose==='controller'))){if(this.incoming?.purpose==='controller')this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])if(outgoing.request.purpose==='controller')this.cancelOutgoing(outgoing);this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}
   if(prior&&prior.game.epoch!==room.game.epoch&&!this.authority()&&!room.game.controllers.owners.includes(this.self()))this.clear('Game roles changed. Synchronizing the current game.');
   if(room.game.status==='playing'&&this.observerSlot()&&!this.authority()&&this.loaded()&&!this.scheduler&&!this.incoming&&!this.observeRequested)this.observe();
-  if(this.intent&&!room.started)void this.offer();
+  // A paused Prepare click may precede the service's file-match confirmation.
+  if(this.intent&&(!room.started||(!prior?.matches&&room.matches&&['paused','failed','waiting'].includes(room.game.status))))void this.offer();
  }
  selected(file:Fingerprint){if(this.file&&this.room&&(this.offered||this.offering||this.incoming||this.scheduler)){const revision=this.room.game.controllers.revision;this.clear('Game selection changed. Prepare the matching game again.');void this.send({type:'gameUnready',revision}).catch(()=>{});}this.file=file;this.offered=undefined;if(this.state.preparationError)this.publish({preparationError:undefined});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else if(this.intent)void this.offer();}
  playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else void this.offer();}

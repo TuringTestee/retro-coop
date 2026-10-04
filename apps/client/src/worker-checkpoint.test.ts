@@ -71,3 +71,11 @@ test('prepare binds an unchanged completed state to a new epoch before any frame
  await h.rpc({data:{type:'peer-checkpoint-bind',requestId:5,epoch:next,frame:917,hash:h.hash}});assert.deepEqual(h.messages.at(-1),{type:'peer-checkpoint-bound',requestId:5,epoch:next,frame:917,hash:h.hash});
  await h.rpc({data:{type:'peer-checkpoint-export',requestId:6,epoch:next,frame:917}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-exported');assert.equal(h.stats().imports,1);
 });
+
+test('automatic recovery export returns canonical bytes and completed metadata atomically',async()=>{
+ const h=await harness();
+ await h.rpc({data:{type:'peer-checkpoint-prepare',operationId,requestId:1,epoch,frame:917,bytes:h.bytes,identity,hash:h.hash}});
+ await h.rpc({data:{type:'peer-checkpoint-commit',requestId:2,operationId}});
+ await h.rpc({data:{type:'state-capture',requestId:3}});
+ assert.deepEqual(h.messages.at(-1),{type:'state-captured',requestId:3,frame:917,hash:h.hash,identity,bytes:h.bytes});
+});

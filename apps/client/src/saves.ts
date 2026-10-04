@@ -5,12 +5,12 @@ export type PreferencesRecord = {identity:string;savedAt:number;value:unknown};
 export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number;label?:string;source?:'import'|'download';lastUsedAt?:number};
 export function validSavedAt(value:unknown):value is number {return typeof value==='number' && Number.isFinite(value) && Math.abs(value)<=8640000000000000;}
 const database='retro-coop-local',store='saves';
-const stores=['saves','batteries','preferences','roms','meta'];
+const stores=['saves','batteries','preferences','roms','meta','recovery'];
 function open():Promise<IDBDatabase> {
  return new Promise((resolve,reject)=>{
-  const request=indexedDB.open(database,3);let abandoned=false;
+  const request=indexedDB.open(database,4);let abandoned=false;
   const timer=setTimeout(()=>{abandoned=true;reject(Error('Local storage did not respond. Retry later.'));},5000);
-  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(store))db.createObjectStore(store,{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'identity'});if(!db.objectStoreNames.contains('roms'))db.createObjectStore('roms',{keyPath:'sha256'});if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta');};
+  request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(store))db.createObjectStore(store,{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'identity'});if(!db.objectStoreNames.contains('roms'))db.createObjectStore('roms',{keyPath:'sha256'});if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta');if(!db.objectStoreNames.contains('recovery'))db.createObjectStore('recovery');};
   request.onerror=()=>{clearTimeout(timer);reject(request.error ?? Error('Local storage unavailable'));};
   request.onblocked=()=>{clearTimeout(timer);abandoned=true;reject(Error('Close other Retro Coop tabs and retry.'));};
   request.onsuccess=()=>{clearTimeout(timer);if(abandoned){request.result.close();return;}request.result.onversionchange=()=>request.result.close();resolve(request.result);};
@@ -136,7 +136,32 @@ export async function clearLocalData(generation:number) {
  let failure:unknown;
  try{await transaction('readwrite',(_,tx)=>{const meta=tx.objectStore('meta'),request=meta.get('generation');request.addEventListener('success',()=>{
   if((request.result ?? 0)!==generation){failure=Error('Local data changed. Reopen this panel before clearing it.');tx.abort();return;}
-  for(const name of ['saves','batteries','preferences','roms'])tx.objectStore(name).clear();meta.clear();meta.put(generation+1,'generation');
+  for(const name of ['saves','batteries','preferences','roms','recovery'])tx.objectStore(name).clear();meta.clear();meta.put(generation+1,'generation');
  });return request;},stores);}catch(error){throw failure ?? error;}
 }
 export function sameRecord(current:BatteryRecord|undefined,expected:BatteryRecord|undefined) {return !current && !expected || !!current && !!expected && Object.is(current.savedAt,expected.savedAt) && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);}
+
+
+/** Automatic host progress has one bounded row; manual save slots are independent. */
+export type RecoveryCapture={fingerprint:import('../../../packages/contracts/src/fingerprint.ts').Fingerprint;title:string;identity:string;frame:number;hash:string;savedAt:number;bytes:ArrayBuffer};
+export type RecoveryRecord={revision:number;captures:RecoveryCapture[]};
+export async function readRecovery():Promise<{generation:number;record:RecoveryRecord|undefined}> {
+ let generation=0;
+ const record=await transaction('readonly',(_,tx)=>{const epoch=tx.objectStore('meta').get('generation');epoch.onsuccess=()=>{generation=epoch.result??0;};return tx.objectStore('recovery').get('host');},['recovery','meta']);
+ return {generation,record};
+}
+export async function changeRecovery(expected:RecoveryRecord|undefined,generation:number,capture:RecoveryCapture|undefined,current:()=>boolean=()=>true) {
+ let failure:unknown;
+ let committed:RecoveryRecord|undefined;
+ try{await transaction('readwrite',(_,tx)=>{
+  const meta=tx.objectStore('meta'),store=tx.objectStore('recovery'),epoch=meta.get('generation'),prior=store.get('host'),revision=meta.get('recoveryRevision');
+  const change=()=>{if(epoch.readyState!=='done'||prior.readyState!=='done'||revision.readyState!=='done')return;
+   if(!current()||(epoch.result??0)!==generation||prior.result?.revision!==expected?.revision){failure=Error('Recovery data changed or was cleared. Retry explicitly.');tx.abort();return;}
+   const next=(revision.result??0)+1;meta.put(next,'recoveryRevision');
+   try{if(!capture){store.delete('host');return;}
+   const matching=expected?.captures.filter(row=>row.identity===capture.identity&&row.fingerprint.romSha256===capture.fingerprint.romSha256)??[];
+   committed={revision:next,captures:[capture,...matching].slice(0,2)};store.put(committed,'host');}catch(error){failure=error;tx.abort();}
+  };
+  epoch.addEventListener('success',change);prior.addEventListener('success',change);revision.addEventListener('success',change);return prior;
+ },['recovery','meta']);}catch(error){throw failure??error;}return committed;
+}

@@ -22,6 +22,15 @@ test('Ready intent waits for the local peer channel and then reaches the coordin
   t.game.ready(host,t.channel,peerEpoch);await tick();assert.equal(t.commands.filter(command=>command.type==='gameReady').length,1);
  }finally{t.game.dispose();}
 });
+test('paused preparation waits for authoritative file match and retries only retained explicit intent',async()=>{
+ const t=setup();try{
+  const paused=room();paused.started='shared';paused.game={...paused.game,status:'paused',epoch};paused.matches=false;
+  t.game.enter(paused);await t.game.resumeReady();assert.equal(t.commands.length,0);
+  t.game.enter({...paused,matches:true});await tick();assert.equal(t.commands.filter(c=>c.type==='gameReady').length,1);
+  t.game.enter({...paused,matches:true});await tick();assert.equal(t.commands.filter(c=>c.type==='gameReady').length,1);
+  t.game.cancelIntent();t.game.enter(paused);t.game.enter({...paused,matches:true});await tick();assert.equal(t.commands.filter(c=>c.type==='gameReady').length,1);
+ }finally{t.game.dispose();}
+});
 test('failed preparation exposes the reason, stops retrying in the background, and accepts an explicit retry',async()=>{
  const t=setup();try{
   t.failHold(Error('Reconnect your controller before shared play.'));

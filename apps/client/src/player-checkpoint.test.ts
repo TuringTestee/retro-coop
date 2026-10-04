@@ -26,7 +26,7 @@ test('an invalid replacement keeps the previous game but reports a failed new se
  const previous={romSha256:'old-rom',coreSha256:'old-core'};
  const states:Array<{loaded:boolean;loading:boolean;selectionPhase?:string;fingerprint?:unknown;status:string}>=[];
  const player=Object.assign(Object.create(LocalPlayer.prototype),{
-  generation:0,disposed:false,active:{},state:{loaded:true,loading:false,running:false,frames:0,status:'Previous game loaded.',fingerprint:previous},
+  selectionListeners:new Set(),generation:0,disposed:false,active:{},state:{loaded:true,loading:false,running:false,frames:0,status:'Previous game loaded.',fingerprint:previous},
   rejectPending(){},activateAudio(){},read:async()=>new Uint8Array([1,2,3]).buffer,
   update(value:typeof states[number]){states.push(value);}
  }) as LocalPlayer;

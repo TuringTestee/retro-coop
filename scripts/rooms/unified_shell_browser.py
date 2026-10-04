@@ -86,14 +86,14 @@ def expired_guest_recovers(browser, url):
         page.goto(url)
         page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
         page.evaluate("""async expired => {
-          const db = await new Promise((resolve,reject) => {const request=indexedDB.open('retro-coop-local',3);request.onupgradeneeded=()=>{const db=request.result;db.createObjectStore('saves',{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])db.createObjectStore(name,{keyPath:'identity'});db.createObjectStore('roms',{keyPath:'sha256'});db.createObjectStore('meta');};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+          const db = await new Promise((resolve,reject) => {const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
           await new Promise((resolve,reject) => {const tx=db.transaction('saves','readwrite');tx.objectStore('saves').put({identity:'recovery-test',slot:1,savedAt:Date.now(),bytes:new ArrayBuffer(1)});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
           db.close();sessionStorage.setItem('retro-coop-guest',expired);
         }""", expired)
         page.reload()
         page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
         page.wait_for_function("sessionStorage.getItem('retro-coop-guest') !== '" + expired + "'")
-        assert page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const tx=db.transaction('saves');const request=tx.objectStore('saves').get(['recovery-test',1]);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return row?.bytes?.byteLength===1;}""")
+        assert page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const tx=db.transaction('saves');const request=tx.objectStore('saves').get(['recovery-test',1]);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return row?.bytes?.byteLength===1;}""")
         assert 'Lobbies unavailable' not in page.locator('body').inner_text()
         page.get_by_role('button', name='Host a new game').click()
         page.locator('[data-page=lobby]').wait_for(timeout=10000)
@@ -131,7 +131,7 @@ def local_shortcuts(browser, url, output):
         assert page.get_by_role('alertdialog', name='Load quick save?').count() == 0
         page.keyboard.press('e')
         page.get_by_role('alertdialog', name='Load quick save?').wait_for()
-        page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});await new Promise((resolve,reject)=>{const tx=db.transaction('saves','readwrite');const store=tx.objectStore('saves');const request=store.getAll();request.onsuccess=()=>{const row=request.result.find(value=>value.slot===1);store.put({...row,savedAt:row.savedAt+1});};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}""")
+        page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});await new Promise((resolve,reject)=>{const tx=db.transaction('saves','readwrite');const store=tx.objectStore('saves');const request=store.getAll();request.onsuccess=()=>{const row=request.result.find(value=>value.slot===1);store.put({...row,savedAt:row.savedAt+1});};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}""")
         page.get_by_role('button', name='Load Slot 1').click()
         page.get_by_text('Quick save changed. Press E again to load the current slot.', exact=True).wait_for(timeout=10000)
         assert page.locator('[data-page=local]').count() == 1
@@ -275,6 +275,15 @@ def abandoned_saved_game_cannot_reopen(browser, url):
 def host(page, url):
     page.goto(url, wait_until='domcontentloaded')
     page.get_by_role('button', name='Host a new game').click()
+    # Each layout scenario starts fresh; a previous played scenario can now
+    # legitimately leave an automatic recovery offer in this same browser.
+    saved = page.evaluate("""()=>new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');
+      request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result;
+        const row=db.transaction('recovery').objectStore('recovery').get('host');
+        row.onsuccess=()=>{db.close();resolve(!!row.result);};};})""")
+    if saved:
+        page.get_by_role('button', name='Start fresh', exact=True).click()
+        page.locator('.rc-dialog-card').wait_for(state='hidden')
     page.get_by_role('button', name='Back to Main Page', exact=True).wait_for()
     assert page.locator('main').get_attribute('data-page') == 'lobby'
     assert page.get_by_role('heading', name='Create a lobby').count() == 0
