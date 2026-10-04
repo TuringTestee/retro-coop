@@ -101,6 +101,7 @@ def title_motion(page):
     assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationPlayState') == 'paused'
     page.locator('.rc-game-heading').evaluate('node=>node.blur()')
     page.emulate_media(reduced_motion='reduce')
+    page.wait_for_function("document.querySelector('.rc-game-heading').dataset.overflow==='false'&&getComputedStyle(document.querySelector('.rc-title-track')).animationName==='none'")
     assert text_fits(page.locator('.rc-game-heading'))
     assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationName') == 'none'
     assert page.locator('.rc-game-toolbar').bounding_box() == before
