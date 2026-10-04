@@ -47,7 +47,7 @@ def wait_closed(port):
 
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     """Exercise the public lobby journey in the built application."""
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, expect
 
     def fits(page):
         result = page.evaluate("""() => {
@@ -76,7 +76,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             fits(page)
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(ignore_default_args=["--mute-audio"])
         host_context = browser.new_context(viewport={"width": 1280, "height": 800})
         guest_context = browser.new_context(viewport={"width": 1024, "height": 600})
         host = host_context.new_page()
@@ -103,7 +103,6 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.goto(url)
         guest.locator('.rc-lobby-card').first.click()
         guest.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
-        from playwright.sync_api import expect
         for sender, receiver, text in ((guest, host, "Ready when you are"),
                                        (host, guest, "Hosting and chatting")):
             field = sender.get_by_label("Message everyone")
@@ -117,6 +116,13 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Super Tilt Bro", exact=False).click()
         host.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
         guest.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
+        for page in (host, guest):
+            selector = page.get_by_role("combobox", name="Settings section")
+            if selector.is_visible():
+                selector.select_option(label="Sound")
+            else:
+                page.get_by_role("button", name="Sound", exact=True).click()
+            page.get_by_role("button", name="Mute game", exact=True).click()
         host.get_by_role("button", name="Ready", exact=True).click()
         assert host.get_by_role("button", name="Start →").count() == 0
         guest.get_by_role("button", name="Ready", exact=True).click()
