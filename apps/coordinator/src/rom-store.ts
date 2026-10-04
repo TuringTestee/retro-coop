@@ -5,9 +5,10 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import type {IncomingMessage} from 'node:http';
 import {inspectCartridge} from '../../../packages/contracts/src/fingerprint.ts';
+import {ROM_FILE_LIMIT} from '../../../packages/contracts/src/game-file.ts';
 import {RoomError,Rooms} from './rooms.ts';
 
-export const ROM_LIMITS={file:64*1024*1024,total:256*1024*1024,concurrent:4} as const;
+export const ROM_LIMITS={file:ROM_FILE_LIMIT,total:256*1024*1024,concurrent:4} as const;
 export type RomLimits={file:number;total:number;concurrent:number};
 type Entry={roomId:string;bytes:number;path:string;request?:IncomingMessage;committed:boolean};
 type Extraction={archiveBytes:number;outputBytes:number;archivePath:string;outputPath:string;abort:()=>void};
