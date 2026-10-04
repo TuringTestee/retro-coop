@@ -6,12 +6,14 @@ import {downloadCatalogEntry} from './catalog-download.ts';
 import {acquireMemberRom,MemberReservationExpiredError} from './member-rom.ts';
 import {connectionStatus} from './connection-status.ts';
 import type {LocalPlayer} from './player.ts';
+import type {SaveSlot} from './saves.ts';
 import type {Controls} from './controls.ts';
 import type {VoiceSession,VoiceState} from './voice.ts';
 
 type Operation={roomId:string;membership:string;controller:AbortController;loading:boolean};
 type IncludedOperation={id:CatalogId;membership:string;controller:AbortController;loading:boolean;candidate:boolean};
 export type RoomControllerHandle={
+ loadSaved(record:SaveSlot,current:()=>Promise<boolean>):Promise<void>;decideLoad(accept:boolean):Promise<void>;cancelLoad():Promise<void>;
  currentMembership(roomId:string,membership:string,unusedHost?:boolean):boolean;restoreGame(frame:number,hash:string,current:()=>boolean):Promise<void>;voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
  cancelSelection():void;cancelCreation():void;
  leaveNow():Promise<boolean>;joinCode(code:string,password?:string):Promise<void>;joinInvite(invite:string,password?:string):Promise<void>;retryDirectory():Promise<void>;reconnect():Promise<void>;retryPeer(pairId:string):Promise<void>;clearAdmissionError():void;cancelJoin():void;
@@ -52,7 +54,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
   const entry=catalogEntry(id),currentRoom=room.current;
   if(currentRoom?.established&&currentRoom.role!=='member'){onNotice('Return to a lobby before changing the game.');return;}
   if(fingerprint&&player()?.isLoaded(fingerprint)&&catalogId(fingerprint)===id&&(currentRoom?.role!=='host'||currentRoom.catalogId===id)){if(currentRoom?.role==='member')void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'loaded');onNotice('');return;}
-  cancelIncluded();client.current?.beginSelection();
+  if(client.current?.beginSelection()===false)return;cancelIncluded();
   const operation:IncludedOperation={id,membership:currentRoom?`${currentRoom.id}:${currentRoom.role}:${currentRoom.chatMembership}`:'',controller:new AbortController(),loading:false,candidate:false};included.current=operation;
   const current=()=>included.current===operation&&!operation.controller.signal.aborted;
   const progress=(message:string)=>{if(currentRoom?.role==='host')onGameProgress(message);};
@@ -85,12 +87,13 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useEffect(()=>{const target=state.room;if(!fingerprint||target?.role!=='member'){sentFile.current='';return;}const key=target.id+fingerprint.romSha256+fingerprint.coreSha256;if(sentFile.current!==key){sentFile.current=key;void client.current?.act({type:'file',fingerprint});}},[fingerprint,state.room?.id,state.room?.role]);
 
  useImperativeHandle(ref,()=>({
+  loadSaved(record,current){return client.current?.loadSaved(record,current)??Promise.reject(Error('Lobby unavailable.'));},decideLoad(accept){return client.current?.decideLoad(accept)??Promise.reject(Error('Lobby unavailable.'));},cancelLoad(){return client.current?.cancelLoad()??Promise.reject(Error('Lobby unavailable.'));},
   currentMembership(roomId,membership,unusedHost){return client.current?.currentMembership(roomId,membership,unusedHost)??false;},restoreGame(frame,hash,current){return client.current?.restoreGame(frame,hash,current)??Promise.reject(Error('Lobby unavailable.'));},voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
   cancelSelection(){cancelIncluded();client.current?.cancelGameSelection();onGameProgress('');},cancelCreation(){client.current?.cancelCreation();},
   async leaveNow(){const target=room.current;if(!target)return true;cancelIncluded();cancelMember();client.current?.cancelGameSelection();const ok=target.role==='host'?await client.current?.act({type:'close',roomId:target.id}):await client.current?.act({type:'leave',intent:target.reservationIntent});return !!ok;},
   joinCode(code,password){return client.current?.joinCode(code,password)??Promise.resolve();},joinInvite(value,password){return client.current?.join(value,password)??Promise.resolve();},retryDirectory(){return client.current?.watchDirectory()??Promise.resolve();},reconnect(){return client.current?.reconnect()??Promise.resolve();},retryPeer(pairId){return client.current?.retryPeer(pairId)??Promise.resolve();},clearAdmissionError(){client.current?.clearAdmissionError();},cancelJoin(){client.current?.cancelJoin();},
   act(command){return client.current?.act(command)??Promise.resolve(false);},chatDraft(text){client.current?.chatDraft(text);},sendChat(){return client.current?.sendChat()??Promise.resolve();},discardChat(){client.current?.discardChat();},ready(){client.current?.prepareMember();},unready(){client.current?.cancelSynchronization();},start(file){return client.current?.startRoom(file)??Promise.resolve();},loadIncluded,retryMemberGame(){const target=room.current;return target?.role==='member'&&!target.catalogId&&target.fingerprint?acquireMember(target):Promise.resolve();},syncInvitation(value){setInvite(value);},
-  beforeSelection(){if(state.startingRoom||state.room?.role==='member'&&!state.room.catalogId)return false;cancelIncluded();client.current?.beginSelection();return true;},
+  beforeSelection(){if(state.startingRoom||state.room?.role==='member'&&!state.room.catalogId)return false;if(client.current?.beginSelection()===false)return false;cancelIncluded();return true;},
   approveSelection(value,isCurrent){if(state.room?.role==='member'&&!state.room.catalogId){const operation=member.current;return Promise.resolve(!!operation&&memberCurrent(operation)&&isCurrent()&&!!state.room.fingerprint&&matchesFile(state.room.fingerprint,value));}return client.current?.approveSelection(value,isCurrent)??Promise.resolve(isCurrent());},
   createLobby(label,visibility,password){return client.current?.createLobby(label,visibility,password)??Promise.resolve({ok:false,message:'Could not create the lobby. Retry.'});},
   async selectLobbyGame(file,value,title,current){const operation=included.current;const result=await client.current?.selectLobbyGame(file,value,title,current)??{ok:false,message:'Could not add this NES game to the lobby. Retry or choose another.'};if(operation&&included.current===operation){included.current=undefined;if(result.ok)onNotice('');}if(current())onGameProgress('');return result;}

@@ -325,3 +325,9 @@ test('reconnected host receives pending rollback again and cannot resume a parti
  t.rooms.attach(t.sessions[0].token,t.senders[0],()=>{});t.act(0,{type:'heartbeat'});assert.equal(t.events[0].filter(e=>e.type==='gameLoadRollback').length,previous+1);
  t.act(0,{type:'gameLoadRolledBack',transactionId:load.id,frame:917,hash});assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.frame,917);assert.equal(t.view().game.epoch,load.epoch);assert.equal(t.view().game.status,'paused');
 });
+
+test('ROM selection and manual Load cannot overlap in an unused lobby',()=>{
+ const t=setup(1);t.load(0);const selection={type:'beginGameSelection',roomId:t.view().id,intent:randomUUID(),expectedRevision:t.view().revision,fingerprint:{...fingerprint,romSha256:otherHash},title:'Another game'},proposal={type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000};
+ t.act(0,selection);assert.throws(()=>t.act(0,proposal),/game_selection_pending/);t.act(0,{type:'cancelGameSelection',roomId:t.view().id,intent:selection.intent});
+ t.act(0,proposal);assert.throws(()=>t.act(0,{...selection,intent:randomUUID()}),/timeline_change_pending/);assert.equal(t.view().fingerprint!.romSha256,fingerprint.romSha256);assert.equal(t.view().game.load!.phase,'freezing');
+});

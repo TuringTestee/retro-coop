@@ -240,7 +240,7 @@ export class Rooms {
   }
   if(command.type.startsWith('game')){
    const room=this.room(session),member=this.member(room,session);this.rate(session,'game',ROOM_GAME_BURST,10_000);
-   try{const slot=room.slots.find(slot=>slot.member===member)!;
+   try{if(command.type==='gameLoadPropose'&&room.pendingGame)throw Error('game_selection_pending');const slot=room.slots.find(slot=>slot.member===member)!;
     if(command.type==='gameRoleRetry'){
      const pending=room.game.view().pending;
      const proposed=this.slotViews(room).map(value=>({...value,role:pending?.roles.find(role=>role.slotId===value.id)?.role??value.role}));
@@ -286,6 +286,7 @@ export class Rooms {
    }
    case 'beginGameSelection': {
     const room=this.hosted(session,command.roomId);
+    if(room.game.view().load||room.game.view().pending)throw new RoomError('timeline_change_pending');
     if(!room.confirmed||room.started||room.established)throw new RoomError('game_already_started');
     if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');
     const included=catalogId(command.fingerprint);
