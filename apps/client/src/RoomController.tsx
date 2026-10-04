@@ -12,12 +12,12 @@ import type {VoiceSession,VoiceState} from './voice.ts';
 type Operation={roomId:string;membership:string;controller:AbortController;loading:boolean};
 type IncludedOperation={id:CatalogId;membership:string;controller:AbortController;loading:boolean;candidate:boolean};
 export type RoomControllerHandle={
- voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
+ currentMembership(roomId:string,membership:string,unusedHost?:boolean):boolean;restoreGame(frame:number,hash:string,current:()=>boolean):Promise<void>;voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
  cancelSelection():void;cancelCreation():void;
  leaveNow():Promise<boolean>;joinCode(code:string,password?:string):Promise<void>;joinInvite(invite:string,password?:string):Promise<void>;retryDirectory():Promise<void>;reconnect():Promise<void>;retryPeer(pairId:string):Promise<void>;clearAdmissionError():void;cancelJoin():void;
  act:RoomClient['act'];chatDraft(text:string):void;sendChat():Promise<void>;discardChat():void;ready():void;unready():void;start(fingerprint:Fingerprint):Promise<void>;
  loadIncluded(id:CatalogId):Promise<void>;retryMemberGame():Promise<void>;syncInvitation(invite:string|null):void;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;
- createLobby(label:string,visibility:NewVisibility,password?:string):Promise<{ok:boolean;message?:string}>;selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean):Promise<{ok:boolean;message?:string}>;
+ createLobby(label:string,visibility:NewVisibility,password?:string):Promise<{ok:boolean;message?:string;room?:RoomView}>;selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean):Promise<{ok:boolean;message?:string}>;
 };
 
 export const RoomController=forwardRef<RoomControllerHandle,{
@@ -85,7 +85,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useEffect(()=>{const target=state.room;if(!fingerprint||target?.role!=='member'){sentFile.current='';return;}const key=target.id+fingerprint.romSha256+fingerprint.coreSha256;if(sentFile.current!==key){sentFile.current=key;void client.current?.act({type:'file',fingerprint});}},[fingerprint,state.room?.id,state.room?.role]);
 
  useImperativeHandle(ref,()=>({
-  voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
+  currentMembership(roomId,membership,unusedHost){return client.current?.currentMembership(roomId,membership,unusedHost)??false;},restoreGame(frame,hash,current){return client.current?.restoreGame(frame,hash,current)??Promise.reject(Error('Lobby unavailable.'));},voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
   cancelSelection(){cancelIncluded();client.current?.cancelGameSelection();onGameProgress('');},cancelCreation(){client.current?.cancelCreation();},
   async leaveNow(){const target=room.current;if(!target)return true;cancelIncluded();cancelMember();client.current?.cancelGameSelection();const ok=target.role==='host'?await client.current?.act({type:'close',roomId:target.id}):await client.current?.act({type:'leave',intent:target.reservationIntent});return !!ok;},
   joinCode(code,password){return client.current?.joinCode(code,password)??Promise.resolve();},joinInvite(value,password){return client.current?.join(value,password)??Promise.resolve();},retryDirectory(){return client.current?.watchDirectory()??Promise.resolve();},reconnect(){return client.current?.reconnect()??Promise.resolve();},retryPeer(pairId){return client.current?.retryPeer(pairId)??Promise.resolve();},clearAdmissionError(){client.current?.clearAdmissionError();},cancelJoin(){client.current?.cancelJoin();},

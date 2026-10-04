@@ -115,6 +115,12 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     ? {limit:core.local_battery_limit,alloc:core.local_battery_alloc,export:core.local_battery_export,import:core.local_battery_import}
     : {limit:core.local_state_limit,alloc:core.local_state_alloc,export:core.local_state_export,import:core.local_state_import};
    if(data.type==='state-hash') {check(core.local_state_hash());send({type:'state-hash',requestId:data.requestId,info:{hash:hex(copy(0)),frame,fresh}});}
+   else if(data.type==='state-capture') {
+    // Worker messages run between completed frames; bytes and metadata share this boundary.
+    check(core.local_state_export());const bytes=copy(0);check(core.local_state_hash());const hash=hex(copy(0));
+    check(core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));
+    send({type:'state-captured',requestId:data.requestId,frame,hash,identity,bytes},[bytes]);
+   }
    else if(data.type==='state-preview') {
     if(frame!==0||!fresh||sharedEpoch)throw Error('A preview is only available before play starts');
     check(core.local_state_hash());const originalHash=hex(copy(0));
