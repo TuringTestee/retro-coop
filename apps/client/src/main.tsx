@@ -70,7 +70,7 @@ function App(){
   const active=player.current,file=playerState.fingerprint;
   if(!active||room?.role!=='host'||!room.started||!file||!room.fingerprint||!matchesFile(room.fingerprint,file))return;
   const id=room.id,membership=room.chatMembership,version=active.selectionVersion();
-  const current=()=>{const context=recoveryContext.current;return context.room?.id===id&&context.room.chatMembership===membership&&context.room.role==='host'&&!context.leaving&&active.selectionVersion()===version&&active.isLoaded(file);};
+  const current=()=>{const context=recoveryContext.current;return !!rooms.current?.currentMembership(id,membership)&&context.room?.id===id&&context.room.chatMembership===membership&&context.room.role==='host'&&!context.leaving&&active.selectionVersion()===version&&active.isLoaded(file);};
   const owner=new HostRecoveryCapture(active,file,room.gameTitle??'NES game',current,setAutomaticIssue);captureOwner.current=owner;
   return()=>{owner.stop();if(captureOwner.current===owner)captureOwner.current=undefined;};
  },[room?.id,room?.started,room?.role,playerState.fingerprint]);
@@ -190,7 +190,7 @@ function App(){
   return room.role==='host'?'Everyone playing is ready. Choose Start.':'Everyone playing is ready. Waiting for the host.';
  };
  const directoryGuidance=roomState.admissionBlocked?'Access to lobbies is temporarily restricted. Retry later.':roomState.directoryStatus==='stale'?'Lobbies are unavailable. Retry.':roomState.directoryStatus==='live'?'':'Finding lobbies…';
- const status=statusOverride||automaticIssue||slotFeedback||roomState.releaseNotice||roleFailure||readyError||(roomState.connected&&failedPeer?'Connection failed. Retry connection.':undefined)||playingStatus||slotInspect||({main:directoryGuidance,lobbies:invite?inviteStatus:directoryGuidance,lobby:lobbyGuidance(),playing:!roomState.connected?'Connection lost. Retry connection.':countdown?`Game starts in ${countdown}…`:room?.game.reason??(room?.game.status==='playing'?'Playing together.':'Starting together…'),local:playerState.loading?playerState.status:playerState.inputIssue||localRecovery?.message||persistenceMessage||playerState.status} as Record<ShellPage,string>)[currentPage];
+ const status=statusOverride||automaticIssue||roomState.storageIssue||slotFeedback||roomState.releaseNotice||roleFailure||readyError||(roomState.connected&&failedPeer?'Connection failed. Retry connection.':undefined)||playingStatus||slotInspect||({main:directoryGuidance,lobbies:invite?inviteStatus:directoryGuidance,lobby:lobbyGuidance(),playing:!roomState.connected?'Connection lost. Retry connection.':countdown?`Game starts in ${countdown}…`:room?.game.reason??(room?.game.status==='playing'?'Playing together.':'Starting together…'),local:playerState.loading?playerState.status:playerState.inputIssue||localRecovery?.message||persistenceMessage||playerState.status} as Record<ShellPage,string>)[currentPage];
  const settingsContent=<Settings key={`${room?.id??'local'}:${!!room?.started}`} inline initialSection={room?.started||currentPage==='local'?'game':room?.role==='host'?'lobby':'controls'} room={room} localGame={currentPage==='local'} pauseActionLabel={pauseAction?.label} onAct={command=>rooms.current?.act(command)??Promise.resolve(false)} voiceState={voice} voiceSession={rooms.current?.voice()} localData={()=>setTool('localData')} connection={connection} open controls={controls} change={value=>{setControls(value);player.current?.configureControls(value);preferences.remember({controls:value,filter,volume});}} filter={filter} setFilter={value=>{setFilter(value);preferences.remember({controls,filter:value,volume});}} volume={volume} setVolume={value=>{setVolume(value);player.current?.setVolume(value);preferences.remember({controls,filter,volume:value});}} muted={muted} toggleMute={()=>{const value=!muted;setMuted(value);player.current?.setMuted(value);}} audioIssue={playerState.audioIssue} audioState={playerState.audioState} retryAudio={()=>player.current?.retryAudio()}/>;
  const sideContent=room?settingsContent:side==='settings'?settingsContent:null;
  const title=currentPage==='main'||currentPage==='lobbies'?'Lobbies':currentPage==='local'?'Local game':room?.label??'Lobby';
@@ -212,7 +212,7 @@ function App(){
   const active=player.current,offer=recovery,capture=offer?.record.captures[recoveryIndex],target=room;
   if(!active||!offer||!target||target.role!=='host'||target.started||recoveryBusy)return;
   const serial=++recoverySerial.current;setRecoveryBusy(true);setRecoveryError('');
-  const current=()=>recoverySerial.current===serial&&recoveryContext.current.room?.id===target.id&&recoveryContext.current.room.chatMembership===target.chatMembership&&!recoveryContext.current.leaving;
+  const current=()=>recoverySerial.current===serial&&!!rooms.current?.currentMembership(target.id,target.chatMembership)&&recoveryContext.current.room?.id===target.id&&recoveryContext.current.room.chatMembership===target.chatMembership&&!recoveryContext.current.leaving;
   try{
    if(!validRecovery(capture))throw Error('This saved progress is damaged.');
    const stored=await readRecovery();if(!current()||stored.generation!==offer.generation||stored.record?.revision!==offer.record.revision)throw Error('Recovery data changed or was cleared.');

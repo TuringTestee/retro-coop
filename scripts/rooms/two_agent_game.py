@@ -388,8 +388,8 @@ def player():
 
 def recovery():
     """Recover actual completed native progress into a fresh host/guest authority."""
-    if not args.url or not args.rom:
-        parser.error('recovery needs --url and --rom')
+    if not args.rom:
+        parser.error('recovery needs --rom')
     started = time.monotonic()
     errors = []
     fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + """
@@ -424,6 +424,16 @@ def recovery():
         page.on('console',lambda message:errors.append(message.text) if message.type=='error' and 'Maximum update depth' in message.text else None)
         page.goto(url);page.evaluate('releaseFrames()');return page
     with sync_playwright() as playwright, ExitStack() as resources:
+        if not args.url:
+            log=resources.enter_context((SESSION/'server.log').open('w'))
+            service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=ROOT,stdout=subprocess.PIPE,stderr=log,text=True)
+            def stop_service():
+                if service.poll() is None:service.terminate()
+                service.wait(timeout=5)
+            resources.callback(stop_service)
+            line=service.stdout.readline()
+            if not line:raise RuntimeError('The recovery browser gateway did not start')
+            args.url=json.loads(line)['url']
         browsers=[playwright.chromium.launch(ignore_default_args=['--mute-audio']) for _ in range(2)]
         for browser in browsers:resources.callback(browser.close)
         contexts=[browser.new_context(viewport={'width':args.width,'height':args.height},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
@@ -481,7 +491,7 @@ def recovery():
         screenshot(host,'recovery-offer.png')
         new_invitation=args.url+'/#invite='+new['invite']
         guest.goto(invitation);guest.evaluate('releaseFrames()')
-        guest.get_by_text('Lobby invitation',exact=True).wait_for()
+        guest.get_by_text('The host did not return. This lobby has closed.',exact=True).wait_for()
         assert guest.get_by_role('button',name='Join lobby',exact=True).is_disabled()
         guest.goto(new_invitation);guest.evaluate('releaseFrames()')
         guest.get_by_role('button',name='Join lobby',exact=True).click()
@@ -544,8 +554,20 @@ def recovery():
         host.get_by_role('button',name='Load NES game',exact=True).wait_for()
         assert record(host) is None
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # Storage disabled by browser policy still permits the ordinary host/load/play journey.
+        unavailable=contexts[0].browser.new_context(viewport={'width':args.width,'height':args.height})
+        resources.callback(unavailable.close);unavailable.add_init_script(fixture)
+        unavailable.add_init_script("Object.defineProperty(window,'indexedDB',{value:{open(){throw Error('Local storage is unavailable.');}},configurable:true})")
+        offline=open_page(unavailable,args.url)
+        offline.get_by_role('button',name='Host a new game').click()
+        offline.wait_for_function('proof.room?.role==="host"')
+        offline.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        expect(offline.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        offline.get_by_role('button',name='Ready',exact=True).click();offline.get_by_role('button',name='Start →').click()
+        offline.wait_for_function('proof.frameCount>10',timeout=30000)
+        offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
-        result={'result':'pass','older_corrupt_capture_fallback':True,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 

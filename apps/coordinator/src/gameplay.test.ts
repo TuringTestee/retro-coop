@@ -236,3 +236,14 @@ test('restored host timeline initializes paused once, then synchronizes current 
  assert.equal(t.view().game.status,'resume_ready');t.act(0,{type:'gameResume',epoch});
  assert.notEqual(t.view().game.epoch,epoch);assert.equal(t.view().game.frame,917);
 });
+
+test('a new controller in a restored lobby cannot bypass explicit preparation and host resume',()=>{
+ const t=setup(3);for(const who of [0,1,2])t.load(who);
+ t.act(0,{type:'gameRestore',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:917,hash});const epoch=t.view().game.epoch!;
+ t.role('slot-3','player2');t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ const transfer=t.captures().at(-1)!;const who=t.authorize(transfer);t.ack(transfer,who);
+ assert.equal(t.view().game.pending,undefined);assert.equal(t.view().game.status,'paused');assert.equal(t.view().game.epoch,epoch);
+ assert.throws(()=>t.act(0,{type:'gameResume',epoch}),/resume_not_ready/);
+ t.ready(0,{frame:917,fresh:false});t.ready(2,{frame:917,fresh:false});assert.equal(t.view().game.status,'resume_ready');
+ t.act(0,{type:'gameResume',epoch});assert.equal(t.view().game.status,'starting');
+});
