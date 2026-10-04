@@ -510,8 +510,9 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         names_fit(page)
         regions(page)
         page.screenshot(path=str(output / f'maximum-names-{profile[0]}x{profile[1]}.png'))
-    page.set_viewport_size({'width': size[0], 'height': size[1]})
-    choose_section(page, 'Profile')
+    if responsive_sizes:
+        page.set_viewport_size({'width': size[0], 'height': size[1]})
+        choose_section(page, 'Profile')
     assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
     assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.filter(node=>node.getClientRects().length).map(node => node.getBoundingClientRect().toJSON())')
     page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
@@ -631,7 +632,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
             page.wait_for_function('(before)=>Number(document.querySelector("canvas").dataset.frameCount)>before', arg=frames)
             responsive_results.append({'size': profile, 'rendered_game': game_fits(page), 'frames_advanced': True})
             page.screenshot(path=str(output / f'active-game-{profile[0]}x{profile[1]}.png'))
-        page.set_viewport_size({'width': size[0], 'height': size[1]})
+        if responsive_sizes:
+            page.set_viewport_size({'width': size[0], 'height': size[1]})
         choose_panel(page, 'Game')
         playing_regions = regions(page)
         page.keyboard.press('p')
