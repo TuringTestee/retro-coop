@@ -123,8 +123,15 @@ with sync_playwright() as pw:
   assert all(('relay' in [x['local'],x['remote']])==(a.mode=='relay') for x in result['selected_candidates']),result['selected_candidates']
   capture('playing');chat('HOST SAMPLED' if a.role=='host' else 'GUEST SAMPLED');marker('GUEST SAMPLED' if a.role=='host' else 'HOST SAMPLED')
   if a.role=='host':page.locator('canvas').focus();page.keyboard.press('p')
-  wait('proof.room?.game?.status==="paused"');page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900003})");wait('proof.hashes.length>0');page.wait_for_timeout(200)
-  result['page_url']=page.url;result['paused_hash']=page.evaluate('proof.hashes.at(-1)');result['room_id']=page.evaluate('proof.room.id');result['frames']=page.evaluate('proof.frameCount');capture('paused')
+  wait('proof.room?.game?.status==="paused"')
+  # Capture the response to this request, never a retained or unrelated hash.
+  result['paused_hash']=page.evaluate("""()=>new Promise((resolve,reject)=>{
+   const worker=currentWorker,requestId=900003;
+   const timer=setTimeout(()=>{worker.removeEventListener('message',receive);reject(new Error('Fresh paused native state timed out'))},10000);
+   function receive({data}){if(data.type==='state-hash'&&data.requestId===requestId){clearTimeout(timer);worker.removeEventListener('message',receive);resolve(data.info)}}
+   worker.addEventListener('message',receive);worker.postMessage({type:'state-hash',requestId});
+  })""")
+  result['page_url']=page.url;result['room_id']=page.evaluate('proof.room.id');result['frames']=page.evaluate('proof.frameCount');capture('paused')
   chat('HOST PAUSED' if a.role=='host' else 'GUEST PAUSED');marker('GUEST PAUSED' if a.role=='host' else 'HOST PAUSED')
   if a.mode=='relay':
    if a.role=='guest':
