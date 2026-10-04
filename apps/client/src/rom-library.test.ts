@@ -58,3 +58,35 @@ test('reselecting a saved game updates recency without changing its bytes',async
  assert.deepEqual(new Uint8Array(after.bytes),bytes);
  assert.ok(after.lastUsedAt!>before.lastUsedAt!);
 });
+
+test('automatic recovery retains two current-game captures and rejects clear/write and ABA races',async()=>{
+ const {readRecovery,changeRecovery}=await import('./saves.ts');
+ await reset();const first=await readRecovery();
+ const fingerprint={romSha256:hash,coreSha256:'a'.repeat(64),localSchema:1 as const,settings:'auto-region;zero-ram;48000hz;standard-p1-p2' as const,cartridge:{format:'iNES' as const,mapper:0,submapper:0,region:'NTSC',bytes:bytes.length}};
+ const row={fingerprint,title:'Original game',identity:'a'.repeat(64),hash:'b'.repeat(64),frame:10,savedAt:100,bytes:new ArrayBuffer(72)};
+ await changeRecovery(first.record,first.generation,row);const old=await readRecovery();
+ await changeRecovery(old.record,old.generation,{...row,frame:20});const next=await readRecovery();
+ await changeRecovery(next.record,next.generation,{...row,frame:30});assert.deepEqual((await readRecovery()).record!.captures.map(row=>row.frame),[30,20]);
+ await assert.rejects(changeRecovery(old.record,old.generation,row),/changed or was cleared/);
+ const latest=await readRecovery();await changeRecovery(latest.record,latest.generation,undefined);
+ const empty=await readRecovery();await changeRecovery(empty.record,empty.generation,row);
+ assert.ok((await readRecovery()).record!.revision>latest.record!.revision);
+ await assert.rejects(changeRecovery(latest.record,latest.generation,row),/changed or was cleared/);
+ const beforeClear=await readRecovery();await clearLocalData(beforeClear.generation);
+ await assert.rejects(changeRecovery(beforeClear.record,beforeClear.generation,row),/changed or was cleared/);
+ assert.equal((await readRecovery()).record,undefined);
+ await assert.rejects(changeRecovery(undefined,(await readRecovery()).generation,row,()=>false),/changed or was cleared/);
+});
+
+test('failed recovery storage preserves the prior capture and unavailable storage rejects clearly',async()=>{
+ const {readRecovery,changeRecovery}=await import('./saves.ts');await reset();
+ const fingerprint={romSha256:hash,coreSha256:'a'.repeat(64),localSchema:1 as const,settings:'auto-region;zero-ram;48000hz;standard-p1-p2' as const,cartridge:{format:'iNES' as const,mapper:0,submapper:0,region:'NTSC',bytes:bytes.length}};
+ const row={fingerprint,title:'Game',identity:'a'.repeat(64),hash:'b'.repeat(64),frame:10,savedAt:100,bytes:new ArrayBuffer(72)};
+ const initial=await readRecovery();await changeRecovery(initial.record,initial.generation,row);const prior=await readRecovery();
+ const put=IDBObjectStore.prototype.put;
+ IDBObjectStore.prototype.put=function(...args){if(this.name==='recovery')throw new DOMException('Disk full','QuotaExceededError');return put.apply(this,args);};
+ try{await assert.rejects(changeRecovery(prior.record,prior.generation,{...row,frame:20}),/Disk full/);}finally{IDBObjectStore.prototype.put=put;}
+ assert.deepEqual(await readRecovery(),prior);
+ const db=globalThis.indexedDB;Object.defineProperty(globalThis,'indexedDB',{value:{open(){throw Error('Storage disabled');}},configurable:true});
+ try{await assert.rejects(readRecovery(),/Storage disabled/);}finally{Object.defineProperty(globalThis,'indexedDB',{value:db,configurable:true});}
+});

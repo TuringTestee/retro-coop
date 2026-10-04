@@ -105,6 +105,12 @@ export class GameSession {
  }
  handle(member:string,command:GameCommand){
   if(!this.members.has(member))throw Error('membership_changed');
+  if(command.type==='gameRestore'){
+   this.checkRevision(command.revision);
+   if(member!==this.host||command.roomRevision!==(this.roomRevision??0)||this.state.epoch||this.hasPlayed||this.state.startRequested||!this.members.get(member)?.connected||!this.members.get(member)?.loaded)throw Error('game_prerequisites');
+   this.frame=command.frame;this.hash=command.hash;this.hasPlayed=true;this.offers.clear();
+   this.state={...this.state,epoch:id(),status:'paused',reason:'Game restored. Prepare to resume together.',delay:gameplayLimits.delayDefault};return;
+  }
   if(command.type==='gameReady'){
    this.checkRevision(command.revision);if(command.roomRevision!==(this.roomRevision??0))throw Error('room_changed');if(this.state.pending||['playing','starting','countdown','pausing'].includes(this.state.status)||!this.available(member))throw Error('game_prerequisites');
    this.offers.set(member,command);this.prepareIfReady();return;

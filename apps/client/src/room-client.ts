@@ -7,6 +7,8 @@ import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
+import {readStored,putPreferences,type PreferencesRecord} from './saves.ts';
+import {text} from '../../../packages/contracts/src/protocol-validation.ts';
 import {TabSession} from './tab-session.ts';
 import {uploadRoomFile} from './room-upload.ts';
 import {catalogId} from '../../../packages/contracts/src/catalog.ts';
@@ -86,6 +88,11 @@ export class RoomClient {
    this.pending.set(requestId,{kind:command.type,resolve,reject,timer});this.socket!.send(JSON.stringify({...command,requestId}));
   });
  }
+ private async restoreName() {
+  try{const stored=await readStored<PreferencesRecord>('preferences','chosen-name');const name=stored.record?.value;
+   if(text(name,32)&&name!==this.state.session?.nickname)this.apply(await this.request({type:'nickname',nickname:String(name)}));
+  }catch{/* Remembered identity grants no authority; storage failure leaves a normal guest. */}
+ }
  private async connect() {
   try {await this.connectOnce();}
   catch(error){
@@ -143,7 +150,7 @@ export class RoomClient {
      }else this.publish({busy:false,status:voluntaryExit&&event.reason==='host_closed'?'Lobby closed.':status,releaseNotice:voluntaryExit||event.reason==='left'||event.reason==='host_closed'&&priorRoom?.role==='host'?undefined:status});}
    };
    socket.onopen = () => {void this.request({type:'hello',...(this.token ? {token:this.token}:{})}).then(async data=>{
-    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token))throw Error('This browser cannot reserve a separate lobby session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.closePeers('No peer connection.');this.setRoom(data.room);this.apply(data);this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a lobby.'}:{})});
+    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token))throw Error('This browser cannot reserve a separate lobby session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.closePeers('No peer connection.');this.setRoom(data.room);this.apply(data);await this.restoreName();this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a lobby.'}:{})});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
@@ -220,7 +227,7 @@ export class RoomClient {
  cancelPending() {++this.generation;this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {const leaving=(command.type==='close'||command.type==='leave')&&!!this.state.room;
   if(leaving)this.voluntaryExitRoomId=this.state.room!.id;
-  try {await this.connect();this.apply(await this.request(command));if(leaving){this.setRoom(undefined);this.publish({releaseNotice:undefined});}return true;}
+  try {await this.connect();this.apply(await this.request(command));if(command.type==='nickname'){try{const stored=await readStored<PreferencesRecord>('preferences','chosen-name');await putPreferences({identity:'chosen-name',savedAt:Date.now(),value:this.state.session?.nickname},stored.generation);}catch{this.publish({status:'Your name changed, but could not be remembered on this device.'});}}if(leaving){this.setRoom(undefined);this.publish({releaseNotice:undefined});}return true;}
   catch(error){if(leaving)this.voluntaryExitRoomId=undefined;this.failure(error);return false;}}
  private async refreshDirectory() {try {this.apply(await this.request({type:'directory'}));if(!this.state.room&&!this.previewingInvite&&this.state.status.startsWith('Lobby connection lost.'))this.publish({status:'No lobby selected.'});}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async watchDirectory() {this.watchingDirectory=true;this.publish({directoryStatus:'loading',directoryError:undefined});const connected=this.state.connected;try {await this.connect();if(connected) await this.refreshDirectory();}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
@@ -237,6 +244,14 @@ export class RoomClient {
  observe(){this.game.observe();}
  retryGame(){const room=this.state.room,file=this.selectedFile;if(room?.role==='host'&&!room.established&&file){void this.game.resumeReady().then(()=>this.startRoom(file));return;}this.game.retry();}
  cancelSynchronization(){this.game.cancelIntent();}
+ async restoreGame(frame:number,hash:string,current:()=>boolean){
+  const room=this.state.room,player=this.player();
+  if(!room||room.role!=='host'||room.started||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Load a game normally.');
+  const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
+  if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
+  this.apply(data);await player.bindGameEpoch(data.room.game.epoch,frame,hash);
+  this.publish({status:'Game restored. Prepare to resume together.'});
+ }
  readyToResume(){void this.game.resumeReady();}
  resumeTogether(){void this.game.resumeTogether();}
  pauseTogether(){this.game.requestPause();}
