@@ -1,6 +1,6 @@
 import argparse, hashlib, json, math, struct, time, wave, os, platform, urllib.request, signal, subprocess
 from pathlib import Path
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import sync_playwright, expect, TimeoutError as BrowserTimeout
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'scripts/rooms'))
@@ -8,7 +8,12 @@ from ui_helpers import rename_lobby
 from unified_shell_browser import choose_section
 p=argparse.ArgumentParser();p.add_argument('--role',choices=['host','guest'],required=True);p.add_argument('--lobby',required=True);p.add_argument('--mode',choices=['direct','relay'],required=True);p.add_argument('--output',required=True);p.add_argument('--url',default='https://retro-coop.atobot.cloud/');p.add_argument('--check-enter',action='store_true');p.add_argument('--product-revision',required=True);p.add_argument('--core-sha256',required=True);p.add_argument('--play-seconds',type=int,default=10);p.add_argument('--password',default=os.environ.get('QUALIFICATION_PASSWORD'));a=p.parse_args()
 if not 1 <= a.play_seconds <= 7200:p.error('--play-seconds must be between 1 and 7200')
-def stop(signum,frame):raise RuntimeError('Qualification interrupted')
+interrupted=False
+def stop(signum,frame):
+ global interrupted
+ # Raising inside Playwright's event-loop greenlet can strand synchronous waits.
+ # Observe cancellation at an ordinary Python boundary so finally can close UI.
+ interrupted=True
 signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
 out=Path(a.output);out.mkdir(parents=True,exist_ok=True)
 url=a.url
@@ -45,7 +50,18 @@ with sync_playwright() as pw:
   marker(text);expect(field).to_have_value('')
  def marker(text,timeout=120000):
   page.get_by_role('log',name='Lobby messages').get_by_text(text,exact=False).wait_for(timeout=timeout)
- def wait(expr,timeout=60000):page.wait_for_function(expr,timeout=timeout,polling=100)
+ def wait(expr,timeout=60000):
+  deadline=time.monotonic()+timeout/1000
+  while True:
+   if interrupted:raise RuntimeError('Qualification interrupted')
+   remaining=(deadline-time.monotonic())*1000
+   if remaining<=0:raise BrowserTimeout(f'Qualification condition timed out: {expr}')
+   try:
+    page.wait_for_function(expr,timeout=min(5000,remaining),polling=100)
+    if interrupted:raise RuntimeError('Qualification interrupted')
+    return
+   except BrowserTimeout:
+    if time.monotonic()>=deadline:raise
  def capture(name):page.screenshot(path=str(out/f'{a.role}-{name}.png'))
  try:
   page.goto(url);page.locator('.rc-listing').wait_for()
@@ -187,5 +203,6 @@ with sync_playwright() as pw:
     page.get_by_role('button',name='Back to Main Page').click()
     page.get_by_role('alertdialog').get_by_role('button',name='Close lobby' if a.role=='host' else 'Leave lobby',exact=True).click()
     page.locator('.rc-listing').wait_for()
+    result['cleanup_closed']=True
   except Exception as cleanup_error:result['cleanup_error']=str(cleanup_error)
   result['elapsed_seconds']=round(time.monotonic()-started,2);(out/f'{a.role}.json').write_text(json.dumps(result,indent=2));print(json.dumps(result),flush=True);b.close()
