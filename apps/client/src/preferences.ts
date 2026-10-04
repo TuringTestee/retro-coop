@@ -17,7 +17,7 @@ export function usePreferences(identity:string|undefined,restore:(value:Preferen
   const generation=current.generation;let saved=false;
   writes.current=writes.current.catch(()=>{}).then(async()=>{
    if(context.current!==current || current.stopped || generation===undefined || generation!==current.generation)return;
-   try{await putPreferences({identity:current.identity,savedAt:Date.now(),value},generation);saved=true;if(context.current===current)setIssue('');}
+   try{await putPreferences({identity:current.identity,savedAt:Date.now(),value},generation);saved=context.current===current&&!current.stopped&&current.generation===generation;if(saved)setIssue('');}
    catch(error){if(context.current===current){current.generation=undefined;setIssue(`Preferences could not be saved. Export or manage Local data. ${error instanceof Error ? error.message : ''}`);}}
   });
   return writes.current.then(()=>saved);

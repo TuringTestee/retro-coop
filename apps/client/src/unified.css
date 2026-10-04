@@ -219,7 +219,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-preview-media img, .rc-preview-placeholder { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; background: #061017; }
 .rc-preview-placeholder { display: grid; place-items: center; border: 1px dashed #7b9298; color: #d3deda; text-align: center; font-size: 14px; }
 .rc-wait-game { display: grid; place-items: center; width: 100%; height: 100%; padding: 8px; text-align: center; color: var(--menu-text); }
-.rc-game-picker { display: grid; align-content: center; gap: 9px; width: 100%; height: 100%; padding: 12px; overflow: hidden; }
+.rc-game-picker { position: absolute; inset: 0; z-index: 3; background: var(--display); display: grid; align-content: center; gap: 9px; width: 100%; height: 100%; padding: 12px; overflow: hidden; }
 .rc-game-picker strong { font-size: 18px; }
 .rc-game-picker > div:not(.rc-saved-list):not(.rc-saved-pages) { display: flex; flex-wrap: wrap; gap: 5px; }
 .rc-game-picker button, .rc-side-content button { min-height: 31px; padding: 4px 7px; border: 1px solid var(--menu-border); border-radius: 4px; background: var(--menu-control); color: var(--menu-text); font-size: 14px; }
@@ -228,9 +228,10 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-game-progress strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
 .rc-game-progress small { color: #d3deda; font-size: 14px; }
 .rc-game-progress .rc-quiet { color: #ffc097; }
-.rc-saved-list { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 4px; min-height: 0; }
-.rc-saved-list button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rc-saved-status { min-height: 32px; max-height: 42px; overflow: hidden; font-size: 14px; }
+.rc-saved-picker { grid-template-rows: auto minmax(0,1fr) 42px auto; align-content: stretch; gap: 4px; padding: 6px 8px; }
+.rc-saved-list { display: grid; grid-template-rows: minmax(0,1fr); min-height: 0; }
+.rc-saved-list button { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.rc-saved-status { min-height: 42px; max-height: 42px; overflow: hidden; font-size: 14px; }
 .rc-saved-pages { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 
 /* Sliding tracks are dark menus; they never own document scrolling. */
@@ -467,13 +468,14 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-phone-panels button { min-width: 0; border: 1px solid var(--menu-border); border-radius: 4px; background: var(--menu); color: var(--menu-text); }
  .rc-phone-panels [aria-current=page] { border-color: var(--orange); background: var(--menu-active); font-weight: 800; }
  .rc-session > .rc-players, .rc-session > .rc-session-settings, .rc-session > .rc-chat-panel { grid-column: 1; grid-row: 2; min-height: 0; }
- .rc-session > .rc-game-zone { display: grid; grid-column: 1; grid-row: 2; grid-template-rows: 128px minmax(0,1fr); min-height: 0; }
+ .rc-session > .rc-game-zone { position: relative; display: grid; grid-column: 1; grid-row: 2; grid-template-rows: 128px minmax(0,1fr); min-height: 0; }
  .rc-game-main { display: contents; }
  .rc-game-toolbar { display: grid; grid-column: 1; grid-row: 1; grid-template-columns: minmax(0,1fr); grid-template-rows: minmax(0,1fr) 28px; gap: 4px; padding: 5px 8px; }
  .rc-game-heading { grid-row: 1; }
  .rc-game-links { grid-row: 2; justify-content: flex-end; }
  .rc-game-heading { overflow-wrap: anywhere; white-space: normal; line-height: 1.4; font-size: 14px; }
  .rc-game-display { grid-column: 1; grid-row: 2; margin: 4px 8px; }
+ .rc-has-picker .rc-game-display { position: static; overflow: visible; }
  .rc-session[data-phone-panel]:not([data-phone-panel=players]) > .rc-players,
  .rc-session[data-phone-panel]:not([data-phone-panel=settings]) > .rc-session-settings,
  .rc-session[data-phone-panel]:not([data-phone-panel=chat]) > .rc-chat-panel { visibility: hidden; pointer-events: none; }

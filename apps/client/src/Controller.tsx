@@ -17,6 +17,7 @@ import {
 
 export function Controller({
   controls,
+  covered,
   enabled,
   playing,
   editRequest,
@@ -29,6 +30,7 @@ export function Controller({
   storageIssue,
 }: {
   controls: Controls;
+  covered: boolean;
   enabled: boolean;
   playing: boolean;
   editRequest: number;
@@ -335,6 +337,8 @@ export function Controller({
   return (
     <div
       ref={root}
+      inert={covered}
+      aria-hidden={covered}
       className={`rc-controller-band${draft ? " rc-controller-editing" : ""}${phone ? " rc-phone-controller" : ""}`}
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => {

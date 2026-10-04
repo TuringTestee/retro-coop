@@ -575,7 +575,10 @@ def unavailable_preview_keeps_game(browser, url):
         context.close()
 
 
-def abandoned_saved_game_cannot_reopen(browser, url):
+def abandoned_saved_game_cannot_reopen(browser, url, output=None):
+    label = "界" * 80
+    filename = label + ".nes"
+    output = output or ROOT / "spikes/d02/public-entrypoint.local/unified-shell"
     context = browser.new_context(viewport={'width': 1280, 'height': 800})
     try:
         page = context.new_page()
@@ -584,13 +587,56 @@ def abandoned_saved_game_cannot_reopen(browser, url):
         page.get_by_role('button', name='Load NES game').click()
         page.get_by_role('button', name='Add NES file').click()
         page.set_input_files('input[aria-label="NES cartridge file"]', {
-            'name': 'saved-fixture.nes', 'mimeType': 'application/octet-stream',
+            'name': filename, 'mimeType': 'application/octet-stream',
             'buffer': (ROOT / 'spikes/d02/fixture.local.nes').read_bytes()})
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         page.wait_for_function("async()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('roms'),count=tx.objectStore('roms').count();count.onsuccess=()=>resolve(count.result>0);tx.oncomplete=()=>db.close()}})")
         page.get_by_role('button', name='Change game').click()
         page.get_by_role('button', name='Saved games').click()
-        page.get_by_role('button', name='saved-fixture.nes').wait_for()
+        page.get_by_role('button', name=label).wait_for()
+        for width, height in ((1024, 600), (320, 568), (568, 320)):
+            page.set_viewport_size({'width': width, 'height': height})
+            choose_panel(page, 'Game')
+            page.locator('.rc-session').evaluate('async node=>{node.getBoundingClientRect();await Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{})));}')
+            page.emulate_media(reduced_motion='reduce')
+            picker = page.locator('.rc-game-picker')
+            assert text_fits(picker), (width, height)
+            for button in picker.get_by_role('button').all():
+                control_visibility(button)
+            assert page.locator('.rc-controller-band').get_attribute('inert') is not None
+            page.screenshot(path=str(output / f'saved-picker-{width}x{height}.png'))
+        page.emulate_media(reduced_motion='no-preference')
+        display = page.locator('.rc-game-display').bounding_box()
+        preview_before_cancel = page.locator('.rc-preview img').get_attribute('src')
+        page.get_by_role('button', name='Back to games', exact=True).click()
+        page.get_by_role('button', name='Cancel', exact=True).click()
+        assert page.locator('.rc-game-display').bounding_box() == display
+        assert page.locator('.rc-preview img').get_attribute('src') == preview_before_cancel
+        page.get_by_role('button', name='Change game').click()
+        page.get_by_role('button', name='Saved games').click()
+        choose_section(page, 'Controls')
+        page.get_by_role('button', name='Edit controller', exact=True).click()
+        page.get_by_label('Edit controller mappings').wait_for()
+        assert page.locator('.rc-game-picker').count() == 0
+        page.get_by_label('Edit controller mappings').get_by_role('button', name='Cancel', exact=True).click()
+        choose_panel(page, 'Game')
+        page.get_by_role('button', name='Change game').click()
+        page.get_by_role('button', name='Saved games').click()
+        preview = page.locator('.rc-preview img').get_attribute('src')
+        page.evaluate("()=>{window.realSavedDigest=crypto.subtle.digest.bind(crypto.subtle);crypto.subtle.digest=()=>Promise.reject(Error('Saved game could not be verified.'));}")
+        page.get_by_role('button', name=label).click()
+        page.get_by_text('Saved game could not be verified.', exact=True).wait_for()
+        assert page.locator('.rc-preview img').get_attribute('src') == preview
+        assert text_fits(page.locator('.rc-game-picker'))
+        page.screenshot(path=str(output / 'saved-picker-failed-selection.png'))
+        page.evaluate('()=>{crypto.subtle.digest=window.realSavedDigest;}')
+        page.get_by_role('button', name=label).click()
+        page.get_by_role('button', name='Ready', exact=True).wait_for()
+        page.locator('.rc-game-picker').wait_for(state='hidden')
+        assert page.locator('.rc-game-heading').get_attribute('title') == '界' * 80
+        page.get_by_role('button', name='Change game').click()
+        page.get_by_role('button', name='Saved games').click()
+        page.get_by_role('button', name=label).wait_for()
         page.evaluate("""() => {
           const digest=crypto.subtle.digest.bind(crypto.subtle);
           window.digestHeld=0;
@@ -599,7 +645,7 @@ def abandoned_saved_game_cannot_reopen(browser, url):
             window.releaseDigest=()=>resolve(digest(...args));
           });
         }""")
-        page.get_by_role('button', name='saved-fixture.nes').click()
+        page.get_by_role('button', name=label).click()
         page.wait_for_function('window.digestHeld === 1')
         page.get_by_role('button', name='Back to Main Page').click()
         page.get_by_role('button', name='Close lobby').click()
@@ -932,7 +978,7 @@ def main():
                     print('shell check: restored_battery_preview', flush=True)
                     restored_battery_preview(browser, url)
                     unavailable_preview_keeps_game(browser, url)
-                    abandoned_saved_game_cannot_reopen(browser, url)
+                    abandoned_saved_game_cannot_reopen(browser, url, output)
                 assert not errors, errors
                 print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'local_shortcuts': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
             finally:
