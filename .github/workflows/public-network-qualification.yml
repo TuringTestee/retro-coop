@@ -27,7 +27,6 @@ jobs:
             timeout_minutes: 135
     env:
       QUALIFICATION_MODE: ${{ matrix.mode }}
-      QUALIFICATION_LOBBY: ${{ env.QUALIFICATION_SERIES }}-${{ matrix.mode }}
       QUALIFICATION_PLAY_SECONDS: ${{ matrix.play_seconds }}
     steps:
       - name: Require the frozen deployment revision
@@ -46,7 +45,7 @@ jobs:
       - name: Join public host from independent GitHub network
         run: >-
           python .qualification/public_peer.py --role guest
-          --lobby "$QUALIFICATION_LOBBY" --mode "$QUALIFICATION_MODE"
+          --lobby "$QUALIFICATION_SERIES-$QUALIFICATION_MODE" --mode "$QUALIFICATION_MODE"
           --product-revision "$PUBLIC_PRODUCT_REVISION"
           --core-sha256 "$PUBLIC_CORE_SHA256"
           --play-seconds "$QUALIFICATION_PLAY_SECONDS" --check-enter --output proof
