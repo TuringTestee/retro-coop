@@ -65,7 +65,7 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       timeout --foreground 210s python3 scripts/rooms/two_agent_game.py --role recovery --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/recovery
       ;;
     entrypoint-layout)
-      timeout --foreground 120s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --zoom
+      timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --zoom
       ;;
     *) echo "Unknown entrypoint suite" >&2; exit 2;;
   esac
