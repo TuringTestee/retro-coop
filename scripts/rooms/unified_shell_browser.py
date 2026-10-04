@@ -409,7 +409,7 @@ def host(page):
     return page.get_by_role('button', name='Edit lobby name:', exact=False).inner_text().replace('✎', '').strip()
 
 
-def exercise(page, size, output, play=False, invitation_recovery=False):
+def exercise(page, size, output, play=False, invitation_recovery=False, uploaded_title=False):
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     name = host(page)
     assert name
@@ -509,7 +509,13 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
     if play:
         choose_panel(page, 'Game')
         page.get_by_role('button', name='Load NES game').click()
-        page.get_by_role('button', name='From Below', exact=True).click()
+        if uploaded_title:
+            expected_title = '界' * 80
+            page.get_by_role('button', name='Add NES file', exact=True).click()
+            page.locator('input[aria-label="NES cartridge file"]').set_input_files({'name': expected_title + '.nes', 'mimeType': 'application/octet-stream', 'buffer': (ROOT / 'spikes/d02/fixture.local.nes').read_bytes()})
+        else:
+            expected_title = 'From Below'
+            page.get_by_role('button', name='From Below', exact=True).click()
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         assert regions(page) == base
         assert page.get_by_role('button', name='Change game').count() == 1
@@ -531,7 +537,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
             page.screenshot(path=str(output / f'automatic-play-{size[0]}x{size[1]}.png'))
             page.get_by_role('button', name='Return to lobby view', exact=True).click()
             assert page.get_by_role('navigation', name='Lobby sections').locator('[aria-current=page]').inner_text() == 'Game'
-        assert page.locator('.rc-game-heading').inner_text() == 'From Below'
+        assert page.locator('.rc-game-heading').inner_text() == expected_title
         assert page.get_by_role('button', name='Mute game').count() == 0
         choose_section(page, 'Sound')
         assert page.get_by_role('button', name='Mute game').count() == 1
@@ -543,6 +549,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
         assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
         assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        choose_panel(page, 'Game')
         page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
         canvas = page.locator('.rc-game-display canvas').bounding_box()
         game_region = page.locator('.rc-game-display').bounding_box()
@@ -633,7 +640,7 @@ def main():
                     zoom = browser_zoom(page, worker, 2)
                     page.on('pageerror', lambda error: errors.append(str(error)))
                     size = tuple(page.evaluate('[innerWidth, innerHeight]'))
-                    rows = [exercise(page, size, output, play=True)]
+                    rows = [exercise(page, size, output, play=True, uploaded_title=True)]
                     verify_zoom(worker, zoom)
                     zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
                     assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
@@ -646,14 +653,14 @@ def main():
                 rows = []
                 scenarios = (
                     {'size': (1280, 800), 'play': True, 'invitation_recovery': True},
-                    {'size': (1024, 600), 'play': True},
+                    {'size': (1024, 600), 'play': True, 'uploaded_title': True},
                     {'size': (900, 700), 'play': True},
-                    {'size': (568, 320), 'play': True},
+                    {'size': (568, 320), 'play': True, 'uploaded_title': True},
                     {'size': (844, 390), 'play': True},
                     {'size': (650, 760)},
                     {'size': (401, 760)},
                     {'size': (320, 650)},
-                    {'size': (320, 568), 'play': True},
+                    {'size': (320, 568), 'play': True, 'uploaded_title': True},
                 )
                 for scenario in scenarios:
                     size = scenario['size']
