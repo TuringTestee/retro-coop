@@ -8,7 +8,7 @@ fi
 test -s "$core"
 mkdir -p apps/client/public/generated apps/client/src/generated
 cp "$core" apps/client/src/generated/
-# Remove the previous unversioned build output during upgrade.
-rm -f apps/client/public/generated/retro_coop_d02.wasm
+# Remove previous public build outputs during upgrade.
+rm -f apps/client/public/generated/retro_coop_d02.wasm apps/client/public/generated/diagnostic.nes
 cp spikes/d02/THIRD_PARTY_NOTICES.txt apps/client/public/generated/emulator-notices.txt
-python3 spikes/d02/original_fixture.py apps/client/public/generated/diagnostic.nes
+python3 spikes/d02/original_fixture.py spikes/d02/fixture.local.nes

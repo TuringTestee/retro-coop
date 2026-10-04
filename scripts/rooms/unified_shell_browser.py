@@ -120,7 +120,7 @@ def local_shortcuts(browser, url, output):
     page = context.new_page()
     try:
         page.goto(url)
-        page.locator('input[aria-label="NES cartridge file"]').set_input_files(str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
+        page.locator('input[aria-label="NES cartridge file"]').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
         page.locator('[data-page=local]').wait_for(timeout=15000)
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
