@@ -19,14 +19,14 @@ One shared lobby shell; five physical slots and current controller authority; ex
 
 `PlayingTools` already supplies the static guide in started Game settings. Replace that display and the duplicated NES keyboard rows with one controller/editor; reuse `Settings`, `controls.ts`, preferences and `LocalPlayer`. Retain gamepad and push-to-talk configuration. No new settings page, account or input protocol.
 
-## Required owner choices
+## Phone proposal awaiting approval
 
-The inspected 320×568 five-member/CJK layout has only 96px for game/settings after its 224px player rail. A 96px direction pad, two 64px A/B targets and two 44px Select/Start targets need 312px in one row before spacing, and another 100–140px vertically. Full slots, chat, settings and these targets cannot coexist at usable sizes. Do not clip them, hide names, shrink fonts or add scrolling to claim a fit.
+The concrete local demo proposes one reserved phone panel with Game, Players, Settings and Chat tabs. The lobby and your full names move to Settings → Profile, with existing centered edit dialogs. All five slots, moderation, chat, settings and their recovery actions remain in the same session. Desktop retains its full header, Players | Game | Settings and full-width chat below.
 
-**Recommend:** after play begins on a touch layout, use the existing expanded game presentation automatically; keep one Return to lobby view action. Portrait reserves a 152px bottom controller band and 44px top controls; a 320×300 NES image fits in the remaining 372px. Landscape uses a lower translucent overlay. Lobby view remains the same session with all five slots, chat, moderation and settings; returning must not end play.
+This changes the earlier requirement to show every region together on phones. Owner approval is required before implementation. The approval request presents the complete demo, not an abstract choice. No answer or elapsed time grants approval.
 
-**Alternative requiring explicit scope choice:** keep lobby view as the mobile default and use Full screen to reach the large thumb controls. This narrows “buttons always on screen” on the smallest screens until expanded play is entered. It is not silently equivalent to the request.
+Keep Game as the initial phone panel. Start does not automatically expand the game. The already requested canvas-click toggle and top-right Full screen control open the same expanded play presentation with large thumb controls; Return restores the selected lobby panel without ending play. Touching a controller target never toggles presentation. Do not introduce another fullscreen gesture.
 
-**Fullscreen interaction is already specified:** preserve canvas-click expansion and the requested top-right control, both calling the same presentation owner, with controller events excluded. Do not replace the requested gesture or ask the owner to approve it again.
+The maximum-content demo fits 320×568 portrait and 568×320 landscape without document scrolling or clipped accepted names. It is a layout proposal, not an implemented controller, native gameplay proof or physical-device qualification. The proposed portrait expanded view reserves a 152px controller band and 44px top controls, leaving room for a 320×300 NES image. Landscape uses lower translucent controls. Safe areas reduce the game first; native fullscreen rejection retains in-window expansion.
 
-No orientation lock or native-browser fullscreen guarantee is proposed. Existing expanded presentation can work when browser fullscreen is unavailable. Physical thumb comfort, device safe areas and assistive input remain implementation proof obligations.
+Physical thumb comfort, device safe areas, assistive input, keyboard editing and actual combined input remain implementation proof obligations. Approval of the composition cannot waive them.

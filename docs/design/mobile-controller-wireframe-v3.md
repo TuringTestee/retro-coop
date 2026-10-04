@@ -4,13 +4,13 @@ Audience: Human
 
 # Mobile controller wireframe v3 — current proposal
 
-Revision: preserves the owner-requested canvas-click toggle and the top-right control from #216. Only the mobile entry policy remains undecided. Earlier v2 and its critique remain historical proposals.
+Revision: preserves the owner-requested canvas-click toggle and the top-right control from #216. The one-panel phone composition and Profile placement await owner approval. Expansion remains manual. Earlier v2 and its critique remain historical proposals.
 
 Sources: [direction/owner choices](mobile-controller-direction.md), [references](mobile-controller-references.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md), [current critique](mobile-controller-critique-v3.md). Planning only: no implemented layout, touch usability or input proof.
 
 ## Desktop preparation and inline editing / J1
 
-Keep v1's players | NES preview | settings, fixed chat and footer. The controller sits in a reserved band below the game, inside its center column. Select/Start are centered; connected key lines surround their actual targets:
+Keep players | NES preview | settings, fixed full-width chat and footer. The controller sits in a reserved band below the game, inside its center column. Select/Start are centered; connected key lines surround their actual targets:
 
 ```text
  Arrow keys ── [ + ]   Alt ─ [Select][Start] ─ Space   [ B ] ─ C
@@ -37,7 +37,7 @@ Edit → choose NES action in the same band → key capture with current/draft l
 
 Concrete horizontal targets at 320px before safe-area accommodation: pad x 8..104 (96px); Select x 108..152 and Start x 156..200 (44px each); A x 240..304/y 8..72 and B x 208..272/y 80..144 within the controller band (64px square each). A/B are diagonally staggered and never overlap; Select/Start stay central rather than above them. Safe areas reduce the game area first; maintain target sizes, with full fit still requiring actual-device verification. This is fixed geometry within an explicit play presentation, not a viewport-specific test exception.
 
-Full slots/chat/settings remain in the unchanged lobby view reached by the top-right action. The same session continues; host kick, role changes and chat are still reachable. Automatic versus manual entry is unresolved and must be chosen before implementation.
+The proposed phone lobby view reserves one body panel: Game, Players, Settings or Chat. Settings → Profile contains the complete lobby/your names and edit actions; Players contains all five slot rows and moderation. In landscape the panel tabs use a narrow left rail. Switching panels preserves chat drafts and the same game/session. Start stays in Game; canvas-click or Full screen expands manually. This composition requires owner approval before implementation.
 
 ## Landscape expanded play,568×320 / J3
 
@@ -57,4 +57,4 @@ Spectator/preparing: existing role/preparation state remains authoritative; no v
 
 ## Final design check
 
-Complete journeys, feature support, just-in-time information, one forward path and concise names are specified in J1–J6/S1–S10 and the above action/result labels; mobile entry remains an owner decision; the requested canvas-click toggle and top-right control use one presentation state. Stable geometry is proposed with explicit target bounds; rendered fit, idle visibility, physical reach, screen readers and simultaneous game input remain unproven. Borrowed arrangement/origin mechanics are sourced, with limits explicit. No production build is authorized by this sketch alone.
+Complete journeys, feature support, just-in-time information, one forward path and concise names are specified in J1–J6/S1–S10 and the above action/result labels; phone composition remains an owner decision; the requested canvas-click toggle and top-right control use one presentation state. Stable geometry is proposed with explicit target bounds; rendered fit, idle visibility, physical reach, screen readers and simultaneous game input remain unproven. Borrowed arrangement/origin mechanics are sourced, with limits explicit. No production build is authorized by this sketch alone.

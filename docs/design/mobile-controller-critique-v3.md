@@ -1,4 +1,4 @@
-Preserve the requested fullscreen gesture; only the phone entry policy still needs a decision. This is a review of the proposal, not proof of implemented touch usability.
+Preserve the requested fullscreen gesture; the concrete phone composition still needs approval. This is a review of the proposal, not proof of implemented touch usability.
 
 Audience: Human
 
@@ -9,7 +9,7 @@ Sources: [current wireframe](mobile-controller-wireframe-v3.md), [direction](mob
 | Screen | Supports | Missing or unproven | Revision or verification |
 |---|---|---|---|
 | Desktop preparation/editor | J1: actual key lines, one Edit/Save/Cancel flow, reserved band | Real rendered fit and conflict recovery | Preserve configured bindings; inspect full content and keyboard actions in product. |
-| Portrait expanded play | J2–J4: large thumb targets, return to lobby | Automatic versus manual entry; physical comfort and safe areas | Owner chooses entry; verify real touch events and usable fixed bounds. |
+| Portrait expanded play | J2–J4: large thumb targets, return to lobby | Approval of one-panel lobby; physical comfort and safe areas | Expansion is manual; verify real touch events and usable fixed bounds. |
 | Landscape expanded play | J3: low translucent controls, top-right return | Actual overlap and idle discoverability | Preserve canvas-click shortcut; exclude controller contacts; verify rotation and idle return. |
 | Watching/recovery/exit | J5–J6: disabled input, lifecycle release, deliberate teardown | Runtime authority and release behavior | Exercise role changes, late synchronization, blur, cancellation and confirmed exit. |
 
@@ -23,4 +23,4 @@ Sources: [current wireframe](mobile-controller-wireframe-v3.md), [direction](mob
 - Stable layout: reserved portrait/landscape targets are specified; real fit, safe areas and orientation changes remain unproven.
 - Borrow before inventing: retained references explain the Famicom arrangement and bounded thumb origin. Physical usability is not inferred from those references.
 
-Do not implement the undecided automatic phone entry policy. No new fullscreen gesture decision is required.
+Do not implement the phone composition before approval. The local demo fits maximum accepted content in both minimum orientations; actual panel persistence, safe areas and touch input remain unproven. No new fullscreen gesture decision is required.
