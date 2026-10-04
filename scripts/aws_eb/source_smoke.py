@@ -41,6 +41,13 @@ with tempfile.TemporaryDirectory(prefix="retro-eb-source-") as directory:
                     "--caddy-image", caddy, "--turn-image", turn,
                     "--source-revision", "d" * 40, "--asset-manifest", str(manifest),
                     "--core-sha256", "e" * 64, "--output", str(bundle)], check=True, capture_output=True)
+    manifest.write_text(json.dumps({"/generated/diagnostic.nes": "c" * 64}))
+    denied = subprocess.run([sys.executable, str(ROOT / "scripts/aws_eb/package.py"),
+                             "--edge-image", edge, "--coordinator-image", coordinator,
+                             "--caddy-image", caddy, "--turn-image", turn,
+                             "--source-revision", "d" * 40, "--asset-manifest", str(manifest),
+                             "--core-sha256", "e" * 64, "--output", str(bundle)], capture_output=True, text=True)
+    assert denied.returncode != 0 and "diagnostic test ROM" in denied.stderr
     with zipfile.ZipFile(bundle) as archive:
         assert set(archive.namelist()) == {"docker-compose.yml", "release.json", ".ebextensions/01-environment.config"}
         record = json.loads(archive.read("release.json"))
