@@ -18,12 +18,12 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from layout_geometry import browser_zoom, verify_zoom, zoom_context
-from ui_helpers import protect_lobby, rename_lobby
+from ui_helpers import choose_section, protect_lobby, rename_lobby
 
 
 SOURCE = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--role', choices=('host', 'guest', 'verify', 'run', 'recovery'), required=True)
+parser.add_argument('--role', choices=('host', 'guest', 'verify', 'run', 'recovery', 'shared-load'), required=True)
 parser.add_argument('--runtime-root', type=Path, default=SOURCE)
 parser.add_argument('--url')
 parser.add_argument('--rom', type=Path)
@@ -756,7 +756,175 @@ def recovery():
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 
-if args.role == 'recovery':
+def shared_load():
+    """Use public Save/Load controls, then inspect actual native commit receipts."""
+    if not args.rom:
+        parser.error('shared-load needs --rom')
+    started = time.monotonic()
+    errors = []
+    fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + """
+      const NativeWorker=Worker;
+      window.Worker=class extends NativeWorker {
+        constructor(...args){super(...args);this.addEventListener('message',({data})=>{
+          if(['state-captured','peer-checkpoint-imported','peer-checkpoint-rolled-back'].includes(data.type)){
+            proof.saveReceipts??=[];proof.saveReceipts.push({type:data.type,info:data.info,
+              frame:data.frame,hash:data.hash,identity:data.identity,bytes:data.bytes?.byteLength});
+          }
+        });}
+      };
+      const RoomSocket=WebSocket;
+      window.WebSocket=class extends RoomSocket {
+        constructor(...args){super(...args);this.addEventListener('message',({data})=>{
+          const value=JSON.parse(data);if(value.type==='result'&&value.ok&&value.data?.room)proof.room=value.data.room;
+          if(value.type.startsWith('gameLoad')){
+            proof.loadEvents??=[];proof.loadEvents.push({type:value.type,transactionId:value.transactionId,
+              epoch:value.epoch,frame:value.frame,hash:value.hash});
+          }
+        });}
+      };
+    """
+    def native(page):
+        before = page.evaluate('proof.hashes.length')
+        page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        page.wait_for_function('n=>proof.hashes.length>n',arg=before)
+        return page.evaluate('proof.hashes.at(-1)')
+    def slot(page):
+        return page.evaluate("""()=>new Promise((resolve,reject)=>{
+          const request=indexedDB.open('retro-coop-local');request.onerror=()=>reject(request.error);
+          request.onsuccess=()=>{const db=request.result,tx=db.transaction('saves','readonly'),all=tx.objectStore('saves').getAll();
+            all.onsuccess=()=>{const row=all.result.find(row=>row.slot===1);resolve(row?{
+              identity:row.identity,slot:row.slot,savedAt:row.savedAt,frame:row.frame,hash:row.hash,bytes:row.bytes.byteLength}:null);};
+            tx.oncomplete=()=>db.close();};})""")
+    def mute(page):
+        choose_section(page,'Sound')
+        control=page.get_by_role('button',name='Mute game',exact=True)
+        if control.is_visible():control.click()
+        expect(page.get_by_role('button',name='Unmute game',exact=True)).to_be_visible()
+        choose_section(page,'Game')
+    def pause(host,guest):
+        host.keyboard.press('p')
+        for page in (host,guest):page.wait_for_function('proof.room?.game?.status==="paused"&&!proof.room.game.load')
+        snapshots=[native(page) for page in (host,guest)]
+        assert snapshots[0]==snapshots[1],snapshots
+        return snapshots[0]
+    def resume(host,guest):
+        for page in (host,guest):
+            page.get_by_role('button',name='Prepare to resume',exact=True).click()
+            page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)')
+        host.get_by_role('button',name='Resume together',exact=True).click()
+        for page in (host,guest):page.wait_for_function('proof.room.game.status==="playing"')
+    with sync_playwright() as playwright, ExitStack() as resources:
+        url=args.url
+        if not url:
+            log=resources.enter_context((SESSION/'server.log').open('w'))
+            service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=ROOT,stdout=subprocess.PIPE,stderr=log,text=True)
+            resources.callback(lambda: (service.terminate(),service.wait(timeout=5)) if service.poll() is None else None)
+            line=service.stdout.readline()
+            if not line:raise RuntimeError('The shared Save/Load gateway did not start')
+            url=json.loads(line)['url']
+        browsers=[playwright.chromium.launch(ignore_default_args=['--mute-audio']) for _ in range(2)]
+        for browser in browsers:resources.callback(browser.close)
+        contexts=[browser.new_context(viewport={'width':args.width,'height':args.height},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
+        pages=[]
+        for context in contexts:
+            context.add_init_script(fixture)
+            page=context.new_page();page.set_default_timeout(15000)
+            page.on('pageerror',lambda error:errors.append(str(error)))
+            page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
+            page.goto(url);page.evaluate('releaseFrames()');pages.append(page)
+        host,guest=pages
+        try:
+            host.get_by_role('button',name='Host a new game').click()
+            rename_lobby(host,LOBBY_NAME)
+            with host.expect_file_chooser() as chooser:
+                host.get_by_role('button',name=re.compile(r'Load NES game')).click()
+                host.get_by_role('button',name='Add NES file',exact=True).click()
+            chooser.value.set_files(str(args.rom.resolve()))
+            host.wait_for_function('proof.room?.matches&&proof.room.fingerprint')
+            host.get_by_role('button',name='Copy invite',exact=True).click()
+            invitation=host.evaluate('navigator.clipboard.readText()')
+            guest.goto(invitation);guest.evaluate('releaseFrames()')
+            guest.get_by_role('button',name='Join lobby',exact=True).click()
+            for page in pages:
+                page.wait_for_function('proof.room?.matches&&proof.room.slots.some(s=>s.member?.id===proof.room.chatMembership&&s.member.acquisition==="loaded")')
+                mute(page)
+                page.get_by_role('button',name='Ready',exact=True).click()
+                page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)')
+            expect(host.get_by_role('button',name='Start →')).to_be_enabled()
+            host.get_by_role('button',name='Start →').click()
+            for page in pages:page.wait_for_function('proof.room.game.status==="playing"&&proof.frameCount>30')
+            host.keyboard.press('q')
+            host.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
+            saved=slot(host)
+            assert saved and saved['bytes']>72 and saved.get('frame') is not None and saved.get('hash'),saved
+            host.wait_for_function('frame=>proof.frames.at(-1)?.frame>frame+60',arg=saved['frame'])
+            before=pause(host,guest)
+            old_epoch=host.evaluate('proof.room.game.epoch')
+            shell=shell_bounds(host)
+            host.keyboard.press('e')
+            expect(host.get_by_role('alertdialog')).to_be_visible()
+            screenshot(host,'shared-load-host-confirm.png')
+            host.get_by_role('button',name='Load game',exact=True).click()
+            guest.get_by_role('button',name='Load game',exact=True).wait_for()
+            screenshot(guest,'shared-load-guest-consent.png')
+            guest.get_by_role('button',name='Load game',exact=True).click()
+            for page in pages:
+                page.wait_for_function('old=>proof.room.game.epoch!==old&&proof.room.game.status==="playing"&&!proof.room.game.load',arg=old_epoch)
+                receipt=page.evaluate('proof.saveReceipts.filter(row=>row.type==="peer-checkpoint-imported").at(-1)')
+                info=receipt.get('info',receipt)
+                assert info['frame']==saved['frame'] and info['hash']==saved['hash'],(receipt,saved)
+            check_shell(host,shell)
+            screenshot(host,'shared-load-restored-host.png');screenshot(guest,'shared-load-restored-guest.png')
+            # Trusted P2 input must reach both real native machines after replacement.
+            controller_ram=None
+            if EXPECTED_RAM is not None:
+                guest.keyboard.down('c')
+                frame=guest.evaluate('proof.frameCount')
+                guest.wait_for_function('n=>proof.frameCount>n+30',arg=frame)
+                pause(host,guest)
+                for page in pages:
+                    page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
+                    page.wait_for_function('Array.isArray(proof.controllerRam)')
+                    assert page.evaluate('proof.controllerRam')==EXPECTED_RAM
+                controller_ram=EXPECTED_RAM
+                guest.keyboard.up('c')
+                resume(host,guest)
+            # Decline and the real consent deadline preserve the same paused machine.
+            denials=[]
+            for decision in ('decline','timeout'):
+                prior=pause(host,guest)
+                host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
+                guest.get_by_role('button',name='Load game',exact=True).wait_for()
+                if decision=='decline':guest.get_by_role('button',name='Keep current',exact=True).click()
+                for page in pages:page.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load',timeout=20000)
+                snapshots=[native(page) for page in pages]
+                assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
+                denials.append({'action':decision,'preserved':prior})
+                resume(host,guest)
+            assert not errors,errors
+            save('shared-load-result.json',{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
+                'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':host.evaluate('proof.room.game.epoch'),
+                'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
+                'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
+        except Exception:
+            for index,page in enumerate(pages):
+                screenshot(page,f'shared-load-{index}-failure.png')
+                save(f'shared-load-{index}-failure.json',{'status':page.locator('.rc-status').all_inner_texts(),
+                    'game':page.evaluate('proof.room?.game'),'events':page.evaluate('proof.loadEvents??[]'),
+                    'native':page.evaluate('proof.saveReceipts??[]'),'page_errors':errors})
+            raise
+        finally:
+            try:
+                host.set_default_timeout(3000)
+                host.get_by_role('button',name='Back to Main Page',exact=True).click()
+                host.get_by_role('button',name='Close lobby',exact=True).click()
+                host.locator('.rc-listing').wait_for()
+            except Exception as error:print(f'Test lobby cleanup failed: {error}',file=sys.stderr)
+
+
+if args.role == 'shared-load':
+    shared_load()
+elif args.role == 'recovery':
     recovery()
 elif args.role == 'verify':
     verify()
