@@ -10,7 +10,7 @@ Install Node.js 24.13.1, npm 11.8.0, Python 3, and Rust 1.95.0 with the `wasm32-
 sh scripts/demo.sh
 ```
 
-Open the URL printed by the command, normally **http://127.0.0.1:8765/**. If that port is busy, the launcher prints another local URL. The lobby list opens first. Choose **Host a new game** to create a public lobby with a generated name, or click a lobby row to join it. The host can change the lobby name and choose **Password protected** under Settings → Lobby. Choose **Load NES game** in the lobby, then an included game or **Add NES file**. Friends can join while the host chooses a game; a protected lobby asks for its password. Occupied controller players choose **Ready** once prepared, then the host chooses **Start →**. Other visitors can watch without blocking Start. **Back to Main Page** asks to close or leave the lobby and stops its game. In the NES game, use the arrow keys to move, Z for A, C for B, Alt for Select, and Space for Start. Hold A or D for rapid A or B; P pauses the emulator, Q saves, and E loads a quick save in local play. The in-game guide shows your current bindings if you change them.
+Open the URL printed by the command, normally **http://127.0.0.1:8765/**. If that port is busy, the launcher prints another local URL. The lobby list opens first. Choose **Host a new game** to create a public lobby with a generated name, or click a lobby row to join it. The host can change the lobby name and choose **Password protected** under Settings → Lobby. Choose **Load NES game** in the lobby, then an included game or **Add NES file**. Friends can join while the host chooses a game; a protected lobby asks for its password. Occupied controller players choose **Ready** once prepared, then the host chooses **Start →**. Other visitors can watch without blocking Start. **Back to Main Page** asks to close or leave the lobby and stops its game. In the NES game, use the arrow keys to move, Z for A, C for B, Alt for Select, and Space for Start. Hold A or D for rapid A or B; P pauses the emulator, Q saves, and E loads a quick save in local play. The in-game guide shows your current bindings if you change them. Your chosen name and automatic host progress stay in this browser. If a hosted lobby expires, host a new lobby and choose Restore game to resume saved progress with a new invitation. Manual Q saves remain separate.
 
 This command starts the current client and a local room coordinator, and Ctrl-C stops both. It supports testing up to five member tabs or browser windows on this computer. A friend on another network needs the deployed HTTPS application; local loopback addresses are not reachable from their computer.
 
@@ -34,17 +34,19 @@ Open this repository in your agent and ask:
 
 > Use `project-planner` to help me define Retro Coop and its first iteration.
 
-For an existing issue, ask for `issue-resolver` with its URL. Vaseline’s planner turns CEO direction into architecture decisions and a prioritized dependency plan in the epic. After approval and planning merge, its orchestrator organizes linked issues and coordinates agents, using GitHub Projects when accessible or issue-only tracking otherwise. There is no separate breakdown stage. Implementation PRs include local review and test evidence. Follow the merge policy recorded in the epic: this project authorizes agent merges after local review and passing required checks. Without scoped authorization, use external review and a separate merge owner.
+For an existing issue, use `issue-resolver` with its URL. Use `project-orchestrator` for project delivery and follow the repository guidance in [AGENTS.md](AGENTS.md).
 
 ## Shared skills
 
 Vaseline is pinned as a submodule at `tooling/vaseline`. Relative links expose its skills without copying their text. After cloning or creating a worktree, run:
 
 ```sh
-git submodule update --init --recursive
+git submodule update --init -- tooling/vaseline
 ```
 
-You need read access to the private Vaseline repository and an authenticated SSH connection to GitHub. Refresh your agent's skill discovery after initialization. If needed, ask it to read `.agents/skills/project-planner/SKILL.md` directly.
+You need read access to the private Vaseline repository and an authenticated SSH connection to GitHub. Refresh your agent's skill discovery after initialization. The entry point is `.agents/skills/project-orchestrator/SKILL.md`.
+
+The issue resolver records local ticket activity in SQLite. Run `node tooling/vaseline/cli/vaseline.js effort --help` for the timing commands.
 
 To update deliberately, fetch Vaseline, check out a reviewed commit inside `tooling/vaseline`, and submit the changed submodule pointer in a PR. Reconcile skill links if the bundled names changed. Project instructions stay in `AGENTS.md`.
 

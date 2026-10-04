@@ -4,10 +4,15 @@
     "test_roms/"
   ],
   "package": "tetanes-core",
-  "patch_sha256": "19449aac4daf44fc41af3234d5caee1806bdb51c2df3b8c780d986fb6a0833ae",
+  "patch_sha256": "cc09af9fcd170ae338ceedf2379c33259f472c390458591be1f52afbded901a9",
   "patched_files": {
+    "README.md": "91aec0ab06daae06d8c62b7bb229fcd2f36f94a6c958589679a319de4b9bf387",
     "src/cart.rs": "66c68edbcf030c43455a0159544a2268bae34ae0581260c6771f0976632686e0",
-    "src/mapper/m001_sxrom.rs": "8015152a6881559ea13596c4c3b78b6e6696bbf496100b4f4ba83f88c2a7c28a"
+    "src/control_deck.rs": "7e191f9b96974c4bbce98da2bd22fd461cfb6018dd2b71de9e94fd989eb81ca4",
+    "src/mapper.rs": "9aa22bb4734f198cb5d820a5709072a9b21ee33a05dc13d3d30dd23383748aa6",
+    "src/mapper/m001_sxrom.rs": "8015152a6881559ea13596c4c3b78b6e6696bbf496100b4f4ba83f88c2a7c28a",
+    "src/mapper/m227_multicart.rs": "6920e79c9c24237a37bef2a9f39556a26d6cf564bd42ca319d8b581a23253709",
+    "src/memory.rs": "e2edf5fa10909b78f2a2eff686946cb9d2b950f6724b55851df0e6281e27601e"
   },
   "previous_pin": "a0a6b17f8ba9c5ee451453fb2409753fd06e5a31",
   "release_revision": "94e3db3684ced606c6865c51a9a61b0e15bc08fe",

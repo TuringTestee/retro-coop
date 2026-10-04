@@ -1,12 +1,13 @@
 import {defaults,padInputs,type Controls} from './controls.ts';
 import {Microphone,type MicrophoneState} from './microphone.ts';
 export type VoiceState={microphone:MicrophoneState;connected:boolean;listening:boolean;remoteMuted:boolean;volume:number;devices:{id:string;label:string}[];deviceError?:string;playbackError?:string;connectionError?:string};
-type VoicePeer={pc:RTCPeerConnection;audio:HTMLAudioElement;connected:boolean;binding?:number;connectionError?:string;playbackError?:string};
+type VoicePeer={pc:RTCPeerConnection;audio:HTMLAudioElement;connected:boolean;binding?:number;playback?:number;connectionError?:string;playbackError?:string};
 /** One explicit microphone capture shares up to four authenticated peer transports. */
 export class VoiceSession {
  readonly microphone:Microphone;
  private peers=new Map<string,VoicePeer>();
  private disposed=false;
+ private deviceRequest=0;
  private controls:Controls=defaults();private keys=new Set<string>();private animation=0;private padArmed=false;private pointerHeld=false;
  private state:VoiceState={microphone:{phase:'off',mode:'open',muted:true,transmitting:false,device:'default'},connected:false,listening:false,remoteMuted:false,volume:1,devices:[]};
  private update:(state:VoiceState)=>void;
@@ -37,8 +38,9 @@ export class VoiceSession {
  private visibility=()=>{if(document.hidden)this.blur();};
  private devicesChanged=()=>{void this.listDevices();};
  async listDevices(){
-  try{const devices=await navigator.mediaDevices.enumerateDevices();this.publish({devices:devices.filter(device=>device.kind==='audioinput' && device.deviceId && device.deviceId!=='default').map((device,index)=>({id:device.deviceId,label:device.label||`Microphone ${index+1}`})),deviceError:undefined});}
-  catch{this.publish({deviceError:'Microphone devices could not be listed. Retry or use the default device.'});}
+  const request=++this.deviceRequest;
+  try{const devices=await navigator.mediaDevices.enumerateDevices();if(request!==this.deviceRequest)return;this.publish({devices:devices.filter(device=>device.kind==='audioinput' && device.deviceId && device.deviceId!=='default').map((device,index)=>({id:device.deviceId,label:device.label||`Microphone ${index+1}`})),deviceError:undefined});}
+  catch{if(request===this.deviceRequest)this.publish({deviceError:'Microphone devices could not be listed. Retry or use the default device.'});}
  }
  private summarize(){this.publish({connected:[...this.peers.values()].some(peer=>peer.connected),connectionError:[...this.peers.values()].find(peer=>peer.connectionError)?.connectionError,playbackError:[...this.peers.values()].find(peer=>peer.playbackError)?.playbackError});}
  private closePeer(id:string,peer:VoicePeer){
@@ -80,7 +82,7 @@ export class VoiceSession {
   }
   this.summarize();
  }
- close(){for(const [id,peer] of this.peers)this.closePeer(id,peer);this.blur();this.microphone.close();this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
+ close(){this.deviceRequest++;for(const [id,peer] of this.peers)this.closePeer(id,peer);this.blur();this.microphone.close();this.publish({connected:false,listening:false,connectionError:undefined,playbackError:undefined});}
  async enable(){
   if(!this.state.connected)return;
   this.publish({listening:true});void this.play();await this.microphone.enable();await this.listDevices();
@@ -90,8 +92,9 @@ export class VoiceSession {
   if(!this.state.listening||this.peers.get(id)!==peer)return;
   peer.audio.muted=this.state.remoteMuted;peer.audio.volume=this.state.volume;
   if(!peer.audio.srcObject)return;
-  try{await peer.audio.play();if(this.peers.get(id)===peer&&this.state.listening){peer.playbackError=undefined;this.summarize();}}
-  catch{if(this.peers.get(id)===peer&&this.state.listening){peer.playbackError='Remote voice playback was blocked.';this.summarize();}}
+  const playback=peer.playback=(peer.playback??0)+1;
+  try{await peer.audio.play();if(this.peers.get(id)===peer&&peer.playback===playback&&this.state.listening){peer.playbackError=undefined;this.summarize();}}
+  catch{if(this.peers.get(id)===peer&&peer.playback===playback&&this.state.listening){peer.playbackError='Remote voice playback was blocked.';this.summarize();}}
  }
  async play(){await Promise.all([...this.peers].map(([id,peer])=>this.playPeer(id,peer)));}
  retrySound(){this.publish({listening:true});void this.play();}

@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory(prefix='retro-coop-integrated-roms-') as rom_di
         url = json.loads(address)['url']
         subprocess.run([
             sys.executable, 'scripts/rooms/guest_transfer_browser.py',
-            '--url', url, '--fixture', 'apps/client/dist/generated/diagnostic.nes',
+            '--url', url, '--fixture', 'spikes/d02/fixture.local.nes',
             '--rom-dir', rom_dir,
             *(['--output', str(args.output)] if args.output else []),
         ], cwd=ROOT, check=True, timeout=55)

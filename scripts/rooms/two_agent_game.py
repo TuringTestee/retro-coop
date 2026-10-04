@@ -6,6 +6,7 @@ from contextlib import ExitStack
 import hashlib
 import json
 import os
+import re
 import math
 import statistics
 import subprocess
@@ -22,7 +23,7 @@ from ui_helpers import protect_lobby, rename_lobby
 
 SOURCE = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--role', choices=('host', 'guest', 'verify', 'run'), required=True)
+parser.add_argument('--role', choices=('host', 'guest', 'verify', 'run', 'recovery'), required=True)
 parser.add_argument('--runtime-root', type=Path, default=SOURCE)
 parser.add_argument('--url')
 parser.add_argument('--rom', type=Path)
@@ -33,12 +34,18 @@ parser.add_argument('--width', type=int, default=1366)
 parser.add_argument('--height', type=int, default=682)
 parser.add_argument('--zoom', type=int, choices=(1, 2), default=1)
 parser.add_argument('--play-seconds', type=int, default=0)
+parser.add_argument('--observer-churn', action='store_true', help='Join and leave as an unrelated observer during continuous play')
+parser.add_argument('--required-peer-loss', action='store_true', help='Prove a departed controller fails the live check')
 args = parser.parse_args()
 ROOT = args.runtime_root.resolve()
 SESSION = args.session_dir.resolve()
 SESSION.mkdir(parents=True, exist_ok=True)
 if not 0 <= args.play_seconds <= 30:
     parser.error('--play-seconds must be between 0 and 30')
+if args.observer_churn and (args.role not in ('run', 'host', 'guest') or args.play_seconds < 10 or args.visibility != 'public'):
+    parser.error('--observer-churn needs a public run with at least 10 play seconds')
+if args.required_peer_loss and (args.role != 'run' or args.play_seconds < 10 or args.observer_churn):
+    parser.error('--required-peer-loss needs a run with at least 10 play seconds')
 LOBBY_NAME = 'Play check ' + hashlib.sha256(str(SESSION).encode()).hexdigest()[:10]
 EXPECTED_RAM = [int(value) for value in args.expect_controller_ram.split(',')] if args.expect_controller_ram else None
 if EXPECTED_RAM is not None and (len(EXPECTED_RAM) != 2 or any(value < 0 or value > 255 for value in EXPECTED_RAM)):
@@ -105,6 +112,8 @@ def verify():
     assert not host['page_errors'] and not guest['page_errors']
     assert host['continuous_play_seconds'] >= args.play_seconds
     assert guest['continuous_play_seconds'] >= args.play_seconds
+    if args.observer_churn:
+        assert host['observer_stop']['required'] is False
     if args.play_seconds:
         for player in (host, guest):
             assert player['measured_fps'] > 0
@@ -128,6 +137,7 @@ def verify():
         'continuous_play_seconds': min(host['continuous_play_seconds'], guest['continuous_play_seconds']),
         'host_metrics': {key: host[key] for key in ('measured_fps', 'ping_ms', 'routes')},
         'guest_metrics': {key: guest[key] for key in ('measured_fps', 'ping_ms', 'routes')},
+        'observer_stop': host['observer_stop'],
     }
     save('result.json', result)
     print(json.dumps(result, indent=2))
@@ -160,9 +170,45 @@ def run_pair():
                                '--play-seconds', str(args.play_seconds)]
                     if args.expect_controller_ram:
                         command.extend(['--expect-controller-ram', args.expect_controller_ram])
+                    if args.observer_churn:
+                        command.append('--observer-churn')
                     workers.append(subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT))
                 deadline = time.monotonic() + 80
                 try:
+                    if args.required_peer_loss:
+                        wait_for('host-live.json', 40)
+                        wait_for('guest-live.json', 40)
+                        workers[1].terminate()
+                        workers[1].wait(timeout=5)
+                        assert workers[0].wait(timeout=15) != 0, 'Host incorrectly passed after its controller left'
+                        failure = wait_for('host-failure.json', 1)
+                        assert any(stop['type'] == 'peerStop' and stop['required'] for stop in failure['stop_events']), failure
+                        result = {'result': 'pass', 'required_stop': next(stop for stop in failure['stop_events'] if stop['type'] == 'peerStop' and stop['required'])}
+                        save('required-peer-loss-result.json', result)
+                        print(json.dumps(result, indent=2))
+                        return
+                    if args.observer_churn:
+                        wait_for('host-live.json', 40)
+                        wait_for('guest-live.json', 40)
+                        invitation = wait_for('host-ready.json', 1)['invitation']
+                        with sync_playwright() as playwright:
+                            browser = playwright.chromium.launch(ignore_default_args=['--mute-audio'])
+                            try:
+                                context = browser.new_context(viewport={'width': args.width, 'height': args.height})
+                                context.add_init_script((ROOT / 'scripts/gameplay/fixture.js').read_text())
+                                observer = context.new_page()
+                                observer.goto(invitation)
+                                observer.evaluate('releaseFrames()')
+                                observer.get_by_role('button', name='Join lobby', exact=True).click()
+                                observer.wait_for_function('proof.room?.role === "member" && proof.room?.game?.status === "playing"', timeout=15000)
+                                observer.wait_for_function('proof.room?.peers?.some(peer => peer.status === "connected")', timeout=15000)
+                                observer_id = observer.evaluate('proof.room.chatMembership')
+                                observer.get_by_role('button', name='Back to Main Page').click()
+                                observer.get_by_role('button', name='Leave lobby', exact=True).click()
+                                observer.locator('.rc-listing').wait_for(timeout=15000)
+                                save('observer-left.json', {'member_id': observer_id})
+                            finally:
+                                browser.close()
                     while time.monotonic() < deadline:
                         statuses = [worker.poll() for worker in workers]
                         if all(status == 0 for status in statuses):
@@ -293,11 +339,19 @@ def player():
             page.keyboard.down('z' if args.role == 'host' else 'c')
             play_started = time.monotonic()
             play_frame = held_from
+            play_epoch = page.evaluate('proof.activeEpoch')
+            save(f'{args.role}-live.json', {'epoch': play_epoch})
             while time.monotonic() - play_started < args.play_seconds:
                 wait_for_page('previous => proof.frameCount > previous', arg=play_frame, timeout=5000)
                 play_frame = page.evaluate('proof.frameCount')
-                assert page.evaluate('proof.room?.game?.status === "playing" && !proof.workloadStopped'), 'Shared play stopped during the live check'
+                assert page.evaluate('epoch => proof.room?.game?.status === "playing" && !proof.workloadStopped && proof.activeEpoch === epoch && proof.roomSocket?.readyState === WebSocket.OPEN', arg=play_epoch), 'Shared play stopped during the live check'
                 page.wait_for_timeout(250)
+            observer_stop = None
+            if args.observer_churn and args.role == 'host':
+                observer_id = wait_for('observer-left.json', 1)['member_id']
+                stops = page.evaluate('proof.stopEvents')
+                observer_stop = next((stop for stop in stops if stop['type'] == 'peerStop' and stop['member'] == observer_id and not stop['required']), None)
+                assert observer_stop, stops
             continuous_play_seconds = round(time.monotonic() - play_started, 2)
             measured_fps = round((play_frame-held_from)/continuous_play_seconds, 2) if args.play_seconds else None
             rtts = page.evaluate('proof.admission.nonceRttMs')
@@ -361,6 +415,7 @@ def player():
                 'elapsed_seconds':round(time.monotonic()-started,2),'page_errors':errors,
                 'continuous_play_seconds':continuous_play_seconds,
                 'measured_fps':measured_fps,'ping_ms':ping_ms,'routes':routes,
+                'observer_stop':observer_stop,
             }
             save(f'{args.role}.json', evidence)
             wait_for(f'{"guest" if args.role == "host" else "host"}.json', 15)
@@ -370,6 +425,10 @@ def player():
             save(f'{args.role}-failure.json', {
                 'role':args.role,'room':page.evaluate('window.proof?.room'),
                 'frames':page.evaluate('window.proof?.frameCount'),
+                'active_epoch':page.evaluate('window.proof?.activeEpoch'),
+                'socket_ready_state':page.evaluate('window.proof?.roomSocket?.readyState'),
+                'stop_events':page.evaluate('window.proof?.stopEvents?.slice(-12)'),
+                'recent_events':page.evaluate('window.proof?.events?.slice(-12)'),
                 'status':page.locator('.rc-status').all_inner_texts(),'page_errors':errors,
             })
             raise
@@ -386,7 +445,293 @@ def player():
                     print(f'Test lobby cleanup failed: {error}', file=sys.stderr)
 
 
-if args.role == 'verify':
+def recovery():
+    """Recover actual completed native progress into a fresh host/guest authority."""
+    if not args.rom:
+        parser.error('recovery needs --rom')
+    started = time.monotonic()
+    errors = []
+    fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + """
+      (()=>{const Socket=WebSocket;window.WebSocket=class extends Socket{
+        constructor(...args){super(...args);this.addEventListener('message',event=>{
+          const value=JSON.parse(event.data);
+          if(value.type==='result'&&value.ok){if(value.data.room)proof.room=value.data.room;
+            if(value.data.session)proof.session=value.data.session;}
+        });}
+      };})();
+    """
+    def record(page):
+        return page.evaluate("""()=>new Promise((resolve,reject)=>{
+          const request=indexedDB.open('retro-coop-local');
+          request.onerror=()=>reject(request.error);
+          request.onsuccess=()=>{const db=request.result;
+            const row=db.transaction('recovery').objectStore('recovery').get('host');
+            row.onsuccess=()=>{db.close();resolve(row.result?{revision:row.result.revision,
+              captures:row.result.captures.map(c=>({frame:c.frame,hash:c.hash,savedAt:c.savedAt}))}:null);};
+          };
+        })""")
+    def wait_record(page, count, seconds):
+        deadline=time.monotonic()+seconds
+        while time.monotonic()<deadline:
+            value=record(page)
+            if value and len(value['captures'])>=count:
+                return value
+            page.wait_for_timeout(100)
+        raise TimeoutError('The automatic host capture did not commit')
+    def mute_game(page):
+        selector=page.get_by_role('combobox',name='Settings section',include_hidden=True)
+        prior=selector.locator('option:checked').inner_text()
+        if selector.is_visible():selector.select_option(label='Sound')
+        else:page.get_by_role('button',name='Sound',exact=True).click()
+        mute=page.get_by_role('button',name='Mute game',exact=True)
+        if mute.is_visible():mute.click()
+        expect(page.get_by_role('button',name='Unmute game',exact=True)).to_be_visible()
+        if selector.is_visible():selector.select_option(label=prior)
+        else:page.get_by_role('button',name=prior,exact=True).click()
+    def open_page(context, url):
+        page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
+        page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
+        page.goto(url);page.evaluate('releaseFrames()');return page
+    with sync_playwright() as playwright, ExitStack() as resources:
+        if not args.url:
+            log=resources.enter_context((SESSION/'server.log').open('w'))
+            service=subprocess.Popen(['node','scripts/rooms/browser-server.ts'],cwd=ROOT,stdout=subprocess.PIPE,stderr=log,text=True)
+            def stop_service():
+                if service.poll() is None:service.terminate()
+                service.wait(timeout=5)
+            resources.callback(stop_service)
+            line=service.stdout.readline()
+            if not line:raise RuntimeError('The recovery browser gateway did not start')
+            args.url=json.loads(line)['url']
+        browsers=[playwright.chromium.launch(ignore_default_args=['--mute-audio']) for _ in range(2)]
+        for browser in browsers:resources.callback(browser.close)
+        contexts=[browser.new_context(viewport={'width':args.width,'height':args.height},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
+        for context in contexts:context.add_init_script(fixture)
+        host=open_page(contexts[0],args.url);guest=open_page(contexts[1],args.url)
+        host.locator('.rc-identity .rc-header-edit').click()
+        host.get_by_role('textbox',name='Your name').fill('Recovery Host')
+        host.get_by_role('button',name='Save name',exact=True).click()
+        host.get_by_role('button',name='Host a new game').click()
+        host.wait_for_function('proof.room?.role==="host"')
+        host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        host.wait_for_function('proof.room?.fingerprint && proof.room?.matches',timeout=30000)
+        mute_game(host)
+        old=host.evaluate('proof.room');old_token=host.evaluate('proof.session.token')
+        invitation=args.url+'/#invite='+old['invite']
+        guest.goto(invitation);guest.evaluate('releaseFrames()')
+        guest.get_by_role('button',name='Join lobby',exact=True).click()
+        expect(guest.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        mute_game(guest)
+        guest.get_by_role('button',name='Ready',exact=True).click()
+        host.get_by_role('button',name='Ready',exact=True).click()
+        host.get_by_role('button',name='Start →').click()
+        host.wait_for_function('proof.frameCount>120',timeout=30000)
+        guest.wait_for_function('proof.frameCount>120',timeout=30000)
+        first=wait_record(host,1,35)
+        assert first['captures'][0]['frame']>0
+        # Brief signaling loss retains the live room and native game, without an offer.
+        host.evaluate('proof.roomSocket.close()')
+        host.get_by_role('button',name='Retry connection',exact=True).click()
+        host.wait_for_function('id=>proof.room?.id===id',arg=old['id'])
+        assert host.get_by_role('button',name='Restore game',exact=True).count()==0
+        # Reconnect may have paused the shared timeline; prepare it before the next capture.
+        for page in (host,guest):
+            page.get_by_role('button',name='Prepare to resume',exact=True).click()
+        host.get_by_role('button',name='Resume together',exact=True).click()
+        host.wait_for_function('proof.room.game.status==="playing"')
+        prior=host.evaluate('proof.frameCount');host.wait_for_function('prior=>proof.frameCount>prior+60',arg=prior)
+        host.get_by_role('button',name='Pause',exact=True).click()
+        host.wait_for_function('proof.room.game.status==="paused"')
+        guest.wait_for_function('proof.room.game.status==="paused"')
+        saved=wait_record(host,2,10);snapshot=saved['captures'][0]
+        assert snapshot['frame']>first['captures'][0]['frame']
+        screenshot(host,'recovery-original-paused.png')
+        host.close()
+        # Observe the production host reservation expiry; no clock or expiry mutation.
+        guest.get_by_role('button',name='Host a new game').wait_for(timeout=100000)
+        host=open_page(contexts[0],args.url)
+        host.evaluate('sessionStorage.removeItem("retro-coop-guest")')
+        host.reload();host.evaluate('releaseFrames()')
+        host.wait_for_function('proof.session?.nickname==="Recovery Host"')
+        assert host.evaluate('proof.session.token')!=old_token
+        host.get_by_role('button',name='Host a new game').click()
+        host.get_by_role('button',name='Restore game',exact=True).wait_for()
+        new=host.evaluate('proof.room')
+        assert new['id']!=old['id'] and new['chatMembership']!=old['chatMembership']
+        assert new['host']=='Recovery Host'
+        screenshot(host,'recovery-offer.png')
+        new_invitation=args.url+'/#invite='+new['invite']
+        guest.goto(invitation);guest.evaluate('releaseFrames()')
+        guest.get_by_text('The host did not return. This lobby has closed.',exact=True).wait_for()
+        assert guest.get_by_role('button',name='Join lobby',exact=True).is_disabled()
+        guest.goto(new_invitation);guest.evaluate('releaseFrames()')
+        guest.get_by_role('button',name='Join lobby',exact=True).click()
+        host.wait_for_function('proof.room.occupancy===2')
+        host.get_by_role('button',name='Restore game',exact=True).click()
+        host.wait_for_function('proof.room?.started==="shared" && proof.room.game.status==="paused"',timeout=30000)
+        host.wait_for_function('frame=>document.querySelector("canvas").dataset.frameCount===String(frame)',arg=snapshot['frame'])
+        for page in (host,guest):mute_game(page)
+        screenshot(host,'recovery-restored-paused.png')
+        for page in (host,guest):
+            expect(page.get_by_role('button',name='Prepare to resume',exact=True)).to_be_enabled(timeout=30000)
+            page.get_by_role('button',name='Prepare to resume',exact=True).click()
+        host.get_by_role('button',name='Resume together',exact=True).wait_for(timeout=30000)
+        for page in (host,guest):
+            page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
+            page.wait_for_function('frame=>proof.hashes.at(-1)?.frame===frame',arg=snapshot['frame'])
+            assert page.evaluate('proof.hashes.at(-1).hash')==snapshot['hash']
+        host.get_by_role('button',name='Resume together',exact=True).click()
+        guest.wait_for_function('proof.room.game.status==="playing"')
+        guest.wait_for_function('frame=>Number(document.querySelector("canvas").dataset.frameCount)>frame+10',arg=snapshot['frame'])
+        guest.locator('canvas').focus();guest.keyboard.down('c')
+        for page in (host,guest):
+            page.wait_for_timeout(300)
+            page.evaluate("proof.controllerRam=undefined;currentWorker.postMessage({type:'state-export',requestId:900000})")
+            page.wait_for_function('proof.controllerRam?.[1]===64')
+        guest.keyboard.up('c');host.get_by_role('button',name='Pause',exact=True).click()
+        for page in (host,guest):page.wait_for_function('proof.room.game.status==="paused"')
+        for page in (host,guest):page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        host.wait_for_timeout(100)
+        hashes=[page.evaluate('proof.hashes.at(-1)') for page in (host,guest)]
+        assert hashes[0]==hashes[1]
+        screenshot(host,'recovery-continued-host.png');screenshot(guest,'recovery-continued-guest.png')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # A damaged newest state offers the older capture with its actual saved time.
+        older=record(host)['captures'][1]
+        host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');
+          request.onsuccess=()=>{const db=request.result,tx=db.transaction('recovery','readwrite'),store=tx.objectStore('recovery');
+            const row=store.get('host');row.onsuccess=()=>{const bytes=new Uint8Array(row.result.captures[0].bytes);bytes[bytes.length-1]^=1;store.put(row.result,'host');};
+            tx.oncomplete=()=>{db.close();resolve();};};})""")
+        host.get_by_role('button',name='Host a new game').click()
+        host.get_by_role('button',name='Restore game',exact=True).click()
+        host.get_by_text('You can try the older save shown below.',exact=False).wait_for()
+        screenshot(host,'recovery-older-offer.png')
+        host.get_by_role('button',name='Restore game',exact=True).click()
+        host.wait_for_function('frame=>proof.room?.started==="shared"&&proof.room.game.frame===frame',arg=older['frame'])
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # A different core cannot import the remembered machine state.
+        original_core=old['fingerprint']['coreSha256']
+        def change_core(core):
+            host.evaluate("""core=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');
+              request.onsuccess=()=>{const db=request.result,tx=db.transaction('recovery','readwrite'),store=tx.objectStore('recovery');
+                const row=store.get('host');row.onsuccess=()=>{for(const capture of row.result.captures)capture.fingerprint.coreSha256=core;store.put(row.result,'host');};
+                tx.oncomplete=()=>{db.close();resolve();};};})""",core)
+        change_core('f'*64)
+        host.get_by_role('button',name='Host a new game').click()
+        for _ in range(2):
+            host.get_by_role('button',name='Restore game',exact=True).click()
+        host.locator('.rc-dialog-card').wait_for(state='hidden')
+        host.get_by_role('button',name=re.compile(r'Load NES game|^Change game$')).wait_for()
+        assert not host.evaluate('proof.room.started')
+        host.evaluate("proof.hashes=[];currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        host.wait_for_function('proof.hashes.at(-1)?.frame===0 && proof.hashes.at(-1)?.fresh===true')
+        incompatible_fresh=host.evaluate('proof.hashes.at(-1)')
+        screenshot(host,'recovery-incompatible-core.png')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        change_core(original_core)
+        # A missing remembered ROM preserves ordinary loading and never announces a restore.
+        host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');
+          request.onsuccess=()=>{const db=request.result,tx=db.transaction('roms','readwrite');tx.objectStore('roms').clear();
+            tx.oncomplete=()=>{db.close();resolve();};};})""")
+        host.get_by_role('button',name='Host a new game').click()
+        host.get_by_role('button',name='Restore game',exact=True).click()
+        host.get_by_text('You can try the older save shown below.',exact=False).wait_for()
+        if host.get_by_text('You can try the older save shown below.',exact=False).count():
+            host.get_by_role('button',name='Restore game',exact=True).click()
+        host.locator('.rc-dialog-card').wait_for(state='hidden')
+        host.get_by_role('button',name=re.compile(r'Load NES game|^Change game$')).wait_for()
+        assert not host.evaluate('proof.room.started')
+        screenshot(host,'recovery-missing-rom.png')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # Independent storage faults use a separate session; the main recovery journey already
+        # reaches the production limit of five new lobbies per session per minute.
+        copied=host.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{
+          const db=r.result,tx=db.transaction('recovery'),row=tx.objectStore('recovery').get('host');
+          row.onsuccess=()=>resolve({...row.result,captures:row.result.captures.map(c=>({...c,bytes:Array.from(new Uint8Array(c.bytes))}))});
+          tx.oncomplete=()=>db.close();};})""")
+        fault_context=contexts[0].browser.new_context(viewport={'width':args.width,'height':args.height})
+        resources.callback(fault_context.close);fault_context.add_init_script(fixture)
+        fault=open_page(fault_context,args.url)
+        fault.wait_for_function("async()=> (await indexedDB.databases()).some(db=>db.name==='retro-coop-local')")
+        fault.evaluate("""record=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{
+          const db=r.result,tx=db.transaction(['recovery','meta'],'readwrite');
+          tx.objectStore('recovery').put({...record,captures:record.captures.map(c=>({...c,bytes:Uint8Array.from(c.bytes).buffer}))},'host');
+          tx.objectStore('meta').put(record.revision,'recoveryRevision');tx.oncomplete=()=>{db.close();resolve();};};})""",copied)
+        # A lookup belongs to its unused host membership, including after asynchronous completion.
+        fault.evaluate("""()=>{window.recoveryTransaction=IDBDatabase.prototype.transaction;
+          IDBDatabase.prototype.transaction=function(names,...args){const tx=recoveryTransaction.call(this,names,...args);
+            if(Array.isArray(names)&&names.includes('recovery')&&args[0]==='readonly'){
+              Object.defineProperty(tx,'oncomplete',{set(callback){tx.addEventListener('complete',event=>{
+                window.releaseRecovery=()=>callback.call(tx,event);});}});}
+            return tx;};}""")
+        fault.get_by_role('button',name='Host a new game').click()
+        fault.wait_for_function('typeof releaseRecovery==="function"')
+        fault.evaluate('()=>{IDBDatabase.prototype.transaction=recoveryTransaction;}')
+        fault.get_by_role('button',name='Back to Main Page').click();fault.get_by_role('button',name='Close lobby',exact=True).click()
+        fault.get_by_role('button',name='Host a new game').wait_for()
+        fault.evaluate('releaseRecovery()');fault.wait_for_timeout(100)
+        expect(fault.get_by_role('button',name='Restore game',exact=True)).not_to_be_visible()
+        # Another tab replaces an offered record. Start fresh remains a usable keyboard action,
+        # dismisses only the local offer and cannot delete that newer record.
+        fault.get_by_role('button',name='Host a new game').click()
+        fault.get_by_role('button',name='Start fresh',exact=True).wait_for()
+        other=fault_context.new_page();other.goto(args.url)
+        other.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{
+          const db=r.result,tx=db.transaction(['recovery','meta'],'readwrite'),store=tx.objectStore('recovery'),row=store.get('host');
+          row.onsuccess=()=>{const next={...row.result,revision:row.result.revision+1};store.put(next,'host');tx.objectStore('meta').put(next.revision,'recoveryRevision');};
+          tx.oncomplete=()=>{db.close();resolve();};};})""")
+        newer=record(fault)['revision'];other.close()
+        fault.get_by_role('button',name='Start fresh',exact=True).focus();fault.keyboard.press('Enter')
+        fault.locator('.rc-dialog-card').wait_for(state='hidden')
+        fault.get_by_text('You can load a NES game normally.',exact=False).wait_for()
+        fault.wait_for_function('document.activeElement?.matches(".rc-load-game")')
+        assert record(fault)['revision']==newer
+        screenshot(fault,'recovery-stale-start-fresh.png')
+        fault.get_by_role('button',name='Back to Main Page').click();fault.get_by_role('button',name='Close lobby',exact=True).click()
+        # A storage deletion failure also releases the blocker, preserving its durable record.
+        fault.get_by_role('button',name='Host a new game').click();fault.get_by_role('button',name='Start fresh',exact=True).wait_for()
+        fault.evaluate("""()=>{window.recoveryDelete=IDBObjectStore.prototype.delete;IDBObjectStore.prototype.delete=function(...args){
+          if(this.name==='recovery')throw new DOMException('Device storage rejected deletion','UnknownError');return recoveryDelete.apply(this,args);};}""")
+        fault.get_by_role('button',name='Start fresh',exact=True).focus();fault.keyboard.press('Enter')
+        fault.locator('.rc-dialog-card').wait_for(state='hidden');fault.get_by_text('Device storage rejected deletion',exact=False).wait_for()
+        fault.wait_for_function('document.activeElement?.matches(".rc-load-game")')
+        fault.evaluate('()=>{IDBObjectStore.prototype.delete=recoveryDelete;}');assert record(fault)['revision']==newer
+        screenshot(fault,'recovery-delete-failure.png')
+        fault.get_by_role('button',name='Back to Main Page').click();fault.get_by_role('button',name='Close lobby',exact=True).click()
+        fault_context.close()
+        host.get_by_role('button',name='Host a new game').click()
+        host.get_by_role('button',name='Start fresh',exact=True).click()
+        host.locator('.rc-dialog-card').wait_for(state='hidden')
+        host.get_by_role('button',name=re.compile(r'Load NES game|^Change game$')).wait_for()
+        assert record(host) is None
+        host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        mute_game(host)
+        host.evaluate("proof.hashes=[];currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        host.wait_for_function('proof.hashes.at(-1)?.frame===0 && proof.hashes.at(-1)?.fresh===true')
+        start_fresh_native=host.evaluate('proof.hashes.at(-1)')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # Storage disabled by browser policy still permits the ordinary host/load/play journey.
+        unavailable=contexts[0].browser.new_context(viewport={'width':args.width,'height':args.height})
+        resources.callback(unavailable.close);unavailable.add_init_script(fixture)
+        unavailable.add_init_script("Object.defineProperty(window,'indexedDB',{value:{open(){throw Error('Local storage is unavailable.');}},configurable:true})")
+        offline=open_page(unavailable,args.url)
+        offline.get_by_role('button',name='Host a new game').click()
+        offline.wait_for_function('proof.room?.role==="host"')
+        offline.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        expect(offline.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        mute_game(offline)
+        offline.get_by_role('button',name='Ready',exact=True).click();offline.get_by_role('button',name='Start →').click()
+        offline.wait_for_function('proof.frameCount>10',timeout=30000)
+        offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
+        assert not errors,errors
+        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        save('recovery-result.json',result);print(json.dumps(result,indent=2))
+
+
+if args.role == 'recovery':
+    recovery()
+elif args.role == 'verify':
     verify()
 elif args.role == 'run':
     run_pair()

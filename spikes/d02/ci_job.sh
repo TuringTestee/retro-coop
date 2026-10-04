@@ -16,6 +16,7 @@ if [ "$D02_JOB" = build ]; then
   npm ci
   sh scripts/foundation/prepare.sh
   npm run build:staging
+  test ! -e apps/client/dist/generated/diagnostic.nes
   timeout --foreground 60s python3 scripts/public_entrypoint_smoke.py
   timeout --foreground 60s sh scripts/preflight.sh
   exit
@@ -42,8 +43,8 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
   case "$D02_JOB" in
     entrypoint-journey)
       timeout --foreground 30s python3 scripts/featured/observer_isolation_browser.py --output spikes/d02/public-entrypoint.local/solo-release
-      timeout --foreground 90s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
-      timeout --foreground 90s python3 scripts/rooms/two_agent_game.py --role run --visibility protected --expect-controller-ram 128,64 --rom apps/client/dist/generated/diagnostic.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-protected
+      timeout --foreground 90s python3 scripts/rooms/two_agent_game.py --role run --expect-controller-ram 128,64 --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-game
+      timeout --foreground 90s python3 scripts/rooms/two_agent_game.py --role run --visibility protected --expect-controller-ram 128,64 --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/two-agent-protected
       ;;
     entrypoint-controls)
       timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery & transfer_pid=$!
@@ -56,6 +57,12 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       ;;
     entrypoint-ui)
       timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve
+      for voice_mode in tabs processes; do
+        timeout --foreground 45s python3 scripts/voice/journey_browser.py --serve --mode "$voice_mode" --output "spikes/d02/public-entrypoint.local/voice-$voice_mode"
+      done
+      ;;
+    entrypoint-recovery)
+      timeout --foreground 210s python3 scripts/rooms/two_agent_game.py --role recovery --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/recovery
       ;;
     entrypoint-layout)
       timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --zoom

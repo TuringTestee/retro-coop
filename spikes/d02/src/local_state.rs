@@ -177,6 +177,10 @@ fn validate_mapper(template: &Value, value: &Value) -> Result<Value, String> {
             }
             &["/submapper_num", "/prg_select", "/mmc1/revision"]
         }
+        "Multicart227" => {
+            validation::bound(state, "/latch", 0, 0x3ff)?;
+            &["/multicart"]
+        }
         "Txrom" => &["/mapper_num", "/submapper_num", "/mmc3/revision"],
         _ => return Err(
             "Whole-state saves for this mapper profile are not yet validated; local play and battery operations remain available".into()
@@ -204,6 +208,55 @@ mod tests {
     fn codec(rom: &[u8], deck: &ControlDeck) -> Codec {
         Codec::new(deck, &Sha256::digest(rom).into(), &[3; 32]).unwrap()
     }
+    #[test]
+    fn mapper227_banks_chr_protection_and_state_restore_use_real_cartridge_paths() {
+        use crate::test_support::nes2_cartridge;
+        for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {
+            let (rom, mut deck) = nes2_cartridge(227, 0, 64, 0, region);
+            let codec = codec(&rom, &deck);
+            for addr in [0x8000, 0x8001, 0x8080, 0x8081, 0x8200, 0x8201, 0x81ab] {
+                write(&mut deck, addr, 0xff);
+                let _ = deck.clock_frame().unwrap();
+                let state = codec.export(&deck).unwrap();
+                let before = codec.hash(&deck).unwrap();
+                let pages = deck.bus().memory.prg_pages().to_vec();
+                let chr_pages = deck.bus().memory.chr_pages().to_vec();
+                let _ = deck.clock_frame().unwrap();
+                let expected = codec.hash(&deck).unwrap();
+                codec.restore(&mut deck, &state).unwrap();
+                assert_eq!(codec.hash(&deck).unwrap(), before);
+                assert_eq!(deck.bus().memory.prg_pages().as_slice(), pages);
+                assert_eq!(deck.bus().memory.chr_pages().as_slice(), chr_pages);
+                let _ = deck.clock_frame().unwrap();
+                assert_eq!(
+                    codec.hash(&deck).unwrap(),
+                    expected,
+                    "{region:?} ${addr:04x}"
+                );
+                let value: Value = serde_json::from_slice(&state[HEADER..]).unwrap();
+                let mut invalid = value.clone();
+                invalid["mapper"]["Multicart227"]["latch"] = json!(0x400);
+                assert!(validate_mapper(&codec.template["mapper"], &invalid["mapper"]).is_err());
+                invalid = value;
+                invalid["mapper"]["Multicart227"]["multicart"] = json!(false);
+                assert!(validate_mapper(&codec.template["mapper"], &invalid["mapper"]).is_err());
+            }
+            for submapper in [1, 2, 15] {
+                let mut extended = rom.clone();
+                extended[8] = submapper << 4;
+                let mut candidate = ControlDeck::default();
+                assert!(
+                    candidate
+                        .load_rom(
+                            "unsupported extended board",
+                            &mut std::io::Cursor::new(extended)
+                        )
+                        .is_err()
+                );
+            }
+        }
+    }
+
     #[test]
     fn exact_power_on_and_committed_states_restore_with_matching_hashes() {
         for region in [NesRegion::Ntsc, NesRegion::Pal, NesRegion::Dendy] {

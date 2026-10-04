@@ -158,10 +158,21 @@ test('slot availability revision while checkpoint is in flight invalidates all p
  assert.equal(t.view().game.pending?.status,'failed');assert.equal(t.view().game.status,'paused');assert.deepEqual(t.view().game.controllers,old);assert.equal(t.view().slots[2].role,'observer');assert.equal(t.view().game.frame,917);
  assert.throws(()=>t.ack(transfer,recipient),/stale_checkpoint/);
 });
-test('new member joining while role import is held invalidates the old transaction before late ack',()=>{
+test('new member invalidates held role import; host retry refreshes roster and rejects stale acknowledgements',()=>{
  const t=setup(3),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const transfer=t.captures().at(-1)!,recipient=t.authorize(transfer);
  const newcomer=t.rooms.attach(undefined,()=>{},()=>{});const command=parseRoomCommand({type:'join',invite:t.view().invite,intent:randomUUID(),requestId:randomUUID()});assert.ok(command&&command.type!=='hello');t.rooms.handle(newcomer.token,command);
  assert.equal(t.view().game.pending?.status,'failed');assert.equal(t.view().game.status,'paused');assert.deepEqual(t.view().game.controllers,old);assert.equal(t.view().game.frame,917);assert.throws(()=>t.ack(transfer,recipient),/stale_checkpoint/);
+ const transactionId=t.view().game.pending!.id;
+ assert.throws(()=>t.act(1,{type:'gameRoleRetry',transactionId}),/stale_controllers/);
+ t.act(0,{type:'gameRoleRetry',transactionId});
+ assert.equal(t.view().game.pending?.revision,t.view().revision);
+ assert.equal(t.view().game.pending?.status,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ const retry=t.captures().at(-1)!;assert.notEqual(retry.transferId,transfer.transferId);
+ t.ack(retry,t.authorize(retry));
+ assert.equal(t.view().game.pending,undefined);assert.equal(t.view().game.frame,917);
+ assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);
+ assert.throws(()=>t.ack(transfer,recipient),/stale_game/);
 });
 test('role checkpoint deadline preserves mapping and frame, permits explicit retry, and rejects expired transfer',()=>{
  const t=setup(),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');const transactionId=t.view().game.pending!.id;t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const expired=t.captures().at(-1)!;t.authorize(expired);
@@ -210,4 +221,29 @@ test('observing host remains an authority readiness owner when retrying the firs
  const t=setup(2);t.role('slot-1','observer');t.load(0);t.load(1);t.ready(0);t.ready(1);const prior=t.start().room!.game.epoch!;t.advance(10000);
  assert.equal(t.view().established,false);t.ready(0);t.ready(1);const epoch=t.view().game.epoch!;assert.notEqual(epoch,prior);
  t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');assert.equal(t.view().slots[0].role,'observer');
+});
+
+test('restored host timeline initializes paused once, then synchronizes current owners before resume',()=>{
+ const t=setup(2);t.load(0);t.load(1);
+ const restore={type:'gameRestore',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:917,hash};
+ assert.throws(()=>t.act(1,restore),/game_prerequisites/);
+ assert.throws(()=>t.act(0,{...restore,roomRevision:999}),/game_prerequisites/);
+ t.act(0,restore);const epoch=t.view().game.epoch!;
+ assert.equal(t.view().game.status,'paused');assert.equal(t.view().game.frame,917);assert.equal(t.view().started,'shared');
+ assert.throws(()=>t.act(0,restore),/game_prerequisites/);assert.throws(()=>t.act(0,{type:'gameResume',epoch}),/resume_not_ready/);
+ t.ready(0,{frame:917,fresh:false});t.ready(1,{frame:0,fresh:true,hash:otherHash});
+ const transfer=t.captures().at(-1)!;t.authorize(transfer);t.ack(transfer,1);
+ assert.equal(t.view().game.status,'resume_ready');t.act(0,{type:'gameResume',epoch});
+ assert.notEqual(t.view().game.epoch,epoch);assert.equal(t.view().game.frame,917);
+});
+
+test('a new controller in a restored lobby cannot bypass explicit preparation and host resume',()=>{
+ const t=setup(3);for(const who of [0,1,2])t.load(who);
+ t.act(0,{type:'gameRestore',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:917,hash});const epoch=t.view().game.epoch!;
+ t.role('slot-3','player2');t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ const transfer=t.captures().at(-1)!;const who=t.authorize(transfer);t.ack(transfer,who);
+ assert.equal(t.view().game.pending,undefined);assert.equal(t.view().game.status,'paused');assert.equal(t.view().game.epoch,epoch);
+ assert.throws(()=>t.act(0,{type:'gameResume',epoch}),/resume_not_ready/);
+ t.ready(0,{frame:917,fresh:false});t.ready(2,{frame:917,fresh:false});assert.equal(t.view().game.status,'resume_ready');
+ t.act(0,{type:'gameResume',epoch});assert.equal(t.view().game.status,'starting');
 });

@@ -1,8 +1,10 @@
 Audience: Human
 
-Players should see their role and voice status beside the NES screen, with control mappings available when opened and no automatic microphone capture.
+This historical proposal moved voice and control tools beside the game. The current unified lobby keeps them in its permanent settings region and starts push-to-talk through browser permission after a lobby peer connects.
 
 # Voice and play sidebar: direction
+
+The [unified lobby direction](unified-lobbies-direction.md) and later default-voice implementation supersede this proposal’s card layout, separate Players route, manual-only microphone startup and two-member ceiling. The [current voice guide](../implementation/d17-voice.md) owns today’s capture and recovery behavior. The remaining text records the earlier proposal rather than a competing current design.
 
 The [stable layout amendment](stable-lobby-layout.md) governs loading and feedback geometry: existing screens and responsive order remain, but asynchronous content stays inside reserved regions. Its explicit scroll-region contract supersedes earlier content-driven expansion or page-flow instructions below.
 

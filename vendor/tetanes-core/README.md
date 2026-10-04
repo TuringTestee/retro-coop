@@ -53,6 +53,7 @@ The current minimum Rust version is `1.88.0`.
 - Zapper (Light Gun) support.
 - iNES and NES 2.0 ROM header formats supported.
 - Over 30 supported mappers covering >90% of licensed games.
+- Mapper 227 supports the base iNES multicart and battery-backed board; extended NES 2.0 submappers remain unsupported.
 - Game Genie Codes.
 - Preference snd keybonding menus using [egui](https://egui.rs).
   - Increase/Decrease speed & Fast Forward

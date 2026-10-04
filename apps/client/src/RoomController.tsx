@@ -12,19 +12,18 @@ import type {VoiceSession,VoiceState} from './voice.ts';
 type Operation={roomId:string;membership:string;controller:AbortController;loading:boolean};
 type IncludedOperation={id:CatalogId;membership:string;controller:AbortController;loading:boolean;candidate:boolean};
 export type RoomControllerHandle={
- voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
+ currentMembership(roomId:string,membership:string,unusedHost?:boolean):boolean;restoreGame(frame:number,hash:string,current:()=>boolean):Promise<void>;voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
  cancelSelection():void;cancelCreation():void;
  leaveNow():Promise<boolean>;joinCode(code:string,password?:string):Promise<void>;joinInvite(invite:string,password?:string):Promise<void>;retryDirectory():Promise<void>;reconnect():Promise<void>;retryPeer(pairId:string):Promise<void>;clearAdmissionError():void;cancelJoin():void;
  act:RoomClient['act'];chatDraft(text:string):void;sendChat():Promise<void>;discardChat():void;ready():void;unready():void;start(fingerprint:Fingerprint):Promise<void>;
  loadIncluded(id:CatalogId):Promise<void>;retryMemberGame():Promise<void>;syncInvitation(invite:string|null):void;beforeSelection():boolean;approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean>;
- createLobby(label:string,visibility:NewVisibility,password?:string):Promise<{ok:boolean;message?:string}>;selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean):Promise<{ok:boolean;message?:string}>;
+ createLobby(label:string,visibility:NewVisibility,password?:string):Promise<{ok:boolean;message?:string;room?:RoomView}>;selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean):Promise<{ok:boolean;message?:string}>;
 };
 
 export const RoomController=forwardRef<RoomControllerHandle,{
- onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;
+ state:RoomState;onAcquired:(file:File,current:()=>boolean)=>boolean;selectionLoading:boolean;controls:Controls;fingerprint?:Fingerprint;player:()=>LocalPlayer|null;
  onVoice:(state:VoiceState|undefined)=>void;onNickname:(name:string)=>void;onConnection:(status:string)=>void;onRoomChange:(room?:RoomView)=>void;onState:(state:RoomState)=>void;onNotice:(message:string)=>void;onGameProgress:(message:string)=>void;
-}>(function RoomController({onAcquired,selectionLoading,controls,fingerprint,player,onVoice,onNickname,onConnection,onRoomChange,onState,onNotice,onGameProgress},ref){
- const [state,setState]=useState<RoomState>({status:'No lobby selected.',busy:false,connected:false});
+}>(function RoomController({state,onAcquired,selectionLoading,controls,fingerprint,player,onVoice,onNickname,onConnection,onRoomChange,onState,onNotice,onGameProgress},ref){
  const [invite,setInvite]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('invite'));
  const client=useRef<RoomClient|null>(null),member=useRef<Operation|undefined>(undefined),included=useRef<IncludedOperation|undefined>(undefined);
  const room=useRef<RoomView|undefined>(undefined),connected=useRef(false),seenFile=useRef<Fingerprint|undefined>(undefined),sentFile=useRef(''),attemptedIncluded=useRef('');
@@ -68,7 +67,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
   finally{clearTimeout(timeout);}
  };
 
- useEffect(()=>{const rooms=new RoomClient(setState,player);client.current=rooms;void rooms.watchDirectory();return()=>{cancelIncluded();cancelMember();rooms.dispose();client.current=null;};},[]);
+ useEffect(()=>{const rooms=new RoomClient(onState,player);client.current=rooms;void rooms.watchDirectory();return()=>{cancelIncluded();cancelMember();rooms.dispose();client.current=null;};},[]);
  useEffect(()=>{if(invite)void client.current?.preview(invite);else client.current?.clearPreview();},[invite]);
  useEffect(()=>{client.current?.voice.configureControls(controls);},[controls]);
  useEffect(()=>onVoice(state.voice),[state.voice,onVoice]);
@@ -76,7 +75,6 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useEffect(()=>onConnection(connectionStatus(state)),[state.connection,state.room?.peers,onConnection]);
  useEffect(()=>{if(state.session)onNickname(state.session.nickname);},[state.session,onNickname]);
  useEffect(()=>onRoomChange(state.room),[state.room,onRoomChange]);
- useEffect(()=>onState(state),[state,onState]);
  useEffect(()=>{if(included.current&&included.current.membership!==membership)cancelIncluded();if(state.releaseNotice){cancelIncluded();cancelMember();}},[membership,state.releaseNotice]);
  useEffect(()=>{const target=room.current;if(target?.role==='member'&&!target.catalogId&&target.fingerprint){if(fingerprint&&matchesFile(target.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){void client.current?.memberAcquisition(target.id,target.chatMembership,'loaded');onNotice('');}else void acquireMember(target);}else cancelMember();return()=>cancelMember();},[membership,state.room?.fingerprint?.romSha256]);
  useEffect(()=>{if(!state.connected&&member.current){cancelMember();onNotice('Connection lost. Reconnect to retry the game download.');}},[state.connected]);
@@ -87,7 +85,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useEffect(()=>{const target=state.room;if(!fingerprint||target?.role!=='member'){sentFile.current='';return;}const key=target.id+fingerprint.romSha256+fingerprint.coreSha256;if(sentFile.current!==key){sentFile.current=key;void client.current?.act({type:'file',fingerprint});}},[fingerprint,state.room?.id,state.room?.role]);
 
  useImperativeHandle(ref,()=>({
-  voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
+  currentMembership(roomId,membership,unusedHost){return client.current?.currentMembership(roomId,membership,unusedHost)??false;},restoreGame(frame,hash,current){return client.current?.restoreGame(frame,hash,current)??Promise.reject(Error('Lobby unavailable.'));},voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
   cancelSelection(){cancelIncluded();client.current?.cancelGameSelection();onGameProgress('');},cancelCreation(){client.current?.cancelCreation();},
   async leaveNow(){const target=room.current;if(!target)return true;cancelIncluded();cancelMember();client.current?.cancelGameSelection();const ok=target.role==='host'?await client.current?.act({type:'close',roomId:target.id}):await client.current?.act({type:'leave',intent:target.reservationIntent});return !!ok;},
   joinCode(code,password){return client.current?.joinCode(code,password)??Promise.resolve();},joinInvite(value,password){return client.current?.join(value,password)??Promise.resolve();},retryDirectory(){return client.current?.watchDirectory()??Promise.resolve();},reconnect(){return client.current?.reconnect()??Promise.resolve();},retryPeer(pairId){return client.current?.retryPeer(pairId)??Promise.resolve();},clearAdmissionError(){client.current?.clearAdmissionError();},cancelJoin(){client.current?.cancelJoin();},

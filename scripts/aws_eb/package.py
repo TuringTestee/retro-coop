@@ -53,6 +53,8 @@ def main() -> None:
         for path, digest in assets.items()
     ):
         parser.error("Asset manifest must map absolute asset paths to SHA-256 digests")
+    if "/generated/diagnostic.nes" in assets:
+        parser.error("The diagnostic test ROM must not be shipped in the client image")
     record = {
         "sourceRevision": args.source_revision,
         "edgeImage": args.edge_image,
