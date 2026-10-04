@@ -480,10 +480,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-ready-slot { width: 104px; }
   .rc-start-slot { width: 78px; }
   .rc-header-edit { font-size: 13px; }
-  .rc-header-invite { min-height: 20px; padding: 1px 5px; font-size: 11px; }
-  .rc-lobby-heading { display: grid; grid-template-columns: minmax(0,1fr) 60px; grid-template-rows: 20px minmax(0,1fr); gap: 0; }
-  .rc-lobby-heading .rc-header-name { grid-column: 1 / -1; grid-row: 1 / -1; grid-template-rows: 20px minmax(0,1fr); }
-  .rc-header-invite { grid-column: 2; grid-row: 1; z-index: 1; }
+  .rc-header-invite { min-height: 27px; padding: 2px 5px; font-size: 11px; }
   .rc-invite-long { display: none; }
   .rc-invite-short { display: inline; }
   .rc-session { grid-template-columns: minmax(0,1fr) 0px; }
@@ -502,7 +499,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-session.rc-has-side .rc-game-zone, .rc-session.rc-has-picker .rc-game-zone { grid-column: 1; grid-row: 2; }
   .rc-mobile-side-panel:not([hidden]), .rc-mobile-picker-panel:not([hidden]) { grid-column: 2; grid-row: 2; }
   .rc-session.rc-has-side, .rc-session.rc-has-picker { grid-template-rows: 120px minmax(180px,1fr) 90px; }
-  .rc-session.rc-has-side .rc-players .room-slots, .rc-session.rc-has-picker .rc-players .room-slots { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,42px); }
+  .rc-session.rc-has-side .rc-players .room-slots, .rc-session.rc-has-picker .rc-players .room-slots { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,40px); }
   .rc-session.rc-has-side .rc-players .slot-row, .rc-session.rc-has-picker .rc-players .slot-row { grid-template-rows: 20px 18px; }
   .rc-session.rc-has-side .rc-chat, .rc-session.rc-has-picker .rc-chat { grid-row: 3; }
   .rc-shared-playing, .rc-shared-playing.rc-has-side { grid-template-columns: minmax(0,1fr) clamp(150px,45vw,220px); }
@@ -566,6 +563,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-shortcuts span { min-width: 0; overflow-wrap: anywhere; }
 .rc-shortcuts strong { color: var(--guide-system); }
 .rc-inline-settings input[type=range] { margin-inline: 0; }
+.rc-game-heading { line-height: 1.25; }
 /* Reserve the desktop stage's bottom track for shared chat. The title track
    accommodates the accepted 80-character game name before a game is loaded. */
 @media (min-width: 651px) {
@@ -594,11 +592,25 @@ button:disabled { cursor: default; opacity: .52; }
   }
 
 
+  @container desktop-settings (max-height: 240px) {
+    .rc-inline-settings { gap: 2px; }
+    .rc-inline-settings .rc-tool-stack { gap: 1px; }
+    .rc-inline-settings .rc-tool-stack label { gap: 0; line-height: 16px; }
+    .rc-inline-settings .rc-mapping-list { grid-auto-rows: 30px; }
+    .rc-inline-settings .rc-input-test { height: 24px; min-height: 24px; padding: 2px 4px; }
+    .rc-inline-settings .rc-play-tools { grid-template-rows: 48px minmax(0,1fr) 20px; gap: 2px; }
+    .rc-inline-settings .rc-control-hints { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); column-gap: 8px; }
+    .rc-control-line { font-size: 12px; gap: 2px; }
+    .rc-pad { font-size: 12px; }
+    .rc-system-buttons b { font-size: 8px; }
+    .rc-action-buttons b { width: 24px; height: 24px; }
+  }
+
 }
 @media (min-width: 651px) and (max-width: 1100px) {
-  .rc-shell { grid-template-rows: 118px 42px minmax(0,1fr) 72px; }
-  .rc-header { grid-template-rows: 80px 32px; }
-  .rc-trail { height: 79px; }
+  .rc-shell { grid-template-rows: 100px 42px minmax(0,1fr) 72px; }
+  .rc-header { grid-template-rows: 62px 32px; }
+  .rc-trail { height: 61px; }
   .rc-identity { height: 32px; }
 }
 @media (max-width: 650px) {
@@ -702,5 +714,14 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-chat > .rc-section-head { display: none; }
   .rc-chat form { grid-template-columns: minmax(0,1fr) 132px; }
   .rc-chat form input { height: 31px; padding: 4px 6px; }
+  .rc-chat :where(input,button):focus-visible { outline-width: 2px; outline-offset: -3px; }
   .rc-players :where(.slot-row,.slot-menu button):focus-visible { outline-width: 2px; outline-offset: -3px; }
+}
+
+@media (min-width: 651px) and (max-height: 650px) {
+  .rc-side-panel, .rc-playing-menu { padding: 6px; }
+  .rc-players .slot-row { display: block; }
+  .rc-players .slot-row strong, .rc-players .slot-state { display: inline; font-size: 14px; line-height: 1.25; }
+  .rc-players .slot-state { margin-left: 4px; }
+  .rc-players .slot-chevron { float: right; width: 16px; }
 }
