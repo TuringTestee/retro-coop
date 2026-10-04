@@ -87,6 +87,32 @@ test('failed recovery storage preserves the prior capture and unavailable storag
  IDBObjectStore.prototype.put=function(...args){if(this.name==='recovery')throw new DOMException('Disk full','QuotaExceededError');return put.apply(this,args);};
  try{await assert.rejects(changeRecovery(prior.record,prior.generation,{...row,frame:20}),/Disk full/);}finally{IDBObjectStore.prototype.put=put;}
  assert.deepEqual(await readRecovery(),prior);
+ const remove=IDBObjectStore.prototype.delete;
+ IDBObjectStore.prototype.delete=function(...args){if(this.name==='recovery')throw new DOMException('Disk unavailable','UnknownError');return remove.apply(this,args);};
+ try{await assert.rejects(changeRecovery(prior.record,prior.generation,undefined),/Disk unavailable/);}finally{IDBObjectStore.prototype.delete=remove;}
+ assert.deepEqual(await readRecovery(),prior);
  const db=globalThis.indexedDB;Object.defineProperty(globalThis,'indexedDB',{value:{open(){throw Error('Storage disabled');}},configurable:true});
  try{await assert.rejects(readRecovery(),/Storage disabled/);}finally{Object.defineProperty(globalThis,'indexedDB',{value:db,configurable:true});}
+});
+
+test('completed pause queues its newer capture behind an in-flight timer sample',async()=>{
+ const {HostRecoveryCapture}=await import('./host-recovery.ts');const {readRecovery}=await import('./saves.ts');await reset();
+ const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1 as const,settings:'auto-region;zero-ram;48000hz;standard-p1-p2' as const,cartridge:{format:'iNES' as const,mapper:0,submapper:0,region:'NTSC' as const,bytes:24592}};
+ let frame=1800,release!:(value:{frame:number;hash:string;identity:string;bytes:ArrayBuffer})=>void;const exports:number[]=[];
+ const player={captureRecovery(){const result={frame,hash:'c'.repeat(64),identity:'d'.repeat(64),bytes:new ArrayBuffer(80)};exports.push(frame);return exports.length===1?new Promise(resolve=>{release=resolve;}):Promise.resolve(result);}} as unknown as import('./player.ts').LocalPlayer;
+ const owner=new HostRecoveryCapture(player,fingerprint,'Game',()=>true,()=>{});
+ try{const timer=owner.capture();while(!release)await new Promise(resolve=>setImmediate(resolve));frame=1810;const paused=owner.capture();release({frame:1800,hash:'c'.repeat(64),identity:'d'.repeat(64),bytes:new ArrayBuffer(80)});await Promise.all([timer,paused]);assert.deepEqual(exports,[1800,1810]);assert.deepEqual((await readRecovery()).record?.captures.map(c=>c.frame),[1810,1800]);}finally{owner.stop();}
+});
+
+
+test('queued automatic capture stops at revoked owner and unchanged progress is deduplicated',async()=>{
+ const {HostRecoveryCapture}=await import('./host-recovery.ts');const {readRecovery}=await import('./saves.ts');
+ for(const revoke of ['stop','membership','unchanged']){
+  await reset();let current=true,exports=0,release!:()=>void;
+  const fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1 as const,settings:'auto-region;zero-ram;48000hz;standard-p1-p2' as const,cartridge:{format:'iNES' as const,mapper:0,submapper:0,region:'NTSC' as const,bytes:24592}};
+  const captured={frame:10,hash:'c'.repeat(64),identity:'d'.repeat(64),bytes:new ArrayBuffer(80)};
+  const player={captureRecovery(){++exports;return exports===1?new Promise(resolve=>{release=()=>resolve(captured);}):Promise.resolve(captured);}} as unknown as import('./player.ts').LocalPlayer;
+  const owner=new HostRecoveryCapture(player,fingerprint,'Game',()=>current,()=>{});
+  try{const first=owner.capture();while(!release)await new Promise(resolve=>setImmediate(resolve));const queued=owner.capture();if(revoke==='stop')owner.stop();if(revoke==='membership')current=false;release();await Promise.all([first,queued]);const record=(await readRecovery()).record;assert.equal(exports,revoke==='unchanged'?2:1);assert.equal(record?.captures.length,revoke==='unchanged'?1:undefined);}finally{owner.stop();}
+ }
 });

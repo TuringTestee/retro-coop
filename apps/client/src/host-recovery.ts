@@ -10,15 +10,20 @@ export function validRecovery(value:unknown):value is RecoveryCapture {
 }
 /** One host session owns its timer, serialized exports and storage generation. */
 export class HostRecoveryCapture {
- private active=true;private writing?:Promise<void>;private timer:ReturnType<typeof setInterval>;private stored:ReturnType<typeof readRecovery>;private last?:string;
- constructor(private player:LocalPlayer,private fingerprint:Fingerprint,private title:string,private current:()=>boolean,private feedback:(message:string)=>void){
+ private active=true;private pending=false;private writing?:Promise<void>;private timer:ReturnType<typeof setInterval>;private stored:ReturnType<typeof readRecovery>;private last?:string;
+ private player:LocalPlayer;private fingerprint:Fingerprint;private title:string;private current:()=>boolean;private feedback:(message:string)=>void;
+ constructor(player:LocalPlayer,fingerprint:Fingerprint,title:string,current:()=>boolean,feedback:(message:string)=>void){
+  this.player=player;this.fingerprint=fingerprint;this.title=title;this.current=current;this.feedback=feedback;
   this.stored=readRecovery();this.stored.catch(()=>{});this.timer=setInterval(()=>void this.capture(),30000);
  }
- stop(){this.active=false;clearInterval(this.timer);}
+ stop(){this.active=false;this.pending=false;clearInterval(this.timer);}
  capture():Promise<void>{
-  if(this.writing)return this.writing;
   if(!this.active||!this.current())return Promise.resolve();
-  this.writing=this.save().finally(()=>{this.writing=undefined;});return this.writing;
+  this.pending=true;if(this.writing)return this.writing;
+  this.writing=this.drain().finally(()=>{this.writing=undefined;if(this.pending&&this.active&&this.current())void this.capture();});return this.writing;
+ }
+ private async drain(){
+  while(this.pending&&this.active&&this.current()){this.pending=false;await this.save();}
  }
  private async save(){
   const current=()=>this.active&&this.current();

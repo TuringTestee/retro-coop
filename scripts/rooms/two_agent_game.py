@@ -584,6 +584,47 @@ def recovery():
         assert not host.evaluate('proof.room.started')
         screenshot(host,'recovery-missing-rom.png')
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # A lookup belongs to its unused host membership, including after asynchronous completion.
+        host.evaluate("""()=>{window.recoveryTransaction=IDBDatabase.prototype.transaction;
+          IDBDatabase.prototype.transaction=function(names,...args){const tx=recoveryTransaction.call(this,names,...args);
+            if(Array.isArray(names)&&names.includes('recovery')&&args[0]==='readonly'){
+              Object.defineProperty(tx,'oncomplete',{set(callback){tx.addEventListener('complete',event=>{
+                window.releaseRecovery=()=>callback.call(tx,event);});}});}
+            return tx;};}""")
+        host.get_by_role('button',name='Host a new game').click()
+        host.wait_for_function('typeof releaseRecovery==="function"')
+        host.evaluate('IDBDatabase.prototype.transaction=recoveryTransaction')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        host.get_by_role('button',name='Host a new game').wait_for()
+        host.evaluate('releaseRecovery()');host.wait_for_timeout(100)
+        expect(host.get_by_role('button',name='Restore game',exact=True)).not_to_be_visible()
+        # Another tab replaces an offered record. Start fresh remains a usable keyboard action,
+        # dismisses only the local offer and cannot delete that newer record.
+        host.get_by_role('button',name='Host a new game').click()
+        host.get_by_role('button',name='Start fresh',exact=True).wait_for()
+        other=contexts[0].new_page();other.goto(args.url)
+        other.evaluate("""()=>new Promise(resolve=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>{
+          const db=r.result,tx=db.transaction(['recovery','meta'],'readwrite'),store=tx.objectStore('recovery'),row=store.get('host');
+          row.onsuccess=()=>{const next={...row.result,revision:row.result.revision+1};store.put(next,'host');tx.objectStore('meta').put(next.revision,'recoveryRevision');};
+          tx.oncomplete=()=>{db.close();resolve();};};})""")
+        newer=record(host)['revision'];other.close()
+        host.get_by_role('button',name='Start fresh',exact=True).focus();host.keyboard.press('Enter')
+        host.locator('.rc-dialog-card').wait_for(state='hidden')
+        host.get_by_text('You can load a NES game normally.',exact=False).wait_for()
+        host.wait_for_function('document.activeElement?.matches(".rc-load-game")')
+        assert record(host)['revision']==newer
+        screenshot(host,'recovery-stale-start-fresh.png')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
+        # A storage deletion failure also releases the blocker, preserving its durable record.
+        host.get_by_role('button',name='Host a new game').click();host.get_by_role('button',name='Start fresh',exact=True).wait_for()
+        host.evaluate("""()=>{window.recoveryDelete=IDBObjectStore.prototype.delete;IDBObjectStore.prototype.delete=function(...args){
+          if(this.name==='recovery')throw new DOMException('Device storage rejected deletion','UnknownError');return recoveryDelete.apply(this,args);};}""")
+        host.get_by_role('button',name='Start fresh',exact=True).focus();host.keyboard.press('Enter')
+        host.locator('.rc-dialog-card').wait_for(state='hidden');host.get_by_text('Device storage rejected deletion',exact=False).wait_for()
+        host.wait_for_function('document.activeElement?.matches(".rc-load-game")')
+        host.evaluate('IDBObjectStore.prototype.delete=recoveryDelete');assert record(host)['revision']==newer
+        screenshot(host,'recovery-delete-failure.png')
+        host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         host.get_by_role('button',name='Host a new game').click()
         host.get_by_role('button',name='Start fresh',exact=True).click()
         host.locator('.rc-dialog-card').wait_for(state='hidden')
@@ -606,7 +647,7 @@ def recovery():
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
-        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 

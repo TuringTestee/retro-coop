@@ -180,7 +180,7 @@ export class RoomClient {
  async createLobby(label:string,visibility:NewVisibility,password?:string){
   const intent=this.lobbyIntent??crypto.randomUUID(),generation=this.creationGeneration;this.lobbyIntent=intent;
   this.publish({busy:true,status:'Creating lobby…',retryAfterMs:undefined});
-  try{await this.connect();if(generation!==this.creationGeneration)return {ok:false};if(this.state.room)throw Error('Leave the current lobby first.');const data=await this.request({type:'createLobby',intent,label,visibility,password});if(generation!==this.creationGeneration){void this.request({type:'cancelCreate',intent}).catch(()=>{});return {ok:false};}this.lobbyIntent=undefined;this.apply(data);this.publish({busy:false,status:'Lobby created. Load a NES game while players join.'});return {ok:true};}
+  try{await this.connect();if(generation!==this.creationGeneration)return {ok:false};if(this.state.room)throw Error('Leave the current lobby first.');const data=await this.request({type:'createLobby',intent,label,visibility,password});if(generation!==this.creationGeneration){void this.request({type:'cancelCreate',intent}).catch(()=>{});return {ok:false};}this.lobbyIntent=undefined;this.apply(data);this.publish({busy:false,status:'Lobby created. Load a NES game while players join.'});return {ok:true,room:this.state.room};}
   catch(error){if(generation===this.creationGeneration)this.failure(error);return {ok:false,message:error instanceof Error?error.message:'Could not create the lobby. Retry.'};}
  }
  async selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean){
@@ -235,7 +235,7 @@ export class RoomClient {
  async reconnect() {try {await this.connect();if(!this.state.room&&this.previewingInvite){await this.preview(this.previewingInvite);return;}this.publish({status:this.state.room ? 'Lobby connection restored. Existing reservation deadlines are unchanged.' : 'Connection restored. Any previous lobby or reservation has expired; retry hosting or joining.'});}catch(error){this.failure(error);}}
  localPlayIntent(){this.game.playIntent();}
  prepareMember(){const room=this.state.room;if(!room?.fingerprint||!this.selectedFile||!matchesFile(room.fingerprint,this.selectedFile)||!this.player()?.isLoaded(this.selectedFile))return;this.game.playIntent();}
- currentMembership(roomId:string,membership:string){return !this.disposed&&!this.voluntaryExitRoomId&&this.state.room?.id===roomId&&this.state.room.chatMembership===membership;}
+ currentMembership(roomId:string,membership:string,unusedHost=false){const room=this.state.room;return !this.disposed&&!this.voluntaryExitRoomId&&room?.id===roomId&&room.chatMembership===membership&&(!unusedHost||room.role==='host'&&!room.started&&!room.fingerprint&&!room.established);}
  memberToken(){return this.token;}
  async memberAcquisition(roomId:string,membership:string,phase:'checking'|'downloading'|'loading'|'loaded'|'failed'){if(this.state.room?.id!==roomId||this.state.room.chatMembership!==membership)return false;try{await this.request({type:'memberAcquisition',roomId,membership,phase});return true;}catch(error){if(this.state.room?.id===roomId&&this.state.room.chatMembership===membership)this.publish({status:error instanceof Error?error.message:'Lobby status could not update. Reconnect lobbies.'});return false;}}
 

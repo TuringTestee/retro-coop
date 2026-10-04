@@ -158,9 +158,9 @@ export async function changeRecovery(expected:RecoveryRecord|undefined,generatio
   const change=()=>{if(epoch.readyState!=='done'||prior.readyState!=='done'||revision.readyState!=='done')return;
    if(!current()||(epoch.result??0)!==generation||prior.result?.revision!==expected?.revision){failure=Error('Recovery data changed or was cleared. Retry explicitly.');tx.abort();return;}
    const next=(revision.result??0)+1;meta.put(next,'recoveryRevision');
-   if(!capture){store.delete('host');return;}
+   try{if(!capture){store.delete('host');return;}
    const matching=expected?.captures.filter(row=>row.identity===capture.identity&&row.fingerprint.romSha256===capture.fingerprint.romSha256)??[];
-   try{committed={revision:next,captures:[capture,...matching].slice(0,2)};store.put(committed,'host');}catch(error){failure=error;tx.abort();}
+   committed={revision:next,captures:[capture,...matching].slice(0,2)};store.put(committed,'host');}catch(error){failure=error;tx.abort();}
   };
   epoch.addEventListener('success',change);prior.addEventListener('success',change);revision.addEventListener('success',change);return prior;
  },['recovery','meta']);}catch(error){throw failure??error;}return committed;
