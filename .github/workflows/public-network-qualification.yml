@@ -7,12 +7,13 @@ permissions:
 env:
   QUALIFICATION_LOBBY: SET_BY_ROOT_BEFORE_AUTHORIZED_PUSH
   QUALIFICATION_MODE: direct
+  QUALIFICATION_PLAY_SECONDS: 10
   PUBLIC_PRODUCT_REVISION: SET_BY_ROOT_AFTER_DEPLOYMENT_VERIFICATION
   PUBLIC_CORE_SHA256: SET_BY_ROOT_AFTER_ASSET_VERIFICATION
 jobs:
   guest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 135
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -29,7 +30,8 @@ jobs:
           python .qualification/public_peer.py --role guest
           --lobby "$QUALIFICATION_LOBBY" --mode "$QUALIFICATION_MODE"
           --product-revision "$PUBLIC_PRODUCT_REVISION"
-          --core-sha256 "$PUBLIC_CORE_SHA256" --check-enter --output proof
+          --core-sha256 "$PUBLIC_CORE_SHA256"
+          --play-seconds "$QUALIFICATION_PLAY_SECONDS" --check-enter --output proof
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
