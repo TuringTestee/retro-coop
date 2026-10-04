@@ -15,8 +15,8 @@ Sources: [current wireframe](mobile-controller-wireframe-v3.md), [direction](mob
 
 ## Seven-rule check
 
-- Complete journeys: specified by J1–J6; runtime completion remains unproven.
-- Feature support: each entry and recovery is mapped in S1–S9; verify actual actions.
+- Complete journeys: specified by J1–J6; independent design review found the canvas-only focus owner could drop a held keyboard direction when clicking a virtual control. The implementation plan now defines one focus boundary; runtime completion remains unproven.
+- Feature support: each entry and recovery is mapped in S1–S10; verify actual actions, including the mixed-input focus transition.
 - Information just in time: preparation shows mappings; live play hides them while retaining controls.
 - One clear forward path: one editor and presentation owner. The requested canvas gesture and top-right control activate that same presentation, with controller input excluded.
 - Concise and consistent: NES action names and current bindings derive from the existing controls owner.
