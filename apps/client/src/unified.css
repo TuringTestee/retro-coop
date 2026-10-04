@@ -565,6 +565,38 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-shortcuts { display: flex; align-items: center; justify-content: space-between; gap: 3px; min-width: 0; padding-top: 4px; border-top: 1px solid currentColor; color: var(--menu-text); font-size: 12px; font-weight: 700; }
 .rc-shortcuts span { min-width: 0; overflow-wrap: anywhere; }
 .rc-shortcuts strong { color: var(--guide-system); }
+/* Reserve the desktop stage's bottom track for shared chat. The title track
+   accommodates the accepted 80-character game name before a game is loaded. */
+@media (min-width: 651px) {
+  .rc-session.rc-has-side, .rc-shared-playing { grid-template-columns: minmax(360px,24%) minmax(0,1fr) clamp(250px,30vw,360px); }
+  .rc-session, .rc-shared-playing { grid-template-rows: 90px minmax(0,1fr) clamp(116px,24%,180px); }
+  .rc-players, .rc-shared-playing .rc-players { grid-row: 1 / 3; grid-template-rows: 22px minmax(0,1fr); padding: 2px 12px; }
+  .rc-players .slot-row { grid-template-columns: minmax(0,1fr) 16px; grid-template-rows: minmax(0,1fr) auto; padding-block: 2px; }
+  .rc-players .slot-row strong, .rc-players .slot-state { line-height: 1.25; }
+  .rc-side-panel, .rc-play-tools, .rc-shared-playing .rc-play-tools { grid-row: 2; }
+  .rc-chat, .rc-shared-playing .rc-chat { grid-column: 1 / -1; grid-row: 3; }
+  .rc-game-heading { flex: 1; overflow: visible; line-height: 1.25; }
+  .rc-game-links { flex: none; }
+  .rc-side-panel, .rc-playing-menu { container: desktop-settings / size; }
+  @container desktop-settings (max-width: 320px) {
+    .rc-keyboard-word { display: none; }
+  }
+  @container desktop-settings (max-height: 360px) {
+    .rc-inline-settings { grid-template-rows: 40px minmax(0,1fr); }
+    .rc-inline-settings .rc-tool-heading { grid-template-rows: 18px 22px; gap: 0; }
+    .rc-inline-settings .rc-tool-heading nav { display: none; }
+    .rc-inline-settings .rc-settings-select { display: block; width: 100%; height: 22px; padding: 0 6px; font: 700 12px ui-monospace,monospace; }
+    .rc-inline-settings .rc-play-tools { grid-template-rows: 62px minmax(0,1fr) 20px; }
+    .rc-inline-settings .rc-control-hints { padding-block: 0; }
+    .rc-control-line strong, .rc-control-line b { line-height: 1.25; }
+  }
+}
+@media (min-width: 651px) and (max-width: 1100px) {
+  .rc-shell { grid-template-rows: 118px 42px minmax(0,1fr) 72px; }
+  .rc-header { grid-template-rows: 80px 32px; }
+  .rc-trail { height: 79px; }
+  .rc-identity { height: 32px; }
+}
 @media (max-width: 650px) {
   .rc-shell { grid-template-rows: 104px 40px minmax(0,1fr) 72px; }
   .rc-header { grid-template-columns: minmax(0,2fr) minmax(0,1fr); grid-template-rows: 97px; padding: 3px 0; gap: 0; }
@@ -646,15 +678,15 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-inline-settings .rc-input-test { display: none; }
 }
 @media (max-height: 700px) and (min-width: 651px) {
-  .rc-players { grid-template-rows: minmax(0,1fr); padding: 0 6px; }
+  .rc-players, .rc-shared-playing .rc-players { grid-template-rows: minmax(0,1fr); padding: 0 6px; }
   .rc-players > .rc-section-head { display: none; }
-  .rc-inline-settings { grid-template-rows: 48px minmax(0,1fr); }
-  .rc-inline-settings .rc-tool-heading { grid-template-rows: 20px 26px; gap: 2px; }
+  .rc-inline-settings { grid-template-rows: 40px minmax(0,1fr); }
+  .rc-inline-settings .rc-tool-heading { grid-template-rows: 18px 22px; gap: 0; }
   .rc-inline-settings .rc-tool-heading nav { display: none; }
-  .rc-inline-settings .rc-settings-select { display: block; width: 100%; height: 26px; padding: 1px 6px; font: 700 12px ui-monospace, monospace; }
+  .rc-inline-settings .rc-settings-select { display: block; width: 100%; height: 22px; padding: 0 6px; font: 700 12px ui-monospace, monospace; }
 }
 /* Compact rows reserve full wide-glyph names independently of viewport samples. */
-@media (max-width: 650px), (max-height: 700px) {
+@media (max-width: 650px) {
   .rc-players .room-slots, .rc-shared-playing .rc-players .room-slots, .rc-session.rc-has-side .rc-players .room-slots, .rc-session.rc-has-picker .rc-players .room-slots { grid-template-columns: minmax(0,1fr); grid-template-rows: 74px 74px repeat(3,58px); }
   .rc-session .rc-players .slot-wrap .slot-row { display: block; padding: 1px 0 0; line-height: 18px; }
   .rc-players .slot-row strong, .rc-players .slot-state { display: inline; vertical-align: top; line-height: 18px; }
