@@ -276,8 +276,8 @@ export function Controller({
         onKeyDown={(event) => {
           if (event.code === "Tab") return;
           event.preventDefault();
-          if (saving) return;
           event.stopPropagation();
+          if (saving) return;
           if (event.code === "Escape") {
             setDraft(null);
             return;
