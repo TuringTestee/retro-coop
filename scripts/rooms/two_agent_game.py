@@ -404,7 +404,7 @@ def recovery():
     """
     def record(page):
         return page.evaluate("""()=>new Promise((resolve,reject)=>{
-          const request=indexedDB.open('retro-coop-local',4);
+          const request=indexedDB.open('retro-coop-local');
           request.onerror=()=>reject(request.error);
           request.onsuccess=()=>{const db=request.result;
             const row=db.transaction('recovery').objectStore('recovery').get('host');
@@ -527,7 +527,7 @@ def recovery():
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         # A damaged newest state offers the older capture with its actual saved time.
         older=record(host)['captures'][1]
-        host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local',4);
+        host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');
           request.onsuccess=()=>{const db=request.result,tx=db.transaction('recovery','readwrite'),store=tx.objectStore('recovery');
             const row=store.get('host');row.onsuccess=()=>{const bytes=new Uint8Array(row.result.captures[0].bytes);bytes[bytes.length-1]^=1;store.put(row.result,'host');};
             tx.oncomplete=()=>{db.close();resolve();};};})""")
@@ -541,7 +541,7 @@ def recovery():
         # A different core cannot import the remembered machine state.
         original_core=old['fingerprint']['coreSha256']
         def change_core(core):
-            host.evaluate("""core=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local',4);
+            host.evaluate("""core=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');
               request.onsuccess=()=>{const db=request.result,tx=db.transaction('recovery','readwrite'),store=tx.objectStore('recovery');
                 const row=store.get('host');row.onsuccess=()=>{for(const capture of row.result.captures)capture.fingerprint.coreSha256=core;store.put(row.result,'host');};
                 tx.oncomplete=()=>{db.close();resolve();};};})""",core)
@@ -558,7 +558,7 @@ def recovery():
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         change_core(original_core)
         # A missing remembered ROM preserves ordinary loading and never announces a restore.
-        host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local',4);
+        host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');
           request.onsuccess=()=>{const db=request.result,tx=db.transaction('roms','readwrite');tx.objectStore('roms').clear();
             tx.oncomplete=()=>{db.close();resolve();};};})""")
         host.get_by_role('button',name='Host a new game').click()
