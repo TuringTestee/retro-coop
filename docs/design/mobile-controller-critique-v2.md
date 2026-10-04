@@ -1,8 +1,8 @@
-The revised expanded view resolves the known space conflict without shrinking names or concealing lobby controls; two owner choices still block implementation.
+Historical critique of v2, superseded by the [v4 critique](mobile-controller-critique-v4.md); the owner choices described below were later resolved.
 
 Audience: Human
 
-# Mobile controller critique v2
+# Mobile controller critique v2 — historical
 
 | Page | Supports / missing / remove / revision |
 |---|---|
@@ -13,4 +13,4 @@ Audience: Human
 
 Seven-rule check: complete journeys and feature support have concrete success/recovery routes in J1–J6/S1–S9; just-in-time information separates preplay mappings from live buttons; concise/consistent NES labels appear in every sketch; references ground the borrowed pattern. One forward path is **pending owner choice** for fullscreen activation. Stable layout and implementation usability are **unproven**, with exact target regions and integrated acceptance in the technical plan. No design rule is declared runtime-proven from a sketch.
 
-No further visual version is needed before the owner chooses the mobile entry and fullscreen gesture. Return those choices to the supervisor; do not quietly implement either proposal.
+At this historical revision, mobile entry and the fullscreen gesture still needed owner direction. The [v4 critique](mobile-controller-critique-v4.md) records the resolved choices and remaining implementation proof.

@@ -1,8 +1,8 @@
-The portrait sketch cannot fit. Keep existing lobby content intact and separate expanded thumb play from lobby interaction.
+Historical critique of the first sketch, superseded by the [v4 critique](mobile-controller-critique-v4.md); the portrait space failure remains useful context.
 
 Audience: Human
 
-# Mobile controller critique v1
+# Mobile controller critique v1 — historical
 
 | Screen | Supports / missing / remove / exact revision |
 |---|---|
@@ -22,4 +22,4 @@ Seven-rule assessment (D desktop, P portrait lobby, L expanded landscape):
 | Stable layout | unproven | failed | unproven | Reserve controller/mapping bands; current portrait addition has no available region. |
 | Borrow before inventing | met | met | met | [Nintendo/Riot/API references](mobile-controller-references.md); touch comfort remains to prove. |
 
-These scores concern the sketch, not an implemented product. V 2 must expose the unresolved mobile choice and reserve actual target geometry.
+These scores concerned the sketch, not an implemented product. The later versions resolved the mobile choice and reserved target geometry; see the [v4 critique](mobile-controller-critique-v4.md).

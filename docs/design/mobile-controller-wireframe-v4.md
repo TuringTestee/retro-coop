@@ -2,7 +2,7 @@ The revised sketch reserves usable thumb targets in expanded play; it does not p
 
 Audience: Human
 
-# Mobile controller wireframe v3 — current proposal
+# Mobile controller wireframe v4 — approved design
 
 Current approved revision: one phone panel at a time, full names/editing in Settings → Profile, and automatic expanded view on first usable phone play entry. Desktop remains manual. Canvas-click and the top-right control activate the same presentation state; Return preserves live play and the previous panel. v1–v3 remain historical proposals.
 
@@ -57,4 +57,4 @@ Spectator/preparing: existing role/preparation state remains authoritative; no v
 
 ## Final design check
 
-Complete journeys, feature support, just-in-time information, one forward path and concise names are specified in J1–J6/S1–S10 and the above action/result labels; phone composition remains an owner decision; the requested canvas-click toggle and top-right control use one presentation state. Stable geometry is proposed with explicit target bounds; rendered fit, idle visibility, physical reach, screen readers and simultaneous game input remain unproven. Borrowed arrangement/origin mechanics are sourced, with limits explicit. No production build is authorized by this sketch alone.
+Complete journeys, feature support, just-in-time information, one forward path and concise names are specified in J1–J6/S1–S10 and the above action/result labels; the owner approved the phone composition; the requested canvas-click toggle and top-right control use one presentation state. Stable geometry is proposed with explicit target bounds; rendered fit, idle visibility, physical reach, screen readers and simultaneous game input remain unproven. Borrowed arrangement/origin mechanics are sourced, with limits explicit. Implementation waits for independent review, passing checks and merge of [PR #233](https://github.com/TuringTestee/retro-coop/pull/233).

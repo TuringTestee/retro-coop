@@ -4,7 +4,7 @@ Audience: Human
 
 # Mobile controller direction
 
-**Proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/216); not approved for implementation.** Audience: general PG-13 players. [References](mobile-controller-references.md) inform the arrangement and touch mechanics.
+**Owner-approved direction for [#216](https://github.com/TuringTestee/retro-coop/issues/216).** The phone composition and automatic expanded play entry are approved; implementation waits for independent review, passing checks and merge of the [governing plan PR #233](https://github.com/TuringTestee/retro-coop/pull/233). Audience: general PG-13 players. [References](mobile-controller-references.md) inform the arrangement and touch mechanics.
 
 ## Owner-requested behavior
 

@@ -1,12 +1,12 @@
-The revised sketch reserves usable thumb targets in expanded play; it does not pretend those targets fit the crowded mobile lobby.
+Historical sketch preserving the canvas gesture, superseded by the [approved v4 wireframe](mobile-controller-wireframe-v4.md).
 
 Audience: Human
 
-# Mobile controller wireframe v3 — current proposal
+# Mobile controller wireframe v3 — historical
 
-Revision: preserves the owner-requested canvas-click toggle and the top-right control from #216. The one-panel phone composition and Profile placement await owner approval. Expansion remains manual. Earlier v2 and its critique remain historical proposals.
+At this revision, the one-panel phone composition and Profile placement awaited owner approval and expansion was manual. The owner later approved the v4 composition and automatic phone play entry. The requested canvas-click toggle and top-right control remain in v4.
 
-Sources: [direction/owner choices](mobile-controller-direction.md), [references](mobile-controller-references.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md), [current critique](mobile-controller-critique-v3.md). Planning only: no implemented layout, touch usability or input proof.
+Sources at this revision: [direction/owner choices](mobile-controller-direction.md), [references](mobile-controller-references.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md), [historical critique](mobile-controller-critique-v3.md). Planning only: no implemented layout, touch usability or input proof.
 
 ## Desktop preparation and inline editing / J1
 
@@ -37,7 +37,7 @@ Edit → choose NES action in the same band → key capture with current/draft l
 
 Concrete horizontal targets at 320px before safe-area accommodation: pad x 8..104 (96px); Select x 108..152 and Start x 156..200 (44px each); A x 240..304/y 8..72 and B x 208..272/y 80..144 within the controller band (64px square each). A/B are diagonally staggered and never overlap; Select/Start stay central rather than above them. Safe areas reduce the game area first; maintain target sizes, with full fit still requiring actual-device verification. This is fixed geometry within an explicit play presentation, not a viewport-specific test exception.
 
-The proposed phone lobby view reserves one body panel: Game, Players, Settings or Chat. Settings → Profile contains the complete lobby/your names and edit actions; Players contains all five slot rows and moderation. In landscape the panel tabs use a narrow left rail. Switching panels preserves chat drafts and the same game/session. Start stays in Game; canvas-click or Full screen expands manually. This composition requires owner approval before implementation.
+The proposed phone lobby view reserves one body panel: Game, Players, Settings or Chat. Settings → Profile contains the complete lobby/your names and edit actions; Players contains all five slot rows and moderation. In landscape the panel tabs use a narrow left rail. Switching panels preserves chat drafts and the same game/session. Start stays in Game; canvas-click or Full screen expands manually. At this historical revision, the composition still awaited owner approval; [v4](mobile-controller-wireframe-v4.md) records the approved choice.
 
 ## Landscape expanded play,568×320 / J3
 

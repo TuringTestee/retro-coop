@@ -1,8 +1,8 @@
-This first sketch preserves all lobby regions and tests whether the requested controller can be added without concealing existing work.
+Historical first sketch, superseded by the [approved v4 wireframe](mobile-controller-wireframe-v4.md); it preserves the initial lobby-space experiment.
 
 Audience: Human
 
-# Mobile controller wireframe v1
+# Mobile controller wireframe v1 — historical
 
 ## Desktop preparation / J1
 

@@ -1,8 +1,8 @@
-The revised sketch reserves usable thumb targets in expanded play; it does not pretend those targets fit the crowded mobile lobby.
+Historical expanded-play sketch, superseded by the [approved v4 wireframe](mobile-controller-wireframe-v4.md).
 
 Audience: Human
 
-# Mobile controller wireframe v2 — current proposal
+# Mobile controller wireframe v2 — historical
 
 Sources: [direction/owner choices](mobile-controller-direction.md), [references](mobile-controller-references.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md), [v1 critique](mobile-controller-critique-v1.md). Planning only: no implemented layout, touch usability or input proof.
 

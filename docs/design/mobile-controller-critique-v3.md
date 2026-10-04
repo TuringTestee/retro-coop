@@ -1,10 +1,10 @@
-Preserve the requested fullscreen gesture; the concrete phone composition still needs approval. This is a review of the proposal, not proof of implemented touch usability.
+Historical critique of v3, superseded by the [v4 critique](mobile-controller-critique-v4.md); its pending phone approval was later resolved.
 
 Audience: Human
 
-# Mobile controller critique v3
+# Mobile controller critique v3 — historical
 
-Sources: [current wireframe](mobile-controller-wireframe-v3.md), [direction](mobile-controller-direction.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md). Earlier v2 incorrectly treated replacing canvas-click expansion as necessary; that proposal is withdrawn.
+Sources at this revision: [historical v3 wireframe](mobile-controller-wireframe-v3.md), [direction](mobile-controller-direction.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md). Earlier v2 incorrectly treated replacing canvas-click expansion as necessary; that proposal was withdrawn.
 
 | Screen | Supports | Missing or unproven | Revision or verification |
 |---|---|---|---|
@@ -23,4 +23,4 @@ Sources: [current wireframe](mobile-controller-wireframe-v3.md), [direction](mob
 - Stable layout: reserved portrait/landscape targets are specified; real fit, safe areas and orientation changes remain unproven.
 - Borrow before inventing: retained references explain the Famicom arrangement and bounded thumb origin. Physical usability is not inferred from those references.
 
-Do not implement the phone composition before approval. The local demo fits maximum accepted content in both minimum orientations; actual panel persistence, safe areas and touch input remain unproven. No new fullscreen gesture decision is required.
+At this historical revision, phone composition still awaited approval. The [v4 critique](mobile-controller-critique-v4.md) records that approval; actual panel persistence, safe areas and touch input remain implementation proof obligations. No new fullscreen gesture decision is required.
