@@ -12,7 +12,7 @@ export type LocalFileRequest =
   | {type:'state-capture';requestId:number}
   | {type:'state-history';requestId:number}
   | {type:'state-rewind';requestId:number;seconds:number}
-  | {type:'state-validate';requestId:number;bytes:ArrayBuffer}
+  | {type:'state-validate'|'state-inspect';requestId:number;bytes:ArrayBuffer}
   | {[Kind in LocalFileKind]:
   | {type:`${Kind}-info`;requestId:number}
   | { type: `${Kind}-export`; requestId: number }
@@ -21,10 +21,11 @@ export type LocalFileRequest =
 export type PeerCheckpointRequest =
  | {type:'peer-checkpoint-bind';requestId:number;epoch:string;frame:number;hash:string}
  | {type:'peer-checkpoint-export';requestId:number;epoch:string;frame?:number}
- | {type:'peer-checkpoint-prepare';requestId:number;operationId:string;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string}
+ | {type:'peer-checkpoint-prepare';requestId:number;operationId:string;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;transactionId?:string}
+ | {type:'peer-checkpoint-rollback'|'peer-checkpoint-finish';requestId:number;operationId:string}
  | {type:'peer-checkpoint-commit'|'peer-checkpoint-cancel';requestId:number;operationId:string};
 export function isPeerCheckpointOperation(value:unknown):value is PeerCheckpointRequest {
- return !!value && typeof value==='object' && 'type' in value && ['peer-checkpoint-bind','peer-checkpoint-export','peer-checkpoint-prepare','peer-checkpoint-commit','peer-checkpoint-cancel'].includes(String(value.type)) && 'requestId' in value && integer(value.requestId,0,Number.MAX_SAFE_INTEGER);
+ return !!value && typeof value==='object' && 'type' in value && ['peer-checkpoint-bind','peer-checkpoint-export','peer-checkpoint-prepare','peer-checkpoint-commit','peer-checkpoint-cancel','peer-checkpoint-rollback','peer-checkpoint-finish'].includes(String(value.type)) && 'requestId' in value && integer(value.requestId,0,Number.MAX_SAFE_INTEGER);
 }
 export type WorkerRequest =
   | { type: 'load'; rom: ArrayBuffer }
@@ -36,7 +37,8 @@ export type WorkerResponse =
  | {type:'peer-checkpoint-bound';requestId:number;epoch:string;frame:number;hash:string}
   | {type:'peer-checkpoint-exported';requestId:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string}
   | {type:'peer-checkpoint-imported'|'peer-checkpoint-prepared';requestId:number;operationId:string;epoch:string;frame:number;hash:string}
-  | {type:'peer-checkpoint-cancelled';requestId:number;operationId:string}
+  | {type:'peer-checkpoint-cancelled'|'peer-checkpoint-finished';requestId:number;operationId:string}
+  | {type:'peer-checkpoint-rolled-back';requestId:number;operationId:string;epoch?:string;frame:number;hash:string}
   | {type:'peer-checkpoint-error';requestId:number;message:string}
   | { type: 'ready'; fps: number; coreSha256: string; battery:boolean }
   | { type: 'frame'; pixels: ArrayBuffer; audio: ArrayBuffer; epoch?:string; frame?:number; rewind?:RewindInfo }
@@ -48,6 +50,7 @@ export type WorkerResponse =
   | {type:'state-history';requestId:number;info:RewindInfo}
   | {type:'state-rewound';requestId:number;pixels:ArrayBuffer;info:RewindInfo}
   | {type:'state-validated';requestId:number}
+  | {type:'state-inspected';requestId:number;identity:string;hash:string}
   | { type: `${LocalFileKind}-exported`; requestId: number; bytes: ArrayBuffer }
   | { type: `${LocalFileKind}-imported`; requestId: number }
   | { type: `${LocalFileKind}-error`; requestId: number; message: string }
@@ -55,16 +58,16 @@ export type WorkerResponse =
 export type HealthResponse = { status: 'ok'; service: 'retro-coop-coordinator'; protocol: 1 };
 export const health: HealthResponse = { status: 'ok', service: 'retro-coop-coordinator', protocol: 1 };
 export function isLocalFileOperation(value: unknown): value is {type:LocalFileRequest['type'];requestId:number} {
-  return !!value && typeof value === 'object' && 'type' in value && ((value.type==='state-hash' || value.type==='state-capture' || value.type==='state-preview' || value.type==='state-info' || value.type==='battery-info') || value.type==='state-validate' || value.type==='state-history' || value.type==='state-rewind' || localFileKinds.some(kind=>value.type===`${kind}-export` || value.type===`${kind}-import`)) && 'requestId' in value && typeof value.requestId === 'number' && Number.isSafeInteger(value.requestId) && value.requestId >= 0;
+  return !!value && typeof value === 'object' && 'type' in value && ((value.type==='state-hash' || value.type==='state-capture' || value.type==='state-preview' || value.type==='state-info' || value.type==='battery-info') || value.type==='state-validate' || value.type==='state-inspect' || value.type==='state-history' || value.type==='state-rewind' || localFileKinds.some(kind=>value.type===`${kind}-export` || value.type===`${kind}-import`)) && 'requestId' in value && typeof value.requestId === 'number' && Number.isSafeInteger(value.requestId) && value.requestId >= 0;
 }
 export function localFileKind(type: LocalFileRequest['type']):LocalFileKind { return type.split('-')[0] as LocalFileKind; }
 export function isWorkerRequest(value: unknown): value is WorkerRequest {
   if (!value || typeof value !== 'object' || !('type' in value)) return false;
   if (isPeerCheckpointOperation(value)) {
-   if(value.type==='peer-checkpoint-commit'||value.type==='peer-checkpoint-cancel')return token(value.operationId);
+   if(value.type==='peer-checkpoint-commit'||value.type==='peer-checkpoint-cancel'||value.type==='peer-checkpoint-rollback'||value.type==='peer-checkpoint-finish')return token(value.operationId);
    if(value.type==='peer-checkpoint-bind')return token(value.epoch)&&integer(value.frame,0,Number.MAX_SAFE_INTEGER)&&sha256(value.hash);
    if(value.type==='peer-checkpoint-export')return token(value.epoch)&&(value.frame===undefined||integer(value.frame,0,Number.MAX_SAFE_INTEGER));
-   return value.type==='peer-checkpoint-prepare' && token(value.operationId) && token(value.epoch) && integer(value.frame,0,Number.MAX_SAFE_INTEGER) && value.bytes instanceof ArrayBuffer && value.bytes.byteLength>=72 && value.bytes.byteLength<=CHECKPOINT_MAX_BYTES && sha256(value.identity) && sha256(value.hash);
+   return value.type==='peer-checkpoint-prepare' && token(value.operationId) && token(value.epoch) && integer(value.frame,0,Number.MAX_SAFE_INTEGER) && value.bytes instanceof ArrayBuffer && value.bytes.byteLength>=72 && value.bytes.byteLength<=CHECKPOINT_MAX_BYTES && sha256(value.identity) && sha256(value.hash) && (value.transactionId===undefined||token(value.transactionId));
   }
   if (value.type === 'load') return 'rom' in value && value.rom instanceof ArrayBuffer && value.rom.byteLength > 0;
   if (isLocalFileOperation(value)) {

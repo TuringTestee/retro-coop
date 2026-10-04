@@ -247,6 +247,7 @@ export class Rooms {
      room.game.retryRoles(member.id,command.transactionId,room.revision,{owners:controllerOwners(proposed),revision:room.controllers.revision+1});
     }else if(command.type==='gameReady'&&room.started&&room.game.view().epoch&&slot.role!=='observer'&&!room.controllers.owners.includes(member.id)){const pending:RoleTransaction={id:secret(),revision:room.revision,roles:[{slotId:slot.id,role:slot.role}],status:'freezing'};room.game.requestRoles(pending,this.assigned(room));}else room.game.handle(member.id,command as GameCommand);
    }catch(error){throw new RoomError(error instanceof Error?error.message:'game_failed');}
+   if(command.type==='gameLoadCommitted'&&room.game.view().status==='starting'){room.started='shared';room.established=true;room.hostReady=true;}
    if(command.type==='gameRestore'){room.started='shared';room.established=true;room.hostReady=true;}
    if(room.game.view().status==='playing'){room.established=true;for(const member of this.members(room))if(member.acquisition==='loaded')member.reservationUntil=undefined;}
    this.publish(room);return {room:this.view(room,session)};
