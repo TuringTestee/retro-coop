@@ -288,7 +288,7 @@ def host(page):
     return page.locator('.rc-trail .rc-header-edit').inner_text().replace('✎', '').strip()
 
 
-def exercise(page, size, output, play=False):
+def exercise(page, size, output, play=False, invitation_recovery=False):
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     name = host(page)
     assert name
@@ -386,6 +386,8 @@ def exercise(page, size, output, play=False):
         assert page.get_by_role('button', name='Mute game').count() == 0
         choose_section(page, 'Sound')
         assert page.get_by_role('button', name='Mute game').count() == 1
+        page.get_by_role('button', name='Mute game', exact=True).click()
+        page.get_by_role('button', name='Unmute game', exact=True).wait_for()
         choose_section(page, 'Game')
         assert page.locator('.rc-controller-art').is_visible()
         assert guide_fits(page), f'Controller guide overflowed at {size}'
@@ -409,7 +411,7 @@ def exercise(page, size, output, play=False):
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
         page.get_by_role('button', name='Return game to lobby').click()
         assert page.locator('.rc-game-fullscreen').count() == 0
-    if size == (1280, 800):
+    if invitation_recovery:
         page.evaluate("""() => {
           window.heldInvites=[];
           Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise((resolve,reject)=>window.heldInvites.push({resolve,reject}))}});
@@ -428,7 +430,7 @@ def exercise(page, size, output, play=False):
     assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
     page.get_by_role('button', name='Close lobby').click()
     page.locator('.rc-listing').wait_for(timeout=10000)
-    if size == (1280, 800):
+    if invitation_recovery:
         page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
         page.wait_for_timeout(100)
         assert page.get_by_role('dialog', name='Invitation link').count() == 0
@@ -470,10 +472,18 @@ def main():
                 assert not errors, errors
                 print(json.dumps({'result': 'pass', 'zoom': zoom, 'checks': rows}), flush=True)
                 return
-            browser = getattr(playwright, args.browser).launch(headless=True, **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
+            browser = getattr(playwright, args.browser).launch(headless=True, ignore_default_args=['--mute-audio'], **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
             try:
                 rows = []
-                for size in ((1280, 800), (650, 760), (401, 760), (320, 650), (320, 568)):
+                scenarios = (
+                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True},
+                    {'size': (650, 760)},
+                    {'size': (401, 760)},
+                    {'size': (320, 650)},
+                    {'size': (320, 568), 'play': True},
+                )
+                for scenario in scenarios:
+                    size = scenario['size']
                     # Each layout journey is an independent visitor, including
                     # local ROMs and recovery captures from a played scenario.
                     context = browser.new_context(viewport={'width': size[0], 'height': size[1]})
@@ -481,7 +491,7 @@ def main():
                         page = context.new_page()
                         page.on('pageerror', lambda error: errors.append(str(error)))
                         page.goto(url, wait_until='domcontentloaded')
-                        rows.append(exercise(page, size, output, play=size in ((1280, 800), (320, 568))))
+                        rows.append(exercise(page, output=output, **scenario))
                     finally:
                         context.close()
                 theme_defaults(browser, url)

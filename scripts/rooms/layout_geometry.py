@@ -136,7 +136,8 @@ def zoom_context(playwright, viewport):
         # an event the failed launch will never emit.
         for attempt in range(3):
             context = playwright.chromium.launch_persistent_context(str(root / f'profile-{attempt}'), channel='chromium',
-                headless=True, viewport=viewport, args=[f'--disable-extensions-except={ext}', f'--load-extension={ext}'])
+                headless=True, viewport=viewport, ignore_default_args=['--mute-audio'],
+                args=[f'--disable-extensions-except={ext}', f'--load-extension={ext}'])
             try:
                 worker = next((w for w in context.service_workers if w.url.startswith('chrome-extension://')), None)
                 if worker is None:
