@@ -10,6 +10,7 @@ import contextlib
 import hashlib
 import json
 import math
+import re
 import struct
 import subprocess
 import tempfile
@@ -111,6 +112,53 @@ def leave(page):
     page.locator('.rc-listing').wait_for()
 
 
+def prepare_players(host, guest):
+    """Observe shared prerequisites and each Ready acknowledgment before Start."""
+    deadline = time.monotonic() + 30
+    recoveries = []
+    def remaining_ms():
+        remaining = int((deadline - time.monotonic()) * 1000)
+        assert remaining > 0, 'Players did not become Ready within the shared setup deadline'
+        return remaining
+    try:
+        while time.monotonic() < deadline:
+            for name, tab in [('host', host), ('guest', guest)]:
+                tab.wait_for_function("""() => {
+                  const room=window.lobbyState;
+                  return room?.fingerprint && room.matches &&
+                    room.slots.filter(slot=>slot.member&&slot.role!=='observer')
+                      .every(slot=>slot.member.connected&&slot.member.acquisition==='loaded') &&
+                    room.peers.every(peer=>peer.status==='connected');
+                }""", timeout=remaining_ms())
+                if tab.get_by_role('button', name='Cancel Ready', exact=True).count():
+                    continue
+                action = tab.get_by_role('button', name=re.compile(r'^(Ready|Try Ready again)$'))
+                if action.inner_text() == 'Try Ready again':
+                    recoveries.append({'visitor': name, 'action': 'Try Ready again'})
+                before = tab.evaluate('readyAttempts.length')
+                action.click(timeout=remaining_ms())
+                result = tab.wait_for_function("""before => {
+                  const attempt=readyAttempts[before];
+                  return attempt?.result;
+                }""", arg=before, timeout=remaining_ms()).json_value()
+                if not result['ok']:
+                    assert result['error'] in ['game_prerequisites', 'room_changed', 'stale_controllers'], result
+                    recoveries.append({'visitor': name, 'error': result['error']})
+            if host.get_by_role('button', name='Start →', exact=True).count():
+                return recoveries
+        raise AssertionError('Players did not become Ready within the shared setup deadline')
+    except Exception:
+        for name, tab in [('host', host), ('guest', guest)]:
+            (out / f'{name}-ready-failed.json').write_text(json.dumps({
+                'body': tab.locator('body').inner_text(),
+                'room': tab.evaluate('lobbyState'),
+                'attempts': tab.evaluate('readyAttempts'),
+                'peers': tab.evaluate('pcs.map(pc=>({connection:pc.connectionState,ice:pc.iceConnectionState}))')
+            }, indent=2))
+            tab.screenshot(path=str(out / f'{name}-ready-failed.png'))
+        raise
+
+
 def game_progress(page):
     before = int(page.locator('canvas').get_attribute('data-frame-count'))
     page.wait_for_function('before => Number(document.querySelector("canvas").dataset.frameCount) > before', arg=before)
@@ -185,14 +233,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     guest.goto(invite)
     guest.get_by_role('button', name='Join lobby', exact=True).click()
     host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(root / 'apps/client/src/assets/super-tilt-bro-e.nes'))
-    for t in [host, guest]:
-        try:
-            t.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
-        except Exception:
-            t.screenshot(path=str(out / 'load-failed.png'))
-            print(t.locator('body').inner_text(), flush=True)
-            raise
-        t.get_by_role('button', name='Ready', exact=True).click()
+    ready_recoveries = prepare_players(host, guest)
     host.get_by_role('button', name='Start →', exact=True).click()
     for t in [host, guest]:
         t.wait_for_function('Number(document.querySelector("canvas").dataset.frameCount)>10', timeout=30000)
@@ -209,7 +250,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         t.screenshot(path=str(out / ('host-voice.png' if t == host else 'guest-voice.png')))
         t.get_by_label('Voice mode').select_option('open')
     mic(guest, False)
-    result = {'mode': a.mode, 'browser': b.version,
+    result = {'mode': a.mode, 'ready_recoveries': ready_recoveries, 'browser': b.version,
               'source_head': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
               'microphone_inputs':microphone_inputs,
               'capture_settings': {name:tab.evaluate('captures.at(-1).getAudioTracks()[0].getSettings()')
