@@ -34,12 +34,15 @@ parser.add_argument('--width', type=int, default=1366)
 parser.add_argument('--height', type=int, default=682)
 parser.add_argument('--zoom', type=int, choices=(1, 2), default=1)
 parser.add_argument('--play-seconds', type=int, default=0)
+parser.add_argument('--observer-churn', action='store_true', help='Join and leave as an unrelated observer during continuous play')
 args = parser.parse_args()
 ROOT = args.runtime_root.resolve()
 SESSION = args.session_dir.resolve()
 SESSION.mkdir(parents=True, exist_ok=True)
 if not 0 <= args.play_seconds <= 30:
     parser.error('--play-seconds must be between 0 and 30')
+if args.observer_churn and (args.role not in ('run', 'host', 'guest') or args.play_seconds < 10 or args.visibility != 'public'):
+    parser.error('--observer-churn needs a public run with at least 10 play seconds')
 LOBBY_NAME = 'Play check ' + hashlib.sha256(str(SESSION).encode()).hexdigest()[:10]
 EXPECTED_RAM = [int(value) for value in args.expect_controller_ram.split(',')] if args.expect_controller_ram else None
 if EXPECTED_RAM is not None and (len(EXPECTED_RAM) != 2 or any(value < 0 or value > 255 for value in EXPECTED_RAM)):
@@ -161,9 +164,33 @@ def run_pair():
                                '--play-seconds', str(args.play_seconds)]
                     if args.expect_controller_ram:
                         command.extend(['--expect-controller-ram', args.expect_controller_ram])
+                    if args.observer_churn:
+                        command.append('--observer-churn')
                     workers.append(subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT))
                 deadline = time.monotonic() + 80
                 try:
+                    if args.observer_churn:
+                        wait_for('host-live.json', 40)
+                        wait_for('guest-live.json', 40)
+                        invitation = wait_for('host-ready.json', 1)['invitation']
+                        with sync_playwright() as playwright:
+                            browser = playwright.chromium.launch(ignore_default_args=['--mute-audio'])
+                            try:
+                                context = browser.new_context(viewport={'width': args.width, 'height': args.height})
+                                context.add_init_script((ROOT / 'scripts/gameplay/fixture.js').read_text())
+                                observer = context.new_page()
+                                observer.goto(invitation)
+                                observer.evaluate('releaseFrames()')
+                                observer.get_by_role('button', name='Join lobby', exact=True).click()
+                                observer.wait_for_function('proof.room?.role === "member" && proof.room?.game?.status === "playing"', timeout=15000)
+                                observer.wait_for_function('proof.room?.peers?.some(peer => peer.status === "connected")', timeout=15000)
+                                observer_id = observer.evaluate('proof.room.chatMembership')
+                                observer.get_by_role('button', name='Back to Main Page').click()
+                                observer.get_by_role('button', name='Leave lobby', exact=True).click()
+                                observer.locator('.rc-listing').wait_for(timeout=15000)
+                                save('observer-left.json', {'member_id': observer_id})
+                            finally:
+                                browser.close()
                     while time.monotonic() < deadline:
                         statuses = [worker.poll() for worker in workers]
                         if all(status == 0 for status in statuses):
@@ -294,11 +321,17 @@ def player():
             page.keyboard.down('z' if args.role == 'host' else 'c')
             play_started = time.monotonic()
             play_frame = held_from
+            play_epoch = page.evaluate('proof.activeEpoch')
+            save(f'{args.role}-live.json', {'epoch': play_epoch})
             while time.monotonic() - play_started < args.play_seconds:
                 wait_for_page('previous => proof.frameCount > previous', arg=play_frame, timeout=5000)
                 play_frame = page.evaluate('proof.frameCount')
-                assert page.evaluate('proof.room?.game?.status === "playing" && !proof.workloadStopped'), 'Shared play stopped during the live check'
+                assert page.evaluate('epoch => proof.room?.game?.status === "playing" && !proof.workloadStopped && proof.activeEpoch === epoch && proof.roomSocket?.readyState === WebSocket.OPEN', arg=play_epoch), 'Shared play stopped during the live check'
                 page.wait_for_timeout(250)
+            if args.observer_churn and args.role == 'host':
+                observer_id = wait_for('observer-left.json', 1)['member_id']
+                stops = page.evaluate('proof.stopEvents')
+                assert any(stop['type'] == 'peerStop' and stop['member'] == observer_id and not stop['required'] for stop in stops), stops
             continuous_play_seconds = round(time.monotonic() - play_started, 2)
             measured_fps = round((play_frame-held_from)/continuous_play_seconds, 2) if args.play_seconds else None
             rtts = page.evaluate('proof.admission.nonceRttMs')
@@ -371,6 +404,10 @@ def player():
             save(f'{args.role}-failure.json', {
                 'role':args.role,'room':page.evaluate('window.proof?.room'),
                 'frames':page.evaluate('window.proof?.frameCount'),
+                'active_epoch':page.evaluate('window.proof?.activeEpoch'),
+                'socket_ready_state':page.evaluate('window.proof?.roomSocket?.readyState'),
+                'stop_events':page.evaluate('window.proof?.stopEvents?.slice(-12)'),
+                'recent_events':page.evaluate('window.proof?.events?.slice(-12)'),
                 'status':page.locator('.rc-status').all_inner_texts(),'page_errors':errors,
             })
             raise
