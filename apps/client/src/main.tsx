@@ -130,7 +130,7 @@ function App(){
  const authorityReady=!!room&&room.game.ready.includes(room.hostMembership);
  const linked=room?.peers.filter(peer=>room.game.controllers.owners.includes(peer.member)||peer.member===room.hostMembership).every(peer=>peer.status==='connected')??true;
  const failedPeer=room?.peers.find(peer=>['failed','relay_unavailable','relay_capacity'].includes(peer.status));
- const roleFailure=room?.game.pending?.status==='failed'?(room.role==='host'?'Role change failed. Open the row to retry.':'Role change failed. Wait for the host.'):undefined;
+ const roleFailure=room?.game.pending?.status==='failed'?room.game.pending.reason??'Player change failed.':undefined;
  const localMatch=!!room?.fingerprint&&!!playerState.fingerprint&&room.matches&&player.current?.isLoaded(playerState.fingerprint);
  const canReady=!!room&&!!room.fingerprint&&!observer&&!!self?.member?.connected&&self.member.acquisition==='loaded'&&!!localMatch&&roomState.connected&&!roomState.busy&&!playerState.loading;
  const readyError=currentPage==='lobby'&&!ready?roomState.gameplay?.preparationError:undefined;
