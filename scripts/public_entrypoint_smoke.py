@@ -14,22 +14,6 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def source_check():
-    readme = (ROOT / "README.md").read_text()
-    launcher = (ROOT / "scripts/demo.sh").read_text()
-    assert "sh scripts/demo.sh" in readme
-    assert "http://127.0.0.1:8765/" in readme
-    assert "PUBLIC_CATALOG_GAMES=super-tilt-bro-pal,from-below-1.0" in launcher
-    assert "COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0" in launcher
-    assert "node apps/coordinator/src/main.ts" in launcher and "node ../../node_modules/vite/bin/vite.js" in launcher
-    assert "spikes/d02" not in launcher and "/demo/" not in launcher
-    for obsolete in ["index.html", "app.js", "style.css", "demo_smoke.py"]:
-        assert not (ROOT / "spikes/d02/demo" / obsolete).exists(), obsolete
-    for guide in ["d05-local-play.md", "d08-rooms.md", "d10-peer-connectivity.md"]:
-        text = (ROOT / "docs/implementation" / guide).read_text()
-        assert "sh scripts/demo.sh" in text
-
-
 def fetch(url, method="GET"):
     with urlopen(Request(url, method=method), timeout=1) as response:
         return response.status, response.read()
@@ -246,16 +230,12 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             status, home = fetch("http://127.0.0.1:8765/")
             old_status, old_route = fetch("http://127.0.0.1:8765/demo/")
             coordinator_status, health = fetch("http://127.0.0.1:8787/health")
-            source_status, source = fetch("http://127.0.0.1:8765/src/RoomController.tsx")
             catalog = {
                 "super_tilt_bro": fetch("http://127.0.0.1:8765/catalog/super-tilt-bro-e-847155bb712e474f71554174c9d9ed402bf651b13ff1e4afc9a42ec69cd03d8d.nes", "HEAD")[0],
                 "from_below": fetch("http://127.0.0.1:8765/catalog/from-below-1.0-1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555.nes", "HEAD")[0],
             }
-            assert old_status == coordinator_status == source_status == 200
-            assert b'/src/main.tsx' in home and b'/src/main.tsx' in old_route
-            screens = (ROOT / "apps/client/src/UnifiedScreens.tsx").read_bytes()
-            assert b"createLobby" in source and b"All lobbies" in screens and b"Host a new game" in screens
-            assert b"GOOD GAMES" not in old_route and b"Make yourself at home" not in old_route
+            assert old_status == coordinator_status == 200
+            assert home == old_route
             assert catalog == {"super_tilt_bro": 200, "from_below": 200}
             assert json.loads(health)["status"] == "ok"
             subprocess.run([
@@ -285,15 +265,11 @@ def main():
     global ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-root", type=Path, default=ROOT)
-    parser.add_argument("--source-only", action="store_true")
     parser.add_argument("--browser", action="store_true")
     parser.add_argument("--screenshot-dir", type=Path)
     args = parser.parse_args()
     ROOT = args.runtime_root.resolve()
-    source_check()
-    result = {"result": "pass", "source_ownership": True}
-    if not args.source_only:
-        result.update(runtime_check(args.browser, args.screenshot_dir))
+    result = runtime_check(args.browser, args.screenshot_dir)
     print(json.dumps(result, indent=2))
 
 

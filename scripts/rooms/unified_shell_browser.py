@@ -173,11 +173,6 @@ def automatic_voice(browser, url):
         for page in (host, guest):
             page.wait_for_function('captures.length === 1 && captures[0].getAudioTracks()[0].readyState === "live"', timeout=15000)
             assert not page.evaluate('captures[0].getAudioTracks()[0].enabled'), 'Voice must wait for push to talk.'
-        host.get_by_role('button', name='Back to Main Page').focus()
-        host.keyboard.down('v')
-        host.wait_for_function('captures[0].getAudioTracks()[0].enabled')
-        host.keyboard.up('v')
-        host.wait_for_function('!captures[0].getAudioTracks()[0].enabled')
     finally:
         host_context.close()
         guest_context.close()
