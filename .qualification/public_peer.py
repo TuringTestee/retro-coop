@@ -107,11 +107,24 @@ with sync_playwright() as pw:
    assert time.monotonic()<input_deadline,result['controller_ram']
    sampled=page.evaluate('proof.frameCount');page.wait_for_function('n=>proof.frameCount>n+30',arg=sampled,timeout=5000)
   play_at=time.monotonic();frame0=page.evaluate('proof.frameCount');previous=frame0
+  audio_at=play_at;audio_previous=page.evaluate(energy);audio_frame=frame0
+  result['continuous_audio_samples']=[]
   while time.monotonic()-play_at<a.play_seconds:
    page.wait_for_function('n=>proof.frameCount>n',arg=previous,timeout=5000);previous=page.evaluate('proof.frameCount')
    assert page.evaluate('proof.room.game.status==="playing"')
+   if time.monotonic()-audio_at>=10:
+    current_audio=page.evaluate(energy)
+    sample={'elapsed_seconds':round(time.monotonic()-play_at,2),'interval_seconds':round(time.monotonic()-audio_at,2),'received_audio_energy':current_audio-audio_previous,'native_frames':previous-audio_frame}
+    result['continuous_audio_samples'].append(sample)
+    assert sample['received_audio_energy']>1e-5 and sample['native_frames']>0,sample
+    audio_at=time.monotonic();audio_previous=current_audio;audio_frame=previous
    page.wait_for_timeout(100)
   result['play_seconds']=round(time.monotonic()-play_at,2);assert result['play_seconds']>=a.play_seconds
+  current_audio=page.evaluate(energy)
+  sample={'elapsed_seconds':result['play_seconds'],'interval_seconds':round(time.monotonic()-audio_at,2),'received_audio_energy':current_audio-audio_previous,'native_frames':previous-audio_frame}
+  result['continuous_audio_samples'].append(sample)
+  if sample['interval_seconds']>=1:
+   assert sample['received_audio_energy']>1e-5 and sample['native_frames']>0,sample
   result['measured_fps']=round((previous-frame0)/result['play_seconds'],2)
   wait('proof.frameCount>=220')
   page.keyboard.up('z' if a.role=='host' else 'c')
