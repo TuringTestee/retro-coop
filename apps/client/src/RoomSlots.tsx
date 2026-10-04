@@ -1,4 +1,4 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {SLOT_IDS,type RoomSlot,type SlotRole} from '../../../packages/contracts/src/slots.ts';
 import type {RoomView} from '../../../packages/contracts/src/rooms.ts';
 import type {RoomClient} from './room-client.ts';
@@ -32,6 +32,21 @@ export function RoomSlots({room,connected,act,onKickRequested,onFeedback,onInspe
  const focusMenu=(id:string,last=false)=>requestAnimationFrame(()=>{const items=menuItems(id);(last?items.at(-1):items[0])?.focus();});
  const moveMenu=(event:React.KeyboardEvent,id:string)=>{if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;const items=menuItems(id);if(!items.length)return;event.preventDefault();const current=items.indexOf(document.activeElement as HTMLButtonElement);const next=event.key==='Home'?0:event.key==='End'?items.length-1:event.key==='ArrowDown'?(current+1)%items.length:(current-1+items.length)%items.length;items[next]?.focus();};
  const inspect=(element:HTMLElement,title:string)=>{const label=element.querySelector('strong');onInspect(label&&label.scrollWidth>label.clientWidth+1?title:'');};
+ useLayoutEffect(()=>{
+  if(!openSlot)return;
+  const menu=root.current?.querySelector<HTMLElement>('.slot-menu'),panel=root.current?.closest<HTMLElement>('.rc-players');
+  if(!menu||!panel)return;
+  // A wrapped or reflowed player list cannot use slot indices to predict menu space.
+  const place=()=>{
+   menu.style.translate='';
+   const bounds=panel.getBoundingClientRect(),box=menu.getBoundingClientRect();
+   const top=bounds.top+panel.clientTop,bottom=top+panel.clientHeight;
+   menu.style.translate=`0 ${Math.max(top-box.top,Math.min(0,bottom-box.bottom))}px`;
+  };
+  place();
+  const observer=new ResizeObserver(place);observer.observe(panel);
+  return()=>observer.disconnect();
+ },[openSlot]);
  useEffect(()=>{setOpenSlot(undefined);setPending(false);},[room.id]);
  useEffect(()=>{setOpenSlot(undefined);},[room.revision]);
  useEffect(()=>{const outside=(event:PointerEvent)=>{if(root.current&&!root.current.contains(event.target as Node))setOpenSlot(undefined);};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'&&openSlot){event.preventDefault();setOpenSlot(undefined);returnFocus(openSlot);}};document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};},[openSlot]);
