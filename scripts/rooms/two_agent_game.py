@@ -565,8 +565,9 @@ def recovery():
         host.locator('.rc-dialog-card').wait_for(state='hidden')
         host.get_by_role('button',name=re.compile(r'Load NES game|^Change game$')).wait_for()
         assert not host.evaluate('proof.room.started')
-        host.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
-        host.wait_for_function('proof.hashes.at(-1)?.frame===0')
+        host.evaluate("proof.hashes=[];currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        host.wait_for_function('proof.hashes.at(-1)?.frame===0 && proof.hashes.at(-1)?.fresh===true')
+        incompatible_fresh=host.evaluate('proof.hashes.at(-1)')
         screenshot(host,'recovery-incompatible-core.png')
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         change_core(original_core)
@@ -645,8 +646,12 @@ def recovery():
         host.locator('.rc-dialog-card').wait_for(state='hidden')
         host.get_by_role('button',name=re.compile(r'Load NES game|^Change game$')).wait_for()
         assert record(host) is None
-        host.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
-        host.wait_for_function('proof.hashes.at(-1)?.frame===0')
+        host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        mute_game(host)
+        host.evaluate("proof.hashes=[];currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        host.wait_for_function('proof.hashes.at(-1)?.frame===0 && proof.hashes.at(-1)?.fresh===true')
+        start_fresh_native=host.evaluate('proof.hashes.at(-1)')
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         # Storage disabled by browser policy still permits the ordinary host/load/play journey.
         unavailable=contexts[0].browser.new_context(viewport={'width':args.width,'height':args.height})
@@ -662,7 +667,7 @@ def recovery():
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
-        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 
