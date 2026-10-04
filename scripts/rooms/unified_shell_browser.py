@@ -275,6 +275,14 @@ def abandoned_saved_game_cannot_reopen(browser, url):
 def host(page, url):
     page.goto(url, wait_until='domcontentloaded')
     page.get_by_role('button', name='Host a new game').click()
+    # Each layout scenario starts fresh; a previous played scenario can now
+    # legitimately leave an automatic recovery offer in this same browser.
+    saved = page.evaluate("""()=>new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',4);
+      request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result;
+        const row=db.transaction('recovery').objectStore('recovery').get('host');
+        row.onsuccess=()=>{db.close();resolve(!!row.result);};};})""")
+    if saved:
+        page.get_by_role('button', name='Start fresh', exact=True).click()
     page.get_by_role('button', name='Back to Main Page', exact=True).wait_for()
     assert page.locator('main').get_attribute('data-page') == 'lobby'
     assert page.get_by_role('heading', name='Create a lobby').count() == 0

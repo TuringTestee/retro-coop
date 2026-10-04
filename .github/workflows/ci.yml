@@ -31,7 +31,7 @@ jobs:
           else
             python3 spikes/d02/ci_budget.py watch \
               --gate entrypoint-journey --gate entrypoint-controls \
-              --gate entrypoint-ui --gate entrypoint-layout --gate images
+              --gate entrypoint-ui --gate entrypoint-layout --gate entrypoint-recovery --gate images
           fi
   build:
     runs-on: ubuntu-latest
