@@ -620,7 +620,8 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-game-fullscreen .rc-nes-actions button { position: static; }
 }
 
-.rc-connected-hints { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-items: center; flex: 1; gap: 4px; min-width: 0; }
+/* Select/Start labels need more room than direction and A/B hints. */
+.rc-connected-hints { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.75fr) minmax(0,1fr); align-items: center; flex: 1; gap: 4px; min-width: 0; }
 .rc-connected-hints span { display: flex; align-items: center; gap: 3px; overflow-wrap: anywhere; }
 .rc-connected-hints i { flex: 1; min-width: 5px; border-bottom: 1px solid currentColor; }
 .rc-connected-hints .rc-connected-move { display: block; }
