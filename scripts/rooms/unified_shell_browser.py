@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, zoom_context
+from layout_geometry import browser_zoom, zoom_context, verify_zoom
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -272,18 +272,8 @@ def abandoned_saved_game_cannot_reopen(browser, url):
         context.close()
 
 
-def host(page, url):
-    page.goto(url, wait_until='domcontentloaded')
+def host(page):
     page.get_by_role('button', name='Host a new game').click()
-    # Each layout scenario starts fresh; a previous played scenario can now
-    # legitimately leave an automatic recovery offer in this same browser.
-    saved = page.evaluate("""()=>new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');
-      request.onerror=()=>reject(request.error);request.onsuccess=()=>{const db=request.result;
-        const row=db.transaction('recovery').objectStore('recovery').get('host');
-        row.onsuccess=()=>{db.close();resolve(!!row.result);};};})""")
-    if saved:
-        page.get_by_role('button', name='Start fresh', exact=True).click()
-        page.locator('.rc-dialog-card').wait_for(state='hidden')
     page.get_by_role('button', name='Back to Main Page', exact=True).wait_for()
     assert page.locator('main').get_attribute('data-page') == 'lobby'
     assert page.get_by_role('heading', name='Create a lobby').count() == 0
@@ -298,9 +288,9 @@ def host(page, url):
     return page.locator('.rc-trail .rc-header-edit').inner_text().replace('✎', '').strip()
 
 
-def exercise(page, url, size, output, play=False):
-    page.set_viewport_size({'width': size[0], 'height': size[1]})
-    name = host(page, url)
+def exercise(page, size, output, play=False):
+    assert page.evaluate('[innerWidth, innerHeight]') == list(size)
+    name = host(page)
     assert name
     before = page.locator('.rc-identity').bounding_box()
     original_identity = page.locator('.rc-identity').inner_text()
@@ -471,18 +461,29 @@ def main():
                     page.goto(url, wait_until='domcontentloaded')
                     zoom = browser_zoom(page, worker, 2)
                     page.on('pageerror', lambda error: errors.append(str(error)))
-                    rows = [exercise(page, url, (320, 568), output, play=True)]
+                    size = tuple(page.evaluate('[innerWidth, innerHeight]'))
+                    rows = [exercise(page, size, output, play=True)]
+                    verify_zoom(worker, zoom)
+                    zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
+                    assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
                     page.close()
                 assert not errors, errors
                 print(json.dumps({'result': 'pass', 'zoom': zoom, 'checks': rows}), flush=True)
                 return
             browser = getattr(playwright, args.browser).launch(headless=True, **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
             try:
-                page = browser.new_page()
-                page.on('pageerror', lambda error: errors.append(str(error)))
-                rows = [exercise(page, url, size, output, play=size in ((1280, 800), (320, 568)))
-                        for size in ((1280, 800), (650, 760), (401, 760), (320, 650), (320, 568))]
-                page.close()
+                rows = []
+                for size in ((1280, 800), (650, 760), (401, 760), (320, 650), (320, 568)):
+                    # Each layout journey is an independent visitor, including
+                    # local ROMs and recovery captures from a played scenario.
+                    context = browser.new_context(viewport={'width': size[0], 'height': size[1]})
+                    try:
+                        page = context.new_page()
+                        page.on('pageerror', lambda error: errors.append(str(error)))
+                        page.goto(url, wait_until='domcontentloaded')
+                        rows.append(exercise(page, size, output, play=size in ((1280, 800), (320, 568))))
+                    finally:
+                        context.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
                     expired_guest_recovers(browser, url)
