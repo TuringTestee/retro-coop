@@ -420,6 +420,16 @@ def recovery():
                 return value
             page.wait_for_timeout(100)
         raise TimeoutError('The automatic host capture did not commit')
+    def mute_game(page):
+        selector=page.get_by_role('combobox',name='Settings section')
+        prior=selector.locator('option:checked').inner_text()
+        if selector.is_visible():selector.select_option(label='Sound')
+        else:page.get_by_role('button',name='Sound',exact=True).click()
+        mute=page.get_by_role('button',name='Mute game',exact=True)
+        if mute.is_visible():mute.click()
+        expect(page.get_by_role('button',name='Unmute game',exact=True)).to_be_visible()
+        if selector.is_visible():selector.select_option(label=prior)
+        else:page.get_by_role('button',name=prior,exact=True).click()
     def open_page(context, url):
         page=context.new_page();page.on('pageerror',lambda error:errors.append(str(error)))
         page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
@@ -447,11 +457,13 @@ def recovery():
         host.wait_for_function('proof.room?.role==="host"')
         host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
         host.wait_for_function('proof.room?.fingerprint && proof.room?.matches',timeout=30000)
+        mute_game(host)
         old=host.evaluate('proof.room');old_token=host.evaluate('proof.session.token')
         invitation=args.url+'/#invite='+old['invite']
         guest.goto(invitation);guest.evaluate('releaseFrames()')
         guest.get_by_role('button',name='Join lobby',exact=True).click()
         expect(guest.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        mute_game(guest)
         guest.get_by_role('button',name='Ready',exact=True).click()
         host.get_by_role('button',name='Ready',exact=True).click()
         host.get_by_role('button',name='Start →').click()
@@ -500,6 +512,7 @@ def recovery():
         host.get_by_role('button',name='Restore game',exact=True).click()
         host.wait_for_function('proof.room?.started==="shared" && proof.room.game.status==="paused"',timeout=30000)
         host.wait_for_function('frame=>document.querySelector("canvas").dataset.frameCount===String(frame)',arg=snapshot['frame'])
+        for page in (host,guest):mute_game(page)
         screenshot(host,'recovery-restored-paused.png')
         for page in (host,guest):
             expect(page.get_by_role('button',name='Prepare to resume',exact=True)).to_be_enabled(timeout=30000)
@@ -588,6 +601,7 @@ def recovery():
         offline.wait_for_function('proof.room?.role==="host"')
         offline.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
         expect(offline.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        mute_game(offline)
         offline.get_by_role('button',name='Ready',exact=True).click();offline.get_by_role('button',name='Start →').click()
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
