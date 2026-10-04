@@ -421,7 +421,7 @@ def recovery():
             page.wait_for_timeout(100)
         raise TimeoutError('The automatic host capture did not commit')
     def mute_game(page):
-        selector=page.get_by_role('combobox',name='Settings section')
+        selector=page.get_by_role('combobox',name='Settings section',include_hidden=True)
         prior=selector.locator('option:checked').inner_text()
         if selector.is_visible():selector.select_option(label='Sound')
         else:page.get_by_role('button',name='Sound',exact=True).click()
