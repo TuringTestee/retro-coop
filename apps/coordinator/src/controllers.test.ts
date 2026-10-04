@@ -34,14 +34,14 @@ test('cancel timeout disconnect and membership change cannot reuse failed role a
   if(action==='disconnect')t.game.configure(host,t.members.map(member=>({...member,connected:member.id!==observer})),t.game.view().controllers,1);
   if(action==='replacement')t.game.configure(host,t.members.filter(member=>member.id!==observer),t.game.view().controllers,2);
   assert.deepEqual(t.game.view().controllers.owners,[host,player],action);assert.equal(t.game.view().frame,20);assert.equal(t.game.view().status,'paused');assert.deepEqual(t.game.view().ready,[]);
-  assert.throws(()=>t.send(host,{type:'gameRoleRetry',transactionId:'x'.repeat(32)}),/stale_controllers/);
+  assert.throws(()=>t.game.retryRoles(host,'x'.repeat(32),2,{owners:[observer,player],revision:1}),/stale_controllers/);
   const old=t.events.find(event=>event.type==='gameCapture')!;assert.equal(old.type,'gameCapture');
   assert.throws(()=>t.send(player,{type:'gameCheckpointAck',epoch:t.epoch,transferId:old.transferId,frame:20,hash}),/stale_checkpoint/);
  }
 });
 test('retry uses fresh checkpoint authority and cannot consume earlier readiness',()=>{
  const t=setup();t.request();t.send(host,{type:'gameFrozen',epoch:t.epoch,frame:20,hash});const old=t.events.filter(event=>event.type==='gameCapture').map(event=>event.transferId);t.advance();
- t.send(host,{type:'gameRoleRetry',transactionId:t.pending.id});t.send(host,{type:'gameFrozen',epoch:t.epoch,frame:20,hash});
+ t.game.retryRoles(host,t.pending.id,1,{owners:[observer,player],revision:1});t.send(host,{type:'gameFrozen',epoch:t.epoch,frame:20,hash});
  assert.ok(t.events.filter(event=>event.type==='gameCapture').slice(-2).every(event=>!old.includes(event.transferId)));
  assert.throws(()=>t.send(player,{type:'gameReady',revision:999,frame:20,fresh:false,hash,delay:6}),/stale_controllers/);
  assert.throws(()=>t.send(host,{type:'gameResume',epoch:t.epoch}),/resume_not_ready/);

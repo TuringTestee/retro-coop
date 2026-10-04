@@ -158,10 +158,21 @@ test('slot availability revision while checkpoint is in flight invalidates all p
  assert.equal(t.view().game.pending?.status,'failed');assert.equal(t.view().game.status,'paused');assert.deepEqual(t.view().game.controllers,old);assert.equal(t.view().slots[2].role,'observer');assert.equal(t.view().game.frame,917);
  assert.throws(()=>t.ack(transfer,recipient),/stale_checkpoint/);
 });
-test('new member joining while role import is held invalidates the old transaction before late ack',()=>{
+test('new member invalidates held role import; host retry refreshes roster and rejects stale acknowledgements',()=>{
  const t=setup(3),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const transfer=t.captures().at(-1)!,recipient=t.authorize(transfer);
  const newcomer=t.rooms.attach(undefined,()=>{},()=>{});const command=parseRoomCommand({type:'join',invite:t.view().invite,intent:randomUUID(),requestId:randomUUID()});assert.ok(command&&command.type!=='hello');t.rooms.handle(newcomer.token,command);
  assert.equal(t.view().game.pending?.status,'failed');assert.equal(t.view().game.status,'paused');assert.deepEqual(t.view().game.controllers,old);assert.equal(t.view().game.frame,917);assert.throws(()=>t.ack(transfer,recipient),/stale_checkpoint/);
+ const transactionId=t.view().game.pending!.id;
+ assert.throws(()=>t.act(1,{type:'gameRoleRetry',transactionId}),/stale_controllers/);
+ t.act(0,{type:'gameRoleRetry',transactionId});
+ assert.equal(t.view().game.pending?.revision,t.view().revision);
+ assert.equal(t.view().game.pending?.status,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ const retry=t.captures().at(-1)!;assert.notEqual(retry.transferId,transfer.transferId);
+ t.ack(retry,t.authorize(retry));
+ assert.equal(t.view().game.pending,undefined);assert.equal(t.view().game.frame,917);
+ assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);
+ assert.throws(()=>t.ack(transfer,recipient),/stale_game/);
 });
 test('role checkpoint deadline preserves mapping and frame, permits explicit retry, and rejects expired transfer',()=>{
  const t=setup(),epoch=t.begin(),old=t.view().game.controllers;t.role('slot-3','player2');const transactionId=t.view().game.pending!.id;t.act(0,{type:'gameFrozen',epoch,frame:917,hash});const expired=t.captures().at(-1)!;t.authorize(expired);
