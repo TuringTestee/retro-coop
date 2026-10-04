@@ -11,6 +11,7 @@ import { parseRoomCommand, ROOM_METADATA_BYTES, ROOM_WIRE_BURST, type RoomEvent 
 import { Rooms, RoomError, limits, type Sender } from './rooms.ts';
 import {catalog,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {RomStore,type RomLimits} from './rom-store.ts';
+import {extractZip} from './zip-extraction.ts';
 import {token as validToken} from '../../../packages/contracts/src/protocol-validation.ts';
 export function config(env: NodeJS.ProcessEnv) {
  const stage = env.COORDINATOR_STAGE ?? 'local';
@@ -35,11 +36,13 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
   response.setHeader('Cache-Control', 'no-store');response.setHeader('Content-Type', 'application/json');response.setHeader('Referrer-Policy','no-referrer');
   const origin=request.headers.origin;
   const upload=/^\/rooms\/([A-Za-z0-9_-]{43})\/rom$/.exec(request.url ?? '');
-  if(upload && (request.method==='PUT'||request.method==='GET'||request.method==='OPTIONS')) {
+  const extraction=request.url==='/rom-extractions';
+  if(upload && (request.method==='PUT'||request.method==='GET'||request.method==='OPTIONS') || extraction&&(request.method==='POST'||request.method==='OPTIONS')) {
    if((request.method!=='GET' && !origin) || (origin!==undefined && !origins.has(origin))){response.writeHead(403).end(JSON.stringify({error:'origin_denied'}));return;}
    if(origin){
     response.setHeader('Access-Control-Allow-Origin',origin);response.setHeader('Vary','Origin');
-    response.setHeader('Access-Control-Allow-Methods','PUT, GET, OPTIONS');response.setHeader('Access-Control-Allow-Headers','Authorization, Content-Type, X-Room-Intent, X-Room-Membership');
+    response.setHeader('Access-Control-Allow-Methods',extraction?'POST, OPTIONS':'PUT, GET, OPTIONS');response.setHeader('Access-Control-Allow-Headers',extraction?'Authorization, Content-Type':'Authorization, Content-Type, X-Room-Intent, X-Room-Membership');
+    if(extraction)response.setHeader('Access-Control-Expose-Headers','X-NES-Name, X-NES-SHA256, Content-Length');
    }
    if(request.method==='OPTIONS'){response.writeHead(204).end();return;}
    const address=admissionAddress(request.socket.remoteAddress,request.headers['x-forwarded-for'],trustedProxies);
@@ -48,6 +51,18 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
    if(recent.length>=30 || (!transferAttempts.has(address)&&transferAttempts.size>=1000)){response.writeHead(429).end(JSON.stringify({error:'rate_limited'}));return;}
    recent.push(now());transferAttempts.set(address,recent);
    const authorization=/^Bearer ([A-Za-z0-9_-]{43})$/.exec(request.headers.authorization ?? '');
+   if(extraction){
+    if(!authorization){response.writeHead(403).end(JSON.stringify({error:'session_expired'}));return;}
+    const length=request.headers['content-length'];
+    if(request.headers['content-type']!=='application/zip'||length!==undefined&&!/^[0-9]+$/.test(length)){response.writeHead(400).end(JSON.stringify({error:'invalid_upload_request'}));return;}
+    void extractZip(request,response,rooms,store,authorization[1],length===undefined?undefined:Number(length),now).catch(error=>{
+     if(response.destroyed)return;if(response.headersSent){response.destroy();return;}
+     const code=error instanceof RoomError?error.code:'server_error';
+     const status=code==='session_expired'?403:code==='upload_capacity'||code==='rate_limited'?429:code==='archive_size_limit'||code==='upload_size_limit'?413:code==='server_error'?500:400;
+     response.writeHead(status).end(JSON.stringify({error:code}));
+    });return;
+   }
+   if(!upload)return;
    if(request.method==='GET') {
     const membership=request.headers['x-room-membership'];
     if(!authorization || typeof membership!=='string' || !validToken(membership)){response.writeHead(403).end(JSON.stringify({error:'session_expired'}));return;}

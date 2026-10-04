@@ -10,10 +10,12 @@ import {RoomError,Rooms} from './rooms.ts';
 export const ROM_LIMITS={file:64*1024*1024,total:256*1024*1024,concurrent:4} as const;
 export type RomLimits={file:number;total:number;concurrent:number};
 type Entry={roomId:string;bytes:number;path:string;request?:IncomingMessage;committed:boolean};
+type Extraction={archiveBytes:number;outputBytes:number;archivePath:string;outputPath:string;abort:()=>void};
 /** Private files have server-generated names. The directory belongs to one coordinator process. */
 export class RomStore {
  private entries=new Map<string,Entry>();
  private pending=new Map<string,Entry>();
+ private extractions=new Set<Extraction>();
  private used=0;
  private limits:RomLimits;
  private lock:string;
@@ -30,19 +32,33 @@ export class RomStore {
   }
   const fd=openSync(this.lock,'wx',0o600);writeFileSync(fd,String(process.pid));closeSync(fd);
   // Rooms are ephemeral across restart, so no prior ROM is valid after boot.
-  for(const name of readdirSync(this.directory))if(/^(upload|blob)-[a-f0-9]{32}$/.test(name))rmSync(join(this.directory,name),{force:true});
+  for(const name of readdirSync(this.directory))if(/^(upload|blob|archive|extracted)-[a-f0-9]{32}$/.test(name))rmSync(join(this.directory,name),{force:true});
  }
- private path(prefix:'upload'|'blob') {return join(this.directory,`${prefix}-${randomBytes(16).toString('hex')}`);}
+ private path(prefix:'upload'|'blob'|'archive'|'extracted') {return join(this.directory,`${prefix}-${randomBytes(16).toString('hex')}`);}
+ private inFlight() {return this.extractions.size+[...this.entries.values(),...this.pending.values()].filter(entry=>!entry.committed).length;}
+ beginExtraction(archiveBytes:number,abort:()=>void) {
+  if(this.used+archiveBytes>this.limits.total || this.inFlight()>=this.limits.concurrent)throw new RoomError('upload_capacity');
+  const entry:Extraction={archiveBytes,outputBytes:0,archivePath:this.path('archive'),outputPath:this.path('extracted'),abort};
+  this.extractions.add(entry);this.used+=archiveBytes;
+  const reserve=(kind:'archiveBytes'|'outputBytes',bytes:number)=>{
+   if(!this.extractions.has(entry))throw new RoomError('upload_cancelled');
+   if(!Number.isSafeInteger(bytes)||bytes<0 || kind==='outputBytes'&&bytes>this.limits.file)throw new RoomError('upload_size_limit');
+   const increase=Math.max(0,bytes-entry[kind]);if(this.used+increase>this.limits.total)throw new RoomError('upload_capacity');
+   entry[kind]+=increase;this.used+=increase;
+  };
+  const release=()=>{if(!this.extractions.delete(entry))return;this.used-=entry.archiveBytes+entry.outputBytes;rmSync(entry.archivePath,{force:true});rmSync(entry.outputPath,{force:true});};
+  return {archivePath:entry.archivePath,outputPath:entry.outputPath,reserveArchive:(bytes:number)=>reserve('archiveBytes',bytes),reserveOutput:(bytes:number)=>reserve('outputBytes',bytes),release};
+ }
  private discardEntry(entries:Map<string,Entry>,roomId:string){const entry=entries.get(roomId);if(!entry)return;entries.delete(roomId);this.used-=entry.bytes;entry.request?.destroy();rmSync(entry.path,{force:true});}
  discardPending(roomId:string){this.discardEntry(this.pending,roomId);}
  discard(roomId:string) {this.discardEntry(this.pending,roomId);this.discardEntry(this.entries,roomId);}
  promote(roomId:string){const entry=this.pending.get(roomId);if(!entry?.committed)throw new RoomError('upload_required');this.discardEntry(this.entries,roomId);this.pending.delete(roomId);this.entries.set(roomId,entry);}
- stop() {for(const roomId of new Set([...this.entries.keys(),...this.pending.keys()]))this.discard(roomId);rmSync(this.lock,{force:true});}
+ stop() {for(const roomId of new Set([...this.entries.keys(),...this.pending.keys()]))this.discard(roomId);for(const entry of this.extractions)entry.abort();rmSync(this.lock,{force:true});}
  private reserve(roomId:string,bytes:number,request:IncomingMessage,selection:boolean) {
   if(!Number.isSafeInteger(bytes)||bytes<16||bytes>this.limits.file)throw new RoomError('upload_size_limit');
   const target=selection?this.pending:this.entries;
   if(target.has(roomId))throw new RoomError('upload_unavailable');
-  if(this.used+bytes>this.limits.total || [...this.entries.values(),...this.pending.values()].filter(entry=>!entry.committed).length>=this.limits.concurrent)throw new RoomError('upload_capacity');
+  if(this.used+bytes>this.limits.total || this.inFlight()>=this.limits.concurrent)throw new RoomError('upload_capacity');
   const entry:Entry={roomId,bytes,path:this.path('upload'),request,committed:false};target.set(roomId,entry);this.used+=bytes;return entry;
  }
  async upload(rooms:Rooms,token:string,roomId:string,intent:string,bytes:number,request:IncomingMessage) {
