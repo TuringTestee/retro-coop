@@ -681,7 +681,6 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.wait_for_timeout(100)
         assert page.get_by_role('dialog', name='Invitation link').count() == 0
         assert page.locator('main').get_attribute('data-page') == 'main'
-    responsive_results = []
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     return {'size': size, 'lobby': name, 'regions': list(base), 'played': play, 'rendered_game': rendered_game if play else None, 'responsive_play': responsive_results}
 

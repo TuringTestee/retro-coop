@@ -7,7 +7,9 @@ def choose_panel(page, name):
         expanded = page.get_by_role('button', name='Return to lobby view', exact=True)
         if expanded.is_visible():
             expanded.click()
-        navigation.get_by_role('button', name=name, exact=True).click()
+        button = navigation.get_by_role('button', name=name, exact=True)
+        if button.get_attribute('aria-current') != 'page':
+            button.click()
 
 
 def choose_section(page, name):
@@ -27,7 +29,9 @@ async def choose_section_async(page, name):
         expanded = page.get_by_role('button', name='Return to lobby view', exact=True)
         if await expanded.is_visible():
             await expanded.click()
-        await navigation.get_by_role('button', name='Settings', exact=True).click()
+        button = navigation.get_by_role('button', name='Settings', exact=True)
+        if await button.get_attribute('aria-current') != 'page':
+            await button.click()
     await page.get_by_role('region', name='Game settings', exact=True).wait_for()
     selector = page.get_by_role('combobox', name='Settings section')
     if await selector.is_visible():
