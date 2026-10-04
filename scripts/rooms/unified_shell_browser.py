@@ -519,6 +519,58 @@ def controller_input(browser, url, output):
         context.close()
 
 
+def canceled_preference_read_restores_saved_controls(browser, url, output):
+    # An independent visitor avoids mixing this storage lifecycle with recovery
+    # records created by the controller gameplay journey.
+    context = browser.new_context(viewport={'width': 320, 'height': 568})
+    context.add_init_script("""
+      window.holdPreferenceRead=false;window.preferenceReads=[];
+      const descriptor=Object.getOwnPropertyDescriptor(IDBTransaction.prototype,'oncomplete');
+      Object.defineProperty(IDBTransaction.prototype,'oncomplete',{...descriptor,set(callback){
+        const tx=this;descriptor.set.call(tx,function(...args){
+          if(holdPreferenceRead&&tx.mode==='readonly'&&tx.objectStoreNames.contains('preferences')){preferenceReads.push(()=>callback.apply(tx,args));return;}
+          callback.apply(tx,args);
+        });
+      }});
+    """)
+    page = context.new_page()
+    def load():
+        page.get_by_role('button', name='Host a new game').click()
+        page.get_by_role('button', name='Load NES game').click()
+        page.get_by_role('button', name='From Below', exact=True).click()
+        expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+        choose_section(page, 'Controls')
+        page.get_by_role('button', name='Edit controller', exact=True).click()
+    def close():
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.get_by_role('button', name='Close lobby', exact=True).click()
+        page.locator('.rc-listing').wait_for()
+    try:
+        page.goto(url);load()
+        capture = page.get_by_label('Capture controller key')
+        editor = page.get_by_label('Edit controller mappings')
+        capture.focus();page.keyboard.press('j')
+        editor.get_by_role('button', name='Save', exact=True).click()
+        expect(editor).not_to_be_visible()
+        close();page.reload();page.locator('.rc-listing').wait_for()
+        page.evaluate('holdPreferenceRead=true');load()
+        page.wait_for_function('preferenceReads.length>0')
+        capture.focus();page.keyboard.press('k')
+        editor.get_by_role('button', name='Save', exact=True).click()
+        expect(editor.get_by_role('button', name='Save', exact=True)).to_be_disabled()
+        choose_section(page, 'Sound');choose_section(page, 'Controls')
+        page.get_by_role('button', name='Edit controller', exact=True).click()
+        capture.focus();page.keyboard.press('l')
+        page.evaluate('async()=>{holdPreferenceRead=false;preferenceReads.splice(0).forEach(release=>release());await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);}')
+        expect(capture).to_contain_text('Current: J')
+        assert 'Draft: L' in capture.inner_text()
+        assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+        (output / 'controller-canceled-preference-read.json').write_text(json.dumps({'restored_current':'J','newer_draft':'L','save_enabled':True})+'\n')
+        editor.get_by_role('button', name='Cancel', exact=True).click();close()
+    finally:
+        context.close()
+
+
 def local_shortcuts(browser, url, output):
     context = browser.new_context(viewport={'width': 1280, 'height': 800})
     context.add_init_script("""(() => {const Native=Worker;window.Worker=class extends Native {
@@ -656,17 +708,27 @@ def abandoned_saved_game_cannot_reopen(browser, url, output=None):
         page.get_by_role('button', name='Change game').click()
         page.get_by_role('button', name='Saved games').click()
         page.get_by_role('button', name=label).wait_for()
+        page.emulate_media(reduced_motion='reduce')
         for width, height in ((1024, 600), (320, 568), (568, 320)):
             page.set_viewport_size({'width': width, 'height': height})
             choose_panel(page, 'Game')
-            page.locator('.rc-session').evaluate('async node=>{node.getBoundingClientRect();await Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{})));}')
-            page.emulate_media(reduced_motion='reduce')
+            page.locator('.rc-session').evaluate('async node=>{await document.fonts.ready;node.getBoundingClientRect();await Promise.all(node.getAnimations({subtree:true}).filter(animation=>animation.effect.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));}')
             picker = page.locator('.rc-game-picker')
-            assert text_fits(picker), (width, height)
+            fits = text_fits(picker)
+            page.screenshot(path=str(output / f'saved-picker-{width}x{height}.png'))
+            if not fits:
+                geometry = picker.evaluate("""node=>{
+                  const box=n=>({tag:n.tagName,class:n.className,rect:n.getBoundingClientRect().toJSON(),client:[n.clientWidth,n.clientHeight],scroll:[n.scrollWidth,n.scrollHeight],font:getComputedStyle(n).font,overflow:[getComputedStyle(n).overflowX,getComputedStyle(n).overflowY]});
+                  const ancestors=[];for(let n=node;n;n=n.parentElement)ancestors.push(box(n));
+                  const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT),glyphs=[];let text;
+                  while(text=walker.nextNode()){if(!text.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(text);glyphs.push({text:text.textContent,owner:box(text.parentElement),rects:[...range.getClientRects()].map(rect=>rect.toJSON())});}
+                  return {viewport:[innerWidth,innerHeight],reducedMotion:matchMedia('(prefers-reduced-motion:reduce)').matches,ancestors,glyphs,animations:node.getAnimations({subtree:true}).map(animation=>({state:animation.playState,timing:animation.effect.getComputedTiming()}))};
+                }""")
+                (output / f'saved-picker-{width}x{height}-failure.json').write_text(json.dumps(geometry, indent=2)+'\n')
+            assert fits, (width, height)
             for button in picker.get_by_role('button').all():
                 control_visibility(button)
             assert page.locator('.rc-controller-band').get_attribute('inert') is not None
-            page.screenshot(path=str(output / f'saved-picker-{width}x{height}.png'))
         page.emulate_media(reduced_motion='no-preference')
         display = page.locator('.rc-game-display').bounding_box()
         preview_before_cancel = page.locator('.rc-preview img').get_attribute('src')
@@ -1036,6 +1098,7 @@ def main():
                     print('shell check: controller_input', flush=True)
                     controller_input(browser, url, output)
                     print('shell check: automatic_voice', flush=True)
+                    canceled_preference_read_restores_saved_controls(browser, url, output)
                     automatic_voice(browser, url)
                     print('shell check: restored_battery_preview', flush=True)
                     restored_battery_preview(browser, url)

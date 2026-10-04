@@ -27,7 +27,7 @@ export function usePreferences(identity:string|undefined,restore:(value:Preferen
   try {
    const {generation,record}=await readStored<PreferencesRecord>('preferences',current.identity);
    if(context.current!==current || current.stopped)return;current.generation=generation;
-   if(current.pending){const pending=current.pending;current.pending=undefined;pending.resolve(await write(current,pending.value,pending.current));return;}
+   if(current.pending){const pending=current.pending;current.pending=undefined;if(pending.current()){pending.resolve(await write(current,pending.value,pending.current));return;}pending.resolve(false);}
    if(record){if(validPreferences(record.value)){const controls=migrateDefaultKeyboard(record.value.controls);const value=controls===record.value.controls?record.value:{...record.value,controls};restoreRef.current(value);if(controls!==record.value.controls)write(current,value);}else setIssue('Stored preferences are invalid. Current controls are preserved; export or delete the record in Local data.');}
   }catch(error){current.pending?.resolve(false);current.pending=undefined;if(context.current===current)setIssue(`Preferences could not be loaded. Your game can still run. ${error instanceof Error ? error.message : ''}`);}
   finally{current.loading=false;}
