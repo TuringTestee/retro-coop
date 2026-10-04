@@ -286,7 +286,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-inline-settings .rc-tool-stack { gap: 5px; font-size: 13px; }
 .rc-inline-settings .rc-tool-stack button { min-height: 26px; border-color: var(--menu-border); border-radius: 0; color: var(--menu-text); font-size: 12px; }
 .rc-inline-settings .rc-tool-stack input:not([type=range]), .rc-inline-settings .rc-tool-stack select { height: 28px; }
-.rc-inline-settings .rc-mapping-list { grid-template-rows: repeat(3,34px); gap: 2px; }
+.rc-inline-settings .rc-mapping-list { grid-template-rows: none; grid-auto-rows: 34px; gap: 2px; }
 .rc-inline-settings .rc-mapping { grid-template-columns: minmax(0,.7fr) minmax(0,1fr) 54px; gap: 2px; padding: 1px; }
 .rc-inline-settings .rc-mapping strong, .rc-inline-settings .rc-mapping span { font-size: 12px; }
 .rc-inline-settings .rc-tool-actions { gap: 3px; }
@@ -565,6 +565,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-shortcuts { display: flex; align-items: center; justify-content: space-between; gap: 3px; min-width: 0; padding-top: 4px; border-top: 1px solid currentColor; color: var(--menu-text); font-size: 12px; font-weight: 700; }
 .rc-shortcuts span { min-width: 0; overflow-wrap: anywhere; }
 .rc-shortcuts strong { color: var(--guide-system); }
+.rc-inline-settings input[type=range] { margin-inline: 0; }
 /* Reserve the desktop stage's bottom track for shared chat. The title track
    accommodates the accepted 80-character game name before a game is loaded. */
 @media (min-width: 651px) {
@@ -577,7 +578,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-chat, .rc-shared-playing .rc-chat { grid-column: 1 / -1; grid-row: 3; }
   .rc-game-heading { flex: 1; overflow: visible; line-height: 1.25; }
   .rc-game-links { flex: none; }
-  .rc-inline-settings input[type=range] { margin-inline: 0; }
+
   .rc-side-panel, .rc-playing-menu { container: desktop-settings / size; }
   @container desktop-settings (max-width: 320px) {
     .rc-keyboard-word { display: none; }
@@ -591,6 +592,8 @@ button:disabled { cursor: default; opacity: .52; }
     .rc-inline-settings .rc-control-hints { padding-block: 0; }
     .rc-control-line strong, .rc-control-line b { line-height: 1.25; }
   }
+
+
 }
 @media (min-width: 651px) and (max-width: 1100px) {
   .rc-shell { grid-template-rows: 118px 42px minmax(0,1fr) 72px; }
@@ -599,49 +602,31 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-identity { height: 32px; }
 }
 @media (max-width: 650px) {
-  .rc-shell { grid-template-rows: 104px 40px minmax(0,1fr) 72px; }
-  .rc-header { grid-template-columns: minmax(0,2fr) minmax(0,1fr); grid-template-rows: 97px; padding: 3px 0; gap: 0; }
-  .rc-logo { position: absolute; top: 3px; left: 4px; display: flex; width: 22px; height: 22px; z-index: 1; }
-  .rc-trail .rc-header-name > span:first-child { padding-left: 26px; }
-  .rc-theme-switch { position: absolute; top: 3px; right: 4px; width: 22px; min-width: 22px; height: 22px; z-index: 1; font-size: 14px; }
-  .rc-trail { grid-column: 1; grid-row: 1; height: 97px; }
-  .rc-identity { grid-column: 2; grid-row: 1; height: 97px; max-width: none; }
-  .rc-identity .rc-header-name { grid-template-rows: 20px minmax(0,1fr); }
-  .rc-session, .rc-shared-playing, .rc-shared-playing.rc-has-side, .rc-session.rc-has-side, .rc-session.rc-has-picker { grid-template-columns: 224px minmax(0,1fr); grid-template-rows: 80px minmax(0,1fr) var(--rc-guide-height,244px); row-gap: 2px; column-gap: 0; }
-  .rc-players, .rc-shared-playing .rc-players, .rc-shared-playing.rc-has-side .rc-players, .rc-session.rc-has-side .rc-players { grid-column: 1; grid-row: 1 / 4; }
-  .rc-header-name, .rc-players .slot-row strong { font-family: ui-monospace, monospace; }
-  .rc-header-name, .rc-identity .rc-header-name { padding: 0 4px; gap: 1px; }
-  .rc-header-name .rc-edit-hint { display: none; }
-  .rc-players { background: transparent; pointer-events: none; }
-  .rc-players .slot-wrap { background: var(--menu); pointer-events: auto; }
-  .rc-game-toolbar { grid-column: 2; grid-row: 1; flex-wrap: wrap; align-content: center; gap: 2px 5px; padding: 2px 6px; }
+
+  .rc-header { padding: 0 8px; gap: 6px; }
+  .rc-theme-switch { width: 34px; min-width: 34px; height: 32px; padding: 0; font-size: 18px; }
+  .rc-theme-label { display: none; }
+  .rc-logo { font-size: 14px; }
+  .rc-logo-mark { width: 22px; height: 22px; margin-right: 2px; font-size: 15px; }
+  .rc-trail { font-size: 14px; }
+  .rc-status { padding: 0 9px; font-size: 14px; }
+  .rc-footer { padding: 5px 6px; }
+  .rc-session, .rc-shared-playing, .rc-shared-playing.rc-has-side, .rc-session.rc-has-side, .rc-session.rc-has-picker { grid-template-rows: 120px 38px minmax(0,1fr) 70px; gap: 2px; }
+  .rc-players, .rc-shared-playing .rc-players, .rc-shared-playing.rc-has-side .rc-players, .rc-session.rc-has-side .rc-players { grid-column: 1 / -1; grid-row: 1; }
+  .rc-players .room-slots { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,40px); }
+  .rc-game-toolbar { grid-column: 1 / -1; grid-row: 2; flex-wrap: wrap; align-content: center; gap: 2px 5px; padding: 2px 6px; }
   .rc-game-heading { font-size: 13px; }
   .rc-game-links { flex-wrap: wrap; justify-content: flex-start; gap: 2px 4px; }
-  .rc-game-links button { min-width: 0; max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 11px; }
+  .rc-game-links button { font-size: 11px; }
   .rc-game-links .rc-direct-action { min-height: 26px; padding: 2px 5px; }
-  .rc-game-display, .rc-shared-playing .rc-game-display, .rc-session.rc-has-side .rc-game-display { grid-column: 2; grid-row: 2; margin: 0; }
-  .rc-mobile-side-panel:not([hidden]), .rc-mobile-picker-panel:not([hidden]), .rc-shared-playing.rc-has-side .rc-mobile-side-panel { grid-column: 2; grid-row: 3; margin-top: 0; }
+  .rc-game-display, .rc-shared-playing .rc-game-display, .rc-session.rc-has-side .rc-game-display { grid-column: 1; grid-row: 3; margin: 3px 5px; }
+  .rc-mobile-side-panel:not([hidden]), .rc-mobile-picker-panel:not([hidden]), .rc-shared-playing.rc-has-side .rc-mobile-side-panel { grid-column: 2; grid-row: 3; }
   .rc-shared-playing .rc-play-tools, .rc-play-tools { grid-column: 2; grid-row: 3; }
-  .rc-chat, .rc-shared-playing .rc-chat, .rc-session.rc-has-side .rc-chat { grid-column: 1; grid-row: 3; height: 50px; align-self: end; }
-  .rc-chat { position: relative; grid-template-rows: 19px 31px; gap: 0; padding: 0 6px; border-top: 0; }
-  .rc-chat-history { font-size: 14px; line-height: 19px; }
-  .rc-chat-history li { margin: 0; }
-  .rc-chat form { grid-template-columns: minmax(0,1fr) 132px; }
-  .rc-chat form input { height: 31px; padding: 4px 6px; }
-  .rc-chat :where(input,button):focus-visible { outline-width: 2px; outline-offset: -3px; }
-  .rc-status { padding: 0 6px; line-height: 19px; }
-  .rc-status-dot { display: none; }
-  .rc-status-copy { max-height: 38px; font-family: Arial, sans-serif; font-weight: 500; }
-  .rc-footer-back { flex: 0 0 110px; }
-  .rc-footer-back button { width: 100%; }
-  .rc-footer-actions { flex: 1; justify-content: flex-end; }
-  .rc-action-slot { flex: none; }
-  .rc-footer button { white-space: normal; font-size: 14px; line-height: 18px; }
-  .rc-footer button:focus-visible { outline-width: 2px; outline-offset: -3px; }
-  .rc-chat > .rc-section-head { display: none; }
-  .rc-session.rc-local-session, .rc-session.rc-local-session.rc-has-side { grid-template-columns: 0px minmax(0,1fr); }
+  .rc-chat, .rc-shared-playing .rc-chat, .rc-session.rc-has-side .rc-chat { grid-column: 1 / -1; grid-row: 4; }
+  .rc-local-session { grid-template-columns: minmax(0,1fr) 0px; }
+  .rc-local-session.rc-has-side { grid-template-columns: minmax(0,1fr) clamp(150px,50vw,220px); }
   .rc-mobile-side-panel:not([hidden]) { display: block; }
-  .rc-playing-menu { display: block !important; margin-top: 0; padding: 3px 4px !important; }
+  .rc-playing-menu { display: block !important; padding: 3px 4px !important; }
   .rc-inline-settings { grid-template-rows: 38px minmax(0,1fr); }
   .rc-inline-settings .rc-tool-heading { grid-template-rows: 15px 22px; gap: 1px; }
   .rc-inline-settings .rc-tool-heading nav { display: none; }
@@ -659,23 +644,18 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-inline-settings .rc-tool-stack button { min-height: 25px; padding: 2px 4px; font-size: 11px; }
   .rc-inline-settings .rc-mapping-actions { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
   .rc-inline-settings .rc-mapping-actions button { min-width: 0; padding: 1px 4px; }
-  .rc-inline-settings .rc-play-tools { grid-column: auto; grid-row: auto; grid-template-rows: 44px minmax(0,1fr) 24px; gap: 2px; }
+  .rc-inline-settings .rc-play-tools { grid-column: auto; grid-row: auto; grid-template-rows: 36px minmax(0,1fr) 14px; gap: 2px; }
   .rc-inline-settings .rc-play-tools .rc-section-head { display: none; }
-  .rc-inline-settings .rc-controller-art { display: grid; grid-template-columns: 32px minmax(0,1fr); grid-template-rows: repeat(2,minmax(0,1fr)); gap: 0; padding: 1px; border-width: 1px; border-radius: 13px; }
-  .rc-pad { grid-row: 1 / 3; font-size: 10px; }
-  .rc-system-buttons, .rc-action-buttons { justify-content: center; }
+  .rc-inline-settings .rc-controller-art { padding: 1px; border-width: 1px; border-radius: 13px; }
+  .rc-pad { font-size: 10px; }
   .rc-system-buttons, .rc-action-buttons { gap: 1px; }
   .rc-system-buttons b { padding: 1px; font-size: 6px; }
   .rc-action-buttons b { width: 14px; height: 14px; font-size: 9px; }
   .rc-inline-settings .rc-control-hints { grid-template-columns: minmax(0,1fr); grid-template-rows: repeat(6,minmax(0,1fr)); gap: 0; }
   .rc-keyboard-word { display: none; }
-  .rc-control-line { grid-template-columns: auto minmax(0,1fr) auto; gap: 2px; font-size: 10px; }
-  .rc-control-line > span { display: none; }
-  .rc-shortcuts { gap: 0; padding-top: 0; font-size: 9px; }
-  .rc-shortcuts span { min-width: min-content; overflow-wrap: normal; }
-  .rc-shared-playing .rc-play-tools.rc-playing-menu, .rc-mobile-side-panel:not([hidden]).rc-playing-menu { grid-column: 2; grid-row: 3; }
-  .rc-controller-art { min-height: 0; }
-  .rc-load-game { flex-wrap: wrap; gap: 3px; }
+  .rc-control-line { grid-template-columns: minmax(34px,auto) minmax(2px,1fr) auto; gap: 2px; font-size: 10px; }
+  .rc-control-line > span { border-top-width: 1px; }
+  .rc-shortcuts { gap: 2px; padding-top: 0; font-size: 9px; }
   .rc-inline-settings .rc-input-test { display: none; }
 }
 @media (max-height: 700px) and (min-width: 651px) {
@@ -687,31 +667,24 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-inline-settings .rc-settings-select { display: block; width: 100%; height: 22px; padding: 0 6px; font: 700 12px ui-monospace, monospace; }
 }
 /* Compact rows reserve full wide-glyph names independently of viewport samples. */
-@media (max-width: 650px) {
-  .rc-players .room-slots, .rc-shared-playing .rc-players .room-slots, .rc-session.rc-has-side .rc-players .room-slots, .rc-session.rc-has-picker .rc-players .room-slots { grid-template-columns: minmax(0,1fr); grid-template-rows: 74px 74px repeat(3,58px); }
-  .rc-session .rc-players .slot-wrap .slot-row { display: block; padding: 1px 0 0; line-height: 18px; }
-  .rc-players .slot-row strong, .rc-players .slot-state { display: inline; vertical-align: top; line-height: 18px; }
-  .rc-players :where(.slot-row,.slot-menu button):focus-visible, .rc-inline-settings :where(input,select,button):focus-visible { outline-width: 2px; outline-offset: -3px; }
-  .rc-players .slot-state { margin-left: 3px; font-size: 14px; line-height: 18px; }
-  .rc-session .rc-players .slot-wrap .slot-chevron { float: right; margin-left: 1px; width: 13px; font-size: 14px; text-align: center; }
-}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 @media (max-width: 400px) {
-  .rc-shell { grid-template-rows: 104px 40px minmax(0,1fr) 52px; --rc-guide-height: 196px; }
-  .rc-trail { height: 97px; overflow: visible; align-items: center; font-size: 12px; line-height: 1.15; }
+  .rc-shell { grid-template-rows: 76px 32px minmax(0,1fr) 60px; }
+  .rc-header { display: grid; grid-template-columns: 24px minmax(0,1fr) 34px; grid-template-rows: 35px 35px; gap: 0 4px; padding: 3px 8px; }
+  .rc-logo { grid-column: 1; grid-row: 1; }
+  .rc-trail { grid-column: 2; grid-row: 1; height: 35px; overflow: visible; align-items: center; font-size: 12px; line-height: 1.15; }
   .rc-lobby-heading { gap: 3px; }
-  .rc-header-name { gap: 1px; padding: 0 4px; overflow-wrap: anywhere; line-height: 1.05; }
-  .rc-trail .rc-header-name { display: grid; overflow: hidden; }
+  .rc-header-name { gap: 3px; padding: 1px 4px; overflow-wrap: anywhere; line-height: 1.05; }
+  .rc-trail .rc-header-name { display: block; overflow: hidden; }
   .rc-trail .rc-header-name > span:first-child { display: block; font-size: 10px; line-height: 1; }
   .rc-trail .rc-header-edit, .rc-trail .rc-header-name > span:last-child:not(:first-child) { display: block; width: 100%; overflow-wrap: anywhere; white-space: normal; font-size: 12px; line-height: 1.15; }
-  .rc-identity { width: 100%; max-width: none; height: 97px; margin: 0; overflow: visible; font-size: 13px; }
-  .rc-identity .rc-header-name { padding: 0 4px; overflow: hidden; }
-  .rc-identity .rc-header-edit { overflow-wrap: anywhere; white-space: normal; font-size: 13px; line-height: 1.1; }
-  .rc-inline-settings .rc-play-tools { grid-template-rows: 36px minmax(0,1fr) 24px; }
-  .rc-footer { padding: 3px 6px; }
-  .rc-action-slot { min-height: 44px; }
+  .rc-identity { grid-column: 1 / -1; grid-row: 2; width: 100%; max-width: none; height: 35px; margin: 0; overflow: visible; font-size: 13px; }
+  .rc-identity .rc-header-name { overflow: hidden; }
+  .rc-identity .rc-header-edit { overflow-wrap: anywhere; white-space: normal; font-size: 13px; line-height: 1.15; }
+  .rc-theme-switch { grid-column: 3; grid-row: 1; }
   .rc-footer button { min-height: 44px; }
 }
 @media (min-width: 401px) and (max-width: 650px) {
@@ -722,3 +695,12 @@ button:disabled { cursor: default; opacity: .52; }
 }
 
 .rc-voice-compact .rc-voice-recovery { grid-template-columns: minmax(0,1fr); }
+
+/* Recovery shares the existing full-width phone chat track. */
+@media (max-width: 650px) {
+  .rc-chat { grid-template-rows: minmax(0,1fr) 31px; gap: 0; padding: 0 6px; }
+  .rc-chat > .rc-section-head { display: none; }
+  .rc-chat form { grid-template-columns: minmax(0,1fr) 132px; }
+  .rc-chat form input { height: 31px; padding: 4px 6px; }
+  .rc-players :where(.slot-row,.slot-menu button):focus-visible { outline-width: 2px; outline-offset: -3px; }
+}

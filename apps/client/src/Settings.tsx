@@ -21,12 +21,13 @@ export function Settings(props:Props){
  const [section,setSection]=useState<Section>(props.initialSection??'controls'),[page,setPage]=useState(0),[source,setSource]=useState<'keyboard'|'gamepad'>('keyboard');
  const [compact,setCompact]=useState(()=>matchMedia('(max-width: 650px)').matches);
  const [pads,setPads]=useState<{index:number;id:string}[]>([]),[capture,setCapture]=useState<Action|null>(null),[binding,setBinding]=useState<string|null>(null),[confirm,setConfirm]=useState(false),[tested,setTested]=useState(0);
+ const compactMode=useRef(compact);
  const body=useRef<HTMLDivElement>(null),captureBox=useRef<HTMLDivElement>(null),returnFocus=useRef<HTMLElement|null>(null),held=useRef(new Set<string>()),previousPad=useRef(new Set<string>());
  useLayoutEffect(()=>{
   const node=body.current;if(!node)return;
   // Full settings require room for their status, controls and recovery action.
   // Use the existing compact sections when the fixed body cannot fit them.
-  const update=()=>{setCompact(matchMedia('(max-width: 650px)').matches||node.clientHeight<280);setPage(0);};
+  const update=()=>{const next=matchMedia('(max-width: 650px)').matches||node.clientHeight<280;if(next!==compactMode.current){compactMode.current=next;setCompact(next);setPage(0);}};
   update();const observer=new ResizeObserver(update);observer.observe(node);return()=>observer.disconnect();
  },[props.open]);
  useEffect(()=>{if(!props.open){setCapture(null);setBinding(null);setConfirm(false);held.current.clear();setTested(0);}},[props.open]);
