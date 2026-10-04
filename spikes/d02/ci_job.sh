@@ -56,6 +56,9 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       ;;
     entrypoint-ui)
       timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve
+      for voice_mode in tabs processes; do
+        timeout --foreground 45s python3 scripts/voice/journey_browser.py --serve --mode "$voice_mode" --output "spikes/d02/public-entrypoint.local/voice-$voice_mode"
+      done
       ;;
     entrypoint-layout)
       timeout --foreground 80s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --zoom
