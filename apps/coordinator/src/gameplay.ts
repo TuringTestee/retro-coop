@@ -27,7 +27,7 @@ export class GameSession {
   if(this.state.status==='countdown'&&!this.hasPlayed&&!this.initialReady())this.stop('Lobby roles or members changed. Prepare again before starting.');
   const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.hostTransport&&!this.members.get(old.id)!.hostTransport);
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
-  if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Membership changed. Previous roles and game progress are preserved.');
+  if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Players changed. Progress kept.');
   if(['starting','countdown'].includes(this.state.status)&&this.required.some(owner=>!this.available(owner)))this.stop('A prepared player disconnected. Previous progress is preserved; prepare again when everyone is connected.');
   if(this.state.status==='playing'&&this.owners().some(owner=>!this.available(owner)))this.freeze('A controller owner disconnected. Game progress is preserved.');
  }
@@ -76,6 +76,12 @@ export class GameSession {
   this.state.pending=pending;this.proposed=owners;if(this.state.status!=='pausing')this.freeze('Changing roles at the last completed frame.');
  }
  abortRoles(reason:string){if(!this.state.pending)return;this.state.pending=undefined;this.proposed=undefined;this.stop(reason);}
+ retryRoles(member:string,transactionId:string,revision:number,owners:ControllerAssignment){
+  const pending=this.state.pending;
+  if(member!==this.host||pending?.id!==transactionId||pending.status!=='failed')throw Error('stale_controllers');
+  this.state.pending={...pending,revision,status:'freezing',reason:undefined};this.proposed=owners;
+  this.freeze('Retrying the player change at the preserved frame.');
+ }
  private failTransaction(reason:string){
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,reason);
   if(this.state.pending)this.state.pending={...this.state.pending,status:'failed',reason};
@@ -83,8 +89,8 @@ export class GameSession {
  }
  private finishTransaction(){
   const pending=this.state.pending;if(!pending||pending.status!=='synchronizing'||this.transfers.size)return;
-  if(this.owners(this.proposed).some(member=>!this.available(member))){this.failTransaction('A proposed controller is unavailable. Retry or cancel the role change.');return;}
-  try{this.state.controllers=this.commitRoles(pending);}catch{this.failTransaction('Room membership or slots changed. Previous roles and game progress are preserved.');return;}this.state.pending=undefined;this.proposed=undefined;
+  if(this.owners(this.proposed).some(member=>!this.available(member))){this.failTransaction('Player unavailable. Progress kept.');return;}
+  try{this.state.controllers=this.commitRoles(pending);}catch{this.failTransaction('Lobby changed. Progress kept.');return;}this.state.pending=undefined;this.proposed=undefined;
   this.begin(this.frame,this.hash!);
  }
  private capture(recipient:string,purpose:CheckpointPurpose){
@@ -108,14 +114,13 @@ export class GameSession {
   }
   if(command.type==='gameUnready'){
    this.checkRevision(command.revision);const transfers=[...this.transfers.values()].filter(transfer=>member===this.host||transfer.recipient===member);
-   if(this.state.pending&&(member===this.host||this.owners(this.proposed).includes(member)||transfers.some(transfer=>transfer.purpose==='controller'))){this.failTransaction('Synchronization cancelled. Previous roles and game progress are preserved.');return;}
+   if(this.state.pending&&(member===this.host||this.owners(this.proposed).includes(member)||transfers.some(transfer=>transfer.purpose==='controller'))){this.failTransaction('Change cancelled. Progress kept.');return;}
    if(transfers.some(transfer=>transfer.purpose==='controller'))this.stop('Synchronization cancelled. Game progress is preserved.');
    else {for(const transfer of transfers)this.cancelTransfer(transfer,'Synchronization cancelled. Game progress is preserved.');this.offers.delete(member);if((!this.state.epoch||this.owners().includes(member))&&(this.state.startRequested||['starting','countdown'].includes(this.state.status)))this.stop('Preparation cancelled. Members must prepare again.');}return;
   }
-  if(command.type==='gameRoleCancel'||command.type==='gameRoleRetry'){
+  if(command.type==='gameRoleCancel'){
    if(member!==this.host||this.state.pending?.id!==command.transactionId)throw Error('stale_controllers');
-   if(command.type==='gameRoleCancel'){this.state.pending=undefined;this.proposed=undefined;this.stop('Role change cancelled. Previous roles and game progress are preserved.');}
-   else {this.state.pending.status='freezing';this.state.pending.reason=undefined;this.freeze('Retrying the role change at the preserved frame.');}return;
+   this.state.pending=undefined;this.proposed=undefined;this.stop('Change cancelled. Progress kept.');return;
   }
   if(!('epoch' in command)||command.epoch!==this.state.epoch)throw Error('stale_game');
   if(command.type==='gamePause'){
@@ -127,7 +132,7 @@ export class GameSession {
    this.all({type:'gamePauseAt',epoch:command.epoch,frame:this.frame,reason:this.state.reason!});
    if(this.state.pending){
     this.state.pending.status='synchronizing';
-    const proposed=this.owners(this.proposed);if(proposed.some(owner=>!this.available(owner))){this.failTransaction('A proposed controller needs a matching game and connection. Retry when ready, or cancel.');return;}
+    const proposed=this.owners(this.proposed);if(proposed.some(owner=>!this.available(owner))){this.failTransaction('Player needs game or connection.');return;}
     for(const owner of proposed)if(owner!==this.host)this.capture(owner,'controller');this.finishTransaction();
    }return;
   }
@@ -158,12 +163,12 @@ export class GameSession {
    else {this.transfers.delete(transfer.id);const offer=this.offers.get(member);this.offers.set(member,{type:'gameReady',requestId:id(),revision:this.state.controllers.revision,roomRevision:this.roomRevision??0,delay:offer?.delay??gameplayLimits.delayDefault,frame:command.frame,hash:command.hash,fresh:false});if(this.state.pending)this.finishTransaction();else this.prepareIfReady();}return;
   }
   if(command.type==='gameObserved'){if(!transfer.catchingUp||command.frame<transfer.frame!)throw Error('stale_checkpoint');this.transfers.delete(transfer.id);return;}
-  if(command.type==='gameCheckpointFailed'){this.cancelTransfer(transfer,'Synchronization failed. Progress is preserved; retry.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Synchronization failed. Retry or cancel the role change.');else this.stop('Synchronization failed. Progress is preserved; prepare again.','failed');}}
+  if(command.type==='gameCheckpointFailed'){this.cancelTransfer(transfer,'Synchronization failed. Progress is preserved; retry.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Game sync failed. Progress kept.');else this.stop('Synchronization failed. Progress is preserved; prepare again.','failed');}}
  }
  stop(reason:string,status:GameView['status']='paused'){
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,reason);this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,startRequested:false,startAt:undefined};this.all({type:'gameStop',epoch:this.state.epoch,reason});
  }
- sweep(){let changed=false;for(const transfer of [...this.transfers.values()])if(this.now()>=transfer.deadline){this.cancelTransfer(transfer,'Synchronization timed out. Retry without leaving the room.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Synchronization timed out. Retry or cancel.');else this.stop('Synchronization timed out. Prepare again.','failed');}changed=true;}
+ sweep(){let changed=false;for(const transfer of [...this.transfers.values()])if(this.now()>=transfer.deadline){this.cancelTransfer(transfer,'Synchronization timed out. Retry without leaving the room.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Game sync timed out. Progress kept.');else this.stop('Synchronization timed out. Prepare again.','failed');}changed=true;}
   if(this.state.status==='countdown'&&this.state.startAt!==undefined&&this.now()>=this.state.startAt){this.hasPlayed=true;this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;this.state.startAt=undefined;for(const owner of this.required)this.send(owner,{type:'gameStart',epoch:this.state.epoch!,authority:this.host,frame:this.frame,hash:this.hash!,delay:this.state.delay!,controllers:this.state.controllers});changed=true;}
-  if((this.state.startRequested||['starting','countdown','pausing'].includes(this.state.status))&&this.now()>=this.deadline){if(this.state.pending)this.failTransaction('The completed frame could not be confirmed. Previous roles are preserved.');else this.stop('Preparation timed out. Retry; progress is preserved.','failed');changed=true;}return changed;}
+  if((this.state.startRequested||['starting','countdown','pausing'].includes(this.state.status))&&this.now()>=this.deadline){if(this.state.pending)this.failTransaction('Pause failed. Progress kept.');else this.stop('Preparation timed out. Retry; progress is preserved.','failed');changed=true;}return changed;}
 }
