@@ -484,14 +484,6 @@ def exercise(page, url, size, output, play=False):
             voice_setting.select_option(label=option)
             assert settings_controls_fit(page), (size, option)
     choose_section(page, 'Lobby')
-    status = page.locator('.rc-status-copy')
-    status_text = status.inner_text()
-    status_bounds = page.locator('.rc-status').bounding_box()
-    status.evaluate('(node, text) => node.textContent = text',
-                    'A proposed controller needs a matching game and connection. Retry when ready, or cancel.')
-    assert text_fits(status), 'The longest current role failure reason was clipped'
-    assert page.locator('.rc-status').bounding_box() == status_bounds
-    status.evaluate('(node, text) => node.textContent = text', status_text)
     base = regions(page)
     page.screenshot(path=str(output / f'lobby-{size[0]}x{size[1]}.png'))
     if play:

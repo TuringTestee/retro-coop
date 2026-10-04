@@ -577,6 +577,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-chat, .rc-shared-playing .rc-chat { grid-column: 1 / -1; grid-row: 3; }
   .rc-game-heading { flex: 1; overflow: visible; line-height: 1.25; }
   .rc-game-links { flex: none; }
+  .rc-inline-settings input[type=range] { margin-inline: 0; }
   .rc-side-panel, .rc-playing-menu { container: desktop-settings / size; }
   @container desktop-settings (max-width: 320px) {
     .rc-keyboard-word { display: none; }
