@@ -2,11 +2,11 @@ Audience: Agent
 
 # Validated local machine files
 
-The worker can save and restore a running game without putting its ROM in the file. This D06 slice validates six mapper families and keeps unsupported save profiles separate from local game loading. It does not deliver save slots, browser persistence, file-picker controls or rewind. Issue #10 remains open, including qualification of the remaining mapper families.
+The worker can save and restore a running game without putting its ROM in the file. This D06 slice validates seven mapper families and keeps unsupported save profiles separate from local game loading. It does not deliver save slots, browser persistence, file-picker controls or rewind. Issue #10 remains open, including qualification of the remaining mapper families.
 
 ## Scope and compatibility
 
-The audited profiles are upstream Nrom, Sxrom (MMC1), Uxrom, Cnrom, Txrom (MMC3) and Axrom. Tests exercise mapper numbers 0, 1, 2, 3, 4 and 7 under NTSC, PAL and Dendy. Upstream aliases sharing those variants are not separately qualified by these tests. Other variants return an explicit unvalidated-save-profile operation error; their existing local play and battery operations remain available. Codec preparation is lazy on the first state operation, so even save-template allocation is independent of ROM admission.
+The audited profiles are upstream Nrom, Sxrom (MMC1), Uxrom, Cnrom, Txrom (MMC3), Axrom and the base Multicart227 board. Tests exercise mapper numbers 0, 1, 2, 3, 4, 7 and 227 under NTSC, PAL and Dendy. Upstream aliases sharing those variants are not separately qualified by these tests. Mapper 227 extended NES 2.0 submappers are rejected; its base profile validates the address latch and fixes the cartridge variant for restore. Other variants return an explicit unvalidated-save-profile operation error; their existing local play and battery operations remain available. Codec preparation is lazy on the first state operation, so even save-template allocation is independent of ROM admission.
 
 The identity binds the versioned schema, exact ROM SHA-256, actual loaded WASM SHA-256, resolved region, fixed adapter settings and locally derived cartridge geometry/immutable mapper settings. Mutable registers never enter the identity: a first export after play can be imported into a fresh instance of the same game. Core binding uses `local_bind_core`. The common identity construction lives in `local_file.rs`, preserving the battery format's existing identity byte order.
 

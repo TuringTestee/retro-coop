@@ -720,7 +720,8 @@ impl ControlDeck {
             | Mapper::SunsoftFme7(_)
             | Mapper::Nina003006(_)
             | Mapper::NesEvent(_)
-            | Mapper::Fk23C(_) => (),
+            | Mapper::Fk23C(_)
+            | Mapper::Multicart227(_) => (),
         }
     }
 

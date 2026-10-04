@@ -748,6 +748,10 @@ boards! {
     // Holds only registers, so it is small enough to sit in the enum unboxed and pay no
     // indirection; `print_layouts` prints every board's size if that stops being true.
     Fk23C(Fk23C) = 176 in m176_fk23c { 176 => Fk23C::load(cart) },
+    /// Address-latched multicarts (mapper 227, base board only).
+    Multicart227(Multicart227) = 227 in m227_multicart {
+        227 if cart.submapper_num() == 0 => Multicart227::load(cart),
+    },
 }
 
 impl Default for Mapper {
