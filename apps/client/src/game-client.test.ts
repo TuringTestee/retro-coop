@@ -162,3 +162,21 @@ test('a reconnected controller can acknowledge a resent rollback after local tra
   t.game.enter(undefined);const count=t.commands.length;t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Connection changed'});await tick();assert.equal(t.commands.length,count);
  }finally{t.game.dispose();}
 });
+
+test('Load owns async validation exclusively and a cancelled older attempt cannot release a newer request',async()=>{
+ const t=setup(host),identity='a'.repeat(64),record={identity,slot:1,savedAt:1000,bytes:new ArrayBuffer(82)},inspections:Array<(value:{identity:string;hash:string})=>void>=[];
+ Object.assign(t.player,{inspectSave:()=>new Promise(resolve=>inspections.push(resolve))});try{
+  const older=t.game.loadSaved(record,async()=>true);const olderFailure=assert.rejects(older,/Saved progress changed/);
+  await assert.rejects(t.game.loadSaved(record,async()=>true),/Another game change/);assert.equal(inspections.length,1);
+  t.game.enter(undefined);t.game.enter(room(host));const newer=t.game.loadSaved(record,async()=>true);assert.equal(inspections.length,2);
+  inspections[0]({identity,hash});await olderFailure;await assert.rejects(t.game.loadSaved(record,async()=>true),/Another game change/);
+  inspections[1]({identity,hash});await newer;assert.equal(t.commands.filter(c=>c.type==='gameLoadPropose').length,1);
+ }finally{t.game.dispose();}
+});
+
+test('room change during async save-record validation cannot propose the old room after the read resolves',async()=>{
+ const t=setup(host),identity='a'.repeat(64);let resolve!:()=>void;
+ Object.assign(t.player,{inspectSave:async()=>({identity,hash})});try{
+  const request=t.game.loadSaved({identity,slot:1,savedAt:1000,bytes:new ArrayBuffer(82)},async()=>{await new Promise<void>(done=>resolve=done);return true;});const failure=assert.rejects(request,/Saved progress changed/);await tick();t.game.enter(undefined);resolve();await failure;assert.equal(t.commands.some(c=>c.type==='gameLoadPropose'),false);
+ }finally{t.game.dispose();}
+});

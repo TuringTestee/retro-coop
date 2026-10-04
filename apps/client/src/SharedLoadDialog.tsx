@@ -1,6 +1,6 @@
 import type {SaveLoadView} from '../../../packages/contracts/src/gameplay.ts';
 
-/** The caller selects required participants; the existing shell owns focus and dimming. */
+/** The caller selects required participants and owns focus and background dimming. */
 export function SharedLoadDialog({load,host,accepted,busy,error,onDecision,onCancel}:{
  load:SaveLoadView;host:boolean;accepted:boolean;busy:boolean;error?:string;
  onDecision(accept:boolean):void;onCancel():void;
