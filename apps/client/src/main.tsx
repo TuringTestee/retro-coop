@@ -231,7 +231,7 @@ function App(){
    if(!current())return;
    const latest=await readRecovery();if(latest.generation!==offer.generation||latest.record?.revision!==offer.record.revision)throw Error('Recovery data was cleared or changed before restoration.');
    await rooms.current?.restoreGame(capture.frame,capture.hash,current);
-   setRecovery(undefined);setStatusOverride('Game restored. Prepare to resume together.');
+   setRecovery(undefined);setStatusOverride('');
   }catch(error){if(current()){
    const message=error instanceof Error?error.message:'Restoration could not complete.';
    if(recoveryIndex+1<offer.record.captures.length){setRecoveryIndex(recoveryIndex+1);setRecoveryError(`${message} You can try the older save shown below.`);}
