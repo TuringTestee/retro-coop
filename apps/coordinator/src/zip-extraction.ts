@@ -6,7 +6,7 @@ import {Readable,Transform} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {crc32} from 'node:zlib';
 import {openPromise,type Entry,type ZipFile} from 'yauzl';
-import {ZIP_ARCHIVE_LIMIT} from '../../../packages/contracts/src/game-file.ts';
+import {ZIP_ARCHIVE_LIMIT,gameFileTitle} from '../../../packages/contracts/src/game-file.ts';
 import {inspectCartridge} from '../../../packages/contracts/src/fingerprint.ts';
 import {RoomError,type Rooms} from './rooms.ts';
 import type {RomStore} from './rom-store.ts';
@@ -76,7 +76,7 @@ export async function extractZip(request:IncomingMessage,response:ServerResponse
   const file=await open(scratch.outputPath,'r');let header:Buffer;
   try{header=Buffer.alloc(16);const read=await file.read(header,0,16,0);if(read.bytesRead!==16)throw new RoomError('invalid_cartridge');}finally{await file.close();}
   try{inspectCartridge(header,bytes);}catch{throw new RoomError('invalid_cartridge');}
-  progress();const name=normalized(selected.fileName).split('/').at(-1)!;
+  progress();const name=gameFileTitle(normalized(selected.fileName).split('/').at(-1)!)+'.nes';
   response.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':bytes,'X-NES-Name':encodeURIComponent(name),'X-NES-SHA256':hash.digest('hex'),'X-Content-Type-Options':'nosniff'});
   await pipeline(createReadStream(scratch.outputPath),new Transform({transform(chunk,_encoding,callback){try{progress();callback(null,chunk);}catch(error){callback(error as Error);}}}),response,{signal:controller.signal});
  } catch(error) {

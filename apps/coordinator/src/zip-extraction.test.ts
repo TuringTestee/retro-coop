@@ -45,7 +45,7 @@ async function setup(romLimits?:RomLimits) {
 for(const method of [0,8])test(`HTTP extracts ${method===0?'stored':'deflated'} NES with exact identity and private cleanup`,async()=>{
  const t=await setup();try{
   const bytes=rom(),response=await t.post(archive([{name:'folder/',data:Buffer.alloc(0),mode:0x4000},{name:'folder/My Game.NES',data:bytes,method},{name:'notes.txt',data:Buffer.from('ignore')} ]));
-  assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);assert.equal(response.headers.get('X-NES-Name'),encodeURIComponent('My Game.NES'));assert.equal(response.headers.get('X-NES-SHA256'),createHash('sha256').update(bytes).digest('hex'));assert.equal(response.headers.get('Content-Length'),String(bytes.length));assert.equal(response.headers.get('Cache-Control'),'no-store');await t.clear();
+  assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);assert.equal(response.headers.get('X-NES-Name'),encodeURIComponent('My Game.nes'));assert.equal(response.headers.get('X-NES-SHA256'),createHash('sha256').update(bytes).digest('hex'));assert.equal(response.headers.get('Content-Length'),String(bytes.length));assert.equal(response.headers.get('Cache-Control'),'no-store');await t.clear();
  }finally{await t.close();}
 });
 test('HTTP automatically selects case-folded path with exact-path tie break',async()=>{
@@ -66,6 +66,7 @@ const invalidCases:Array<[string,()=>Buffer,string]>=[
  ['unsupported compression',()=>archive([{name:'game.nes',data:rom(),method:12}]),'unsupported_archive'],
  ['traversal',()=>archive([{name:'../game.nes',data:rom()}]),'invalid_archive'],
  ['absolute path',()=>archive([{name:'/game.nes',data:rom()}]),'invalid_archive'],
+ ['control characters',()=>archive([{name:'game\u0001.nes',data:rom()}]),'unsafe_archive'],
  ['symlink',()=>archive([{name:'game.nes',data:rom(),mode:0xa000}]),'unsafe_archive'],
  ['duplicate normalized name',()=>archive([{name:'e\u0301.nes',data:rom()},{name:'é.nes',data:rom()}]),'unsafe_archive'],
  ['inconsistent local filename',()=>{const b=archive([{name:'game.nes',data:rom()}]);b[30]=0x78;return b;},'invalid_archive'],
@@ -74,6 +75,13 @@ const invalidCases:Array<[string,()=>Buffer,string]>=[
 ];
 for(const [name,make,error] of invalidCases)test(`HTTP rejects ${name} and releases archive storage`,async()=>{
  const t=await setup();try{const response=await t.post(make());assert.equal(response.status,400);assert.deepEqual(await response.json(),{error});await t.clear();}finally{await t.close();}
+});
+test('HTTP bounds a long Unicode selected filename without changing NES bytes or identity',async()=>{
+ const t=await setup();try{
+  const bytes=rom(),name='X'+'😄'.repeat(5000)+'.NES';
+  const response=await t.post(archive([{name,data:bytes,method:8}]));assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),bytes);
+  const selected=decodeURIComponent(response.headers.get('X-NES-Name')!);assert.ok(selected.endsWith('.nes'));assert.ok(selected.length<=84);assert.equal(selected.slice(0,1),'X');assert.equal(/\p{C}/u.test(selected),false);assert.equal(response.headers.get('X-NES-SHA256'),createHash('sha256').update(bytes).digest('hex'));await t.clear();
+ }finally{await t.close();}
 });
 test('HTTP enforces strict decimal compressed limit and permits retry',async()=>{
  const t=await setup();try{
