@@ -13,6 +13,25 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 REGIONS = '[data-layout-region], [data-testid="room-slot"], [data-slot-region]'
 
+# Viewport-fixed descendants escape ordinary ancestor overflow. Preserve clips
+# inside their own box and any ancestor establishing a fixed containing block.
+CLIPPING_BOXES = r"""
+const clippingBoxes=node=>{
+  const boxes=[];let escaped=false;
+  for(let parent=node;parent;parent=parent.parentElement){
+    const style=getComputedStyle(parent);
+    if(style.display==='contents')continue;
+    const containing=style.transform!=='none'||style.perspective!=='none'||style.filter!=='none'
+      ||style.backdropFilter!=='none'||/(layout|paint|strict|content)/.test(style.contain)
+      ||style.containerType!=='normal'||/(transform|perspective|filter|contain)/.test(style.willChange);
+    if(escaped&&!containing)continue;
+    escaped=false;boxes.push(parent);
+    if(style.position==='fixed')escaped=true;
+  }
+  return boxes;
+};
+"""
+
 INSTALL = r"""({selector, label}) => {
   if (window.layoutProbe) window.layoutProbe.running = false;
   const ids = new WeakMap(); let serial = 0;
@@ -103,11 +122,13 @@ class GeometryRecorder:
 def control_visibility(locator, require_focus=False):
     """Check full bounds + focused outline against every clipping ancestor."""
     result = locator.evaluate(r"""n=>{
+      CLIPPING_BOXES
       const b=n.getBoundingClientRect(),style=getComputedStyle(n),focused=n===document.activeElement;
       const outline=focused ? Math.max(0,(parseFloat(style.outlineWidth)||0)+(parseFloat(style.outlineOffset)||0)):0;
       let clip={left:0,top:0,right:innerWidth,bottom:innerHeight}; const ancestors=[];
-      for(let p=n.parentElement;p;p=p.parentElement){if(p===document.body||p===document.documentElement)continue;
+      for(const p of clippingBoxes(n).slice(1)){if(p===document.body||p===document.documentElement)continue;
         const s=getComputedStyle(p),r=p.getBoundingClientRect();
+        if(s.display==='contents')continue; // This ancestor generates no clipping box.
         const x=/(auto|scroll|hidden|clip)/.test(s.overflowX),y=/(auto|scroll|hidden|clip)/.test(s.overflowY);
         if(x){clip.left=Math.max(clip.left,r.left+p.clientLeft);clip.right=Math.min(clip.right,r.left+p.clientLeft+p.clientWidth);}
         if(y){clip.top=Math.max(clip.top,r.top+p.clientTop);clip.bottom=Math.min(clip.bottom,r.top+p.clientTop+p.clientHeight);}
@@ -115,7 +136,7 @@ def control_visibility(locator, require_focus=False):
       }
       return {text:n.textContent,focused,outline,bounds:{left:b.left,top:b.top,right:b.right,bottom:b.bottom},clip,ancestors,
         visible:b.width>0&&b.height>0&&b.left-outline>=clip.left-1&&b.top-outline>=clip.top-1&&b.right+outline<=clip.right+1&&b.bottom+outline<=clip.bottom+1};
-    }""")
+    }""".replace('CLIPPING_BOXES', CLIPPING_BOXES))
     assert result['visible'], result
     assert not require_focus or result['focused'], result
     return result

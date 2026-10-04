@@ -266,11 +266,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-shared-playing .rc-players { grid-column: 1; grid-row: 1; }
 .rc-shared-playing .rc-game-main { grid-column: 2; grid-row: 1; }
 .rc-shared-playing .rc-chat { grid-column: 1 / -1; grid-row: 2; }
-.rc-play-tools { grid-column: 3; grid-row: 1; display: grid; grid-template-rows: 28px 82px 74px 112px 56px; align-content: start; gap: 8px; min-width: 0; min-height: 0; padding: 8px 12px; overflow: hidden; border-left: 1px solid var(--rule); background: #e9decb; }
-.rc-controller-art { justify-self: center; align-self: center; margin: 0; color: var(--ink); font: 700 14px/1.1 ui-monospace, monospace; }
-.rc-control-hints { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 3px; min-width: 0; overflow: hidden; font-size: 13px; }
-.rc-control-hints > span { display: flex; align-items: center; justify-content: space-between; gap: 5px; min-width: 0; overflow: hidden; white-space: nowrap; }
-.rc-control-hints strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--orange-dark); text-align: right; }
 .rc-playing-menu { display: grid; grid-template-rows: 28px minmax(0, 1fr); background: var(--menu); color: var(--menu-text); border-left-color: var(--orange); }
 .rc-playing-menu .rc-eyebrow, .rc-playing-menu .rc-quiet { color: var(--menu-accent); }
 .rc-playing-menu .rc-side-content { padding: 0; height: 100%; }
@@ -357,7 +352,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-shared-playing .rc-side-panel { display: none; }
 .rc-chat, .rc-shared-playing .rc-chat { grid-column: 2; grid-row: 3; }
 .rc-shared-playing { grid-template-rows: 42px minmax(0,1fr) clamp(145px,28%,180px); }
-.rc-play-tools, .rc-shared-playing .rc-play-tools { grid-column: 3; grid-row: 2 / 4; }
 .rc-local-session { grid-template-columns: 0px minmax(0,1fr) 0px; grid-template-rows: 42px minmax(0,1fr) 0px; }
 .rc-local-session.rc-has-side { grid-template-columns: 0px minmax(0,1fr) clamp(250px,30vw,360px); }
 .rc-game-links { flex-wrap: wrap; justify-content: flex-end; }
@@ -369,23 +363,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-inline-settings { grid-template-rows: 108px minmax(0,1fr); }
 .rc-inline-settings .rc-tool-heading { grid-template-rows: 24px minmax(0,1fr); }
 .rc-inline-settings .rc-tool-heading nav { grid-template-rows: none; grid-auto-rows: 24px; }
-.rc-inline-settings .rc-play-tools { display: grid; grid-template-rows: clamp(60px,20%,80px) minmax(0,1fr) 40px; height: 100%; gap: 6px; padding: 0; border: 0; background: transparent; color: var(--menu-text); }
-.rc-inline-settings .rc-play-tools .rc-section-head { display: none; }
-.rc-inline-settings .rc-controller-art { display: grid; grid-template-columns: 29% 39% 32%; align-items: center; width: 100%; height: 100%; padding: 3px; border: 2px solid currentColor; border-radius: 28px; background: var(--display); color: #f7f0e4; font-family: ui-monospace,monospace; }
-.rc-pad { color: #87d1e8; font-size: 17px; font-weight: 900; line-height: 1.05; text-align: center; white-space: nowrap; }
-.rc-system-buttons, .rc-action-buttons { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; }
-.rc-system-buttons b { padding: 2px 3px; border: 1px solid #e1c48a; border-radius: 9px; color: #f7d99c; font-size: 10px; }
-.rc-action-buttons b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #a9504a; color: #fff7ec; font-size: 15px; }
-.rc-action-buttons b:last-child { background: #df873f; color: #18232d; }
-.rc-inline-settings .rc-control-hints { display: grid; grid-template-rows: repeat(6,minmax(0,1fr)); gap: 1px; padding: 3px 0; min-height: 0; overflow: hidden; }
-.rc-control-line { display: grid; grid-template-columns: minmax(39px,auto) minmax(8px,1fr) auto; align-items: center; gap: 5px; min-width: 0; color: var(--menu-text); font-size: 13px; font-weight: 750; }
-.rc-control-line strong, .rc-control-line b { min-width: 0; overflow-wrap: anywhere; line-height: 1.05; }
-.rc-control-line > span { height: 0; border-top: 2px solid currentColor; opacity: .7; }
-.rc-control-move { color: var(--guide-move); }
-.rc-control-b { color: var(--guide-b); }
-.rc-control-a { color: var(--guide-a); }
-.rc-control-system { color: var(--guide-system); }
-.rc-control-voice { color: var(--guide-voice); }
 .rc-shortcuts { display: flex; align-items: center; justify-content: space-between; gap: 3px; min-width: 0; padding-top: 4px; border-top: 1px solid currentColor; color: var(--menu-text); font-size: 12px; font-weight: 700; }
 .rc-shortcuts span { min-width: 0; overflow-wrap: anywhere; }
 .rc-shortcuts strong { color: var(--guide-system); }
@@ -399,23 +376,16 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-players, .rc-shared-playing .rc-players { grid-row: 1 / 3; grid-template-rows: 22px minmax(0,1fr); padding: 2px 12px; }
   .rc-players .slot-row { grid-template-columns: minmax(0,1fr) 16px; grid-template-rows: minmax(0,1fr) auto; padding-block: 2px; }
   .rc-players .slot-row strong, .rc-players .slot-state { line-height: 1.25; }
-  .rc-side-panel, .rc-play-tools, .rc-shared-playing .rc-play-tools { grid-row: 2; }
   .rc-chat, .rc-shared-playing .rc-chat { grid-column: 1 / -1; grid-row: 3; }
   .rc-game-heading { flex: 1; overflow: visible; line-height: 1.25; }
   .rc-game-links { flex: none; }
 
   .rc-side-panel, .rc-playing-menu { container: desktop-settings / size; }
-  @container desktop-settings (max-width: 320px) {
-    .rc-keyboard-word { display: none; }
-  }
   @container desktop-settings (max-height: 360px) {
     .rc-inline-settings { grid-template-rows: 40px minmax(0,1fr); }
     .rc-inline-settings .rc-tool-heading { grid-template-rows: 18px 22px; gap: 0; }
     .rc-inline-settings .rc-tool-heading nav { display: none; }
     .rc-inline-settings .rc-settings-select { display: block; width: 100%; height: 22px; padding: 0 6px; font: 700 12px ui-monospace,monospace; }
-    .rc-inline-settings .rc-play-tools { grid-template-rows: 62px minmax(0,1fr) 20px; }
-    .rc-inline-settings .rc-control-hints { padding-block: 0; }
-    .rc-control-line strong, .rc-control-line b { line-height: 1.25; }
   }
 
 
@@ -425,12 +395,6 @@ button:disabled { cursor: default; opacity: .52; }
     .rc-inline-settings .rc-tool-stack label { gap: 0; line-height: 16px; }
     .rc-inline-settings .rc-mapping-list { grid-auto-rows: 30px; }
     .rc-inline-settings .rc-input-test { height: 24px; min-height: 24px; padding: 2px 4px; }
-    .rc-inline-settings .rc-play-tools { grid-template-rows: 48px minmax(0,1fr) 20px; gap: 2px; }
-    .rc-inline-settings .rc-control-hints { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); column-gap: 8px; }
-    .rc-control-line { font-size: 12px; gap: 2px; }
-    .rc-pad { font-size: 12px; }
-    .rc-system-buttons b { font-size: 8px; }
-    .rc-action-buttons b { width: 24px; height: 24px; }
   }
 
 }
@@ -476,7 +440,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-session-settings { grid-column: 3; grid-row: 2; min-width: 0; min-height: 0; overflow: hidden; padding: 8px; background: var(--menu); color: var(--menu-text); }
 .rc-session-settings .rc-side-content { height: 100%; padding: 0; }
 .rc-expansion-action { position: absolute; top: max(8px,env(safe-area-inset-top)); right: max(8px,env(safe-area-inset-right)); z-index: 2; min-height: 44px; padding: 6px 12px; border: 1px solid var(--orange); border-radius: 5px; background: var(--menu); color: var(--menu-text); }
-.rc-game-display:not(.rc-game-fullscreen) .rc-expansion-action { display: none; }
 .rc-profile-names { display: none; }
 @media (min-width: 651px) {
  .rc-shell { grid-template-rows: 104px 42px minmax(0,1fr) 72px; }
@@ -552,8 +515,6 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-players .slot-state { margin-left: 4px; }
  .rc-players .slot-chevron { float: right; }
  .rc-profile-names { grid-template-columns: minmax(0,2.1fr) minmax(0,1fr); grid-template-rows: 116px; }
- .rc-inline-settings .rc-play-tools { grid-template-rows: 48px minmax(0,1fr) 20px; }
- .rc-inline-settings .rc-control-hints { grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(3,minmax(0,1fr)); column-gap: 8px; }
 }
 
 @media (min-width:651px) and (max-height:650px) {
@@ -565,8 +526,6 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-inline-settings { grid-template-rows: 26px minmax(0,1fr); gap: 4px; }
  .rc-inline-settings .rc-tool-heading { grid-template-rows: 26px; }
  .rc-inline-settings .rc-tool-heading h2 { display: none; }
- .rc-inline-settings .rc-play-tools { grid-template-rows: 64px minmax(0,1fr) 20px; gap: 2px; }
- .rc-inline-settings .rc-control-hints { padding-block: 0; }
 }
 @media (max-width:650px), (max-width:1000px) and (max-height:500px) {
  .rc-page-lobby:has(.rc-session[data-phone-panel]:not([data-phone-panel=game])) .rc-footer-actions { visibility: hidden; }
@@ -613,3 +572,100 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-game-heading .rc-title-track { display: block; width: auto; white-space: normal; animation: none; overflow-wrap: anywhere; }
  .rc-title-track > [aria-hidden=true] { display: none; }
 }
+
+/* One controller band owns physical targets and its inline keyboard editor. */
+.rc-game-display { display: grid; grid-template-rows: minmax(0,1fr) 152px; }
+.rc-game-viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr) 152px; place-items: stretch; }
+.rc-game-fullscreen .rc-game-viewport { grid-row: 2; }
+.rc-game-fullscreen .rc-controller-band { grid-row: 3; }
+.rc-controller-band { min-width: 0; min-height: 0; overflow: hidden; container: controller-band / inline-size; --guide-move: #87d1e8; --guide-b: #eaa8a0; --guide-a: #f5ba7f; --guide-system: #f7d99c; --menu-control: #242a31; --menu-text: #f7f0e4; --menu-border: #aa7542; padding: 4px; background: #080c10; color: #f7f0e4; cursor: default; }
+.rc-nes-controller { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 4px; width: min(100%,440px); height: 96px; margin: 0 auto; }
+.rc-nes-controller button { touch-action: none; user-select: none; border: 2px solid #aa7542; background: #242a31; color: #f7f0e4; font: 700 13px/1.2 ui-monospace,monospace; }
+.rc-nes-controller button[aria-pressed=true] { background: #dc761f; border-color: #ffd39a; }
+.rc-nes-controller button[aria-disabled=true] { opacity: .6; }
+.rc-thumb-pad { position: relative; flex: 0 0 96px; height: 96px; }
+.rc-direction { display: grid; place-items: center; color: #f7f0e4; background: #242a31; border: 2px solid #aa7542; font: 700 13px/1.2 ui-monospace,monospace; position: absolute; width: 44px; height: 32px; padding: 0; }
+.rc-direction-up { top: 0; left: 26px; }.rc-direction-down { bottom: 0; left: 26px; }.rc-direction-left { left: 0; top: 32px; }.rc-direction-right { right: 0; top: 32px; }
+.rc-nes-controller .rc-pad-drag { position: absolute; inset: 0; width: 96px; height: 96px; padding: 0; border: 0; background: transparent; }
+.rc-thumb-dot { position: absolute; z-index: 1; left: 26px; top: 26px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #87d1e8; background: #243f4dcc; pointer-events: none; }
+.rc-nes-system { display: flex; gap: 4px; }.rc-nes-system button { width: 44px; height: 44px; padding: 0; font-size: 11px; }
+.rc-nes-actions { display: flex; gap: 4px; }.rc-nes-actions button { width: 44px; height: 44px; padding: 0; font-size: 18px; border-color: #db654c; }
+.rc-controller-mappings { display: flex; align-items: center; gap: 4px; font: 12px/1.2 system-ui,sans-serif; }
+.rc-controller-mappings span { min-width: 0; overflow-wrap: anywhere; }.rc-controller-mappings button { flex: none; }
+.rc-controller-editor { display: grid; grid-template-columns: 100px minmax(0,1fr); gap: 4px; height: 100%; font: 13px/1.5 system-ui,sans-serif; }
+.rc-controller-editor label { display: grid; align-content: start; gap: 3px; }.rc-controller-editor select { height: 28px; padding: 2px 4px; }
+.rc-controller-editor select, .rc-controller-editor button { border: 1px solid var(--menu-border); border-radius: 4px; background: var(--menu-control); color: var(--menu-text); }
+.rc-controller-editor p,.rc-controller-editor > div:last-child { grid-column: 1 / -1; margin: 0; }.rc-controller-editor button { min-height: 28px; margin-right: 6px; }
+.rc-controller-capture { padding: 4px; border: 1px solid #87d1e8; overflow-wrap: anywhere; }
+.rc-controller-status { font-size: 12px; }
+@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+ .rc-game-fullscreen .rc-nes-controller { height: 144px; }
+ .rc-game-fullscreen .rc-thumb-pad { align-self: center; }
+ .rc-game-fullscreen .rc-nes-actions { position: relative; width: 100px; height: 144px; }
+ .rc-game-fullscreen .rc-nes-actions button { position: absolute; width: 64px; height: 64px; }
+ .rc-game-fullscreen .rc-nes-a { top: 0; right: 0; }.rc-game-fullscreen .rc-nes-b { bottom: 0; left: 0; }
+ .rc-game-fullscreen .rc-controller-band { padding-bottom: max(4px,env(safe-area-inset-bottom)); }
+}
+@media (orientation:landscape) and (max-height:500px) {
+ .rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr); }
+ .rc-game-fullscreen .rc-controller-band { position: absolute; bottom: max(4px,env(safe-area-inset-bottom)); left: max(8px,env(safe-area-inset-left)); right: max(8px,env(safe-area-inset-right)); height: 104px; background: #080c1044; }
+ .rc-game-fullscreen .rc-nes-controller { width: 100%; height: 96px; }
+ .rc-game-fullscreen .rc-nes-actions { display: flex; gap: 8px; width: auto; height: 64px; }
+ .rc-game-fullscreen .rc-nes-actions button { position: static; }
+}
+
+.rc-connected-hints { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-items: center; flex: 1; gap: 4px; min-width: 0; }
+.rc-connected-hints span { display: flex; align-items: center; gap: 3px; overflow-wrap: anywhere; }
+.rc-connected-hints i { flex: 1; min-width: 5px; border-bottom: 1px solid currentColor; }
+.rc-connected-hints .rc-connected-move { display: block; }
+.rc-controller-edit-action.rc-preparing { display: none; }
+@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+ .rc-game-display:not(.rc-game-fullscreen) { grid-template-rows: minmax(0,1fr); }
+ .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { display: none; }
+ .rc-controller-edit-action.rc-preparing { display: block; }
+}
+@media (min-width:651px) and (min-height:501px) and (max-height:650px) {
+ .rc-session, .rc-shared-playing { grid-template-rows: 72px minmax(0,1fr) 104px; }
+ .rc-chat { padding-block: 4px; }
+ .rc-game-display { grid-template-rows: minmax(0,1fr) 112px; }
+ .rc-nes-controller { height: 64px; }
+ .rc-thumb-pad, .rc-nes-controller .rc-pad-drag { flex-basis: 64px; width: 64px; height: 64px; }
+ .rc-thumb-dot { left: 10px; top: 10px; }
+ .rc-direction { width: 32px; height: 22px; }
+ .rc-direction-up { left: 16px; }.rc-direction-down { left: 16px; }
+ .rc-direction-left { top: 21px; }.rc-direction-right { top: 21px; }
+ .rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr) 152px; }
+ .rc-game-fullscreen .rc-nes-controller { height: 96px; }
+ .rc-game-fullscreen .rc-thumb-pad, .rc-game-fullscreen .rc-pad-drag { flex-basis: 96px; width: 96px; height: 96px; }
+ .rc-game-fullscreen .rc-thumb-dot { left: 26px; top: 26px; }
+ .rc-game-fullscreen .rc-direction { width: 44px; height: 32px; }
+ .rc-game-fullscreen .rc-direction-up, .rc-game-fullscreen .rc-direction-down { left: 26px; }
+ .rc-game-fullscreen .rc-direction-left, .rc-game-fullscreen .rc-direction-right { top: 32px; }
+}
+
+.rc-direction[data-pressed=true] { background: #dc761f; border-color: #ffd39a; }
+
+/* Keep all five targets inside narrow desktop game columns. */
+@container controller-band (max-width: 288px) {
+ .rc-nes-controller .rc-nes-system { flex-direction: column; }
+ .rc-thumb-pad, .rc-nes-controller .rc-pad-drag { flex-basis: 64px; width: 64px; height: 64px; }
+ .rc-thumb-dot { left: 10px; top: 10px; }
+ .rc-direction { width: 32px; height: 22px; }
+ .rc-direction-up, .rc-direction-down { left: 16px; }
+ .rc-direction-left, .rc-direction-right { top: 21px; }
+}
+
+@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+ .rc-controller-editor { font-size: 16px; line-height: 1.5; }
+ .rc-controller-editor select, .rc-controller-editor button { min-height: 44px; font: inherit; }
+}
+
+.rc-direction, .rc-connected-move { color: var(--guide-move); }
+.rc-direction { border-color: var(--guide-move); }
+.rc-nes-system button, .rc-connected-select, .rc-connected-start { color: var(--guide-system); }
+.rc-nes-system button { border-color: var(--guide-system); }
+.rc-nes-controller .rc-nes-a, .rc-connected-a { color: var(--guide-a); }
+.rc-nes-controller .rc-nes-a { border-color: var(--guide-a); }
+.rc-nes-controller .rc-nes-b, .rc-connected-b { color: var(--guide-b); }
+.rc-nes-controller .rc-nes-b { border-color: var(--guide-b); }

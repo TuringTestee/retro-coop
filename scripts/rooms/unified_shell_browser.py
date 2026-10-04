@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom
+from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom, CLIPPING_BOXES
 from ui_helpers import choose_section, choose_panel
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,8 +37,9 @@ def settings_controls_fit(page):
 def text_fits(locator):
     """Check glyph bounds through every clipping ancestor, including wrapped text."""
     return locator.evaluate("""node => {
+      CLIPPING_BOXES
       let clip = {left: 0, top: 0, right: innerWidth, bottom: innerHeight};
-      for (let parent = node; parent; parent = parent.parentElement) {
+      for (const parent of clippingBoxes(node)) {
         const style = getComputedStyle(parent), box = parent.getBoundingClientRect();
         if (style.display === "contents") continue;
         if (/(hidden|clip|auto|scroll)/.test(style.overflowX)) {
@@ -67,7 +68,7 @@ def text_fits(locator):
         }
       }
       return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
-    }""")
+    }""".replace('CLIPPING_BOXES', CLIPPING_BOXES))
 
 
 def title_fits(page):
@@ -116,8 +117,25 @@ def names_fit(page):
 
 
 def guide_fits(page):
-    nodes = page.locator('.rc-inline-settings .rc-control-line,.rc-inline-settings .rc-shortcuts,.rc-inline-settings .rc-controller-art')
-    return nodes.count() == 8 and all(text_fits(node) for node in nodes.all())
+    # NES targets live in the game band; Settings retains non-controller shortcuts.
+    nodes = page.locator('[aria-label="Game shortcuts"] p,.rc-shortcuts')
+    return nodes.count() >= 2 and all(text_fits(node) for node in nodes.all())
+
+
+def controller_fits(page):
+    band = page.locator('.rc-controller-band')
+    if not band.is_visible():
+        assert page.get_by_role('navigation', name='Lobby sections').is_visible()
+        assert page.locator('.rc-game-fullscreen').count() == 0
+        return
+    targets = band.locator('[data-game-input] button')
+    assert targets.count() == 5
+    for target in targets.all():
+        assert text_fits(target), target.get_attribute('aria-label')
+        control_visibility(target)
+        box = target.bounding_box()
+        assert min(box['width'], box['height']) >= 44, box
+    assert band.evaluate('node=>node.scrollHeight<=node.clientHeight+1'), band.evaluate('node=>({viewport:[innerWidth,innerHeight],height:node.clientHeight,scroll:node.scrollHeight,text:node.innerText})')
 
 
 def regions(page):
@@ -278,6 +296,152 @@ def expired_guest_recovers(browser, url):
         page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
         assert page.evaluate("sessionStorage.getItem('retro-coop-guest') !== 'B'.repeat(43)")
         assert not errors, errors
+    finally:
+        context.close()
+
+
+def controller_input(browser, url, output):
+    """Public Host/Load/Play path, real contacts and exported native controller RAM."""
+    context = browser.new_context(viewport={'width': 1280, 'height': 800}, has_touch=True)
+    context.add_init_script((ROOT / 'scripts/gameplay/fixture.js').read_text() + """
+      addEventListener('DOMContentLoaded',()=>releaseFrames());
+      const NativeWorker=Worker;window.Worker=class extends NativeWorker {
+        postMessage(message,...args) {
+          if(message.type==='frame') {proof.masks??=[];proof.masks.push([message.p1,message.p2]);
+            if(proof.masks.length>32)proof.masks.shift();}
+          return super.postMessage(message,...args);
+        }
+      };
+    """)
+    page = context.new_page()
+    records = []
+    def observe(label, expected):
+        before = page.evaluate('proof.frameCount')
+        page.wait_for_function('({before,mask})=>proof.frameCount>before+proof.room.game.delay+2&&proof.masks.slice(-3).every(value=>value[0]===mask&&value[1]===0)',
+                               arg={'before': before, 'mask': expected})
+        page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
+        page.wait_for_function('proof.controllerRam!==undefined')
+        ram = page.evaluate('proof.controllerRam')
+        # This diagnostic cartridge uses ROL while reading the NES serial port.
+        assert ram == [int(f'{expected:08b}'[::-1], 2), 0], (label, expected, ram)
+        records.append({'action': label, 'mask': expected, 'native_ram': ram,
+                        'frames': page.evaluate('proof.frameCount')})
+    try:
+        page.goto(url)
+        page.get_by_role('button', name='Host a new game').click()
+        page.get_by_role('button', name='Load NES game').click()
+        page.get_by_role('button', name='Add NES file').click()
+        page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
+        page.get_by_role('button', name='Ready', exact=True).wait_for()
+        for width, height in ((1280, 800), (1024, 600), (900, 700)):
+            page.set_viewport_size({'width': width, 'height': height})
+            controller_fits(page)
+            assert text_fits(page.locator('.rc-controller-band')), (width, height)
+        page.set_viewport_size({'width': 1280, 'height': 800})
+        page.screenshot(path=str(output / 'controller-desktop-preparation.png'))
+        page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+        editor = page.get_by_label('Edit controller mappings')
+        capture = page.get_by_label('Capture controller key')
+        page.screenshot(path=str(output / 'controller-desktop-editor.png'))
+        capture.focus(); page.keyboard.press('c')
+        assert editor.get_by_role('button', name='Save', exact=True).is_disabled()
+        editor.get_by_role('button', name='Cancel', exact=True).click()
+        page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+        assert 'Current: Z' in capture.inner_text()
+        capture.focus(); page.keyboard.press('k')
+        editor.get_by_role('button', name='Save', exact=True).click()
+        editor.wait_for(state='hidden')
+        assert 'K' in page.get_by_label('Keyboard controls').inner_text()
+        page.get_by_role('button', name='Ready', exact=True).click()
+        page.get_by_role('button', name='Start →').click()
+        page.wait_for_function('proof.frameCount>10')
+        choose_section(page, 'Sound')
+        page.get_by_role('button', name='Mute game', exact=True).click()
+        choose_panel(page, 'Game')
+        page.locator('canvas').focus()
+        page.keyboard.down('ArrowRight')
+        observe('keyboard right', 128)
+        a = page.get_by_role('button', name='NES A', exact=True)
+        a.hover(); page.mouse.down()
+        observe('keyboard right and mouse A', 129)
+        page.mouse.up()
+        observe('mouse release retains physical right', 128)
+        page.keyboard.up('ArrowRight')
+        observe('physical release', 0)
+        page.locator('canvas').focus(); page.keyboard.down('Space')
+        a.hover(); page.mouse.down()
+        observe('physical Start and mouse A', 9)
+        page.mouse.up()
+        observe('mouse release retains Start', 8)
+        page.keyboard.up('Space')
+        observe('Start released after controller focus', 0)
+        a.focus(); page.keyboard.down('Space')
+        observe('semantic A does not also press Start', 1)
+        page.keyboard.up('Space')
+        observe('semantic release', 0)
+        page.keyboard.down('Enter'); page.keyboard.down('Space')
+        observe('two semantic contacts on A', 1)
+        page.keyboard.up('Enter')
+        observe('releasing Enter retains semantic Space', 1)
+        page.keyboard.up('Space')
+        observe('both semantic contacts released', 0)
+        page.locator('canvas').focus(); page.keyboard.down('k')
+        observe('saved remapping drives A', 1)
+        page.keyboard.up('k')
+        observe('remapped key released', 0)
+        page.set_viewport_size({'width': 320, 'height': 568})
+        page.get_by_role('button', name='Expand game to full screen', exact=True).click()
+        controller_fits(page)
+        cdp = context.new_cdp_session(page)
+        pad = page.get_by_role('button', name='Direction pad: use arrow keys or drag').bounding_box()
+        ab, bb = a.bounding_box(), page.get_by_role('button', name='NES B', exact=True).bounding_box()
+        points = [{'id': 1, 'x': pad['x']+pad['width']/2, 'y': pad['y']+pad['height']/2}]
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': points})
+        points[0]['x'] += 30; points[0]['y'] -= 30
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': points})
+        observe('touch diagonal', 144)
+        for ident, box in ((2, ab), (3, bb)):
+            points.append({'id': ident, 'x': box['x']+box['width']/2, 'y': box['y']+box['height']/2})
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': points})
+        observe('simultaneous diagonal A and B', 147)
+        page.screenshot(path=str(output / 'controller-portrait-multitouch.png'))
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchCancel', 'touchPoints': []})
+        observe('cancel releases every contact', 0)
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
+            {'id': 4, 'x': ab['x']+ab['width']/2, 'y': ab['y']+ab['height']/2}]})
+        observe('A held before rotation', 1)
+        page.set_viewport_size({'width': 568, 'height': 320})
+        observe('rotation releases held A', 0)
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        controller_fits(page)
+        page.screenshot(path=str(output / 'controller-landscape.png'))
+        box = a.bounding_box()
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
+            {'id': 5, 'x': box['x']+box['width']/2, 'y': box['y']+box['height']/2}]})
+        observe('fresh A after rotation', 1)
+        page.keyboard.press('p')
+        page.wait_for_function('proof.room.game.status==="paused"')
+        assert a.get_attribute('aria-pressed') == 'false'
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        choose_section(page, 'Game')
+        assert 'M Mute' in page.get_by_label('Other shortcuts').inner_text()
+        assert 'Q Save' in page.get_by_label('Other shortcuts').inner_text()
+        page.keyboard.press('q')
+        page.get_by_text('Saved to quick slot 1.', exact=True).wait_for()
+        page.keyboard.press('m')
+        choose_section(page, 'Sound')
+        page.get_by_role('button', name='Mute game', exact=True).click()
+        choose_panel(page, 'Game')
+        page.get_by_role('button', name='Prepare to resume', exact=True).click()
+        page.get_by_role('button', name='Resume together', exact=True).click()
+        observe('resume requires fresh contacts', 0)
+        choose_panel(page, 'Chat')
+        page.get_by_role('textbox', name='Message everyone').focus()
+        page.keyboard.press('k')
+        observe('typing A in chat is neutral', 0)
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.get_by_role('button', name='Close lobby', exact=True).click()
+        (output / 'controller-native.json').write_text(json.dumps(records, indent=2)+'\n')
     finally:
         context.close()
 
@@ -605,13 +769,14 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.get_by_role('button', name='Mute game', exact=True).click()
         page.get_by_role('button', name='Unmute game', exact=True).wait_for()
         choose_section(page, 'Game')
-        assert page.locator('.rc-controller-art').is_visible()
+        assert page.get_by_label('Game shortcuts').is_visible()
         assert guide_fits(page), f'Controller guide overflowed at {size}'
-        assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
-        assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
+        assert 'A rapid A' in page.get_by_label('Game shortcuts').inner_text()
+        assert 'D rapid B' in page.get_by_label('Game shortcuts').inner_text()
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
         choose_panel(page, 'Game')
         page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
+        controller_fits(page)
         rendered_game = game_fits(page)
         page.screenshot(path=str(output / f'active-game-{size[0]}x{size[1]}.png'))
         page.keyboard.press('q')
@@ -625,6 +790,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
             choose_panel(page, 'Game')
             frames = int(page.locator('canvas').get_attribute('data-frame-count'))
             page.wait_for_function('(before)=>Number(document.querySelector("canvas").dataset.frameCount)>before', arg=frames)
+            controller_fits(page)
             responsive_results.append({'size': profile, 'rendered_game': game_fits(page), 'frames_advanced': True})
             page.screenshot(path=str(output / f'active-game-{profile[0]}x{profile[1]}.png'))
         if responsive_sizes:
@@ -637,6 +803,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         choose_section(page, 'Game')
         assert guide_fits(page), f'Paused guide overflowed at {size}'
         assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
+        assert 'M Mute' in page.locator('.rc-shortcuts').inner_text()
+        assert 'Q Save' in page.locator('.rc-shortcuts').inner_text()
         assert regions(page) == playing_regions
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.keyboard.press('p')
@@ -743,6 +911,7 @@ def main():
                 if args.browser == 'chromium':
                     expired_guest_recovers(browser, url)
                     local_shortcuts(browser, url, output)
+                    controller_input(browser, url, output)
                     automatic_voice(browser, url)
                     restored_battery_preview(browser, url)
                     unavailable_preview_keeps_game(browser, url)

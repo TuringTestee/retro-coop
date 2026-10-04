@@ -63,3 +63,18 @@ test('released pad buttons and axes stay neutral until each physical input relea
  latch.sample(new Set(['button:0']));assert.deepEqual([...latch.sample(new Set(['button:0','axis:0:1']))],['axis:0:1']);
  latch.sample(new Set());assert.deepEqual([...latch.sample(new Set(['button:0']))],['button:0']);
 });
+
+test('virtual contacts preserve overlapping holds and reject stale generations',async()=>{
+ const {VirtualContacts}=await import('./virtual-controls.ts');const contacts=new VirtualContacts();
+ const one=contacts.begin(1,1),two=contacts.begin(2,1),pad=contacts.begin(3,16|128);
+ assert.equal(contacts.mask(),1|16|128);contacts.end(1,one);assert.equal(contacts.mask(),1|16|128);
+ contacts.end(2,two);assert.equal(contacts.mask(),16|128);contacts.update(3,pad,32|64);assert.equal(contacts.mask(),32|64);
+ contacts.clear();const fresh=contacts.begin(3,2);contacts.end(3,pad);contacts.update(3,pad,255);assert.equal(contacts.mask(),2);
+ contacts.end(3,fresh);assert.equal(contacts.mask(),0);
+});
+test('virtual pad covers eight directions, deadzone and bounded touchdown origin',async()=>{
+ const {directionMask,boundedOrigin}=await import('./virtual-controls.ts');
+ assert.equal(directionMask(0,0),0);assert.equal(directionMask(8,0),0);
+ [[30,0,128],[30,30,128|32],[0,30,32],[-30,30,32|64],[-30,0,64],[-30,-30,64|16],[0,-30,16],[30,-30,16|128]].forEach(([x,y,mask])=>assert.equal(directionMask(x,y),mask));
+ assert.equal(boundedOrigin(90,48),64);assert.equal(directionMask(90-boundedOrigin(90,48),0),128);
+});

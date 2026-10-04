@@ -8,6 +8,10 @@ Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/2
 
 ## Current responsibility and bounded replacement
 
+The implementation builds on accepted #208 and its existing presentation owner. `Controller.tsx` replaces the static NES art and keyboard rows, with `virtual-controls.ts` owning contact union and eight-way directions. `LocalPlayer` still samples all input and enforces driver and selected-device availability; `SessionStage` still owns expansion and the phone panel. The one keyboard editor uses the game band on desktop and the existing Controls body on phones, with the same draft and canonical preference writer. With Gamepad selected, its existing Settings → Controls mappings remain the editing path. `GameShortcuts.tsx` retains available shortcuts, including Mute and Save while paused, and derives talk hints from the selected device. Public manual Load remains a separate #236 delivery.
+
+Preferences remain scoped to the loaded ROM. With no ROM loaded, Save applies controls in memory as before; with a ROM, it waits for the existing preference write and retains the draft on failure. The earlier source inventory below describes the planning baseline, not retained competing implementations.
+
 `PlayingTools.tsx` contains Famicom art and configured keyboard/shortcut lines under started Game settings. `Settings.tsx` owns capture/conflict/remapping; `controls.ts` owns masks/defaults/conflict; preferences own storage. `SessionStage` owns existing expanded-game presentation. `LocalPlayer.controllerMask/sampleGameInput` supplies the current game driver; coordinator/game-client ownership and synchronization remain authoritative. This source inspection proves an existing guide path, not a reproduced complete absence.
 
 - Extract/replace static art with one semantic controller used in its reserved game band, with optional connected hints and the existing inline binding editor. Derive all bindings/colors from current controls, retaining Z/C, rapid A/D, Alt/Space, P/M/Q/E/V and personal remaps. Never hard-code defaults into the guide.
