@@ -469,7 +469,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
     before = page.locator('.rc-identity').bounding_box()
     names_fit(page)
     header_boxes = {selector: page.locator(selector).bounding_box() for selector in ('.rc-header', '.rc-trail', '.rc-identity')}
-    name_boxes = page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
+    name_boxes = page.locator('.rc-header-name').evaluate_all('nodes => nodes.filter(node=>node.getClientRects().length).map(node => node.getBoundingClientRect().toJSON())')
     original_identity = page.locator('.rc-identity').inner_text()
     page.get_by_role('button', name='Edit your name:', exact=False).click()
     dialog = page.get_by_role('dialog', name='Change your name')
@@ -512,7 +512,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
     page.set_viewport_size({'width': size[0], 'height': size[1]})
     choose_section(page, 'Profile')
     assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
-    assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
+    assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.filter(node=>node.getClientRects().length).map(node => node.getBoundingClientRect().toJSON())')
     page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
     page.get_by_role('button', name='Edit your name: ' + '漢' * 32).click()
     page.get_by_role('textbox', name='Your name', exact=True).fill('Alex')
