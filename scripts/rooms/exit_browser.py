@@ -11,7 +11,7 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(os.environ.get('RETRO_COOP_STATIC_ROOT', ROOT / 'apps/client/dist'))
-ROM = STATIC / 'generated/diagnostic.nes'
+ROM = ROOT / 'spikes/d02/fixture.local.nes'
 SCREENSHOTS = Path(os.environ['RETRO_EXIT_SCREENSHOT_DIR']) if 'RETRO_EXIT_SCREENSHOT_DIR' in os.environ else None
 
 

@@ -65,7 +65,7 @@ test('preview renders a title frame and restores the exact unplayed machine stat
 });
 
 const wasmPath=new URL('./generated/retro_coop_d02.wasm',import.meta.url);
-const romPath=new URL('../public/generated/diagnostic.nes',import.meta.url);
+const romPath=new URL('../../../spikes/d02/fixture.local.nes',import.meta.url);
 test('prepared native core previews games with and without restored battery data',{
  skip:!existsSync(wasmPath)||!existsSync(romPath)?'Run sh scripts/foundation/prepare.sh first':false,
 },async()=>{
