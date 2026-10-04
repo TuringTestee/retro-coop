@@ -5,17 +5,34 @@ on:
 permissions:
   contents: read
 env:
-  QUALIFICATION_LOBBY: ReleaseRelay20261004T1520
-  QUALIFICATION_MODE: relay
-  QUALIFICATION_PASSWORD: QualificationCohort20261004T1520
-  QUALIFICATION_PLAY_SECONDS: 15
-  PUBLIC_PRODUCT_REVISION: 7ca1d28d68dadc754bdc31360494b19bd9bef926
+  # Set the frozen deployed main and a unique cohort before pushing this branch.
+  QUALIFICATION_SERIES: FinalReleasePrepared
+  QUALIFICATION_PASSWORD: QualificationCohortFinalPrepared
+  PUBLIC_PRODUCT_REVISION: pending
   PUBLIC_CORE_SHA256: a8478f5e67edf77a1af7d43a0015b3234a1d309af269ef2e59294495ee26872b
 jobs:
   guest:
     runs-on: ubuntu-24.04
-    timeout-minutes: 135
+    timeout-minutes: ${{ matrix.timeout_minutes }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - mode: direct
+            play_seconds: 1800
+            timeout_minutes: 45
+          - mode: relay
+            play_seconds: 7200
+            timeout_minutes: 135
+    env:
+      QUALIFICATION_MODE: ${{ matrix.mode }}
+      QUALIFICATION_LOBBY: ${{ env.QUALIFICATION_SERIES }}-${{ matrix.mode }}
+      QUALIFICATION_PLAY_SECONDS: ${{ matrix.play_seconds }}
     steps:
+      - name: Require the frozen deployment revision
+        shell: bash
+        run: '[[ "$PUBLIC_PRODUCT_REVISION" =~ ^[0-9a-f]{40}$ ]]'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
