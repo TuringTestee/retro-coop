@@ -39,9 +39,18 @@ export function RoomSlots({room,connected,act,onKickRequested,onFeedback,onInspe
   // A wrapped or reflowed player list cannot use slot indices to predict menu space.
   const place=()=>{
    menu.style.translate='';
-   const bounds=panel.getBoundingClientRect(),box=menu.getBoundingClientRect();
+   const bounds=panel.getBoundingClientRect(),box=menu.getBoundingClientRect(),row=menu.parentElement!.querySelector('.slot-row')!.getBoundingClientRect();
    const top=bounds.top+panel.clientTop,bottom=top+panel.clientHeight;
-   menu.style.translate=`0 ${Math.max(top-box.top,Math.min(0,bottom-box.bottom))}px`;
+   let y=box.top;
+   if(box.bottom>bottom)y=row.top-box.height+1;
+   y=Math.max(top,Math.min(y,bottom-box.height));
+   let x=0;
+   if(y<row.bottom&&y+box.height>row.top){
+    const stage=panel.closest('.rc-stage')!.getBoundingClientRect();
+    if(row.right+box.width<=stage.right)x=row.right-box.left;
+    else if(row.left-box.width>=stage.left)x=row.left-box.width-box.left;
+   }
+   menu.style.translate=`${x}px ${y-box.top}px`;
   };
   place();
   const observer=new ResizeObserver(place);observer.observe(panel);
