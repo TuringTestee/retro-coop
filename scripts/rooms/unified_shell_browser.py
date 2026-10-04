@@ -534,6 +534,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         phone = page.get_by_role('navigation', name='Lobby sections').is_visible()
         assert bool(page.locator('.rc-game-fullscreen').count()) == phone
         if phone:
+            page.wait_for_function('Number(document.querySelector("canvas").dataset.frameCount)>=60')
             page.screenshot(path=str(output / f'automatic-play-{size[0]}x{size[1]}.png'))
             page.get_by_role('button', name='Return to lobby view', exact=True).click()
             assert page.get_by_role('navigation', name='Lobby sections').locator('[aria-current=page]').inner_text() == 'Game'
