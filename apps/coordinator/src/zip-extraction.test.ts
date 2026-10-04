@@ -98,6 +98,16 @@ test('HTTP enforces actual compressed bytes for chunked bodies',async()=>{
   });assert.equal(response.status,413);assert.deepEqual(JSON.parse(response.body),{error:'archive_size_limit'});await t.clear();
  }finally{await t.close();}
 });
+test('HTTP rejects a chunked archive at the limit without waiting for its sender to finish',async()=>{
+ const t=await setup();let request:ReturnType<typeof httpRequest>|undefined,deadline:ReturnType<typeof setTimeout>|undefined;
+ try{
+  const result=new Promise<{status:number;body:string}>((resolve,reject)=>{
+   request=httpRequest(t.url+'/rom-extractions',{method:'POST',headers:{Origin:origin,Authorization:`Bearer ${t.token}`,'Content-Type':'application/zip'}},response=>{let body='';response.on('data',chunk=>body+=chunk);response.on('end',()=>resolve({status:response.statusCode!,body}));});request.on('error',()=>{});request.write(Buffer.alloc(ZIP_ARCHIVE_LIMIT));
+   deadline=setTimeout(()=>reject(Error('The server waited for an over-limit sender to finish.')),2000);deadline.unref();
+  });
+  const response=await result;assert.equal(response.status,413);assert.deepEqual(JSON.parse(response.body),{error:'archive_size_limit'});await t.clear();
+ }finally{clearTimeout(deadline);request?.destroy();await t.close();}
+});
 test('HTTP extraction requires allowed origin, authenticated session and valid content type',async()=>{
  const t=await setup();try{
   const bytes=archive([{name:'game.nes',data:rom()}]);

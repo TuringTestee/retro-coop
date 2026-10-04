@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {createReadStream,createWriteStream} from 'node:fs';
 import {open} from 'node:fs/promises';
 import type {IncomingMessage,ServerResponse} from 'node:http';
-import {Readable,Transform} from 'node:stream';
+import {PassThrough,Transform} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {crc32} from 'node:zlib';
 import {openPromise,type Entry,type ZipFile} from 'yauzl';
@@ -61,9 +61,15 @@ export async function extractZip(request:IncomingMessage,response:ServerResponse
   if(length!==undefined&&(!Number.isSafeInteger(length)||length<=0||length>=ZIP_ARCHIVE_LIMIT))throw new RoomError('archive_size_limit');
   scratch=store.beginExtraction(length??0,abort);const owned=scratch;
   let received=0;
-  await pipeline(Readable.from(request.iterator({destroyOnReturn:false})),new Transform({transform(chunk:Buffer,_encoding,callback){
-   try{progress();received+=chunk.length;if(received>=ZIP_ARCHIVE_LIMIT)throw new RoomError('archive_size_limit');if(length!==undefined&&received>length)throw new RoomError('length_mismatch');owned.reserveArchive(received);callback(null,chunk);}catch(error){callback(error as Error);}
-  }}),createWriteStream(scratch.archivePath,{flags:'wx',mode:0o600}),{signal:controller.signal});
+  // Own the pipeline's source so rejecting input neither destroys the HTTP response
+  // nor waits for an unfinished sender's async iterator to return.
+  const body=new PassThrough(),inputError=(error:Error)=>body.destroy(error);
+  request.once('error',inputError);request.pipe(body);
+  try{
+   await pipeline(body,new Transform({transform(chunk:Buffer,_encoding,callback){
+    try{progress();received+=chunk.length;if(received>=ZIP_ARCHIVE_LIMIT)throw new RoomError('archive_size_limit');if(length!==undefined&&received>length)throw new RoomError('length_mismatch');owned.reserveArchive(received);callback(null,chunk);}catch(error){callback(error as Error);}
+   }}),createWriteStream(scratch.archivePath,{flags:'wx',mode:0o600}),{signal:controller.signal});
+  }finally{request.unpipe(body);request.off('error',inputError);}
   if(!received || length!==undefined&&received!==length)throw new RoomError('length_mismatch');
   progress();zip=await openPromise(scratch.archivePath,{lazyEntries:true,autoClose:false,validateEntrySizes:true,strictFileNames:true});
   const selected=await selectedEntry(zip,progress);progress();
