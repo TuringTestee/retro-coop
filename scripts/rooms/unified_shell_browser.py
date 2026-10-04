@@ -326,6 +326,8 @@ def controller_input(browser, url, output):
         assert ram == [int(f'{expected:08b}'[::-1], 2), 0], (label, expected, ram)
         records.append({'action': label, 'mask': expected, 'native_ram': ram,
                         'frames': page.evaluate('proof.frameCount')})
+        (output / 'controller-native.json').write_text(json.dumps(records, indent=2)+'\n')
+        print(f'controller input: {label}', flush=True)
     try:
         page.goto(url)
         page.get_by_role('button', name='Host a new game').click()
@@ -335,6 +337,7 @@ def controller_input(browser, url, output):
         page.get_by_role('button', name='Ready', exact=True).wait_for()
         for width, height in ((1280, 800), (1024, 600), (900, 700)):
             page.set_viewport_size({'width': width, 'height': height})
+            page.locator('.rc-session').evaluate('async node=>{node.getBoundingClientRect();await Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{})));}')
             controller_fits(page)
             assert text_fits(page.locator('.rc-controller-band')), (width, height)
         page.set_viewport_size({'width': 1280, 'height': 800})
