@@ -15,6 +15,8 @@ import {
   directionMask,
 } from "./virtual-controls.ts";
 
+const directionGlyphs = { up: "↑", left: "←", down: "↓", right: "→" } as const;
+
 export function Controller({
   controls,
   covered,
@@ -243,12 +245,17 @@ export function Controller({
     AltRight: "Alt",
     Space: "Space",
   };
-  const hint = (action: Action) =>
-    [
-      ...new Set(
-        controls[source][action].map((key) => short[key] ?? bindingLabel(key)),
-      ),
-    ].join(" / ") || "Unbound";
+  const fullHint = (action: Action) =>
+    controls[source][action].map(bindingLabel).join(" / ") || "Unbound";
+  const hint = (action: Action) => {
+    const primary = controls[source][action][0];
+    if (!primary) return "Unbound";
+    if (source === "gamepad" && primary.startsWith("button:"))
+      return String(Number(primary.split(":")[1]) + 1);
+    return short[primary] ?? bindingLabel(primary);
+  };
+  const directionHint = (["up", "left", "down", "right"] as const)
+    .map(action => `${labels[action]}: ${fullHint(action)}`).join("; ");
   const duplicate =
     draft && binding ? conflict(draft.keyboard, capture, binding) : undefined;
   const editor = draft ? (
@@ -377,7 +384,7 @@ export function Controller({
                     data-pressed={!!(mask & bit)}
                     aria-hidden="true"
                   >
-                    {{ up: "↑", left: "←", down: "↓", right: "→" }[action]}
+                    {directionGlyphs[action]}
                   </span>
                 );
               })}
@@ -410,22 +417,22 @@ export function Controller({
               aria-label={`${source === "keyboard" ? "Keyboard" : "Gamepad"} controls`}
             >
               <div className="rc-connected-hints">
-                <span className="rc-connected-move">
-                  Move <i aria-hidden="true" />{" "}
+                <span className="rc-connected-move" aria-label={directionHint} title={directionHint}>
+                  {source === "gamepad" ? "Gamepad buttons" : "Move"} <i aria-hidden="true" />{" "}
                   {(["up", "left", "down", "right"] as const)
-                    .map(hint)
+                    .map(action => {const glyph = directionGlyphs[action];const binding = hint(action);return glyph === binding ? glyph : `${glyph}${binding}`;})
                     .join(" ")}
                 </span>
                 <div>
                   {(["select", "start"] as const).map((action) => (
-                    <span key={action} className={`rc-connected-${action}`}>
+                    <span key={action} className={`rc-connected-${action}`} aria-label={`${labels[action]}: ${fullHint(action)}`} title={`${labels[action]}: ${fullHint(action)}`}>
                       {labels[action]} <i aria-hidden="true" /> {hint(action)}
                     </span>
                   ))}
                 </div>
                 <div>
                   {(["b", "a"] as const).map((action) => (
-                    <span key={action} className={`rc-connected-${action}`}>
+                    <span key={action} className={`rc-connected-${action}`} aria-label={`${labels[action]}: ${fullHint(action)}`} title={`${labels[action]}: ${fullHint(action)}`}>
                       {labels[action]} <i aria-hidden="true" /> {hint(action)}
                     </span>
                   ))}
