@@ -12,6 +12,7 @@ import json
 import math
 import re
 import struct
+import sys
 import subprocess
 import tempfile
 import time
@@ -27,6 +28,8 @@ p.add_argument('--mode', choices=['tabs', 'processes'], default='tabs')
 p.add_argument('--output', required=True)
 a = p.parse_args()
 root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(root / 'scripts/rooms'))
+from ui_helpers import choose_panel, choose_section
 out = Path(a.output)
 if (out / 'result.json').exists():
     p.error('--output needs a fresh directory')
@@ -97,11 +100,18 @@ def recovery_bounds(page):
 
 
 def voice(page):
-    page.get_by_role('button', name='Voice', exact=True).click()
+    choose_section(page, 'Voice')
+
+def mic_control(page, on):
+    voice(page)
+    selector = page.get_by_role('combobox', name='Voice setting', exact=True)
+    if selector.is_visible():
+        selector.select_option('mic')
+    return page.get_by_role('button', name=('Unmute ' if on else 'Mute ') + ('mic' if selector.is_visible() else 'microphone'), exact=True)
 
 def mic(page, on):
     # This helper toggles explicit mute while the microphone is in open mode.
-    page.get_by_role('button', name='Unmute microphone' if on else 'Mute microphone', exact=True).click()
+    mic_control(page, on).click()
     page.wait_for_function('enabled => captures.at(-1).getAudioTracks()[0].enabled === enabled', arg=on)
 
 def leave(page):
@@ -165,9 +175,17 @@ def game_progress(page):
 
 
 def chat(sender, receiver, text):
+    previous = {}
+    for page in (sender, receiver):
+        navigation = page.get_by_role('navigation', name='Lobby sections')
+        if navigation.is_visible():
+            previous[page] = navigation.locator('[aria-current=page]').inner_text()
+        choose_panel(page, 'Chat')
     sender.get_by_label('Message everyone').fill(text)
     sender.get_by_role('button', name='Send', exact=True).click()
     receiver.get_by_text(text, exact=False).wait_for()
+    for page, panel in previous.items():
+        choose_panel(page, panel)
 
 
 def stop_service(service):
@@ -241,7 +259,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     for t in [host, guest]:
         t.wait_for_function('captures.length===1&&captures[0].getAudioTracks()[0].readyState==="live"')
         assert not t.evaluate('captures[0].getAudioTracks()[0].enabled')
-        t.get_by_role('button', name='Sound', exact=True).click()
+        choose_section(t, 'Sound')
         t.get_by_role('button', name='Mute game', exact=True).click()
         voice(t)
         # Keep incoming voice audible: zero element volume also suppresses
@@ -297,7 +315,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.keyboard.up('v')
     host.get_by_label('Voice mode').select_option('open')
     host.screenshot(path=str(out / 'voice.png'))
-    host.get_by_role('button', name='Disable microphone', exact=True).click()
+    host.get_by_role('button', name=re.compile(r'^Disable (microphone|voice)$')).click()
     host.context.clear_permissions()
     host.context.grant_permissions([])
     assert host.evaluate("async()=>(await navigator.permissions.query({name:'microphone'})).state") == 'denied'
@@ -318,13 +336,18 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         guest.wait_for_function('captures.at(-1).getAudioTracks()[0].readyState === "live"')
         mic(guest, False)
         result['other_capture_permission_retry'] = True
-    host.get_by_role('button', name='Devices', exact=True).click()
+    voice(host)
+    selector = host.get_by_role('combobox', name='Voice setting', exact=True)
+    if selector.is_visible():
+        selector.select_option('devices')
+    else:
+        host.get_by_role('button', name='Devices', exact=True).click()
     devices = host.get_by_role('combobox', name='Microphone')
     devices.wait_for()
     values = devices.locator('option').evaluate_all("o=>o.map(x=>x.value).filter(v=>v!=='default')")
     assert values
     devices.select_option(values[0])
-    host.get_by_role('button', name='Unmute microphone', exact=True).wait_for()
+    mic_control(host, True).wait_for()
     mic(host, True)
     result['device_replacement'] = energy(guest, True, sender=host)
     host.evaluate('modelMicrophoneRemoval(captures.at(-1).getAudioTracks()[0])')
@@ -337,6 +360,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
         assert int(t.locator('canvas').get_attribute('data-frame-count')) > n, 'Voice recovery interrupted gameplay'
     result['game_continuity'] = True
     host.set_viewport_size({'width': 320, 'height': 700})
+    voice(host)
     host.get_by_role('combobox', name='Voice setting', exact=True).select_option('sound')
     host.evaluate('window.blockPlayback=true')
     host.get_by_role('button', name='Mute others', exact=True).click()
@@ -370,6 +394,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     host.get_by_text('Remote voice playback was blocked.', exact=True).wait_for()
     for width in (1366, 320):
         host.set_viewport_size({'width': width, 'height': 700})
+        voice(host)
         host.get_by_role('button', name='Enable voice sound', exact=True).wait_for()
         assert ' '.join(host.locator('.rc-voice-recovery').inner_text().split()) == 'Remote voice playback was blocked. Enable voice sound'
         recovery_bounds(host)
