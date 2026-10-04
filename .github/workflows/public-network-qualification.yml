@@ -1,0 +1,38 @@
+name: Temporary final release independent network proof
+on:
+  push:
+    branches: [test/public-independent-network]
+permissions:
+  contents: read
+env:
+  QUALIFICATION_LOBBY: SET_BY_ROOT_BEFORE_AUTHORIZED_PUSH
+  QUALIFICATION_MODE: direct
+  PUBLIC_PRODUCT_REVISION: SET_BY_ROOT_AFTER_DEPLOYMENT_VERIFICATION
+  PUBLIC_CORE_SHA256: SET_BY_ROOT_AFTER_ASSET_VERIFICATION
+jobs:
+  guest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install one pinned browser
+        run: |
+          python -m pip install playwright==1.58.0
+          python -m playwright install --with-deps chromium
+      - name: Join public host from independent GitHub network
+        run: >-
+          python .qualification/public_peer.py --role guest
+          --lobby "$QUALIFICATION_LOBBY" --mode "$QUALIFICATION_MODE"
+          --product-revision "$PUBLIC_PRODUCT_REVISION"
+          --core-sha256 "$PUBLIC_CORE_SHA256" --check-enter --output proof
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: public-guest-${{ env.QUALIFICATION_MODE }}
+          path: proof
+          retention-days: 7
