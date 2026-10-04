@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from playwright.async_api import Error as PlaywrightError, async_playwright
+from ui_helpers import choose_section_async
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,7 +27,7 @@ async def create_lobby(page, name, protected=False):
     await page.get_by_role('textbox', name='Lobby name').fill(name)
     await page.get_by_role('textbox', name='Lobby name').press('Enter')
     if protected:
-        await page.get_by_role('button', name='Lobby', exact=True).click()
+        await choose_section_async(page, 'Lobby')
         await page.get_by_role('button', name='Require password').click()
         await page.get_by_label('New lobby password').fill('blue-sky-room')
         await page.get_by_role('button', name='Save password').click()

@@ -104,7 +104,7 @@ def control_visibility(locator, require_focus=False):
     """Check full bounds + focused outline against every clipping ancestor."""
     result = locator.evaluate(r"""n=>{
       const b=n.getBoundingClientRect(),style=getComputedStyle(n),focused=n===document.activeElement;
-      const outline=focused ? Math.max(0,parseFloat(style.outlineWidth)||0)+Math.max(0,parseFloat(style.outlineOffset)||0):0;
+      const outline=focused ? Math.max(0,(parseFloat(style.outlineWidth)||0)+(parseFloat(style.outlineOffset)||0)):0;
       let clip={left:0,top:0,right:innerWidth,bottom:innerHeight}; const ancestors=[];
       for(let p=n.parentElement;p;p=p.parentElement){if(p===document.body||p===document.documentElement)continue;
         const s=getComputedStyle(p),r=p.getBoundingClientRect();
@@ -160,7 +160,8 @@ def browser_zoom(page, worker, factor=2):
     settings = worker.evaluate('''async ({url,factor})=>{
       const matches=(await chrome.tabs.query({})).filter(t=>t.url===url);
       if(matches.length!==1)throw Error('Zoom target must have a unique URL');
-      const tab=matches[0];await chrome.tabs.setZoomSettings(tab.id,{mode:'automatic',scope:'per-tab'});
+      // Origin scope preserves real browser zoom through same-origin navigation.
+      const tab=matches[0];await chrome.tabs.setZoomSettings(tab.id,{mode:'automatic',scope:'per-origin'});
       await chrome.tabs.setZoom(tab.id,factor);
       return {tabId:tab.id,zoom:await chrome.tabs.getZoom(tab.id),settings:await chrome.tabs.getZoomSettings(tab.id)};
     }''', {'url': page.url, 'factor': factor})

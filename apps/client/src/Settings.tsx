@@ -1,4 +1,4 @@
-import {useEffect,useRef,useState} from 'react';
+import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {actions,labels,defaults,conflict,inputMask,padInputs,bindingLabel,type Action,type Controls} from './controls.ts';
 import type {VoiceSession,VoiceState} from './voice.ts';
 import type {RoomView} from '../../../packages/contracts/src/rooms.ts';
@@ -7,7 +7,7 @@ import {LobbyOptions} from './LobbyOptions.tsx';
 import {PlayingTools} from './PlayingTools.tsx';
 
 type Props={
- connection?:string;voiceState?:VoiceState;voiceSession?:VoiceSession;localData?:()=>void;
+ profileContent?:React.ReactNode;connection?:string;voiceState?:VoiceState;voiceSession?:VoiceSession;localData?:()=>void;
  room?:RoomView;onAct?:RoomClient['act'];
  localGame?:boolean;
  pauseActionLabel?:string;
@@ -21,8 +21,15 @@ export function Settings(props:Props){
  const [section,setSection]=useState<Section>(props.initialSection??'controls'),[page,setPage]=useState(0),[source,setSource]=useState<'keyboard'|'gamepad'>('keyboard');
  const [compact,setCompact]=useState(()=>matchMedia('(max-width: 650px)').matches);
  const [pads,setPads]=useState<{index:number;id:string}[]>([]),[capture,setCapture]=useState<Action|null>(null),[binding,setBinding]=useState<string|null>(null),[confirm,setConfirm]=useState(false),[tested,setTested]=useState(0);
- const captureBox=useRef<HTMLDivElement>(null),returnFocus=useRef<HTMLElement|null>(null),held=useRef(new Set<string>()),previousPad=useRef(new Set<string>());
- useEffect(()=>{const query=matchMedia('(max-width: 650px)'),changed=()=>{setCompact(query.matches);setPage(0);};query.addEventListener('change',changed);return()=>query.removeEventListener('change',changed);},[]);
+ const compactMode=useRef(compact);
+ const body=useRef<HTMLDivElement>(null),captureBox=useRef<HTMLDivElement>(null),returnFocus=useRef<HTMLElement|null>(null),held=useRef(new Set<string>()),previousPad=useRef(new Set<string>());
+ useLayoutEffect(()=>{
+  const node=body.current;if(!node)return;
+  // Full settings require room for their status, controls and recovery action.
+  // Use the existing compact sections when the fixed body cannot fit them.
+  const update=()=>{const next=matchMedia('(max-width: 650px)').matches||node.clientHeight<280;if(next!==compactMode.current){compactMode.current=next;setCompact(next);setPage(0);}};
+  update();const observer=new ResizeObserver(update);observer.observe(node);return()=>observer.disconnect();
+ },[props.open]);
  useEffect(()=>{if(!props.open){setCapture(null);setBinding(null);setConfirm(false);held.current.clear();setTested(0);}},[props.open]);
  useEffect(()=>{if(capture)captureBox.current?.focus();else if(!confirm){returnFocus.current?.focus();returnFocus.current=null;}},[capture,confirm]);
  useEffect(()=>{
@@ -44,13 +51,13 @@ export function Settings(props:Props){
  const sections:Section[]=[...(props.room?.started||props.localGame?['game' as const]:[]),...(props.room?.role==='host'?['lobby' as const]:[]),'controls','picture','voice','profile'];
  return <section className={props.inline?'rc-inline-settings':'rc-tool-page rc-settings'} aria-label="Game settings">
   <div className="rc-tool-heading"><h2>Settings</h2><nav aria-label="Settings sections">{sections.map(item=><button key={item} aria-current={section===item?'page':undefined} onClick={()=>switchSection(item)}>{item==='picture'?'Sound':item[0].toUpperCase()+item.slice(1)}</button>)}</nav><select className="rc-settings-select" aria-label="Settings section" value={section} onChange={event=>switchSection(event.target.value as Section)}>{sections.map(item=><option key={item} value={item}>{item==='picture'?'Sound':item[0].toUpperCase()+item.slice(1)}</option>)}</select></div>
-  <div className="rc-tool-body">
+  <div className="rc-tool-body" ref={body}>
    {section==='game'&&<PlayingTools controls={props.controls} local={!!props.localGame} pauseActionLabel={props.pauseActionLabel}/>}
    {section==='lobby'&&props.room&&props.onAct&&<LobbyOptions room={props.room} onAct={props.onAct}/>}
    {section==='controls'&&(capture?<div className="rc-tool-stack"><h3>Map {labels[capture]}</h3><div ref={captureBox} tabIndex={0} className="rc-capture" aria-label="Capture input" onKeyDown={event=>{if(event.code==='Escape'){event.preventDefault();event.stopPropagation();setCapture(null);setBinding(null);return;}if(source==='keyboard'&&event.code!=='Tab'){event.preventDefault();event.stopPropagation();if(!event.metaKey&&!event.ctrlKey&&(!event.altKey||event.code==='AltLeft'||event.code==='AltRight'))setBinding(event.code);}}}>{source==='keyboard'?'Press one key here. Tab and Escape remain for navigation.':'Release, then press a button or move an axis on your gamepad.'}</div><p role="status">{duplicate?`${bindingLabel(binding!)} is used for ${labels[duplicate]}. Choose another.`:binding?`New input: ${bindingLabel(binding)}`:'Waiting for input…'}</p><div className="rc-tool-actions"><button disabled={!binding||!!duplicate} onClick={()=>{props.change({...props.controls,[source]:{...props.controls[source],[capture]:[binding!]}});setCapture(null);setBinding(null);}}>Apply mapping</button><button onClick={()=>{setCapture(null);setBinding(null);}}>Cancel</button></div></div>:confirm?<div className="rc-tool-stack" role="alertdialog" aria-label="Confirm mapping reset"><h3>Restore {source} mappings?</h3><p>This replaces every mapping, including push to talk.</p><div className="rc-tool-actions"><button onClick={()=>{props.change({...props.controls,[source]:defaults()[source]});setConfirm(false);}}>Restore</button><button onClick={()=>setConfirm(false)}>Keep mappings</button></div></div>:<div className="rc-tool-stack"><div className="rc-tool-inline"><label>Input device<select aria-label="Input device" value={props.controls.device?String(props.controls.device.index):'keyboard'} onChange={event=>{const device=pads.find(pad=>String(pad.index)===event.target.value)??null;props.change({...props.controls,device});setSource(device?'gamepad':'keyboard');}}><option value="keyboard">Keyboard</option>{pads.map(pad=><option key={`${pad.index}:${pad.id}`} value={pad.index}>{pad.id}</option>)}</select></label><label>Edit mappings<select aria-label="Edit mappings" value={source} onChange={event=>{setSource(event.target.value as typeof source);setPage(0);}}><option value="keyboard">Keyboard</option><option value="gamepad">Gamepad</option></select></label></div><div className="rc-mapping-list">{actions.slice(page*mappingPageSize,page*mappingPageSize+mappingPageSize).map(action=><div className="rc-mapping" key={action}><strong>{labels[action]}</strong><span title={props.controls[source][action].map(bindingLabel).join(' / ')}>{props.controls[source][action].map(bindingLabel).join(' / ')||'Unbound'}</span><button onClick={event=>{returnFocus.current=event.currentTarget;setCapture(action);setBinding(null);}}>Change</button></div>)}</div><div className="rc-tool-actions rc-mapping-actions"><button aria-label="Previous" disabled={page===0} onClick={()=>setPage(page-1)}>{compact?'‹':'Previous'}</button><span>{page+1}/{mappingPages}</span><button aria-label="Next" disabled={page>=mappingPages-1} onClick={()=>setPage(page+1)}>{compact?'›':'Next'}</button><button aria-label="Restore defaults" onClick={event=>{returnFocus.current=event.currentTarget;setConfirm(true);}}>{compact?'Reset':'Restore defaults'}</button></div><div className="rc-input-test" tabIndex={0} aria-label="Test mapped input" onKeyDown={event=>{if(event.code!=='Tab'&&event.code!=='Escape'){event.preventDefault();held.current.add(event.code);}}} onBlur={()=>held.current.clear()}>Test input: {actions.slice(0,8).filter((_,index)=>tested&(1<<index)).map(action=>labels[action]).join(', ')||'None'}</div></div>)}
    {section==='picture'&&<div className="rc-tool-stack"><label>Display filter<select value={props.filter} onChange={event=>props.setFilter(event.target.value as Props['filter'])}><option value="nearest">Nearest neighbor</option><option value="scanlines">Scanlines</option></select></label><label>Game volume {Math.round(props.volume*100)}%<input type="range" min="0" max="100" value={Math.round(props.volume*100)} onChange={event=>props.setVolume(Number(event.target.value)/100)}/></label><button onClick={props.toggleMute}>{props.muted?'Unmute game':'Mute game'}</button>{props.audioIssue&&<p role="status">{props.audioIssue} <button onClick={props.retryAudio}>Retry game audio</button></p>}</div>}
    {section==='voice'&&<VoiceSettings voice={voice} state={state} compact={compact}/>}
-   {section==='profile'&&<div className="rc-tool-stack">{props.localData&&<button onClick={props.localData}>Local data</button>}</div>}
+   {section==='profile'&&<div className="rc-tool-stack">{props.profileContent}{props.localData&&<button onClick={props.localData}>Local data</button>}</div>}
   </div>
  </section>;
 }

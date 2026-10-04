@@ -7,55 +7,225 @@ import subprocess
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, zoom_context, verify_zoom
+from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom
+from ui_helpers import choose_section, choose_panel
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def choose_section(page, name):
-    selector = page.get_by_role('combobox', name='Settings section')
-    if selector.is_visible():
-        selector.select_option(label=name)
-    else:
-        page.get_by_role('button', name=name, exact=True).click()
+
+def game_fits(page):
+    canvas = page.locator('.rc-game-display canvas').bounding_box()
+    region = page.locator('.rc-game-display').bounding_box()
+    assert canvas['x'] >= region['x']-1 and canvas['y'] >= region['y']-1, (canvas, region)
+    assert canvas['x']+canvas['width'] <= region['x']+region['width']+1, (canvas, region)
+    assert canvas['y']+canvas['height'] <= region['y']+region['height']+1, (canvas, region)
+    scale = min(canvas['width']/256, canvas['height']/240)
+    rendered = {'width': 256*scale, 'height': 240*scale}
+    assert rendered['height'] >= 90, rendered
+    return rendered
 
 
 def settings_controls_fit(page):
     return page.locator('.rc-tool-body').evaluate("""body => {
-      const edge = body.closest('.rc-mobile-side-panel,.rc-side-panel,.rc-play-tools').getBoundingClientRect().bottom;
+      const edge = body.closest('.rc-session-settings').getBoundingClientRect().bottom;
       return [...body.querySelectorAll('button,input,select')].filter(node => getComputedStyle(node).display !== 'none')
         .every(node => node.getBoundingClientRect().bottom <= edge + 1);
     }""")
 
 
-def guide_fits(page):
-    return page.locator('.rc-inline-settings').evaluate("""panel => {
-      const edge = panel.getBoundingClientRect();
-      const rows = [...panel.querySelectorAll('.rc-control-line,.rc-shortcuts')];
-      return rows.length === 7 && rows.every(row => {
-        const rect = row.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && rect.left >= edge.left - 1 && rect.right <= edge.right + 1 && rect.bottom <= edge.bottom + 1
-          && row.scrollWidth <= row.clientWidth + 1 && [...row.querySelectorAll('strong,b')].every(text => {
-            const box = text.getBoundingClientRect();
-            return box.left >= rect.left - 1 && box.right <= rect.right + 1 && box.top >= rect.top - 1 && box.bottom <= rect.bottom + 1
-              && text.scrollWidth <= text.clientWidth + 1;
-          });
-      });
+def text_fits(locator):
+    """Check glyph bounds through every clipping ancestor, including wrapped text."""
+    return locator.evaluate("""node => {
+      let clip = {left: 0, top: 0, right: innerWidth, bottom: innerHeight};
+      for (let parent = node; parent; parent = parent.parentElement) {
+        const style = getComputedStyle(parent), box = parent.getBoundingClientRect();
+        if (style.display === "contents") continue;
+        if (/(hidden|clip|auto|scroll)/.test(style.overflowX)) {
+          clip.left = Math.max(clip.left, box.left + parent.clientLeft);
+          clip.right = Math.min(clip.right, box.left + parent.clientLeft + parent.clientWidth);
+        }
+        if (/(hidden|clip|auto|scroll)/.test(style.overflowY)) {
+          clip.top = Math.max(clip.top, box.top + parent.clientTop);
+          clip.bottom = Math.min(clip.bottom, box.top + parent.clientTop + parent.clientHeight);
+        }
+      }
+      for (const child of node.querySelectorAll('*')) {
+        const style = getComputedStyle(child);
+        if (child.getClientRects().length && /(hidden|clip)/.test(style.overflowX)
+          && child.scrollWidth > child.clientWidth + 1) return false;
+      }
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      let text;
+      while ((text = walker.nextNode())) {
+        if (!text.textContent.trim()) continue;
+        if (text.parentElement.closest(".rc-game-heading[data-overflow=true] .rc-title-track") && !matchMedia("(prefers-reduced-motion:reduce)").matches) continue;
+        const range = document.createRange(); range.selectNodeContents(text);
+        for (const box of range.getClientRects()) {
+          if (box.width && box.height && (box.left < clip.left - 1 || box.right > clip.right + 1
+            || box.top < clip.top - 1 || box.bottom > clip.bottom + 1)) return false;
+        }
+      }
+      return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
     }""")
+
+
+def title_fits(page):
+    heading = page.locator('.rc-game-heading')
+    return heading.evaluate("""node => {
+      const box=node.getBoundingClientRect(), toolbar=node.closest('.rc-game-toolbar').getBoundingClientRect();
+      if(box.left<toolbar.left-1||box.right>toolbar.right+1||box.top<toolbar.top-1||box.bottom>toolbar.bottom+1)return false;
+      const track=node.querySelector('.rc-title-track'),text=node.querySelector('.rc-title-text'),clone=track.querySelector('[aria-hidden=true]');
+      if(!text||text.textContent!==node.title)return false;
+      if(node.dataset.overflow==='true'&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+        const style=getComputedStyle(track),distance=parseFloat(node.style.getPropertyValue('--rc-title-distance'));
+        return clone?.textContent===text.textContent && style.animationName==='rc-title-loop'
+          && parseFloat(style.animationDuration)>0 && Math.abs(distance-text.getBoundingClientRect().width-32)<1
+          && Math.abs(clone.getBoundingClientRect().left-text.getBoundingClientRect().left-distance)<1;
+      }
+      return !clone||getComputedStyle(clone).display==='none';
+    }""") and (page.locator('.rc-game-heading').get_attribute('data-overflow') == 'true'
+                and not page.evaluate("matchMedia('(prefers-reduced-motion:reduce)').matches") or text_fits(heading))
+
+
+def title_motion(page):
+    """Observe actual animation progress, fixed controls and reduced-motion wrapping."""
+    page.mouse.move(0, 0)
+    page.wait_for_function("document.querySelector('.rc-game-heading')?.dataset.overflow==='true'")
+    assert title_fits(page)
+    before = page.locator('.rc-game-toolbar').bounding_box()
+    time = page.locator('.rc-title-track').evaluate('node=>node.getAnimations()[0].currentTime')
+    page.wait_for_function('(before)=>document.querySelector(".rc-title-track").getAnimations()[0].currentTime>before+100', arg=time)
+    assert page.locator('.rc-game-toolbar').bounding_box() == before
+    page.locator('.rc-game-heading').focus()
+    assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationPlayState') == 'paused'
+    page.locator('.rc-game-heading').evaluate('node=>node.blur()')
+    page.emulate_media(reduced_motion='reduce')
+    page.wait_for_function("document.querySelector('.rc-game-heading').dataset.overflow==='false'&&getComputedStyle(document.querySelector('.rc-title-track')).animationName==='none'")
+    assert text_fits(page.locator('.rc-game-heading'))
+    assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationName') == 'none'
+    assert page.locator('.rc-game-toolbar').bounding_box() == before
+    page.emulate_media(reduced_motion='no-preference')
+
+
+def names_fit(page):
+    for node in page.locator('.rc-header-name').all():
+        if not node.is_visible():
+            continue
+        assert text_fits(node), node.inner_text()
+
+
+def guide_fits(page):
+    nodes = page.locator('.rc-inline-settings .rc-control-line,.rc-inline-settings .rc-shortcuts,.rc-inline-settings .rc-controller-art')
+    return nodes.count() == 8 and all(text_fits(node) for node in nodes.all())
 
 
 def regions(page):
     names = ('.rc-header', '.rc-status', '.rc-players', '.rc-game-toolbar',
              '.rc-game-display', '.rc-chat', '.rc-footer')
-    boxes = {name: page.locator(name).bounding_box() for name in names}
+    navigation = page.get_by_role('navigation', name='Lobby sections')
+    selected = navigation.locator('[aria-current=page]').inner_text() if navigation.is_visible() else None
+    boxes = {}
+    for name in names:
+        if selected:
+            choose_panel(page, 'Players' if name == '.rc-players' else 'Chat' if name == '.rc-chat' else 'Game')
+        boxes[name] = page.locator(name).bounding_box()
     assert all(boxes.values()), boxes
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
     for name, box in boxes.items():
         assert box['x'] >= -1 and box['y'] >= -1, (name, box)
         assert box['x'] + box['width'] <= page.evaluate('innerWidth') + 1, (name, box)
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
+    assert title_fits(page), page.locator('.rc-game-toolbar').inner_text()
+    for action in page.locator('.rc-game-links button').all():
+        assert text_fits(action), action.inner_text()
+    assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
+    if selected:
+        choose_panel(page, 'Players')
+    for row in page.locator('.rc-players .slot-row').all():
+        assert text_fits(row), row.inner_text()
+        assert row.evaluate("""row => {
+          const fields = [...row.querySelectorAll('strong,.slot-state,.slot-chevron')].map(node => {
+            const range = document.createRange(); range.selectNodeContents(node);
+            return [...range.getClientRects()].filter(rect => rect.width && rect.height);
+          });
+          const bounds = row.getBoundingClientRect();
+          return fields.every(rects => rects.every(rect => rect.left>=bounds.left-1
+            && rect.right<=bounds.right+1 && rect.top>=bounds.top-1 && rect.bottom<=bounds.bottom+1))
+            && fields.every((rects,index) => fields.slice(index+1).every(other =>
+            rects.every(a => other.every(b => Math.min(a.right,b.right)-Math.max(a.left,b.left)<=1
+              || Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<=1))));
+        }"""), row.inner_text()
+    if selected:
+        choose_panel(page, 'Game')
+    footer_controls = [node for node in page.locator('.rc-footer button').all() if node.is_visible()]
+    for control in footer_controls:
+        assert text_fits(control), control.inner_text()
+        control_visibility(control)
+    for index, control in enumerate(footer_controls):
+        a = control.bounding_box()
+        for other in footer_controls[index + 1:]:
+            b = other.bounding_box()
+            overlap_x = min(a['x'] + a['width'], b['x'] + b['width']) - max(a['x'], b['x'])
+            overlap_y = min(a['y'] + a['height'], b['y'] + b['height']) - max(a['y'], b['y'])
+            assert overlap_x <= 1 or overlap_y <= 1, (control.inner_text(), other.inner_text())
     assert page.locator('.rc-chat-history').evaluate('(node) => getComputedStyle(node).overflowY === "auto"')
+    if selected:
+        choose_panel(page, selected)
     return boxes
+
+
+def chat_recovery(page, output, label):
+    """Use the actual outbox after a rejected transport send, with keyboard recovery."""
+    page.evaluate("""() => {
+      window.chatNativeSend = WebSocket.prototype.send;
+      WebSocket.prototype.send = function(raw) {
+        if (JSON.parse(raw).type === 'chat' && window.rejectNextChat) {
+          window.rejectNextChat = false; throw Error('Injected transport send failure');
+        }
+        return window.chatNativeSend.call(this, raw);
+      };
+    }""")
+    entry = page.get_by_role('textbox', name='Message everyone')
+    history = page.get_by_role('log', name='Lobby messages')
+    choose_panel(page, 'Chat')
+    baseline = regions(page)
+    try:
+        for text, action in (('Retry preserves my message', 'Retry'), ('Discard only my unsent message', 'Discard')):
+            entry.fill(text)
+            page.evaluate('window.rejectNextChat = true')
+            page.get_by_role('button', name='Send', exact=True).click()
+            retry = page.get_by_role('button', name='Retry', exact=True)
+            retry.wait_for()
+            discard = page.get_by_role('button', name='Discard', exact=True)
+            for control in (retry, discard):
+                assert text_fits(control), control.inner_text()
+                control_visibility(control)
+            feedback = page.locator('.rc-chat-feedback')
+            assert text_fits(feedback), feedback.inner_text()
+            assert feedback.evaluate('n => n.parentElement.classList.contains("rc-chat-history")')
+            assert entry.input_value() == text and entry.get_attribute('readonly') is not None
+            history.focus()
+            control_visibility(history, require_focus=True)
+            page.keyboard.press('Home')
+            page.wait_for_function('document.querySelector(".rc-chat-history").scrollTop <= 1')
+            page.keyboard.press('End')
+            page.wait_for_function("""() => {const n=document.querySelector('.rc-chat-history');
+              return n.scrollHeight-n.clientHeight-n.scrollTop <= 1;}""")
+            entry.focus()
+            page.keyboard.press('Tab')
+            control_visibility(retry, require_focus=True)
+            if action == 'Discard':
+                page.keyboard.press('Tab')
+                control_visibility(discard, require_focus=True)
+            page.screenshot(path=str(output / f'chat-{action.lower()}-{label}.png'))
+            page.keyboard.press('Enter')
+            page.wait_for_function('document.querySelector(".rc-chat input").value === ""')
+            assert page.locator('.rc-chat-history li').filter(has_text=text).count() == (1 if action == 'Retry' else 0)
+            assert page.get_by_text('(you) Alex: hello', exact=True).count() == 1
+            assert regions(page) == baseline
+    finally:
+        page.evaluate('() => {WebSocket.prototype.send = window.chatNativeSend;}')
 
 
 def theme_defaults(browser, url):
@@ -196,6 +366,7 @@ def restored_battery_preview(browser, url):
 
     try:
         load()
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start →').click()
         page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)
@@ -276,70 +447,98 @@ def host(page):
     assert page.get_by_role('button', name='Start →').count() == 0
     assert page.get_by_role('button', name='Load NES game').count() == 1
     assert page.get_by_role('button', name='Copy invite').count() == 1
+    choose_panel(page, 'Settings')
     assert page.get_by_role('button', name='Voice', exact=True).count() == 1 or page.get_by_role('combobox', name='Settings section').is_visible()
-    assert page.get_by_role('button', name='Settings', exact=True).count() == 0
-    assert page.get_by_role('heading', name='Settings').is_visible()
+    assert page.get_by_role('button', name='Settings', exact=True).count() == int(page.get_by_role('navigation', name='Lobby sections').is_visible())
+    assert page.get_by_role('region', name='Game settings').is_visible()
     assert page.locator('.rc-side-panel button', has_text='×').count() == 0
-    return page.locator('.rc-trail .rc-header-edit').inner_text().replace('✎', '').strip()
+    if page.get_by_role('navigation', name='Lobby sections').is_visible():
+        choose_section(page, 'Profile')
+    return page.get_by_role('button', name='Edit lobby name:', exact=False).inner_text().replace('✎', '').strip()
 
 
-def exercise(page, size, output, play=False, invitation_recovery=False):
+def exercise(page, size, output, play=False, invitation_recovery=False, uploaded_title=False, responsive_sizes=()):
+    responsive_results = []
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     name = host(page)
     assert name
     before = page.locator('.rc-identity').bounding_box()
+    names_fit(page)
+    header_boxes = {selector: page.locator(selector).bounding_box() for selector in ('.rc-header', '.rc-trail', '.rc-identity')}
+    name_boxes = page.locator('.rc-header-name').evaluate_all('nodes => nodes.filter(node=>node.getClientRects().length).map(node => node.getBoundingClientRect().toJSON())')
     original_identity = page.locator('.rc-identity').inner_text()
     page.get_by_role('button', name='Edit your name:', exact=False).click()
     dialog = page.get_by_role('dialog', name='Change your name')
     assert dialog.is_visible()
+    box = dialog.bounding_box()
+    assert abs(box['x'] + box['width'] / 2 - size[0] / 2) <= 1
+    assert abs(box['y'] + box['height'] / 2 - size[1] / 2) <= 1
     assert page.locator('.rc-identity').bounding_box() == before
     field = dialog.get_by_role('textbox', name='Your name')
     assert field.bounding_box()['width'] >= 200
-    field.fill('Alex')
+    field.fill('漢' * 32)
     dialog.get_by_role('button', name='Cancel').click()
     assert page.locator('.rc-identity').inner_text() == original_identity
     page.get_by_role('button', name='Edit your name:', exact=False).click()
     page.get_by_role('dialog', name='Change your name').get_by_role('textbox', name='Your name').fill('Alex')
     page.get_by_role('dialog', name='Change your name').get_by_role('button', name='Save name').click()
     page.get_by_role('button', name='Edit your name: Alex').wait_for()
-    if size[0] <= 650:
-        # The name must retain a readable track between the lobby title and theme control.
-        identity_name = page.locator('.rc-identity .rc-header-edit').bounding_box()
-        assert identity_name['width'] >= 120, (size, identity_name)
-        assert page.locator('.rc-identity .rc-header-edit').evaluate(
-            'node => node.scrollWidth <= node.clientWidth + 1'), size
     page.get_by_role('button', name='Edit lobby name:', exact=False).click()
     assert page.get_by_role('dialog', name='Change lobby name').is_visible()
     page.get_by_role('textbox', name='Lobby name').fill('Test Lobby')
     page.get_by_role('textbox', name='Lobby name').press('Enter')
     page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     assert page.locator('.rc-identity').bounding_box() == before
-    if size[0] == 320:
-        long_name = 'The Very Long Lobby Name That Should Remain Readable On Small Screens'
-        page.get_by_role('button', name='Edit lobby name: Test Lobby').click()
-        page.get_by_role('textbox', name='Lobby name').fill(long_name)
-        page.get_by_role('button', name='Save name').click()
-        page.get_by_role('button', name=f'Edit lobby name: {long_name}').wait_for()
-        assert page.locator('.rc-lobby-heading').evaluate('node => node.scrollHeight <= node.clientHeight')
-        assert page.locator('.rc-identity').bounding_box() == before
-        page.get_by_role('button', name=f'Edit lobby name: {long_name}').click()
-        page.get_by_role('textbox', name='Lobby name').fill('Test Lobby')
-        page.get_by_role('button', name='Save name').click()
-        page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
+    long_name = '漢' * 80
+    page.get_by_role('button', name='Edit lobby name: Test Lobby').click()
+    page.get_by_role('textbox', name='Lobby name').fill(long_name)
+    page.get_by_role('button', name='Save name').click()
+    page.get_by_role('button', name=f'Edit lobby name: {long_name}').wait_for()
+    page.get_by_role('button', name='Edit your name: Alex').click()
+    page.get_by_role('textbox', name='Your name', exact=True).fill('漢' * 32)
+    page.get_by_role('button', name='Save name', exact=True).click()
+    page.get_by_role('button', name='Edit your name: ' + '漢' * 32).wait_for()
+    names_fit(page)
+    for profile in responsive_sizes:
+        page.set_viewport_size({'width': profile[0], 'height': profile[1]})
+        choose_section(page, 'Profile')
+        names_fit(page)
+        regions(page)
+        page.screenshot(path=str(output / f'maximum-names-{profile[0]}x{profile[1]}.png'))
+    if responsive_sizes:
+        page.set_viewport_size({'width': size[0], 'height': size[1]})
+        choose_section(page, 'Profile')
+    assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
+    assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.filter(node=>node.getClientRects().length).map(node => node.getBoundingClientRect().toJSON())')
+    page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
+    page.get_by_role('button', name='Edit your name: ' + '漢' * 32).click()
+    page.get_by_role('textbox', name='Your name', exact=True).fill('Alex')
+    page.get_by_role('button', name='Save name', exact=True).click()
+    assert page.locator('.rc-identity').bounding_box() == before
+    page.get_by_role('button', name=f'Edit lobby name: {long_name}').click()
+    page.get_by_role('textbox', name='Lobby name').fill('Test Lobby')
+    page.get_by_role('button', name='Save name').click()
+    page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     invite = page.get_by_role('button', name='Copy invite')
     assert invite.count() == 1 and invite.bounding_box()['y'] < page.locator('.rc-game-toolbar').bounding_box()['y']
-    slot = page.locator('[data-slot-id="slot-3"] .slot-row')
-    slot.click()
-    menu = page.locator('[data-slot-id="slot-3"] .slot-menu')
-    assert menu.get_by_role('menuitem').all_text_contents() == ['Close slot']
-    slot.click()
-    assert menu.count() == 0
+    choose_panel(page, 'Players')
+    for slot_id in ('slot-3', 'slot-5'):
+        slot = page.locator(f'[data-slot-id="{slot_id}"] .slot-row')
+        slot.focus()
+        slot.press('ArrowDown')
+        menu = page.locator(f'[data-slot-id="{slot_id}"] .slot-menu')
+        assert menu.get_by_role('menuitem').all_text_contents() == ['Close slot']
+        page.wait_for_function('document.activeElement?.matches(".slot-menu button")')
+        control_visibility(menu.get_by_role('menuitem'), require_focus=True)
+        slot.click()
+        assert menu.count() == 0
     assert page.locator('.slot-index').count() == 0
     choose_section(page, 'Voice')
     assert page.locator('main').get_attribute('data-page') == 'lobby'
-    page.locator('.rc-game-toolbar').click(position={'x': 2, 'y': 2})
+    if not page.get_by_role('navigation', name='Lobby sections').is_visible():
+        page.locator('.rc-game-toolbar').click(position={'x': 2, 'y': 2})
     page.keyboard.press('Escape')
-    assert page.get_by_role('heading', name='Settings').is_visible()
+    assert page.get_by_role('region', name='Game settings').is_visible()
     if page.get_by_role('combobox', name='Settings section').is_visible():
         assert page.get_by_role('combobox', name='Settings section').input_value() == 'voice'
     else:
@@ -351,33 +550,55 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
     page.wait_for_function("document.querySelector('.rc-dialog-card') || document.querySelector('.rc-status-copy')?.textContent?.includes('Invitation copied.')")
     if page.get_by_role('dialog', name='Invitation link').count():
         page.get_by_role('button', name='Done').click()
-    assert page.get_by_role('heading', name='Settings').is_visible()
+    assert page.get_by_role('region', name='Game settings').is_visible()
     assert page.get_by_text('Who can join?', exact=True).is_visible()
-    if size[0] <= 650:
-        for section in ('Controls', 'Sound', 'Voice', 'Profile'):
-            choose_section(page, section)
-            assert settings_controls_fit(page), (size, section)
-        page.get_by_role('combobox', name='Settings section').select_option(label='Voice')
+    for section in ('Controls', 'Sound', 'Voice', 'Profile'):
+        choose_section(page, section)
+        assert settings_controls_fit(page), (size, section)
+    voice_setting = page.get_by_role('combobox', name='Voice setting')
+    choose_section(page, 'Voice')
+    if voice_setting.is_visible():
         for option in ('Other players', 'Devices'):
-            page.get_by_role('combobox', name='Voice setting').select_option(label=option)
+            voice_setting.select_option(label=option)
             assert settings_controls_fit(page), (size, option)
-        choose_section(page, 'Lobby')
+    choose_section(page, 'Lobby')
     base = regions(page)
     page.screenshot(path=str(output / f'lobby-{size[0]}x{size[1]}.png'))
     if play:
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Load NES game').click()
-        page.get_by_role('button', name='From Below', exact=True).click()
+        if uploaded_title:
+            expected_title = '界' * 80
+            page.get_by_role('button', name='Add NES file', exact=True).click()
+            page.locator('input[aria-label="NES cartridge file"]').set_input_files({'name': expected_title + '.nes', 'mimeType': 'application/octet-stream', 'buffer': (ROOT / 'spikes/d02/fixture.local.nes').read_bytes()})
+        else:
+            expected_title = 'From Below'
+            page.get_by_role('button', name='From Below', exact=True).click()
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
+        assert regions(page) == base
+        if uploaded_title:
+            title_motion(page)
         assert page.get_by_role('button', name='Change game').count() == 1
         assert page.locator('.rc-preview-actions').count() == 0
         assert page.locator('.rc-game-display button', has_text='Change game').count() == 0
+        choose_panel(page, 'Chat')
         page.get_by_role('textbox', name='Message everyone').fill('hello')
         page.get_by_role('button', name='Send').click()
         page.get_by_text('(you) Alex: hello', exact=True).wait_for()
+        assert text_fits(page.get_by_text('(you) Alex: hello', exact=True))
+        chat_recovery(page, output, f'{size[0]}x{size[1]}')
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start →').click(timeout=30000)
         page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)
-        assert page.locator('.rc-game-heading').inner_text() == 'From Below'
+        phone = page.get_by_role('navigation', name='Lobby sections').is_visible()
+        assert bool(page.locator('.rc-game-fullscreen').count()) == phone
+        if phone:
+            page.wait_for_function('Number(document.querySelector("canvas").dataset.frameCount)>=60')
+            page.screenshot(path=str(output / f'automatic-play-{size[0]}x{size[1]}.png'))
+            page.get_by_role('button', name='Return to lobby view', exact=True).click()
+            assert page.get_by_role('navigation', name='Lobby sections').locator('[aria-current=page]').inner_text() == 'Game'
+        assert page.locator('.rc-game-heading').get_attribute('title') == expected_title
         assert page.get_by_role('button', name='Mute game').count() == 0
         choose_section(page, 'Sound')
         assert page.get_by_role('button', name='Mute game').count() == 1
@@ -389,19 +610,43 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
         assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
         assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        choose_panel(page, 'Game')
+        page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
+        rendered_game = game_fits(page)
+        page.screenshot(path=str(output / f'active-game-{size[0]}x{size[1]}.png'))
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        for profile in responsive_sizes:
+            page.set_viewport_size({'width': profile[0], 'height': profile[1]})
+            choose_section(page, 'Game')
+            assert guide_fits(page), profile
+            assert settings_controls_fit(page), profile
+            regions(page)
+            choose_panel(page, 'Game')
+            frames = int(page.locator('canvas').get_attribute('data-frame-count'))
+            page.wait_for_function('(before)=>Number(document.querySelector("canvas").dataset.frameCount)>before', arg=frames)
+            responsive_results.append({'size': profile, 'rendered_game': game_fits(page), 'frames_advanced': True})
+            page.screenshot(path=str(output / f'active-game-{profile[0]}x{profile[1]}.png'))
+        if responsive_sizes:
+            page.set_viewport_size({'width': size[0], 'height': size[1]})
+        choose_panel(page, 'Game')
+        playing_regions = regions(page)
         page.keyboard.press('p')
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Prepare to resume').wait_for(timeout=10000)
+        choose_section(page, 'Game')
         assert guide_fits(page), f'Paused guide overflowed at {size}'
         assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
-        regions(page)
+        assert regions(page) == playing_regions
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.keyboard.press('p')
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Resume together').wait_for(timeout=10000)
         page.keyboard.press('p')
         page.get_by_role('button', name='Pause', exact=True).wait_for(timeout=15000)
-        page.get_by_role('button', name='Expand game to full screen').click()
+        choose_panel(page, 'Game')
+        assert page.locator('.rc-game-fullscreen').count() == 0
+        page.get_by_role('button', name='Expand game to full screen', exact=True).click()
         expanded = page.locator('.rc-game-fullscreen').bounding_box()
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
         page.get_by_role('button', name='Return game to lobby').click()
@@ -421,8 +666,11 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
         page.get_by_role('button', name='Stay').click()
         page.get_by_role('button', name='Copy invite').click()
         page.wait_for_function('window.heldInvites.length === 2')
-    page.get_by_role('button', name='Back to Main Page', exact=True).click()
+    page.locator('.rc-logo').click()
     assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
+    exit_box = page.get_by_role('alertdialog', name='Close this lobby?').bounding_box()
+    assert abs(exit_box['x'] + exit_box['width'] / 2 - size[0] / 2) <= 1
+    assert abs(exit_box['y'] + exit_box['height'] / 2 - size[1] / 2) <= 1
     page.get_by_role('button', name='Close lobby').click()
     page.locator('.rc-listing').wait_for(timeout=10000)
     if invitation_recovery:
@@ -430,7 +678,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
         page.wait_for_timeout(100)
         assert page.get_by_role('dialog', name='Invitation link').count() == 0
         assert page.locator('main').get_attribute('data-page') == 'main'
-    return {'size': size, 'lobby': name, 'regions': list(base), 'played': play}
+    assert page.evaluate('[innerWidth, innerHeight]') == list(size)
+    return {'size': size, 'lobby': name, 'regions': list(base), 'played': play, 'rendered_game': rendered_game if play else None, 'responsive_play': responsive_results}
 
 
 def main():
@@ -459,7 +708,7 @@ def main():
                     zoom = browser_zoom(page, worker, 2)
                     page.on('pageerror', lambda error: errors.append(str(error)))
                     size = tuple(page.evaluate('[innerWidth, innerHeight]'))
-                    rows = [exercise(page, size, output, play=True)]
+                    rows = [exercise(page, size, output, play=True, uploaded_title=True)]
                     verify_zoom(worker, zoom)
                     zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
                     assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
@@ -471,11 +720,12 @@ def main():
             try:
                 rows = []
                 scenarios = (
-                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True},
+                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True, 'responsive_sizes': ((900,700),(844,390),(320,650))},
+                    {'size': (1024, 600), 'play': True, 'uploaded_title': True},
+                    {'size': (568, 320), 'play': True, 'uploaded_title': True},
                     {'size': (650, 760)},
                     {'size': (401, 760)},
-                    {'size': (320, 650)},
-                    {'size': (320, 568), 'play': True},
+                    {'size': (320, 568), 'play': True, 'uploaded_title': True},
                 )
                 for scenario in scenarios:
                     size = scenario['size']

@@ -32,6 +32,7 @@ def wait_closed(port):
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     """Exercise the public lobby journey in the built application."""
     from playwright.sync_api import sync_playwright, expect
+    from rooms.ui_helpers import choose_panel, choose_section
 
     def fits(page):
         result = page.evaluate("""() => {
@@ -89,6 +90,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
         for sender, receiver, text in ((guest, host, "Ready when you are"),
                                        (host, guest, "Hosting and chatting")):
+            choose_panel(sender, "Chat")
+            choose_panel(receiver, "Chat")
             field = sender.get_by_label("Message everyone")
             field.press_sequentially(text)
             expect(field).to_have_value(text)
@@ -96,17 +99,16 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             expect(receiver.get_by_role("log", name="Lobby messages")).to_contain_text(text)
             expect(field).to_have_value("")
         assert host.get_by_role("button", name="Start →").count() == 0
+        choose_panel(host, "Game")
         host.get_by_role("button", name="Load NES game").click()
         host.get_by_role("button", name="Super Tilt Bro", exact=False).click()
         host.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
         guest.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
         for page in (host, guest):
-            selector = page.get_by_role("combobox", name="Settings section")
-            if selector.is_visible():
-                selector.select_option(label="Sound")
-            else:
-                page.get_by_role("button", name="Sound", exact=True).click()
+            choose_section(page, "Sound")
             page.get_by_role("button", name="Mute game", exact=True).click()
+        choose_panel(host, "Game")
+        choose_panel(guest, "Game")
         host.get_by_role("button", name="Ready", exact=True).click()
         assert host.get_by_role("button", name="Start →").count() == 0
         guest.get_by_role("button", name="Ready", exact=True).click()
@@ -115,6 +117,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_text("Game starts in", exact=False).wait_for(timeout=15000)
         host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
         guest.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
+        choose_panel(host, "Chat")
+        choose_panel(guest, "Chat")
         field = guest.get_by_label("Message everyone")
         field.press_sequentially("Chat while playing Z C A D P Q E")
         expect(field).to_have_value("Chat while playing Z C A D P Q E")
@@ -124,6 +128,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         for page, size in ((host, {"width": 390, "height": 700}), (guest, {"width": 320, "height": 568})):
             page.set_viewport_size(size)
             fits(page)
+        choose_panel(host, "Game")
         if screenshot_dir:
             host.screenshot(path=str(screenshot_dir / "playing-mobile.png"))
         host.get_by_role("button", name="Back to Main Page").click()

@@ -21,7 +21,7 @@ Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/2
 
 ## Two sequential vertical deliveries
 
-First finish #208/#206/#218: approved phone panel layout and Profile editing, name/title readability, centered side-by-side desktop header name controls, and the sole automatic phone presentation owner. Phones retain complete names/editing in Profile. Merge current main ordinarily; preserve integrated recovery, chat, audio and real-zoom checks. Its acceptance covers maximum legal text, five slots, panels, chat, Ready/Start, one-time expansion and Return at supported desktop/phone/zoom profiles.
+First finish #208/#206/#218: approved phone panel layout and Profile editing, name/title readability, centered side-by-side desktop header name controls, and the sole automatic phone presentation owner. Phones retain complete names/editing in Profile. Merge current main ordinarily; preserve integrated recovery, chat, audio and real-zoom checks. ROM title overflow uses one measured, circular visual track with an aria-hidden duplicate; reduced motion keeps the full wrapping title. Its acceptance covers maximum legal text, five slots, panels, chat, Ready/Start, one-time expansion and Return at supported desktop/phone/zoom profiles.
 
 Then #216 builds on accepted #208: semantic Famicom controller, inline mapping editor and physical/virtual input union. Owner: assigned resolver after plan acceptance; root supervises independent review/merge. Controller acceptance completes J1–J6 across desktop prep→edit/save→Ready/Start, live multitouch/rotation, lobby return/chat, ownership transitions and leave. No implementation dispatch from this planning handoff. No additional browser suite or browser matrix.
 

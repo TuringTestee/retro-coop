@@ -6,6 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from ui_helpers import choose_section
 from playwright.sync_api import expect, sync_playwright
 
 
@@ -95,11 +96,11 @@ def main():
             host.get_by_role('button', name='Start →').click()
             host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount)>30",
                                    timeout=30000)
-            host.get_by_role('button', name='Sound', exact=True).click()
+            choose_section(host, 'Sound')
             host.get_by_role('button', name='Mute game').click()
             host.get_by_role('button', name='Unmute game').click()
             host.wait_for_function('exitProof.audioSources.length>0', timeout=15000)
-            host.get_by_role('button', name='Voice', exact=True).click()
+            choose_section(host, 'Voice')
             host.wait_for_function('exitProof.captures.some(stream=>stream.getTracks().some(track=>track.readyState==="live"))',
                                    timeout=15000)
 
