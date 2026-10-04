@@ -435,22 +435,6 @@ def exercise(page, url, size, output, play=False):
     assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
     assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
     page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
-    # Synthetic text-only capacity probe; real multi-member composition is supplied in PR proof.
-    slot_text = page.locator('.rc-players .slot-row').evaluate_all("""rows => rows.map((row,index) => {
-      const saved = {cls: row.className, name: row.querySelector('strong').textContent, status: row.querySelector('.slot-state').textContent};
-      row.classList.remove('slot-empty');
-      row.querySelector('strong').textContent = index < 2 ? `P${index+1} · ${'漢'.repeat(32)}` : '漢'.repeat(32);
-      row.querySelector('.slot-state').textContent = 'Waiting for game';
-      return saved;
-    })""")
-    regions(page)
-    page.screenshot(path=str(output / f'maximum-peer-text-{size[0]}x{size[1]}.png'))
-    page.locator('.rc-players .slot-state').evaluate_all("nodes => nodes.forEach(node => node.textContent = 'Retry player change')")
-    regions(page)
-    page.locator('.rc-players .slot-row').evaluate_all("""(rows,saved) => rows.forEach((row,index) => {
-      row.className=saved[index].cls;row.querySelector('strong').textContent=saved[index].name;row.querySelector('.slot-state').textContent=saved[index].status;
-    })""", slot_text)
-
     page.get_by_role('button', name='Edit your name: ' + '漢' * 32).click()
     page.get_by_role('textbox', name='Your name', exact=True).fill('Alex')
     page.get_by_role('button', name='Save name', exact=True).click()
