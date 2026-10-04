@@ -317,3 +317,11 @@ test('Load transfer failure and native preparation deadline preserve exact prior
   assert.equal(t.view().game.load!.phase,'rolling_back');rollbackLoad(t,load.id);assert.equal(t.view().game.frame,917);assert.equal(t.view().game.epoch,load.epoch);assert.equal(t.view().game.status,'paused');
  }
 });
+
+test('reconnected host receives pending rollback again and cannot resume a partially replaced timeline',()=>{
+ const t=setup(2),load=requestLoad(t);t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:true});
+ t.rooms.detach(t.sessions[0].token,t.senders[0]);const guestView=t.events[1].filter(e=>e.type==='room').at(-1)!;assert.equal(guestView.type==='room'&&guestView.room.game.load!.phase,'rolling_back');
+ t.act(1,{type:'gameLoadRolledBack',transactionId:load.id,frame:917,hash});const previous=t.events[0].filter(e=>e.type==='gameLoadRollback').length;
+ t.rooms.attach(t.sessions[0].token,t.senders[0],()=>{});t.act(0,{type:'heartbeat'});assert.equal(t.events[0].filter(e=>e.type==='gameLoadRollback').length,previous+1);
+ t.act(0,{type:'gameLoadRolledBack',transactionId:load.id,frame:917,hash});assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.frame,917);assert.equal(t.view().game.epoch,load.epoch);assert.equal(t.view().game.status,'paused');
+});

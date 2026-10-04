@@ -27,6 +27,7 @@ export class GameSession {
   if(revision!==undefined)this.roomRevision=revision;
   const load=this.loadState;if(load&&load.view.phase!=='rolling_back'&&(load.revision!==this.roomRevision||load.controllers!==controllers.revision||load.view.required.some(member=>!this.available(member))))this.abortLoad('Players or connection changed. Previous progress is preserved.');
   if(this.state.status==='countdown'&&!this.hasPlayed&&!this.initialReady())this.stop('Lobby roles or members changed. Prepare again before starting.');
+  if(load?.view.phase==='rolling_back')for(const member of load.view.required){const boundary=load.boundaries.get(member);if(boundary&&!load.rolledBack.has(member)&&!previous.get(member)?.connected&&this.members.get(member)?.connected)this.send(member,{type:'gameLoadRollback',transactionId:load.view.id,epoch:load.oldEpoch,frame:boundary.frame,hash:boundary.hash,reason:load.view.reason!});}
   const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.hostTransport&&!this.members.get(old.id)!.hostTransport);
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
   if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Players changed. Progress kept.');

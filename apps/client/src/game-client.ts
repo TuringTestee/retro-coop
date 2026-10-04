@@ -14,7 +14,7 @@ export type GameplayState={status:string;frame:number;delay?:number;hash?:string
 /** One local emulator; the authority owns at most four independently bounded replica links. */
 export class GameClient {
  private manualSave?:{record:SaveSlot;capture:Capture;current:()=>Promise<boolean>;serial:number};
- private loadAttempt?:{id:string;serial:number;room:string;member:string};private loadEvents=Promise.resolve();private loadHold?:Extract<GameEvent,{type:'gameLoadHold'}>;
+ private loadAttempt?:{id:string;serial:number;room:string;member:string};private loadEvents=Promise.resolve();private loadHold?:Extract<GameEvent,{type:'gameLoadHold'}>;private announcedLoad?:{event:Extract<GameEvent,{type:'gameLoadHold'}>;room:string;member:string;serial:number};
  private room?:RoomView;private file?:Fingerprint;private intent=false;private serial=0;private offered?:string;private offering=false;
  private links=new Map<string,Link>();private checkpointLinks=new Map<string,{epoch:string;channel:RTCDataChannel}>();
  private scheduler?:GameScheduler;private controllers:ControllerAssignment={owners:[null,null],revision:0};private prepared?:Extract<GameEvent,{type:'gamePrepare'|'gameStart'}>;
@@ -34,6 +34,7 @@ export class GameClient {
   const prior=this.room;if(prior&&(!room||room.id!==prior.id||room.chatMembership!==prior.chatMembership))this.clear('Lobby membership changed. Your game is preserved.',true);
   if(room&&(!prior||room.id!==prior.id||room.chatMembership!==prior.chatMembership)){this.intent=false;this.offered=undefined;this.publish({intent:false,preparationError:undefined});}
   this.room=room;if(!room)return;
+  const announcement=this.announcedLoad;if(announcement){this.announcedLoad=undefined;if(announcement.room===room.id&&announcement.member===this.self()&&announcement.serial===this.serial&&room.game.load?.id===announcement.event.transactionId)this.handle(announcement.event);}
   // A room revision can change the roster or roles while a local checksum is
   // still being prepared. That earlier click does not authorize a new offer.
   if(prior&&prior.id===room.id&&prior.chatMembership===room.chatMembership&&prior.revision!==room.revision&&!room.started){
@@ -127,6 +128,8 @@ export class GameClient {
   else if(this.authority()&&this.controllers.owners.includes(member))this.pause('network');
  }
  handle(event:GameEvent){
+  if(event.type==='gameLoadRollback'&&!this.loadAttempt&&this.room?.game.load?.id===event.transactionId&&this.loaded())this.loadAttempt={id:event.transactionId,serial:this.serial,room:this.room.id,member:this.self()};
+  if(event.type==='gameLoadHold'&&this.room?.game.load?.id!==event.transactionId){if(this.room)this.announcedLoad={event,room:this.room.id,member:this.self(),serial:this.serial};return;}
   if(event.type==='gameLoadHold'||event.type==='gameLoadStage'||event.type==='gameLoadCommit'||event.type==='gameLoadRollback'||event.type==='gameLoadFinish'){const loadEvent=event;this.loadEvents=this.loadEvents.then(()=>this.handleLoad(loadEvent)).catch(error=>this.loadFailure(loadEvent.transactionId,error));return;}
   if(event.type==='gamePrepare'&&this.loadAttempt){this.loadEvents=this.loadEvents.then(()=>{if(!this.loadAttempt)this.handle(event);});return;}
   if(event.type==='gameInspect'){this.intent=true;this.offered=undefined;void this.offer();return;}
@@ -226,7 +229,7 @@ export class GameClient {
  private cancelIncoming(){clearTimeout(this.incomingTimer);this.incoming=undefined;this.receiver.cancel();this.player()?.cancelPeerCheckpoint();this.catchingUp=false;this.catchupTarget=undefined;}
  private failIncoming(spec:Spec,status:string){if(this.incoming!==spec)return;this.cancelIncoming();this.scheduler=undefined;this.player()?.stopGame(status);this.publish({busy:false,synchronizing:false,observing:false,status});void this.send({type:'gameCheckpointFailed',epoch:spec.epoch,transferId:spec.transferId}).catch(()=>{});}
  private cancelAllTransfers(){this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])this.cancelOutgoing(outgoing);}
- private clear(status:string,leave=false){const attempt=this.loadAttempt;this.loadAttempt=undefined;this.loadHold=undefined;this.manualSave=undefined;if(attempt)void this.player()?.rollbackSharedSave(attempt.id,()=>false).catch(()=>{});this.cancelAllTransfers();++this.serial;this.intent=false;this.offered=undefined;this.offering=false;this.prepared=undefined;this.scheduler=undefined;this.frozen=false;this.fence=undefined;this.hashing=false;this.observeRequested=undefined;this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.publish({status,busy:false,synchronizing:false,intent:false,observing:false,preparationError:undefined});}
+ private clear(status:string,leave=false){const attempt=this.loadAttempt;this.loadAttempt=undefined;this.loadHold=undefined;this.announcedLoad=undefined;this.manualSave=undefined;if(attempt)void this.player()?.rollbackSharedSave(attempt.id,()=>false).catch(()=>{});this.cancelAllTransfers();++this.serial;this.intent=false;this.offered=undefined;this.offering=false;this.prepared=undefined;this.scheduler=undefined;this.frozen=false;this.fence=undefined;this.hashing=false;this.observeRequested=undefined;this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.publish({status,busy:false,synchronizing:false,intent:false,observing:false,preparationError:undefined});}
  private fail(status:string,reason:GameReason){const epoch=this.scheduler?.epoch??this.room?.game.epoch,spec=this.incoming;if(spec){this.failIncoming(spec,status);return;}this.clear(status);if(epoch)void this.send({type:'gameAbort',epoch,reason}).catch(()=>{});}
  dispose(){this.clear('Shared game closed.',true);this.links.clear();this.checkpointLinks.clear();}
 }
