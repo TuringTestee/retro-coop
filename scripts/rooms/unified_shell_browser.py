@@ -8,7 +8,7 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom
-from ui_helpers import choose_section
+from ui_helpers import choose_section, choose_panel
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def settings_controls_fit(page):
     return page.locator('.rc-tool-body').evaluate("""body => {
-      const edge = body.closest('.rc-mobile-side-panel,.rc-side-panel,.rc-play-tools').getBoundingClientRect().bottom;
+      const edge = body.closest('.rc-session-settings').getBoundingClientRect().bottom;
       return [...body.querySelectorAll('button,input,select')].filter(node => getComputedStyle(node).display !== 'none')
         .every(node => node.getBoundingClientRect().bottom <= edge + 1);
     }""")
@@ -59,6 +59,8 @@ def text_fits(locator):
 
 def names_fit(page):
     for node in page.locator('.rc-header-name').all():
+        if not node.is_visible():
+            continue
         assert text_fits(node), node.inner_text()
 
 
@@ -70,7 +72,13 @@ def guide_fits(page):
 def regions(page):
     names = ('.rc-header', '.rc-status', '.rc-players', '.rc-game-toolbar',
              '.rc-game-display', '.rc-chat', '.rc-footer')
-    boxes = {name: page.locator(name).bounding_box() for name in names}
+    navigation = page.get_by_role('navigation', name='Lobby sections')
+    selected = navigation.locator('[aria-current=page]').inner_text() if navigation.is_visible() else None
+    boxes = {}
+    for name in names:
+        if selected:
+            choose_panel(page, 'Players' if name == '.rc-players' else 'Chat' if name == '.rc-chat' else 'Game')
+        boxes[name] = page.locator(name).bounding_box()
     assert all(boxes.values()), boxes
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
     for name, box in boxes.items():
@@ -79,6 +87,8 @@ def regions(page):
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
     assert text_fits(page.locator('.rc-game-toolbar')), page.locator('.rc-game-toolbar').inner_text()
     assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
+    if selected:
+        choose_panel(page, 'Players')
     for row in page.locator('.rc-players .slot-row').all():
         assert text_fits(row), row.inner_text()
         assert row.evaluate("""row => {
@@ -93,6 +103,8 @@ def regions(page):
             rects.every(a => other.every(b => Math.min(a.right,b.right)-Math.max(a.left,b.left)<=1
               || Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)<=1))));
         }"""), row.inner_text()
+    if selected:
+        choose_panel(page, 'Game')
     footer_controls = [node for node in page.locator('.rc-footer button').all() if node.is_visible()]
     for control in footer_controls:
         assert text_fits(control), control.inner_text()
@@ -105,6 +117,8 @@ def regions(page):
             overlap_y = min(a['y'] + a['height'], b['y'] + b['height']) - max(a['y'], b['y'])
             assert overlap_x <= 1 or overlap_y <= 1, (control.inner_text(), other.inner_text())
     assert page.locator('.rc-chat-history').evaluate('(node) => getComputedStyle(node).overflowY === "auto"')
+    if selected:
+        choose_panel(page, selected)
     return boxes
 
 
@@ -121,6 +135,7 @@ def chat_recovery(page, output, label):
     }""")
     entry = page.get_by_role('textbox', name='Message everyone')
     history = page.get_by_role('log', name='Lobby messages')
+    choose_panel(page, 'Chat')
     baseline = regions(page)
     try:
         for text, action in (('Retry preserves my message', 'Retry'), ('Discard only my unsent message', 'Discard')):
@@ -303,6 +318,7 @@ def restored_battery_preview(browser, url):
 
     try:
         load()
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start →').click()
         page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)
@@ -383,11 +399,14 @@ def host(page):
     assert page.get_by_role('button', name='Start →').count() == 0
     assert page.get_by_role('button', name='Load NES game').count() == 1
     assert page.get_by_role('button', name='Copy invite').count() == 1
+    choose_panel(page, 'Settings')
     assert page.get_by_role('button', name='Voice', exact=True).count() == 1 or page.get_by_role('combobox', name='Settings section').is_visible()
-    assert page.get_by_role('button', name='Settings', exact=True).count() == 0
-    assert page.get_by_role('heading', name='Settings').is_visible()
+    assert page.get_by_role('button', name='Settings', exact=True).count() == int(page.get_by_role('navigation', name='Lobby sections').is_visible())
+    assert page.get_by_role('region', name='Game settings').is_visible()
     assert page.locator('.rc-side-panel button', has_text='×').count() == 0
-    return page.locator('.rc-trail .rc-header-edit').inner_text().replace('✎', '').strip()
+    if page.get_by_role('navigation', name='Lobby sections').is_visible():
+        choose_section(page, 'Profile')
+    return page.get_by_role('button', name='Edit lobby name:', exact=False).inner_text().replace('✎', '').strip()
 
 
 def exercise(page, size, output, play=False, invitation_recovery=False):
@@ -444,6 +463,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
     page.get_by_role('button', name='Edit lobby name: Test Lobby').wait_for()
     invite = page.get_by_role('button', name='Copy invite')
     assert invite.count() == 1 and invite.bounding_box()['y'] < page.locator('.rc-game-toolbar').bounding_box()['y']
+    choose_panel(page, 'Players')
     for slot_id in ('slot-3', 'slot-5'):
         slot = page.locator(f'[data-slot-id="{slot_id}"] .slot-row')
         slot.focus()
@@ -457,9 +477,10 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
     assert page.locator('.slot-index').count() == 0
     choose_section(page, 'Voice')
     assert page.locator('main').get_attribute('data-page') == 'lobby'
-    page.locator('.rc-game-toolbar').click(position={'x': 2, 'y': 2})
+    if not page.get_by_role('navigation', name='Lobby sections').is_visible():
+        page.locator('.rc-game-toolbar').click(position={'x': 2, 'y': 2})
     page.keyboard.press('Escape')
-    assert page.get_by_role('heading', name='Settings').is_visible()
+    assert page.get_by_role('region', name='Game settings').is_visible()
     if page.get_by_role('combobox', name='Settings section').is_visible():
         assert page.get_by_role('combobox', name='Settings section').input_value() == 'voice'
     else:
@@ -471,7 +492,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
     page.wait_for_function("document.querySelector('.rc-dialog-card') || document.querySelector('.rc-status-copy')?.textContent?.includes('Invitation copied.')")
     if page.get_by_role('dialog', name='Invitation link').count():
         page.get_by_role('button', name='Done').click()
-    assert page.get_by_role('heading', name='Settings').is_visible()
+    assert page.get_by_role('region', name='Game settings').is_visible()
     assert page.get_by_text('Who can join?', exact=True).is_visible()
     for section in ('Controls', 'Sound', 'Voice', 'Profile'):
         choose_section(page, section)
@@ -486,6 +507,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
     base = regions(page)
     page.screenshot(path=str(output / f'lobby-{size[0]}x{size[1]}.png'))
     if play:
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Load NES game').click()
         page.get_by_role('button', name='From Below', exact=True).click()
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
@@ -493,14 +515,22 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
         assert page.get_by_role('button', name='Change game').count() == 1
         assert page.locator('.rc-preview-actions').count() == 0
         assert page.locator('.rc-game-display button', has_text='Change game').count() == 0
+        choose_panel(page, 'Chat')
         page.get_by_role('textbox', name='Message everyone').fill('hello')
         page.get_by_role('button', name='Send').click()
         page.get_by_text('(you) Alex: hello', exact=True).wait_for()
         assert text_fits(page.get_by_text('(you) Alex: hello', exact=True))
         chat_recovery(page, output, f'{size[0]}x{size[1]}')
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Ready', exact=True).click()
         page.get_by_role('button', name='Start →').click(timeout=30000)
         page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)
+        phone = page.get_by_role('navigation', name='Lobby sections').is_visible()
+        assert bool(page.locator('.rc-game-fullscreen').count()) == phone
+        if phone:
+            page.screenshot(path=str(output / f'automatic-play-{size[0]}x{size[1]}.png'))
+            page.get_by_role('button', name='Return to lobby view', exact=True).click()
+            assert page.get_by_role('navigation', name='Lobby sections').locator('[aria-current=page]').inner_text() == 'Game'
         assert page.locator('.rc-game-heading').inner_text() == 'From Below'
         assert page.get_by_role('button', name='Mute game').count() == 0
         choose_section(page, 'Sound')
@@ -527,16 +557,21 @@ def exercise(page, size, output, play=False, invitation_recovery=False):
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
         playing_regions = regions(page)
         page.keyboard.press('p')
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Prepare to resume').wait_for(timeout=10000)
+        choose_section(page, 'Game')
         assert guide_fits(page), f'Paused guide overflowed at {size}'
         assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
         assert regions(page) == playing_regions
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.keyboard.press('p')
+        choose_panel(page, 'Game')
         page.get_by_role('button', name='Resume together').wait_for(timeout=10000)
         page.keyboard.press('p')
         page.get_by_role('button', name='Pause', exact=True).wait_for(timeout=15000)
-        page.get_by_role('button', name='Expand game to full screen').click()
+        choose_panel(page, 'Game')
+        assert page.locator('.rc-game-fullscreen').count() == 0
+        page.get_by_role('button', name='Expand game to full screen', exact=True).click()
         expanded = page.locator('.rc-game-fullscreen').bounding_box()
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
         page.get_by_role('button', name='Return game to lobby').click()
@@ -611,6 +646,10 @@ def main():
                 rows = []
                 scenarios = (
                     {'size': (1280, 800), 'play': True, 'invitation_recovery': True},
+                    {'size': (1024, 600), 'play': True},
+                    {'size': (900, 700), 'play': True},
+                    {'size': (568, 320), 'play': True},
+                    {'size': (844, 390), 'play': True},
                     {'size': (650, 760)},
                     {'size': (401, 760)},
                     {'size': (320, 650)},
