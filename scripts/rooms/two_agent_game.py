@@ -423,7 +423,7 @@ def player():
         except Exception:
             screenshot(page, f'{args.role}-failure.png')
             save(f'{args.role}-failure.json', {
-                'role':args.role,'room':page.evaluate('window.proof?.room'),
+                'role':args.role,'room':page.evaluate('''()=>{const room=window.proof?.room;return room?{id:room.id,role:room.role,status:room.status,matches:room.matches,started:room.started,occupancy:room.occupancy,fingerprint:room.fingerprint,game:room.game,slots:room.slots.map(slot=>({id:slot.id,role:slot.role,open:slot.open,member:slot.member?{id:slot.member.id,connected:slot.member.connected,acquisition:slot.member.acquisition}:undefined}))}:null}'''),
                 'frames':page.evaluate('window.proof?.frameCount'),
                 'active_epoch':page.evaluate('window.proof?.activeEpoch'),
                 'socket_ready_state':page.evaluate('window.proof?.roomSocket?.readyState'),
@@ -455,6 +455,11 @@ def recovery():
       (()=>{const Socket=WebSocket;window.WebSocket=class extends Socket{
         constructor(...args){super(...args);this.addEventListener('message',event=>{
           const value=JSON.parse(event.data);
+          proof.recoveryResponses??=[];
+          proof.recoveryResponses.push({type:value.type,reason:value.reason,requestId:value.requestId,
+            ok:value.ok,code:value.error??value.code,message:value.message,
+            preview:(value.preview??value.data?.preview)?{id:(value.preview??value.data.preview).id,status:(value.preview??value.data.preview).status,openSlots:(value.preview??value.data.preview).openSlots}:undefined});
+          if(proof.recoveryResponses.length>40)proof.recoveryResponses.shift();
           if(value.type==='result'&&value.ok){if(value.data.room)proof.room=value.data.room;
             if(value.data.session)proof.session=value.data.session;}
         });}
@@ -508,6 +513,28 @@ def recovery():
         contexts=[browser.new_context(viewport={'width':args.width,'height':args.height},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
         for context in contexts:context.add_init_script(fixture)
         host=open_page(contexts[0],args.url);guest=open_page(contexts[1],args.url)
+        def retain_failure():
+            if sys.exc_info()[0] is None:
+                return
+            for index, context in enumerate(contexts):
+                for page_index, page in enumerate(context.pages):
+                    if page.is_closed():
+                        continue
+                    label=f'recovery-failure-{index}-{page_index}'
+                    try:
+                        page.set_default_timeout(2000)
+                        save(label+'.json', {
+                            'url':page.url,'body':page.locator('body').inner_text(),
+                            'room':page.evaluate('''()=>{const room=window.proof?.room;return room?{id:room.id,role:room.role,status:room.status,matches:room.matches,started:room.started,occupancy:room.occupancy,fingerprint:room.fingerprint,game:room.game,slots:room.slots.map(slot=>({id:slot.id,role:slot.role,open:slot.open,member:slot.member?{id:slot.member.id,connected:slot.member.connected,acquisition:slot.member.acquisition}:undefined}))}:null}'''),
+                            'session':page.evaluate('({nickname:window.proof?.session?.nickname,hasToken:!!window.proof?.session?.token})'),
+                            'responses':page.evaluate('window.proof?.recoveryResponses'),
+                            'events':page.evaluate('window.proof?.events?.slice(-12)'),
+                            'page_errors':errors,
+                        })
+                        page.screenshot(path=str(SESSION/(label+'.png')),timeout=2000)
+                    except Exception as error:
+                        print(f'Could not retain {label}: {error}',file=sys.stderr)
+        resources.callback(retain_failure)
         host.locator('.rc-identity .rc-header-edit').click()
         host.get_by_role('textbox',name='Your name').fill('Recovery Host')
         host.get_by_role('button',name='Save name',exact=True).click()
@@ -562,7 +589,7 @@ def recovery():
         screenshot(host,'recovery-offer.png')
         new_invitation=args.url+'/#invite='+new['invite']
         guest.goto(invitation);guest.evaluate('releaseFrames()')
-        guest.get_by_text('The host did not return. This lobby has closed.',exact=True).wait_for()
+        guest.get_by_text('This lobby is closed, unavailable, or the invitation has expired.',exact=True).wait_for()
         assert guest.get_by_role('button',name='Join lobby',exact=True).is_disabled()
         guest.goto(new_invitation);guest.evaluate('releaseFrames()')
         guest.get_by_role('button',name='Join lobby',exact=True).click()
