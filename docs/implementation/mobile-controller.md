@@ -12,6 +12,8 @@ The implementation builds on accepted #208 and its existing presentation owner. 
 
 The preparation diagram shows each action’s primary binding, with direction arrows and explicit gamepad button/axis context. Full alternatives remain in accessible descriptions and the existing Settings mappings.
 
+Game/session replacement ends the editor draft. An editor generation guards delayed Save completion, application and feedback after navigation or reopening; Cancel remains disabled during persistence.
+
 Preferences remain scoped to the loaded ROM. With no ROM loaded, Save applies controls in memory as before; with a ROM, it waits for the existing preference write and retains the draft on failure.
 - Extract/replace static art with one semantic controller used in its reserved game band, with optional connected hints and the existing inline binding editor. Derive all bindings/colors from current controls, retaining Z/C, rapid A/D, Alt/Space, P/M/Q/E/V and personal remaps. Never hard-code defaults into the guide.
 - Replace duplicated NES keyboard rows and obsolete static Game guide; retain input-device/gamepad/talk configuration and all actual game tools. Reconcile initial settings section with the replacement instead of leaving an empty route. Do not remove live remapping.

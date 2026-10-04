@@ -38,7 +38,7 @@ export function Controller({
   editRequest: number;
   resetKey: string;
   onMask: (mask: number) => void;
-  onChange: (controls: Controls) => Promise<boolean>;
+  onChange: (controls: Controls, current: () => boolean) => Promise<boolean>;
   onEditing: (editing: boolean) => void;
   editorHost: React.RefObject<HTMLDivElement | null>;
   phone: boolean;
@@ -56,6 +56,20 @@ export function Controller({
     [capture, setCapture] = useState<Action>("a"),
     [binding, setBinding] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const editorGeneration = useRef(0), lastEditRequest = useRef(editRequest);
+  const endEdit = () => {
+    ++editorGeneration.current;
+    setSaving(false);
+    setBinding(null);
+    setDraft(null);
+  };
+  const beginEdit = () => {
+    ++editorGeneration.current;
+    setSaving(false);
+    setBinding(null);
+    setDraft(structuredClone(controls));
+  };
+  useEffect(() => () => { ++editorGeneration.current; }, []);
   const captureBox = useRef<HTMLDivElement>(null),
     root = useRef<HTMLDivElement>(null);
   const clear = () => {
@@ -78,8 +92,9 @@ export function Controller({
     return () => onEditing(false);
   }, [!!draft]);
   useEffect(() => {
-    setDraft(editRequest ? structuredClone(controls) : null);
-    setBinding(null);
+    if (lastEditRequest.current === editRequest) return;
+    lastEditRequest.current = editRequest;
+    if (editRequest) beginEdit(); else endEdit();
   }, [editRequest]);
   useEffect(() => {
     if (draft) captureBox.current?.focus();
@@ -288,7 +303,7 @@ export function Controller({
           event.stopPropagation();
           if (saving) return;
           if (event.code === "Escape") {
-            setDraft(null);
+            endEdit();
             return;
           }
           if (
@@ -326,16 +341,19 @@ export function Controller({
         <button
           disabled={saving || !!duplicate || !validControls(draft)}
           onClick={() => {
+            const generation = editorGeneration.current;
+            const current = () => editorGeneration.current === generation;
             setSaving(true);
-            void onChange(draft).then((saved) => {
+            void onChange(draft, current).then((saved) => {
+              if (!current()) return;
               setSaving(false);
-              if (saved) setDraft(null);
+              if (saved) endEdit();
             });
           }}
         >
           Save
         </button>
-        <button disabled={saving} onClick={() => setDraft(null)}>
+        <button disabled={saving} onClick={endEdit}>
           Cancel
         </button>
       </div>
@@ -440,10 +458,7 @@ export function Controller({
               </div>
               {!controls.device && (
                 <button
-                  onClick={() => {
-                    setDraft(structuredClone(controls));
-                    setBinding(null);
-                  }}
+                  onClick={beginEdit}
                 >
                   Edit
                 </button>

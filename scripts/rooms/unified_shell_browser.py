@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom, CLIPPING_BOXES
 from ui_helpers import choose_section, choose_panel
 
@@ -313,6 +313,28 @@ def controller_input(browser, url, output):
         }
       };
     """)
+    # Delay delivery of real preference transaction outcomes, including an actual abort.
+    context.add_init_script("""
+      window.controllerPreferenceGate={hold:false,pending:[],abort:false};
+      for(const event of ['oncomplete','onabort']) {
+        const descriptor=Object.getOwnPropertyDescriptor(IDBTransaction.prototype,event);
+        Object.defineProperty(IDBTransaction.prototype,event,{...descriptor,set(callback) {
+          const tx=this;descriptor.set.call(tx,function(...args) {
+            const gate=window.controllerPreferenceGate;
+            if(tx.mode==='readwrite'&&tx.objectStoreNames.contains('preferences')&&gate.hold) {
+              gate.pending.push(()=>callback.apply(tx,args));return;
+            }
+            callback.apply(tx,args);
+          });
+        }});
+      }
+      const put=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(...args) {
+        const request=put.apply(this,args),gate=window.controllerPreferenceGate;
+        if(this.name==='preferences'&&gate.abort) {gate.abort=false;this.transaction.abort();}
+        return request;
+      };
+    """)
     page = context.new_page()
     records = []
     def observe(label, expected):
@@ -349,6 +371,46 @@ def controller_input(browser, url, output):
         capture.focus(); page.keyboard.press('c')
         assert editor.get_by_role('button', name='Save', exact=True).is_disabled()
         editor.get_by_role('button', name='Cancel', exact=True).click()
+        page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+        capture.focus(); page.keyboard.press('k')
+        page.get_by_role('button', name='Change game', exact=True).click()
+        page.get_by_role('button', name='From Below', exact=True).click()
+        page.locator('.rc-game-heading').get_by_text('From Below', exact=True).wait_for()
+        expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+        editor.wait_for(state='hidden')
+        page.get_by_role('button', name='Change game', exact=True).click()
+        page.get_by_role('button', name='Add NES file', exact=True).click()
+        page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
+        page.locator('.rc-game-heading').get_by_text('fixture.local', exact=True).wait_for()
+        expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+        page.set_viewport_size({'width': 320, 'height': 568})
+        lifecycle = []
+        for failed in (False, True):
+            choose_section(page, 'Controls')
+            page.get_by_role('button', name='Edit controller', exact=True).click()
+            capture.focus(); page.keyboard.press('k')
+            page.evaluate('(abort)=>window.controllerPreferenceGate={hold:true,pending:[],abort}', failed)
+            editor.get_by_role('button', name='Save', exact=True).click()
+            page.wait_for_function('window.controllerPreferenceGate.pending.length>0')
+            assert editor.get_by_role('button', name='Cancel', exact=True).is_disabled()
+            capture.press('Escape')
+            assert editor.is_visible()
+            choose_section(page, 'Sound')
+            choose_section(page, 'Controls')
+            page.get_by_role('button', name='Edit controller', exact=True).click()
+            capture.focus(); page.keyboard.press('l')
+            assert 'Current: Z' in capture.inner_text() and 'Draft: L' in capture.inner_text()
+            assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+            page.evaluate('async()=>{const gate=window.controllerPreferenceGate;gate.hold=false;gate.pending.splice(0).forEach(release=>release());await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);}')
+            assert editor.is_visible()
+            assert 'Current: Z' in capture.inner_text() and 'Draft: L' in capture.inner_text()
+            assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+            assert not page.get_by_text('Could not save controls. Try Save again.', exact=True).is_visible()
+            lifecycle.append({'obsolete_outcome': 'abort' if failed else 'commit', 'current': 'Z', 'draft': 'L', 'save_enabled': True})
+            editor.get_by_role('button', name='Cancel', exact=True).click()
+        (output / 'controller-editor-lifecycle.json').write_text(json.dumps({'game_replacement_ends_edit': True, 'delayed_outcomes': lifecycle}, indent=2)+'\n')
+        choose_panel(page, 'Game')
+        page.set_viewport_size({'width': 1280, 'height': 800})
         page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
         assert 'Current: Z' in capture.inner_text()
         capture.focus(); page.keyboard.press('k')

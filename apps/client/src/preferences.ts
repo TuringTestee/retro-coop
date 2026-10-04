@@ -7,18 +7,18 @@ export function validPreferences(value:unknown):value is Preferences {
  const candidate=value as Preferences;
  return Object.keys(candidate).length===3 && validControls(candidate.controls) && ['nearest','scanlines'].includes(candidate.filter) && Number.isFinite(candidate.volume) && candidate.volume>=0 && candidate.volume<=1;
 }
-type Context={identity:string;generation?:number;pending?:{value:Preferences;resolve:(saved:boolean)=>void};stopped:boolean;loading:boolean};
+type Context={identity:string;generation?:number;pending?:{value:Preferences;current:()=>boolean;resolve:(saved:boolean)=>void};stopped:boolean;loading:boolean};
 /** Restore never writes defaults; only an explicit user edit schedules persistence. */
 export function usePreferences(identity:string|undefined,restore:(value:Preferences)=>void) {
  const [issue,setIssue]=useState('');
  const restoreRef=useRef(restore);restoreRef.current=restore;
  const context=useRef<Context|undefined>(undefined),writes=useRef(Promise.resolve());
- const write=(current:Context,value:Preferences)=>{
+ const write=(current:Context,value:Preferences,admitted:()=>boolean=()=>true)=>{
   const generation=current.generation;let saved=false;
   writes.current=writes.current.catch(()=>{}).then(async()=>{
-   if(context.current!==current || current.stopped || generation===undefined || generation!==current.generation)return;
-   try{await putPreferences({identity:current.identity,savedAt:Date.now(),value},generation);saved=context.current===current&&!current.stopped&&current.generation===generation;if(saved)setIssue('');}
-   catch(error){if(context.current===current){current.generation=undefined;setIssue(`Preferences could not be saved. Export or manage Local data. ${error instanceof Error ? error.message : ''}`);}}
+   if(!admitted() || context.current!==current || current.stopped || generation===undefined || generation!==current.generation)return;
+   try{await putPreferences({identity:current.identity,savedAt:Date.now(),value},generation);saved=admitted()&&context.current===current&&!current.stopped&&current.generation===generation;if(saved)setIssue('');}
+   catch(error){if(admitted()&&context.current===current){current.generation=undefined;setIssue(`Preferences could not be saved. Export or manage Local data. ${error instanceof Error ? error.message : ''}`);}}
   });
   return writes.current.then(()=>saved);
  };
@@ -27,7 +27,7 @@ export function usePreferences(identity:string|undefined,restore:(value:Preferen
   try {
    const {generation,record}=await readStored<PreferencesRecord>('preferences',current.identity);
    if(context.current!==current || current.stopped)return;current.generation=generation;
-   if(current.pending){const pending=current.pending;current.pending=undefined;pending.resolve(await write(current,pending.value));return;}
+   if(current.pending){const pending=current.pending;current.pending=undefined;pending.resolve(await write(current,pending.value,pending.current));return;}
    if(record){if(validPreferences(record.value)){const controls=migrateDefaultKeyboard(record.value.controls);const value=controls===record.value.controls?record.value:{...record.value,controls};restoreRef.current(value);if(controls!==record.value.controls)write(current,value);}else setIssue('Stored preferences are invalid. Current controls are preserved; export or delete the record in Local data.');}
   }catch(error){current.pending?.resolve(false);current.pending=undefined;if(context.current===current)setIssue(`Preferences could not be loaded. Your game can still run. ${error instanceof Error ? error.message : ''}`);}
   finally{current.loading=false;}
@@ -39,10 +39,10 @@ export function usePreferences(identity:string|undefined,restore:(value:Preferen
  },[identity]);
  return {
   issue,
-  remember:(value:Preferences)=>{
+  remember:(value:Preferences,admitted:()=>boolean=()=>true)=>{
    const current=context.current;if(!current)return Promise.resolve(false);
    if(current.stopped){current.stopped=false;current.generation=undefined;}
-   if(current.generation===undefined){return new Promise<boolean>(resolve=>{current.pending?.resolve(false);current.pending={value,resolve};if(!current.loading)void read(current);});}return write(current,value);
+   if(current.generation===undefined){return new Promise<boolean>(resolve=>{current.pending?.resolve(false);current.pending={value,current:admitted,resolve};if(!current.loading)void read(current);});}return write(current,value,admitted);
   },
   stop:()=>{if(context.current)context.current.stopped=true;},
   dismiss:()=>setIssue(''),
