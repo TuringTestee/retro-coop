@@ -4,7 +4,7 @@ Audience: Agent
 
 # Mobile controller delivery plan
 
-Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/216), based on `a8eed786`. Governing proposal: [current wireframe](../design/mobile-controller-wireframe-v2.md) and [direction](../design/mobile-controller-direction.md). Implement only after the owner resolves both listed choices and the reviewed plan merges. #208 readable layout and #207 authoritative role recovery must integrate before final implementation proof; #210 voice recovery remains an independent owned PR. Existing repository Project authority and issue 216 are the delivery source; create no duplicate planning issue.
+Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/216), based on `a8eed786`. Governing proposal: [current wireframe](../design/mobile-controller-wireframe-v3.md) and [direction](../design/mobile-controller-direction.md). Implement only after the owner resolves the mobile entry choice and the reviewed plan merges. The requested canvas gesture is preserved. #208 readable layout and merged #207 authoritative role recovery must integrate before final implementation proof; #198 voice recovery is merged and integrated. Existing repository Project authority and issue 216 are the delivery source; create no duplicate planning issue.
 
 ## Current responsibility and bounded replacement
 
@@ -16,7 +16,7 @@ Planning proposal for [#216](https://github.com/TuringTestee/retro-coop/issues/2
 - Track contacts by pointer ID, action and mask. Union independent held actions so releasing one A contact does not clear another; eight-way pad maps each drag to one or two NES directions and centers on release. A bounded touch origin avoids reversing the initial drag. Use pointer capture and `touch-action:none` only on controller surfaces. Press highlighting comes from effective virtual actions, not click animation.
 - Add a narrow virtual-mask boundary to `LocalPlayer`, merged with current physical input at the existing frame sampling point. No synthetic KeyboardEvent, separate worker/clock, duplicate peer or network protocol. Preserve selected gamepad availability/recovery; do not bypass a disconnected selected device or controller authority. Semantic button keyboard activation contributes virtual input without also firing NES Start or a fullscreen toggle.
 - Clear virtual contacts on pointerup/cancel/lostcapture, focus/hidden, pause, settings edit/dialog, viewport/orientation/presentation change, role/driver replacement, disconnect and leave. Clearing virtual input must not clear another physical source's independent held action. Lifecycle release-all still clears every source. Fresh presses are required after recovery.
-- Reuse `SessionStage` expanded state; implement the owner's chosen entry/activation policy. Keep active target bounds while only opacity changes; no invisible exit. Controller events cannot bubble into canvas expansion. Prefer content/target-size layout rules and safe areas; never `if size == (...)` or source branches tailored to one test profile.
+- Reuse `SessionStage` expanded state; implement the owner's chosen mobile entry policy while preserving canvas-click expansion and the requested top-right control. Keep active target bounds while only opacity changes; no invisible exit. Controller events cannot bubble into canvas expansion. Prefer content/target-size layout rules and safe areas; never `if size == (...)` or source branches tailored to one test profile.
 
 ## One bounded vertical delivery
 

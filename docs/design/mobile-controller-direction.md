@@ -11,7 +11,7 @@ Audience: Human
 - Restore the Famicom shape: direction pad left, Select/Start center, B/A right. Actual mouse/touch input uses the full controls, including large square A/B hit areas and simultaneous holds.
 - Desktop preparation shows current configured keyboard keys connected to their buttons, with one inline Edit → Save/Cancel path. Default live play hides mappings while retaining the controller. Selecting Controls deliberately reveals the same editor during play; it does not create another editor.
 - Portrait touch controls sit low in reserved black space; landscape expanded-play controls overlay the lower corners translucently. A large draggable thumb dot produces one or two direction keys. Keep targets reachable by two thumbs and respect safe areas.
-- A top-right Full screen/Return to lobby view control is requested. Keep the existing canvas-click toggle until the owner decides whether the new button should replace it. In either case, touching controller targets must never toggle fullscreen. Fade its decoration at idle, retaining an identifiable, focusable target; pointer proximity/focus restores contrast.
+- Preserve the requested canvas-click expansion and return gesture. The top-right Full screen/Return to lobby view control requested in #216 activates that same presentation state. Touching controller targets must never toggle fullscreen. Fade decoration at idle, retaining an identifiable, focusable target; pointer proximity/focus restores contrast.
 
 ## Existing behavior to preserve
 
@@ -27,6 +27,6 @@ The inspected 320×568 five-member/CJK layout has only 96px for game/settings af
 
 **Alternative requiring explicit scope choice:** keep lobby view as the mobile default and use Full screen to reach the large thumb controls. This narrows “buttons always on screen” on the smallest screens until expanded play is entered. It is not silently equivalent to the request.
 
-**Fullscreen interaction:** recommend the dedicated top-right button as the sole visible toggle, replacing canvas-click expansion to prevent accidental presentation changes. This changes an earlier explicit request and needs owner approval. Alternatively retain canvas-click and add the requested button, both calling the same presentation owner, with controller events excluded.
+**Fullscreen interaction is already specified:** preserve canvas-click expansion and the requested top-right control, both calling the same presentation owner, with controller events excluded. Do not replace the requested gesture or ask the owner to approve it again.
 
 No orientation lock or native-browser fullscreen guarantee is proposed. Existing expanded presentation can work when browser fullscreen is unavailable. Physical thumb comfort, device safe areas and assistive input remain implementation proof obligations.
