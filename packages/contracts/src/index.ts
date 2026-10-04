@@ -9,6 +9,7 @@ export type RewindInfo = {availableSeconds:number;spanSeconds:number;maxSeconds:
 export type LocalFileRequest =
   | {type:'state-hash';requestId:number}
   | {type:'state-preview';requestId:number}
+  | {type:'state-capture';requestId:number}
   | {type:'state-history';requestId:number}
   | {type:'state-rewind';requestId:number;seconds:number}
   | {type:'state-validate';requestId:number;bytes:ArrayBuffer}
@@ -42,6 +43,7 @@ export type WorkerResponse =
   | { type: 'paused' }
   | {type:`${LocalFileKind}-info`;requestId:number;info:LocalFileInfo}
   | {type:'state-hash';requestId:number;info:StateHash}
+  | {type:'state-captured';requestId:number;frame:number;hash:string;identity:string;bytes:ArrayBuffer}
   | {type:'state-preview';requestId:number;pixels:ArrayBuffer}
   | {type:'state-history';requestId:number;info:RewindInfo}
   | {type:'state-rewound';requestId:number;pixels:ArrayBuffer;info:RewindInfo}
@@ -53,7 +55,7 @@ export type WorkerResponse =
 export type HealthResponse = { status: 'ok'; service: 'retro-coop-coordinator'; protocol: 1 };
 export const health: HealthResponse = { status: 'ok', service: 'retro-coop-coordinator', protocol: 1 };
 export function isLocalFileOperation(value: unknown): value is {type:LocalFileRequest['type'];requestId:number} {
-  return !!value && typeof value === 'object' && 'type' in value && ((value.type==='state-hash' || value.type==='state-preview' || value.type==='state-info' || value.type==='battery-info') || value.type==='state-validate' || value.type==='state-history' || value.type==='state-rewind' || localFileKinds.some(kind=>value.type===`${kind}-export` || value.type===`${kind}-import`)) && 'requestId' in value && typeof value.requestId === 'number' && Number.isSafeInteger(value.requestId) && value.requestId >= 0;
+  return !!value && typeof value === 'object' && 'type' in value && ((value.type==='state-hash' || value.type==='state-capture' || value.type==='state-preview' || value.type==='state-info' || value.type==='battery-info') || value.type==='state-validate' || value.type==='state-history' || value.type==='state-rewind' || localFileKinds.some(kind=>value.type===`${kind}-export` || value.type===`${kind}-import`)) && 'requestId' in value && typeof value.requestId === 'number' && Number.isSafeInteger(value.requestId) && value.requestId >= 0;
 }
 export function localFileKind(type: LocalFileRequest['type']):LocalFileKind { return type.split('-')[0] as LocalFileKind; }
 export function isWorkerRequest(value: unknown): value is WorkerRequest {
@@ -68,7 +70,7 @@ export function isWorkerRequest(value: unknown): value is WorkerRequest {
   if (isLocalFileOperation(value)) {
     if(value.type==='state-rewind')return 'seconds' in value && typeof value.seconds==='number' && Number.isFinite(value.seconds) && value.seconds>0;
     if(value.type==='state-history')return true;
-    return ((value.type==='state-hash' || value.type==='state-preview' || value.type==='state-info' || value.type==='battery-info') || value.type.endsWith('-export')) || ('bytes' in value && value.bytes instanceof ArrayBuffer && value.bytes.byteLength > 0);
+    return ((value.type==='state-hash' || value.type==='state-capture' || value.type==='state-preview' || value.type==='state-info' || value.type==='battery-info') || value.type.endsWith('-export')) || ('bytes' in value && value.bytes instanceof ArrayBuffer && value.bytes.byteLength > 0);
   }
   if (value.type === 'pause') return true;
   const tagged=!('epoch' in value) && !('frame' in value) || 'epoch' in value && token(value.epoch) && 'frame' in value && integer(value.frame,0,Number.MAX_SAFE_INTEGER);

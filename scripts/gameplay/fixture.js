@@ -28,4 +28,39 @@ if(data.type==='state-hash'&&proof.finalHashDelay&&proof.finalHashDelay.frame===
 // Diagnostic delivery delay leaves the native frame and its inputs unchanged.
 if(data.type==='frame'&&data.epoch&&window.workerFloorMs&&!event.floorDelivered){const remaining=window.workerFloorMs-(performance.now()-workerStart);if(remaining>0){event.stopImmediatePropagation();setTimeout(()=>{const delayed=new MessageEvent('message',{data});Object.defineProperty(delayed,'floorDelivered',{value:true});this.dispatchEvent(delayed)},remaining);return;}}
 if(data.type==='ready')proof.fps=data.fps;if(data.type==='state-history'&&data.requestId===900002)proof.localHistory=data.info;if(data.type==='state-exported'&&[900000,900001].includes(data.requestId))proof[data.requestId===900000?'controllerRam':'chatRam']=JSON.parse(new TextDecoder().decode(data.bytes.slice(72))).hardware.wram.slice(0,2);if(data.type==='state-hash'){const elapsed=performance.now()-hashAt;proof.admission.hashMs+=elapsed;proof.admission.hashMaxMs=Math.max(proof.admission.hashMaxMs,elapsed);proof.admission.hashCount++;proof.hashes.push(data.info);}if(data.type==='frame'&&data.epoch){workerPending=false;epochFrames++;if(window.scriptKey&&(data.frame+1)%60===0){window.dispatchEvent(new KeyboardEvent((data.frame+1)%120===0?'keyup':'keydown',{code:window.scriptKey}));proof.scriptedInputs=(proof.scriptedInputs||0)+1;}const now=performance.now(),elapsed=now-workerStart;proof.timing.workerMs+=elapsed;proof.timing.workerMax=Math.max(proof.timing.workerMax,elapsed);if(lastFrame){const bucket=Math.min(200,Math.round(now-lastFrame));proof.timing.frameGaps[bucket]=(proof.timing.frameGaps[bucket]||0)+1}lastFrame=now;proof.frameCount++;proof.frames.push({epoch:data.epoch,frame:data.frame});if(proof.frames.length>12)proof.frames.shift()}})}};
-    const S=WebSocket;window.WebSocket=class extends S{send(data){const value=JSON.parse(data);if(['gameAbort','peerFailed'].includes(value.type))proof.workloadStopped=true;if(['join','joinCode','leave','gamePause','gameAbort','peerFailed','heartbeat'].includes(value.type))note('send',{type:value.type,reason:value.reason,frame:value.frame,sinceStart:epochAt?Math.round(performance.now()-epochAt):undefined,epochFrames});if(value.type==='gameReady')proof.gameReadies=(proof.gameReadies||0)+1;if(value.type==='gameAck'&&window.dropGameAck){proof.droppedAcks=(proof.droppedAcks||0)+1;return;}return super.send(data)}constructor(...a){super(...a);proof.roomSocket=this;this.addEventListener('close',e=>{proof.workloadStopped=true;note('socket-close',{code:e.code})});this.addEventListener('message',event=>{const {data}=event,e=JSON.parse(data);if(e.type==='gamePauseAt'&&proof.finalHashDelay&&proof.finalHashDelay.frame===undefined){proof.finalHashDelay.frame=e.frame;proof.finalHashDelay.epoch=e.epoch;}if(['peerStop','gameStop'].includes(e.type))proof.workloadStopped=true;if(e.type==='gameStart')proof.workloadStopped=false;if(['peerStop','gameStop','gamePauseAt','gameStart'].includes(e.type))note('receive',{type:e.type,reason:e.reason});if(e.type==='gameStart'&&window.delayStart){window.delayStart=false;proof.delayedStarts=(proof.delayedStarts||0)+1;event.stopImmediatePropagation();setTimeout(()=>this.dispatchEvent(new MessageEvent('message',{data})),250);return;}if(e.type==='gameStart'){proof.activeEpoch=e.epoch;lastInputAt=0;proof.timing.delays.push(e.delay);lastFrame=0;epochAt=performance.now();epochFrames=0;epochStartFrame=e.frame??0;}if(e.type==='room'){proof.room=e.room;proof.rooms.push({established:e.room.established,status:e.room.game?.status})}})}};
+    const peerMembers=new Map(),requiredPairs=new Set();proof.stopEvents=[];
+    const activeOwner=member=>!!member&&!!proof.room&&(member===proof.room.hostMembership||proof.room.game?.controllers?.owners?.includes(member));
+    const requiredPeer=pairId=>requiredPairs.has(pairId)||!peerMembers.has(pairId)||activeOwner(peerMembers.get(pairId));
+    const stop=(type,pairId,reason)=>{
+      const required=type!=='peerStop'&&type!=='peerFailed'||requiredPeer(pairId);
+      proof.stopEvents.push({type,pairId,member:peerMembers.get(pairId),required,reason,at:Math.round(performance.now())});
+      if(required)proof.workloadStopped=true;
+    };
+    const S=WebSocket;window.WebSocket=class extends S{
+      send(data){
+        const value=JSON.parse(data);
+        if(value.type==='gameAbort'||value.type==='peerFailed')stop(value.type,value.pairId,value.reason);
+        if(['join','joinCode','leave','gamePause','gameAbort','peerFailed','heartbeat'].includes(value.type))note('send',{type:value.type,reason:value.reason,frame:value.frame,sinceStart:epochAt?Math.round(performance.now()-epochAt):undefined,epochFrames});
+        if(value.type==='gameReady')proof.gameReadies=(proof.gameReadies||0)+1;
+        if(value.type==='gameAck'&&window.dropGameAck){proof.droppedAcks=(proof.droppedAcks||0)+1;return;}
+        return super.send(data);
+      }
+      constructor(...a){
+        super(...a);proof.roomSocket=this;
+        this.addEventListener('close',e=>{stop('socketClose',undefined,e.code);note('socket-close',{code:e.code})});
+        this.addEventListener('message',event=>{
+          const {data}=event,e=JSON.parse(data);
+          if(e.type==='peerPrepare')peerMembers.set(e.pairId,e.member);
+          if(e.type==='gamePauseAt'&&proof.finalHashDelay&&proof.finalHashDelay.frame===undefined){proof.finalHashDelay.frame=e.frame;proof.finalHashDelay.epoch=e.epoch;}
+          if(e.type==='peerStop'||e.type==='gameStop')stop(e.type,e.pairId,e.reason);
+          if(e.type==='gameStart')proof.workloadStopped=false;
+          if(['peerStop','gameStop','gamePauseAt','gameStart'].includes(e.type))note('receive',{type:e.type,pairId:e.pairId,member:peerMembers.get(e.pairId),required:e.type==='peerStop'?requiredPeer(e.pairId):undefined,reason:e.reason});
+          if(e.type==='gameStart'&&window.delayStart){window.delayStart=false;proof.delayedStarts=(proof.delayedStarts||0)+1;event.stopImmediatePropagation();setTimeout(()=>this.dispatchEvent(new MessageEvent('message',{data})),250);return;}
+          if(e.type==='gameStart'){proof.activeEpoch=e.epoch;lastInputAt=0;proof.timing.delays.push(e.delay);lastFrame=0;epochAt=performance.now();epochFrames=0;epochStartFrame=e.frame??0;}
+          if(e.type==='room'){
+            proof.room=e.room;proof.rooms.push({established:e.room.established,status:e.room.game?.status});
+            for(const peer of e.room.peers??[]){peerMembers.set(peer.pairId,peer.member);if(activeOwner(peer.member))requiredPairs.add(peer.pairId);}
+          }
+        });
+      }
+    };

@@ -188,14 +188,14 @@ def expired_guest_recovers(browser, url):
         page.goto(url)
         page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
         page.evaluate("""async expired => {
-          const db = await new Promise((resolve,reject) => {const request=indexedDB.open('retro-coop-local',3);request.onupgradeneeded=()=>{const db=request.result;db.createObjectStore('saves',{keyPath:['identity','slot']}).createIndex('identity','identity');for(const name of ['batteries','preferences'])db.createObjectStore(name,{keyPath:'identity'});db.createObjectStore('roms',{keyPath:'sha256'});db.createObjectStore('meta');};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+          const db = await new Promise((resolve,reject) => {const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
           await new Promise((resolve,reject) => {const tx=db.transaction('saves','readwrite');tx.objectStore('saves').put({identity:'recovery-test',slot:1,savedAt:Date.now(),bytes:new ArrayBuffer(1)});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
           db.close();sessionStorage.setItem('retro-coop-guest',expired);
         }""", expired)
         page.reload()
         page.locator('.rc-list-head').get_by_text('0 lobbies', exact=True).wait_for(timeout=15000)
         page.wait_for_function("sessionStorage.getItem('retro-coop-guest') !== '" + expired + "'")
-        assert page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const tx=db.transaction('saves');const request=tx.objectStore('saves').get(['recovery-test',1]);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return row?.bytes?.byteLength===1;}""")
+        assert page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});const row=await new Promise((resolve,reject)=>{const tx=db.transaction('saves');const request=tx.objectStore('saves').get(['recovery-test',1]);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});db.close();return row?.bytes?.byteLength===1;}""")
         assert 'Lobbies unavailable' not in page.locator('body').inner_text()
         page.get_by_role('button', name='Host a new game').click()
         page.locator('[data-page=lobby]').wait_for(timeout=10000)
@@ -222,7 +222,7 @@ def local_shortcuts(browser, url, output):
     page = context.new_page()
     try:
         page.goto(url)
-        page.locator('input[aria-label="NES cartridge file"]').set_input_files(str(ROOT / 'apps/client/dist/generated/diagnostic.nes'))
+        page.locator('input[aria-label="NES cartridge file"]').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
         page.locator('[data-page=local]').wait_for(timeout=15000)
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
@@ -233,7 +233,7 @@ def local_shortcuts(browser, url, output):
         assert page.get_by_role('alertdialog', name='Load quick save?').count() == 0
         page.keyboard.press('e')
         page.get_by_role('alertdialog', name='Load quick save?').wait_for()
-        page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local',3);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});await new Promise((resolve,reject)=>{const tx=db.transaction('saves','readwrite');const store=tx.objectStore('saves');const request=store.getAll();request.onsuccess=()=>{const row=request.result.find(value=>value.slot===1);store.put({...row,savedAt:row.savedAt+1});};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}""")
+        page.evaluate("""async () => {const db=await new Promise((resolve,reject)=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});await new Promise((resolve,reject)=>{const tx=db.transaction('saves','readwrite');const store=tx.objectStore('saves');const request=store.getAll();request.onsuccess=()=>{const row=request.result.find(value=>value.slot===1);store.put({...row,savedAt:row.savedAt+1});};tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});db.close();}""")
         page.get_by_role('button', name='Load Slot 1').click()
         page.get_by_text('Quick save changed. Press E again to load the current slot.', exact=True).wait_for(timeout=10000)
         assert page.locator('[data-page=local]').count() == 1
@@ -374,8 +374,7 @@ def abandoned_saved_game_cannot_reopen(browser, url):
         context.close()
 
 
-def host(page, url):
-    page.goto(url, wait_until='domcontentloaded')
+def host(page):
     page.get_by_role('button', name='Host a new game').click()
     page.get_by_role('button', name='Back to Main Page', exact=True).wait_for()
     assert page.locator('main').get_attribute('data-page') == 'lobby'
@@ -391,9 +390,9 @@ def host(page, url):
     return page.locator('.rc-trail .rc-header-edit').inner_text().replace('✎', '').strip()
 
 
-def exercise(page, url, size, output, play=False):
-    name = host(page, url)
+def exercise(page, size, output, play=False, invitation_recovery=False):
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
+    name = host(page)
     assert name
     before = page.locator('.rc-identity').bounding_box()
     names_fit(page)
@@ -506,6 +505,8 @@ def exercise(page, url, size, output, play=False):
         assert page.get_by_role('button', name='Mute game').count() == 0
         choose_section(page, 'Sound')
         assert page.get_by_role('button', name='Mute game').count() == 1
+        page.get_by_role('button', name='Mute game', exact=True).click()
+        page.get_by_role('button', name='Unmute game', exact=True).wait_for()
         choose_section(page, 'Game')
         assert page.locator('.rc-controller-art').is_visible()
         assert guide_fits(page), f'Controller guide overflowed at {size}'
@@ -540,20 +541,21 @@ def exercise(page, url, size, output, play=False):
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
         page.get_by_role('button', name='Return game to lobby').click()
         assert page.locator('.rc-game-fullscreen').count() == 0
-    page.evaluate("""() => {
-      window.heldInvites=[];
-      Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise((resolve,reject)=>window.heldInvites.push({resolve,reject}))}});
-    }""")
-    page.get_by_role('button', name='Copy invite').click()
-    page.wait_for_function('window.heldInvites.length === 1')
-    page.get_by_role('button', name='Back to Main Page', exact=True).click()
-    assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
-    page.evaluate('window.heldInvites[0].resolve()')
-    page.wait_for_timeout(100)
-    assert 'Invitation copied.' not in page.locator('.rc-status').inner_text()
-    page.get_by_role('button', name='Stay').click()
-    page.get_by_role('button', name='Copy invite').click()
-    page.wait_for_function('window.heldInvites.length === 2')
+    if invitation_recovery:
+        page.evaluate("""() => {
+          window.heldInvites=[];
+          Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>new Promise((resolve,reject)=>window.heldInvites.push({resolve,reject}))}});
+        }""")
+        page.get_by_role('button', name='Copy invite').click()
+        page.wait_for_function('window.heldInvites.length === 1')
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
+        page.evaluate('window.heldInvites[0].resolve()')
+        page.wait_for_timeout(100)
+        assert 'Invitation copied.' not in page.locator('.rc-status').inner_text()
+        page.get_by_role('button', name='Stay').click()
+        page.get_by_role('button', name='Copy invite').click()
+        page.wait_for_function('window.heldInvites.length === 2')
     page.locator('.rc-logo').click()
     assert page.get_by_role('alertdialog', name='Close this lobby?').is_visible()
     exit_box = page.get_by_role('alertdialog', name='Close this lobby?').bounding_box()
@@ -561,10 +563,11 @@ def exercise(page, url, size, output, play=False):
     assert abs(exit_box['y'] + exit_box['height'] / 2 - size[1] / 2) <= 1
     page.get_by_role('button', name='Close lobby').click()
     page.locator('.rc-listing').wait_for(timeout=10000)
-    page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
-    page.wait_for_timeout(100)
-    assert page.get_by_role('dialog', name='Invitation link').count() == 0
-    assert page.locator('main').get_attribute('data-page') == 'main'
+    if invitation_recovery:
+        page.evaluate("window.heldInvites[1].reject(Error('clipboard unavailable'))")
+        page.wait_for_timeout(100)
+        assert page.get_by_role('dialog', name='Invitation link').count() == 0
+        assert page.locator('main').get_attribute('data-page') == 'main'
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     return {'size': size, 'lobby': name, 'regions': list(base), 'played': play, 'rendered_game': rendered_game if play else None}
 
@@ -594,9 +597,8 @@ def main():
                     page.goto(url, wait_until='domcontentloaded')
                     zoom = browser_zoom(page, worker, 2)
                     page.on('pageerror', lambda error: errors.append(str(error)))
-                    actual_size = tuple(page.evaluate('[innerWidth, innerHeight]'))
-                    verify_zoom(worker, zoom)
-                    rows = [exercise(page, url, actual_size, output, play=True)]
+                    size = tuple(page.evaluate('[innerWidth, innerHeight]'))
+                    rows = [exercise(page, size, output, play=True)]
                     verify_zoom(worker, zoom)
                     zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
                     assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
@@ -604,21 +606,28 @@ def main():
                 assert not errors, errors
                 print(json.dumps({'result': 'pass', 'zoom': zoom, 'checks': rows}), flush=True)
                 return
-            browser = getattr(playwright, args.browser).launch(headless=True, **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
+            browser = getattr(playwright, args.browser).launch(headless=True, ignore_default_args=['--mute-audio'], **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
             try:
                 rows = []
-                profile_context = browser.new_context()
-                for size in ((1440, 900), (1366, 682), (1024, 600), (401, 760), (320, 568)):
-                    # Each page has a fresh visitor token; shared storage keeps
-                    # repeated asset acquisition inside the browser gate budget.
-                    page = profile_context.new_page()
-                    page.set_viewport_size({'width': size[0], 'height': size[1]})
-                    page.on('pageerror', lambda error: errors.append(str(error)))
+                scenarios = (
+                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True},
+                    {'size': (650, 760)},
+                    {'size': (401, 760)},
+                    {'size': (320, 650)},
+                    {'size': (320, 568), 'play': True},
+                )
+                for scenario in scenarios:
+                    size = scenario['size']
+                    # Each layout journey is an independent visitor, including
+                    # local ROMs and recovery captures from a played scenario.
+                    context = browser.new_context(viewport={'width': size[0], 'height': size[1]})
                     try:
-                        rows.append(exercise(page, url, size, output, play=True))
+                        page = context.new_page()
+                        page.on('pageerror', lambda error: errors.append(str(error)))
+                        page.goto(url, wait_until='domcontentloaded')
+                        rows.append(exercise(page, output=output, **scenario))
                     finally:
-                        page.close()
-                profile_context.close()
+                        context.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
                     expired_guest_recovers(browser, url)

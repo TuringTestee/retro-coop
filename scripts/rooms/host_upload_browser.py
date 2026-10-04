@@ -17,7 +17,7 @@ from ui_helpers import choose_section_async
 
 ROOT = Path(__file__).resolve().parents[2]
 URL = 'http://127.0.0.1:8895/'
-FIXTURE = ROOT / 'apps/client/public/generated/diagnostic.nes'
+FIXTURE = ROOT / 'spikes/d02/fixture.local.nes'
 
 
 async def create_lobby(page, name, protected=False):
