@@ -601,3 +601,15 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-join-detail input { width: 84px; height: 32px; padding: 3px; font-size: 14px; }
  .rc-join-detail button { min-height: 32px; padding: 2px 4px; font-size: 14px; }
 }
+
+/* Only an overflowing ROM title moves; its window and adjacent actions stay fixed. */
+.rc-game-heading { width: 100%; overflow: hidden; }
+.rc-title-track { display: inline-flex; width: max-content; gap: 32px; white-space: nowrap; }
+.rc-title-track > span { flex: none; }
+.rc-game-heading[data-overflow=true] .rc-title-track { animation: rc-title-loop var(--rc-title-duration) linear infinite; }
+.rc-game-heading:hover .rc-title-track, .rc-game-heading:focus .rc-title-track { animation-play-state: paused; }
+@keyframes rc-title-loop { to { transform: translateX(calc(-1 * var(--rc-title-distance))); } }
+@media (prefers-reduced-motion: reduce) {
+ .rc-game-heading .rc-title-track { display: block; width: auto; white-space: normal; animation: none; overflow-wrap: anywhere; }
+ .rc-title-track > [aria-hidden=true] { display: none; }
+}

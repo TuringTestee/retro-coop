@@ -14,6 +14,18 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 
+def game_fits(page):
+    canvas = page.locator('.rc-game-display canvas').bounding_box()
+    region = page.locator('.rc-game-display').bounding_box()
+    assert canvas['x'] >= region['x']-1 and canvas['y'] >= region['y']-1, (canvas, region)
+    assert canvas['x']+canvas['width'] <= region['x']+region['width']+1, (canvas, region)
+    assert canvas['y']+canvas['height'] <= region['y']+region['height']+1, (canvas, region)
+    scale = min(canvas['width']/256, canvas['height']/240)
+    rendered = {'width': 256*scale, 'height': 240*scale}
+    assert rendered['height'] >= 90, rendered
+    return rendered
+
+
 def settings_controls_fit(page):
     return page.locator('.rc-tool-body').evaluate("""body => {
       const edge = body.closest('.rc-session-settings').getBoundingClientRect().bottom;
@@ -47,6 +59,7 @@ def text_fits(locator):
       let text;
       while ((text = walker.nextNode())) {
         if (!text.textContent.trim()) continue;
+        if (text.parentElement.closest(".rc-game-heading[data-overflow=true] .rc-title-track") && !matchMedia("(prefers-reduced-motion:reduce)").matches) continue;
         const range = document.createRange(); range.selectNodeContents(text);
         for (const box of range.getClientRects()) {
           if (box.width && box.height && (box.left < clip.left - 1 || box.right > clip.right + 1
@@ -55,6 +68,43 @@ def text_fits(locator):
       }
       return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
     }""")
+
+
+def title_fits(page):
+    heading = page.locator('.rc-game-heading')
+    return heading.evaluate("""node => {
+      const box=node.getBoundingClientRect(), toolbar=node.closest('.rc-game-toolbar').getBoundingClientRect();
+      if(box.left<toolbar.left-1||box.right>toolbar.right+1||box.top<toolbar.top-1||box.bottom>toolbar.bottom+1)return false;
+      const track=node.querySelector('.rc-title-track'),text=node.querySelector('.rc-title-text'),clone=track.querySelector('[aria-hidden=true]');
+      if(!text||text.textContent!==node.title)return false;
+      if(node.dataset.overflow==='true'&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+        const style=getComputedStyle(track),distance=parseFloat(node.style.getPropertyValue('--rc-title-distance'));
+        return clone?.textContent===text.textContent && style.animationName==='rc-title-loop'
+          && parseFloat(style.animationDuration)>0 && Math.abs(distance-text.getBoundingClientRect().width-32)<1
+          && Math.abs(clone.getBoundingClientRect().left-text.getBoundingClientRect().left-distance)<1;
+      }
+      return !clone||getComputedStyle(clone).display==='none';
+    }""") and (page.locator('.rc-game-heading').get_attribute('data-overflow') == 'true'
+                and not page.evaluate("matchMedia('(prefers-reduced-motion:reduce)').matches") or text_fits(heading))
+
+
+def title_motion(page):
+    """Observe actual animation progress, fixed controls and reduced-motion wrapping."""
+    page.mouse.move(0, 0)
+    page.wait_for_function("document.querySelector('.rc-game-heading')?.dataset.overflow==='true'")
+    assert title_fits(page)
+    before = page.locator('.rc-game-toolbar').bounding_box()
+    time = page.locator('.rc-title-track').evaluate('node=>node.getAnimations()[0].currentTime')
+    page.wait_for_function('(before)=>document.querySelector(".rc-title-track").getAnimations()[0].currentTime>before+100', arg=time)
+    assert page.locator('.rc-game-toolbar').bounding_box() == before
+    page.locator('.rc-game-heading').focus()
+    assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationPlayState') == 'paused'
+    page.locator('.rc-game-heading').evaluate('node=>node.blur()')
+    page.emulate_media(reduced_motion='reduce')
+    assert text_fits(page.locator('.rc-game-heading'))
+    assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationName') == 'none'
+    assert page.locator('.rc-game-toolbar').bounding_box() == before
+    page.emulate_media(reduced_motion='no-preference')
 
 
 def names_fit(page):
@@ -85,7 +135,9 @@ def regions(page):
         assert box['x'] >= -1 and box['y'] >= -1, (name, box)
         assert box['x'] + box['width'] <= page.evaluate('innerWidth') + 1, (name, box)
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
-    assert text_fits(page.locator('.rc-game-toolbar')), page.locator('.rc-game-toolbar').inner_text()
+    assert title_fits(page), page.locator('.rc-game-toolbar').inner_text()
+    for action in page.locator('.rc-game-links button').all():
+        assert text_fits(action), action.inner_text()
     assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
     if selected:
         choose_panel(page, 'Players')
@@ -409,7 +461,8 @@ def host(page):
     return page.get_by_role('button', name='Edit lobby name:', exact=False).inner_text().replace('✎', '').strip()
 
 
-def exercise(page, size, output, play=False, invitation_recovery=False, uploaded_title=False):
+def exercise(page, size, output, play=False, invitation_recovery=False, uploaded_title=False, responsive_sizes=()):
+    responsive_results = []
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
     name = host(page)
     assert name
@@ -450,6 +503,14 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
     page.get_by_role('button', name='Save name', exact=True).click()
     page.get_by_role('button', name='Edit your name: ' + '漢' * 32).wait_for()
     names_fit(page)
+    for profile in responsive_sizes:
+        page.set_viewport_size({'width': profile[0], 'height': profile[1]})
+        choose_section(page, 'Profile')
+        names_fit(page)
+        regions(page)
+        page.screenshot(path=str(output / f'maximum-names-{profile[0]}x{profile[1]}.png'))
+    page.set_viewport_size({'width': size[0], 'height': size[1]})
+    choose_section(page, 'Profile')
     assert header_boxes == {selector: page.locator(selector).bounding_box() for selector in header_boxes}
     assert name_boxes == page.locator('.rc-header-name').evaluate_all('nodes => nodes.map(node => node.getBoundingClientRect().toJSON())')
     page.screenshot(path=str(output / f'maximum-names-{size[0]}x{size[1]}.png'))
@@ -518,6 +579,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
             page.get_by_role('button', name='From Below', exact=True).click()
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         assert regions(page) == base
+        if uploaded_title:
+            title_motion(page)
         assert page.get_by_role('button', name='Change game').count() == 1
         assert page.locator('.rc-preview-actions').count() == 0
         assert page.locator('.rc-game-display button', has_text='Change game').count() == 0
@@ -538,7 +601,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
             page.screenshot(path=str(output / f'automatic-play-{size[0]}x{size[1]}.png'))
             page.get_by_role('button', name='Return to lobby view', exact=True).click()
             assert page.get_by_role('navigation', name='Lobby sections').locator('[aria-current=page]').inner_text() == 'Game'
-        assert page.locator('.rc-game-heading').inner_text() == expected_title
+        assert page.locator('.rc-game-heading').get_attribute('title') == expected_title
         assert page.get_by_role('button', name='Mute game').count() == 0
         choose_section(page, 'Sound')
         assert page.get_by_role('button', name='Mute game').count() == 1
@@ -552,17 +615,23 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
         choose_panel(page, 'Game')
         page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
-        canvas = page.locator('.rc-game-display canvas').bounding_box()
-        game_region = page.locator('.rc-game-display').bounding_box()
-        assert canvas['x'] >= game_region['x'] - 1 and canvas['y'] >= game_region['y'] - 1, (canvas, game_region)
-        assert canvas['x'] + canvas['width'] <= game_region['x'] + game_region['width'] + 1, (canvas, game_region)
-        assert canvas['y'] + canvas['height'] <= game_region['y'] + game_region['height'] + 1, (canvas, game_region)
-        scale = min(canvas['width'] / 256, canvas['height'] / 240)
-        rendered_game = {'width': 256 * scale, 'height': 240 * scale}
-        assert rendered_game['height'] >= 90, rendered_game
+        rendered_game = game_fits(page)
         page.screenshot(path=str(output / f'active-game-{size[0]}x{size[1]}.png'))
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for(timeout=10000)
+        for profile in responsive_sizes:
+            page.set_viewport_size({'width': profile[0], 'height': profile[1]})
+            choose_section(page, 'Game')
+            assert guide_fits(page), profile
+            assert settings_controls_fit(page), profile
+            regions(page)
+            choose_panel(page, 'Game')
+            frames = int(page.locator('canvas').get_attribute('data-frame-count'))
+            page.wait_for_function('(before)=>Number(document.querySelector("canvas").dataset.frameCount)>before', arg=frames)
+            responsive_results.append({'size': profile, 'rendered_game': game_fits(page), 'frames_advanced': True})
+            page.screenshot(path=str(output / f'active-game-{profile[0]}x{profile[1]}.png'))
+        page.set_viewport_size({'width': size[0], 'height': size[1]})
+        choose_panel(page, 'Game')
         playing_regions = regions(page)
         page.keyboard.press('p')
         choose_panel(page, 'Game')
@@ -611,8 +680,9 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.wait_for_timeout(100)
         assert page.get_by_role('dialog', name='Invitation link').count() == 0
         assert page.locator('main').get_attribute('data-page') == 'main'
+    responsive_results = []
     assert page.evaluate('[innerWidth, innerHeight]') == list(size)
-    return {'size': size, 'lobby': name, 'regions': list(base), 'played': play, 'rendered_game': rendered_game if play else None}
+    return {'size': size, 'lobby': name, 'regions': list(base), 'played': play, 'rendered_game': rendered_game if play else None, 'responsive_play': responsive_results}
 
 
 def main():
@@ -653,14 +723,11 @@ def main():
             try:
                 rows = []
                 scenarios = (
-                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True},
+                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True, 'responsive_sizes': ((900,700),(844,390),(320,650))},
                     {'size': (1024, 600), 'play': True, 'uploaded_title': True},
-                    {'size': (900, 700), 'play': True},
                     {'size': (568, 320), 'play': True, 'uploaded_title': True},
-                    {'size': (844, 390), 'play': True},
                     {'size': (650, 760)},
                     {'size': (401, 760)},
-                    {'size': (320, 650)},
                     {'size': (320, 568), 'play': True, 'uploaded_title': True},
                 )
                 for scenario in scenarios:
