@@ -97,6 +97,17 @@ export class LocalPlayer {
  }
  stopPersistence() {if(this.batterySession)this.batterySession.enabled=false;}
  async saveInfo():Promise<LocalFileInfo> {const reply=await this.fileRequest({type:'state-info'});if(reply.type!=='state-info')throw Error('Unexpected save response');return reply.info;}
+ async loadRecovery(file:File,current:()=>boolean){
+  await new Promise<void>((resolve,reject)=>{
+   const finish=(error?:Error)=>{clearTimeout(timer);this.selectionListeners.delete(loaded);error?reject(error):resolve();};
+   const loaded=()=>{if(!current())finish(Error('Restoration cancelled.'));else if(!this.state.loading&&this.state.selectionPhase==='failed')finish(Error(this.state.status));else if(!this.state.loading&&this.state.selectionPhase==='loaded')finish();};
+   const timer=setTimeout(()=>finish(Error('The game did not load. Load a NES file normally.')),15000);
+   this.selectionListeners.add(loaded);void this.load(file,undefined,true,current).catch(error=>finish(error));
+  });
+ }
+ // loadRecovery resolves only after the active candidate is initialized.
+ recoveryFingerprint(){return this.state.fingerprint;}
+ async captureRecovery(){const reply=await this.fileRequest({type:'state-capture'});if(reply.type!=='state-captured')throw Error('Unexpected recovery response');return reply;}
  async exportSave():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'state-export'});if(reply.type!=='state-exported')throw Error('Unexpected save response');return reply.bytes;}
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
  async loadSave(bytes:ArrayBuffer) {
@@ -174,7 +185,8 @@ export class LocalPlayer {
   canvas.addEventListener('blur',this.canvasBlur);
   this.animation = requestAnimationFrame(this.tick);
  }
- private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state); }
+ private selectionListeners=new Set<()=>void>();
+ private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state);for(const listener of this.selectionListeners)listener(); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
  private releasedPad=new ReleasedInputs();
  private release = () => { this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
