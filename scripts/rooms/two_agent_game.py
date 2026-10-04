@@ -35,6 +35,7 @@ parser.add_argument('--height', type=int, default=682)
 parser.add_argument('--zoom', type=int, choices=(1, 2), default=1)
 parser.add_argument('--play-seconds', type=int, default=0)
 parser.add_argument('--observer-churn', action='store_true', help='Join and leave as an unrelated observer during continuous play')
+parser.add_argument('--required-peer-loss', action='store_true', help='Prove a departed controller fails the live check')
 args = parser.parse_args()
 ROOT = args.runtime_root.resolve()
 SESSION = args.session_dir.resolve()
@@ -43,6 +44,8 @@ if not 0 <= args.play_seconds <= 30:
     parser.error('--play-seconds must be between 0 and 30')
 if args.observer_churn and (args.role not in ('run', 'host', 'guest') or args.play_seconds < 10 or args.visibility != 'public'):
     parser.error('--observer-churn needs a public run with at least 10 play seconds')
+if args.required_peer_loss and (args.role != 'run' or args.play_seconds < 10 or args.observer_churn):
+    parser.error('--required-peer-loss needs a run with at least 10 play seconds')
 LOBBY_NAME = 'Play check ' + hashlib.sha256(str(SESSION).encode()).hexdigest()[:10]
 EXPECTED_RAM = [int(value) for value in args.expect_controller_ram.split(',')] if args.expect_controller_ram else None
 if EXPECTED_RAM is not None and (len(EXPECTED_RAM) != 2 or any(value < 0 or value > 255 for value in EXPECTED_RAM)):
@@ -109,6 +112,8 @@ def verify():
     assert not host['page_errors'] and not guest['page_errors']
     assert host['continuous_play_seconds'] >= args.play_seconds
     assert guest['continuous_play_seconds'] >= args.play_seconds
+    if args.observer_churn:
+        assert host['observer_stop']['required'] is False
     if args.play_seconds:
         for player in (host, guest):
             assert player['measured_fps'] > 0
@@ -132,6 +137,7 @@ def verify():
         'continuous_play_seconds': min(host['continuous_play_seconds'], guest['continuous_play_seconds']),
         'host_metrics': {key: host[key] for key in ('measured_fps', 'ping_ms', 'routes')},
         'guest_metrics': {key: guest[key] for key in ('measured_fps', 'ping_ms', 'routes')},
+        'observer_stop': host['observer_stop'],
     }
     save('result.json', result)
     print(json.dumps(result, indent=2))
@@ -169,6 +175,18 @@ def run_pair():
                     workers.append(subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT))
                 deadline = time.monotonic() + 80
                 try:
+                    if args.required_peer_loss:
+                        wait_for('host-live.json', 40)
+                        wait_for('guest-live.json', 40)
+                        workers[1].terminate()
+                        workers[1].wait(timeout=5)
+                        assert workers[0].wait(timeout=15) != 0, 'Host incorrectly passed after its controller left'
+                        failure = wait_for('host-failure.json', 1)
+                        assert any(stop['type'] == 'peerStop' and stop['required'] for stop in failure['stop_events']), failure
+                        result = {'result': 'pass', 'required_stop': next(stop for stop in failure['stop_events'] if stop['type'] == 'peerStop' and stop['required'])}
+                        save('required-peer-loss-result.json', result)
+                        print(json.dumps(result, indent=2))
+                        return
                     if args.observer_churn:
                         wait_for('host-live.json', 40)
                         wait_for('guest-live.json', 40)
@@ -328,10 +346,12 @@ def player():
                 play_frame = page.evaluate('proof.frameCount')
                 assert page.evaluate('epoch => proof.room?.game?.status === "playing" && !proof.workloadStopped && proof.activeEpoch === epoch && proof.roomSocket?.readyState === WebSocket.OPEN', arg=play_epoch), 'Shared play stopped during the live check'
                 page.wait_for_timeout(250)
+            observer_stop = None
             if args.observer_churn and args.role == 'host':
                 observer_id = wait_for('observer-left.json', 1)['member_id']
                 stops = page.evaluate('proof.stopEvents')
-                assert any(stop['type'] == 'peerStop' and stop['member'] == observer_id and not stop['required'] for stop in stops), stops
+                observer_stop = next((stop for stop in stops if stop['type'] == 'peerStop' and stop['member'] == observer_id and not stop['required']), None)
+                assert observer_stop, stops
             continuous_play_seconds = round(time.monotonic() - play_started, 2)
             measured_fps = round((play_frame-held_from)/continuous_play_seconds, 2) if args.play_seconds else None
             rtts = page.evaluate('proof.admission.nonceRttMs')
@@ -395,6 +415,7 @@ def player():
                 'elapsed_seconds':round(time.monotonic()-started,2),'page_errors':errors,
                 'continuous_play_seconds':continuous_play_seconds,
                 'measured_fps':measured_fps,'ping_ms':ping_ms,'routes':routes,
+                'observer_stop':observer_stop,
             }
             save(f'{args.role}.json', evidence)
             wait_for(f'{"guest" if args.role == "host" else "host"}.json', 15)
