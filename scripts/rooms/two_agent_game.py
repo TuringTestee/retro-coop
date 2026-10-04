@@ -593,7 +593,7 @@ def recovery():
             return tx;};}""")
         host.get_by_role('button',name='Host a new game').click()
         host.wait_for_function('typeof releaseRecovery==="function"')
-        host.evaluate('IDBDatabase.prototype.transaction=recoveryTransaction')
+        host.evaluate('()=>{IDBDatabase.prototype.transaction=recoveryTransaction;}')
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         host.get_by_role('button',name='Host a new game').wait_for()
         host.evaluate('releaseRecovery()');host.wait_for_timeout(100)
@@ -622,7 +622,7 @@ def recovery():
         host.get_by_role('button',name='Start fresh',exact=True).focus();host.keyboard.press('Enter')
         host.locator('.rc-dialog-card').wait_for(state='hidden');host.get_by_text('Device storage rejected deletion',exact=False).wait_for()
         host.wait_for_function('document.activeElement?.matches(".rc-load-game")')
-        host.evaluate('IDBObjectStore.prototype.delete=recoveryDelete');assert record(host)['revision']==newer
+        host.evaluate('()=>{IDBObjectStore.prototype.delete=recoveryDelete;}');assert record(host)['revision']==newer
         screenshot(host,'recovery-delete-failure.png')
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         host.get_by_role('button',name='Host a new game').click()
