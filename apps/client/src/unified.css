@@ -425,7 +425,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-session-playing.rc-has-side .rc-game-zone, .rc-session-playing.rc-has-side .rc-mobile-side-panel { grid-row: 2; }
   .rc-shared-playing, .rc-shared-playing.rc-has-side { grid-template-columns: minmax(0, 1fr) clamp(150px, 35vw, 220px); grid-template-rows: 120px minmax(0, 1fr) 90px; }
   .rc-shared-playing .rc-players, .rc-shared-playing.rc-has-side .rc-players { grid-column: 1 / -1; grid-row: 1; }
-  .rc-shared-playing .rc-players .room-slots { grid-template-rows: repeat(3, 42px); }
+  .rc-shared-playing .rc-players .room-slots { grid-template-rows: repeat(3, 40px); }
   .rc-shared-playing .rc-game-zone, .rc-shared-playing.rc-has-side .rc-game-zone { grid-column: 1; grid-row: 2; }
   .rc-shared-playing .rc-play-tools { grid-column: 2; grid-row: 2; grid-template-rows: 16px 44px 42px 52px 28px; gap: 2px; padding: 3px 4px; }
   .rc-shared-playing.rc-has-side .rc-play-tools { display: none; }
@@ -656,7 +656,7 @@ button:disabled { cursor: default; opacity: .52; }
   .rc-inline-settings .rc-tool-stack button { min-height: 25px; padding: 2px 4px; font-size: 11px; }
   .rc-inline-settings .rc-mapping-actions { flex-wrap: nowrap; justify-content: space-between; gap: 2px; }
   .rc-inline-settings .rc-mapping-actions button { min-width: 0; padding: 1px 4px; }
-  .rc-inline-settings .rc-play-tools { grid-column: auto; grid-row: auto; grid-template-rows: 36px minmax(0,1fr) 14px; gap: 2px; }
+  .rc-inline-settings .rc-play-tools { grid-column: auto; grid-row: auto; grid-template-rows: 44px minmax(0,1fr) 24px; gap: 2px; }
   .rc-inline-settings .rc-play-tools .rc-section-head { display: none; }
   .rc-inline-settings .rc-controller-art { padding: 1px; border-width: 1px; border-radius: 13px; }
   .rc-pad { font-size: 10px; }
