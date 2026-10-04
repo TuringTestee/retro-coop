@@ -78,7 +78,9 @@ for(const [name,make,error] of invalidCases)test(`HTTP rejects ${name} and relea
 test('HTTP enforces strict decimal compressed limit and permits retry',async()=>{
  const t=await setup();try{
   for(const size of [ZIP_ARCHIVE_LIMIT,ZIP_ARCHIVE_LIMIT+1]){const response=await t.post(Buffer.alloc(size));assert.equal(response.status,413);assert.deepEqual(await response.json(),{error:'archive_size_limit'});}
-  const response=await t.post(archive([{name:'game.nes',data:rom()}]));assert.equal(response.status,200);await response.arrayBuffer();await t.clear();
+  const entries=[{name:'game.nes',data:rom()},{name:'notes.txt',data:Buffer.alloc(0)}],overhead=archive(entries).length;
+  entries[1].data=Buffer.alloc(ZIP_ARCHIVE_LIMIT-1-overhead);const bytes=archive(entries);assert.equal(bytes.length,ZIP_ARCHIVE_LIMIT-1);
+  const response=await t.post(bytes);assert.equal(response.status,200);assert.deepEqual(Buffer.from(await response.arrayBuffer()),rom());await t.clear();
  }finally{await t.close();}
 });
 test('HTTP enforces actual compressed bytes for chunked bodies',async()=>{
@@ -132,5 +134,15 @@ test('HTTP stalled preparation expires, cleans scratch and permits retry',async(
   for(let i=0;i<100&&!t.scratch().length;i++)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(t.scratch().length,1);
   const closed=new Promise<void>(resolve=>request.once('close',()=>resolve()));t.advance(30_001);await closed;await t.clear();
   const retry=await t.post(bytes);assert.equal(retry.status,200);await retry.arrayBuffer();await t.clear();
+ }finally{await t.close();}
+});
+test('HTTP extraction failure preserves a previously committed shared blob and lobby',async()=>{
+ const t=await setup();try{
+  const bytes=rom(),fingerprint={romSha256:createHash('sha256').update(bytes).digest('hex'),coreSha256:'b'.repeat(64),localSchema:1 as const,settings:'auto-region;zero-ram;48000hz;standard-p1-p2' as const,cartridge:{format:'iNES' as const,mapper:0,submapper:0,region:'NTSC',bytes:bytes.length}},intent=randomUUID();
+  const room=t.server.rooms.handle(t.token,{type:'create',requestId:randomUUID(),intent,visibility:'public',fingerprint}).room!;
+  const upload=await fetch(t.url+`/rooms/${room.id}/rom`,{method:'PUT',headers:{Origin:origin,Authorization:`Bearer ${t.token}`,'X-Room-Intent':intent,'Content-Type':'application/octet-stream'},body:bytes});assert.equal(upload.status,201);await upload.json();
+  const confirmed=t.server.rooms.handle(t.token,{type:'confirmCreate',requestId:randomUUID(),intent}).room!,path=t.server.romStore.pathForRoom(room.id);
+  const failure=await t.post(archive([{name:'bad.nes',data:bytes,crc:1}]));assert.equal(failure.status,400);await failure.json();assert.equal(t.server.romStore.pathForRoom(room.id),path);assert.equal(existsSync(path!),true);
+  const retained=t.server.rooms.handle(t.token,{type:'confirmCreate',requestId:randomUUID(),intent}).room!;assert.equal(retained.id,confirmed.id);assert.deepEqual(retained.fingerprint,confirmed.fingerprint);assert.equal(retained.gameTitle,confirmed.gameTitle);await t.clear();
  }finally{await t.close();}
 });
