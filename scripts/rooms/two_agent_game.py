@@ -452,7 +452,13 @@ def recovery():
     started = time.monotonic()
     errors = []
     fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + """
-      (()=>{const Socket=WebSocket;window.WebSocket=class extends Socket{
+      (()=>{const channels=[];proof.recoveryDiagnostics=[];
+        const retain=value=>{proof.recoveryDiagnostics.push({at:Math.round(performance.now()),...value});if(proof.recoveryDiagnostics.length>80)proof.recoveryDiagnostics.shift();};
+        const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>watch(channel));}createDataChannel(...args){const channel=super.createDataChannel(...args);watch(channel);return channel;}};
+        function watch(channel){channels.push(channel);for(const event of ['open','close','error'])channel.addEventListener(event,()=>retain({kind:'channel',label:channel.label,state:channel.readyState,event}));}
+        const Native=Worker;window.Worker=class extends Native{constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(['error','peer-checkpoint-exported','peer-checkpoint-imported'].includes(data.type))retain({kind:'native',type:data.type,message:data.message,frame:data.frame,hash:data.hash});});}};
+        const Socket=WebSocket;window.WebSocket=class extends Socket{
+        send(raw){const value=JSON.parse(raw);if(value.type.startsWith('game'))retain({kind:'send',type:value.type,frame:value.frame,hash:value.hash,channels:channels.map(channel=>({label:channel.label,state:channel.readyState}))});return super.send(raw);}
         constructor(...args){super(...args);this.addEventListener('message',event=>{
           const value=JSON.parse(event.data);
           proof.recoveryResponses??=[];
@@ -528,6 +534,7 @@ def recovery():
                             'room':page.evaluate('''()=>{const room=window.proof?.room;return room?{id:room.id,role:room.role,status:room.status,matches:room.matches,started:room.started,occupancy:room.occupancy,fingerprint:room.fingerprint,game:room.game,slots:room.slots.map(slot=>({id:slot.id,role:slot.role,open:slot.open,member:slot.member?{id:slot.member.id,connected:slot.member.connected,acquisition:slot.member.acquisition}:undefined}))}:null}'''),
                             'session':page.evaluate('({nickname:window.proof?.session?.nickname,hasToken:!!window.proof?.session?.token})'),
                             'responses':page.evaluate('window.proof?.recoveryResponses'),
+                            'synchronization':page.evaluate('window.proof?.recoveryDiagnostics'),
                             'events':page.evaluate('window.proof?.events?.slice(-12)'),
                             'page_errors':errors,
                         })

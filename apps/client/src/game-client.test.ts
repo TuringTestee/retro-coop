@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {setImmediate} from 'node:timers/promises';
+import {CHECKPOINT_TIMEOUT_MS} from '../../../packages/contracts/src/checkpoint.ts';
 import {GameClient,type GameplayState} from './game-client.ts';
 import type {LocalPlayer} from './player.ts';
 import type {Fingerprint,RoomView} from '../../../packages/contracts/src/rooms.ts';
@@ -206,4 +207,45 @@ test('late native rollback cannot acknowledge for a departed membership',async()
   const previous=finish;t.game.enter(undefined);previous({frame:917,hash});await tick();
   assert.equal(t.commands.some(command=>command.type==='gameLoadRolledBack'),false);
  }finally{t.game.dispose();}
+});
+
+test('authorized controller checkpoint waits for its connecting transport and ignores stale open after leave',async()=>{
+ for(const leave of [false,true]){
+  const t=setup(host),transfer='t'.repeat(22),sent:unknown[]=[],channel=Object.assign(new EventTarget(),{readyState:'connecting',bufferedAmount:0,send:(value:unknown)=>sent.push(value)}) as unknown as RTCDataChannel;
+  Object.assign(t.player,{exportPeerCheckpoint:async()=>({type:'peer-checkpoint-exported',requestId:1,epoch,frame:917,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)})});
+  try{
+   t.game.enter({...room(host),started:'shared',game:{...room(host).game,status:'paused',epoch}});
+   t.game.checkpointChannel(member,channel,peerEpoch);
+   t.game.handle({type:'gameCapture',epoch,transferId:transfer,recipient:member,purpose:'controller'});
+   for(let count=0;count<10&&!t.commands.some(command=>command.type==='gameCaptured');count++)await tick();
+   assert.ok(t.commands.some(command=>command.type==='gameCaptured'));
+   t.game.handle({type:'gameCheckpoint',epoch,transferId:transfer,sender:host,recipient:member,purpose:'controller',frame:917,hash});
+   t.game.handle({type:'gameCheckpointSend',epoch,transferId:transfer,recipient:member});await tick();
+   assert.equal(t.commands.some(command=>command.type==='gameCheckpointFailed'),false);
+   assert.equal(sent.length,0);
+   if(leave)t.game.enter(undefined);
+   Object.defineProperty(channel,'readyState',{value:'open'});channel.dispatchEvent(new Event('open'));await tick();
+   assert.equal(sent.length>0,!leave);
+  }finally{t.game.dispose();}
+ }
+});
+
+test('cancelled, timed-out and closed checkpoint transports cannot send on a late open',async context=>{
+ for(const reason of ['cancel','timeout','closed']){
+  context.mock.timers.enable({apis:['setTimeout']});
+  const t=setup(host),transfer='t'.repeat(22),sent:unknown[]=[],channel=Object.assign(new EventTarget(),{readyState:reason==='closed'?'closed':'connecting',bufferedAmount:0,send:(value:unknown)=>sent.push(value)}) as unknown as RTCDataChannel;
+  Object.assign(t.player,{exportPeerCheckpoint:async()=>({type:'peer-checkpoint-exported',requestId:1,epoch,frame:917,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)})});
+  try{
+   t.game.enter({...room(host),started:'shared',game:{...room(host).game,status:'paused',epoch}});t.game.checkpointChannel(member,channel,peerEpoch);
+   t.game.handle({type:'gameCapture',epoch,transferId:transfer,recipient:member,purpose:'controller'});
+   for(let count=0;count<10&&!t.commands.some(command=>command.type==='gameCaptured');count++)await tick();
+   t.game.handle({type:'gameCheckpoint',epoch,transferId:transfer,sender:host,recipient:member,purpose:'controller',frame:917,hash});
+   t.game.handle({type:'gameCheckpointSend',epoch,transferId:transfer,recipient:member});
+   if(reason==='cancel')t.game.handle({type:'gameSyncStop',epoch,transferId:transfer,reason:'Cancelled'});
+   if(reason==='timeout')context.mock.timers.tick(CHECKPOINT_TIMEOUT_MS+1);
+   Object.defineProperty(channel,'readyState',{value:'open'});channel.dispatchEvent(new Event('open'));await tick();
+   assert.equal(sent.length,0,reason);
+   assert.equal(t.commands.some(command=>command.type==='gameCheckpointFailed'),reason!=='cancel');
+  }finally{t.game.dispose();context.mock.timers.reset();}
+ }
 });
