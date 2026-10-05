@@ -556,10 +556,13 @@ def canceled_preference_read_restores_saved_controls(browser, url, output):
     context = browser.new_context(viewport={'width': 320, 'height': 568})
     context.add_init_script("""
       window.holdPreferenceRead=false;window.preferenceReads=[];
+      const controllerReads=new WeakSet(),get=IDBObjectStore.prototype.get;
+      IDBObjectStore.prototype.get=function(...args){const request=get.apply(this,args),tx=this.transaction;
+        request.addEventListener('success',()=>{if(request.result?.value?.controls)controllerReads.add(tx);});return request;};
       const descriptor=Object.getOwnPropertyDescriptor(IDBTransaction.prototype,'oncomplete');
       Object.defineProperty(IDBTransaction.prototype,'oncomplete',{...descriptor,set(callback){
         const tx=this;descriptor.set.call(tx,function(...args){
-          if(holdPreferenceRead&&tx.mode==='readonly'&&tx.objectStoreNames.contains('preferences')){preferenceReads.push(()=>callback.apply(tx,args));return;}
+          if(holdPreferenceRead&&controllerReads.has(tx)&&tx.mode==='readonly'&&tx.objectStoreNames.contains('preferences')){preferenceReads.push(()=>callback.apply(tx,args));return;}
           callback.apply(tx,args);
         });
       }});
