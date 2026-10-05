@@ -205,6 +205,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-game-heading { min-width: 0; max-height: 100%; overflow: hidden; overflow-wrap: anywhere; color: var(--orange-dark); font-size: 16px; font-weight: 800; line-height: 1.1; }
 .rc-game-links { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; overflow: hidden; }
 .rc-game-links button { padding: 2px; border: 0; background: transparent; color: var(--orange-dark); font-size: 14px; font-weight: 700; white-space: nowrap; }
+.rc-game-links button:focus-visible { outline-color: currentColor; outline-offset: -3px; }
 .rc-game-display { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: var(--display); color: #f7f0e4; }
 .rc-canvas-host { display: grid; place-items: center; width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .rc-game-display canvas { position: absolute; inset: 0; display: block; width: 100%; max-width: 100%; height: 100%; max-height: 100%; margin: auto; aspect-ratio: 256 / 240; object-fit: contain; image-rendering: pixelated; background: #060d12; }

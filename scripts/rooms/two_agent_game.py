@@ -17,7 +17,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-from layout_geometry import browser_zoom, verify_zoom, zoom_context
+from layout_geometry import browser_zoom, verify_zoom, zoom_context, control_visibility
 from ui_helpers import choose_section, protect_lobby, rename_lobby
 
 
@@ -970,7 +970,13 @@ def shared_load():
             observer.get_by_role('button',name='Join lobby',exact=True).click()
             observer.wait_for_function('proof.room?.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==="failed"')
             assert len(late_requests)==1
-            expect(observer.get_by_role('button',name='Retry game',exact=True)).to_be_enabled()
+            retry=observer.get_by_role('button',name='Retry game',exact=True)
+            expect(retry).to_be_enabled()
+            for _ in range(40):
+                observer.keyboard.press('Tab')
+                if retry.evaluate('node=>node===document.activeElement'):break
+            else:raise AssertionError('Ongoing-game download retry is not keyboard reachable')
+            control_visibility(retry,require_focus=True)
             screenshot(observer,'ongoing-download-retry.png')
             observer.get_by_role('button',name='Retry game',exact=True).click()
             observer.wait_for_function('proof.room?.matches&&proof.frameCount>10')
