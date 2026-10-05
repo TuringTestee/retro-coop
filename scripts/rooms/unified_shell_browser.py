@@ -92,8 +92,16 @@ def title_fits(page):
 def title_motion(page):
     """Observe actual animation progress, fixed controls and reduced-motion wrapping."""
     page.mouse.move(0, 0)
-    page.wait_for_function("document.querySelector('.rc-game-heading')?.dataset.overflow==='true'")
+    page.evaluate('document.fonts.ready')
+    measured=page.locator('.rc-game-heading').evaluate('node=>({textWidth:node.querySelector(".rc-title-text").getBoundingClientRect().width,viewportWidth:node.clientWidth})')
+    overflowing=measured['textWidth']>measured['viewportWidth']+1
+    page.wait_for_function('(overflow)=>document.querySelector(".rc-game-heading").dataset.overflow===String(overflow)',arg=overflowing)
     assert title_fits(page)
+    print(f'title geometry: {measured}, overflowing={overflowing}',flush=True)
+    if not overflowing:
+        assert text_fits(page.locator('.rc-game-heading'))
+        assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationName')=='none'
+        return
     before = page.locator('.rc-game-toolbar').bounding_box()
     time = page.locator('.rc-title-track').evaluate('node=>node.getAnimations()[0].currentTime')
     page.wait_for_function('(before)=>document.querySelector(".rc-title-track").getAnimations()[0].currentTime>before+100', arg=time)
@@ -994,6 +1002,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         assert regions(page) == base
         if uploaded_title:
+            expect(page.locator('.rc-title-text')).to_have_text(expected_title)
             title_motion(page)
         assert page.get_by_role('button', name='Change game').count() == 1
         assert page.locator('.rc-preview-actions').count() == 0
