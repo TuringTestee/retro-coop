@@ -6,6 +6,7 @@ import {safeLabel} from './rom-library.ts';
 
 export function LocalData({open,player,preferencesIdentity,beforeClear,afterClear,timelineBusy,batteryAvailable}:{open:boolean;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void;timelineBusy?:boolean;batteryAvailable?:boolean}) {
  const picker=useRef<HTMLInputElement>(null),pendingTimeline=useRef(timelineBusy);pendingTimeline.current=timelineBusy;
+ const operation=useRef(0);
  const page=useRef<HTMLElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
  const [data,setData]=useState<Data|null>(null),[current,setCurrent]=useState<string[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null),[exportFailed,setExportFailed]=useState(false),[focusRevision,setFocusRevision]=useState(0);
@@ -26,22 +27,22 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
   return ()=>{++epoch.current;};
  },[open,player,preferencesIdentity]);
  const run=async(action:()=>Promise<void>)=>{
-  const token=epoch.current;setBusy(true);setConfirmationState(null);setMessage('');
-  try{await action();const records=await listLocalData();if(token===epoch.current){setData(records);setMessage('Local data updated.');}}
-  catch(error){if(token===epoch.current){setMessage(text(error));try{const records=await listLocalData();if(token===epoch.current)setData(records);}catch{/* Preserve the original recovery error. */}}}
-  finally{if(token===epoch.current){setBusy(false);setFocusRevision(value=>value+1);}}
+  const token=epoch.current,owner=++operation.current;setBusy(true);setConfirmationState(null);setMessage('');
+  try{await action();const records=await listLocalData();if(token===epoch.current&&owner===operation.current){setData(records);setMessage('Local data updated.');}}
+  catch(error){if(token===epoch.current&&owner===operation.current){setMessage(text(error));try{const records=await listLocalData();if(token===epoch.current&&owner===operation.current)setData(records);}catch{/* Preserve the original recovery error. */}}}
+  finally{if(token===epoch.current&&owner===operation.current){setBusy(false);setFocusRevision(value=>value+1);}}
  };
  const exportRecord=(bytes:ArrayBuffer,kind:'state'|'battery'|'preferences')=>{setBackup({bytes,kind});try{downloadSave(bytes,undefined,kind);setExportFailed(false);setMessage('Backup export requested.');}catch(error){setExportFailed(true);setMessage(`Could not export. The backup remains in memory; retry export. ${text(error)}`);}};
  const currentOperation=()=>{const token=epoch.current,version=player?.selectionVersion();return ()=>epoch.current===token&&!!player?.isLoaded()&&player.selectionVersion()===version&&!pendingTimeline.current;};
- const exportCurrent=async(kind:'state'|'battery')=>{const valid=currentOperation();setBusy(true);try{if(!player||!valid())throw Error('Load a game first.');const bytes=kind==='state'?await player.exportSave():await player.exportBattery();if(valid())exportRecord(bytes,kind);}catch(error){if(valid())setMessage(text(error));}finally{if(valid())setBusy(false);}};
+ const exportCurrent=async(kind:'state'|'battery')=>{const owner=++operation.current,token=epoch.current,valid=currentOperation(),owned=()=>owner===operation.current&&token===epoch.current;setBusy(true);try{if(!player||!valid())throw Error('Load a game first.');const bytes=kind==='state'?await player.exportSave():await player.exportBattery();if(owned()&&valid())exportRecord(bytes,kind);}catch(error){if(owned()&&valid())setMessage(text(error));}finally{if(owned())setBusy(false);}};
  const importCurrent=async(file?:File)=>{
-  if(!file||!player)return;const valid=currentOperation();setBusy(true);setMessage('');
+  if(!file||!player)return;const owner=++operation.current,token=epoch.current,valid=currentOperation(),owned=()=>owner===operation.current&&token===epoch.current;setBusy(true);setMessage('');
   try{const info=await player.saveInfo();if(!valid())return;if(!file.size||file.size>info.limit)throw Error('This save file is empty or exceeds the supported size.');
    const prior=await readSave(info.identity,1),bytes=await file.arrayBuffer();if(!valid())return;
-   const inspected=await player.inspectSave(bytes);if(!valid())return;if(inspected.identity!==info.identity)throw Error('This save does not match the selected game.');
+   const inspected=await player.inspectSave(bytes);if(!owned()||!valid())return;if(inspected.identity!==info.identity)throw Error('This save does not match the selected game.');
    const action=async()=>{if(!valid())throw Error('Game changed. Import again.');await putSave({identity:info.identity,slot:1,savedAt:Date.now(),bytes,hash:inspected.hash},prior.record,prior.generation,valid);};
    if(prior.record)setConfirmation({label:'Replace saved Slot 1 with this imported copy? Your current game will not change.',action});else await run(action);
-  }catch(error){if(valid())setMessage(text(error));}finally{if(valid())setBusy(false);}
+  }catch(error){if(owned()&&valid())setMessage(text(error));}finally{if(owned())setBusy(false);}
  };
  const group=(identity:string)=>current.includes(identity) || identity===preferencesIdentity ? 'Current game and build' : 'Other game or build';
  const count=data?(category==='games'?data.roms.length:category==='saves'?data.saves.length:category==='battery'?data.batteries.length:data.preferences.length):0;

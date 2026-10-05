@@ -853,6 +853,15 @@ def shared_load():
             expect(host.get_by_role('button',name='Start →')).to_be_enabled()
             host.get_by_role('button',name='Start →').click()
             for page in pages:page.wait_for_function('proof.room.game.status==="playing"&&proof.frameCount>30')
+            observer_context=browsers[0].new_context(viewport={'width':args.width,'height':args.height})
+            observer_context.add_init_script(fixture)
+            observer=observer_context.new_page();observer.set_default_timeout(15000)
+            observer.on('pageerror',lambda error:errors.append(str(error)))
+            observer.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
+            observer.goto(invitation);observer.evaluate('releaseFrames()')
+            observer.get_by_role('button',name='Join lobby',exact=True).click()
+            observer.wait_for_function('proof.room?.matches&&proof.frameCount>10')
+            mute(observer)
             host.keyboard.press('q')
             host.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
             saved=slot(host)
@@ -875,6 +884,11 @@ def shared_load():
                 assert info['frame']==saved['frame'] and info['hash']==saved['hash'],(receipt,saved)
             check_shell(host,shell)
             screenshot(host,'shared-load-restored-host.png');screenshot(guest,'shared-load-restored-guest.png')
+            observer.wait_for_function('old=>proof.room.game.epoch!==old&&proof.frames.at(-1)?.epoch===proof.room.game.epoch',arg=old_epoch)
+            observer_epoch=observer.evaluate('proof.room.game.epoch')
+            assert observer_epoch==host.evaluate('proof.room.game.epoch')
+            assert observer.get_by_role('alertdialog').count()==0
+            screenshot(observer,'shared-load-observer.png')
             # Trusted P2 input must reach both real native machines after replacement.
             controller_ram=None
             if EXPECTED_RAM is not None:
@@ -891,19 +905,53 @@ def shared_load():
                 resume(host,guest)
             # Decline and the real consent deadline preserve the same paused machine.
             denials=[]
-            for decision in ('decline','timeout'):
+            for decision in ('decline','timeout','changed-save'):
                 prior=pause(host,guest)
                 host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
                 guest.get_by_role('button',name='Load game',exact=True).wait_for()
                 if decision=='decline':guest.get_by_role('button',name='Keep current',exact=True).click()
+                if decision=='changed-save':
+                    host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{
+                      const db=request.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),rows=store.getAll();
+                      rows.onsuccess=()=>{const row=rows.result.find(row=>row.slot===1);store.put({...row,savedAt:row.savedAt+1});};
+                      tx.oncomplete=()=>{db.close();resolve();};};})""")
+                    guest.get_by_role('button',name='Load game',exact=True).click()
                 for page in pages:page.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load',timeout=20000)
                 snapshots=[native(page) for page in pages]
                 assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
                 denials.append({'action':decision,'preserved':prior})
                 resume(host,guest)
+            # A production-format byte-only copy remains usable after refresh in a new lobby.
+            restored_epoch=host.evaluate('proof.room.game.epoch')
+            host.get_by_role('button',name='Back to Main Page',exact=True).click()
+            host.get_by_role('button',name='Close lobby',exact=True).click()
+            host.locator('.rc-listing').wait_for()
+            host.reload();host.evaluate('releaseFrames()');host.locator('.rc-listing').wait_for()
+            host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{
+              const db=request.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),rows=store.getAll();
+              rows.onsuccess=()=>{const row=rows.result.find(row=>row.slot===1);delete row.frame;delete row.hash;store.put(row);};
+              tx.oncomplete=()=>{db.close();resolve();};};})""")
+            host.get_by_role('button',name='Host a new game').click()
+            host.wait_for_function('proof.room?.role==="host"')
+            fresh=host.get_by_role('button',name='Start fresh',exact=True)
+            fresh.wait_for();fresh.click()
+            host.get_by_role('alertdialog').wait_for(state='hidden')
+            with host.expect_file_chooser() as chooser:
+                host.get_by_role('button',name=re.compile(r'Load NES game')).click()
+                host.get_by_role('button',name='Add NES file',exact=True).click()
+            chooser.value.set_files(str(args.rom.resolve()))
+            host.wait_for_function('proof.room?.matches&&proof.room.fingerprint')
+            assert not host.evaluate('proof.room.started')
+            mute(host)
+            host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
+            host.wait_for_function('proof.room.started==="shared"&&proof.room.game.status==="playing"&&!proof.room.game.load&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+            legacy=host.evaluate('proof.saveReceipts.filter(row=>row.type==="peer-checkpoint-imported").at(-1)')
+            assert legacy['frame']==0 and legacy['hash']==saved['hash'],(legacy,saved)
+            legacy_slot=slot(host);assert legacy_slot.get('frame') is None and legacy_slot.get('hash') is None
+            screenshot(host,'shared-load-later-byte-only.png')
             assert not errors,errors
-            save('shared-load-result.json',{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
-                'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':host.evaluate('proof.room.game.epoch'),
+            save('shared-load-result.json' ,{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
+                'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
                 'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
                 'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
