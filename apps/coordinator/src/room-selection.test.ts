@@ -2,9 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {setImmediate} from 'node:timers/promises';
-import {RoomClient} from './room-client.ts';
+import {RoomClient} from '../../client/src/room-client.ts';
 import {catalog} from '../../../packages/contracts/src/catalog.ts';
-import {Rooms} from '../../coordinator/src/rooms.ts';
+import {Rooms} from './rooms.ts';
 import type {Fingerprint,RoomCommand,RoomData} from '../../../packages/contracts/src/rooms.ts';
 
 type Selection={roomId:string;intent:string;expectedRevision:number};
