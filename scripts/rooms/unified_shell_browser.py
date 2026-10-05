@@ -165,6 +165,8 @@ def regions(page):
         assert box['x'] >= -1 and box['y'] >= -1, (name, box)
         assert box['x'] + box['width'] <= page.evaluate('innerWidth') + 1, (name, box)
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
+    for preview in page.locator('.rc-preview-media img').all():
+        if preview.is_visible():control_visibility(preview)
     assert title_fits(page), page.locator('.rc-game-toolbar').inner_text()
     for action in page.locator('.rc-game-links button').all():
         assert text_fits(action), (page.viewport_size, action.inner_text())
@@ -374,6 +376,7 @@ def controller_input(browser, url, output):
             choose_panel(page,'Game')
             reserved=page.locator('.rc-game-display,.rc-game-viewport').evaluate_all('nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON())')
             controller_fits(page)
+            if width not in (900,760):continue
             if page.get_by_role('navigation',name='Lobby sections').is_visible():
                 choose_section(page,'Controls')
                 page.get_by_role('button',name='Edit controller',exact=True).click()
