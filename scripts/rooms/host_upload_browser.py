@@ -401,6 +401,10 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await host.screenshot(path=str(output / 'zip-confirm-rejected-stay.png'))
             await host.set_viewport_size({'width':1280,'height':720})
             await host.screenshot(path=str(output / 'zip-drop-preview.png'))
+            # Successful Close created a new invitation; join the current public row, not the expired preview.
+            await guest.goto(URL)
+            await guest.locator('.rc-listing').wait_for()
+            await guest.locator('.rc-lobby-card').filter(has_text='Private Upload').click()
             await guest.get_by_label('Lobby password').fill('blue-sky-room')
             await guest.get_by_role('button', name='Join lobby', exact=True).click()
             await expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
