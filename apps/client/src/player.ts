@@ -112,7 +112,7 @@ export class LocalPlayer {
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
  async loadSave(bytes:ArrayBuffer) {
   if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
-  if(this.shared)throw Error('Shared save loading is not available yet. Leave the lobby before loading a local save.');
+  if(this.shared)throw Error('Use Load in Game settings so every controlling player can agree before shared progress changes.');
   this.pause();
   await this.fileRequest({type:'state-import',bytes});
   this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
@@ -144,6 +144,18 @@ export class LocalPlayer {
    this.publish({frames:frame,rewind:undefined,status:'Paused game synchronized. Waiting for shared resume.'});return reply;
   }finally{if(this.checkpointOperation===operationId)this.cancelPeerCheckpoint();}
  }
+ async inspectSave(bytes:ArrayBuffer){const reply=await this.fileRequest({type:'state-inspect',bytes});if(reply.type!=='state-inspected')throw Error('Unexpected save validation response');return reply;}
+ async prepareSharedSave(transactionId:string,epoch:string,frame:number,bytes:ArrayBuffer,identity:string,hash:string,current:()=>boolean){
+  if(!this.shared||this.state.running||this.busy||!current())throw Error('Save load authorization changed');
+  const reply=await this.fileRequest({type:'peer-checkpoint-prepare',operationId:transactionId,transactionId,epoch,frame,bytes,identity,hash});
+  if(reply.type!=='peer-checkpoint-prepared'||!current())throw Error('Save load authorization changed');return reply;
+ }
+ async commitSharedSave(transactionId:string,current:()=>boolean){
+  if(!current())throw Error('Save load authorization changed');const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId:transactionId});
+  if(reply.type!=='peer-checkpoint-imported'||!current())throw Error('Save load authorization changed');this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Saved game loaded. Waiting for everyone.'});return reply;
+ }
+ async rollbackSharedSave(transactionId:string,current:()=>boolean=()=>true){const reply=await this.fileRequest({type:'peer-checkpoint-rollback',operationId:transactionId});if(reply.type!=='peer-checkpoint-rolled-back')throw Error('Unexpected rollback response');if(!current())return reply;this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Previous progress preserved. Prepare to resume.'});return reply;}
+ async finishSharedSave(transactionId:string){const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');}
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
   if(this.shared)throw Error('Shared rewind is not available yet. Leave the lobby before rewinding locally.');
@@ -181,18 +193,23 @@ export class LocalPlayer {
   this.canvas=canvas;this.update=update;
   this.persistenceTimer=window.setInterval(()=>{void this.persistBattery();},10000);window.addEventListener('pagehide',this.pagehide);
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
-  window.addEventListener('blur',this.blur);document.addEventListener('visibilitychange',this.hidden);
-  canvas.addEventListener('blur',this.canvasBlur);
+  window.addEventListener('blur',this.blur);window.addEventListener('resize',this.release);document.addEventListener('visibilitychange',this.hidden);
+  document.addEventListener('focusin',this.focusChanged);
   this.animation = requestAnimationFrame(this.tick);
  }
  private selectionListeners=new Set<()=>void>();
  private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state);for(const listener of this.selectionListeners)listener(); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
  private releasedPad=new ReleasedInputs();
- private release = () => { this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
+ private virtualMask=0;
+ private inputBlocked=false;
+ blockGameInput(blocked:boolean){this.inputBlocked=blocked;if(blocked)this.release();}
+ private inputFocused(){const active=document.activeElement;return !this.inputBlocked&&(active===this.canvas || !!active?.closest('[data-game-input] button, [data-game-input] [tabindex]'));}
+ setVirtualInput(mask:number){this.virtualMask=this.state.running&&!document.hidden&&this.inputFocused()&&this.game?.ownsInput!==false?mask&255:0;}
+ private release = () => { this.virtualMask=0;this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
  releaseControllers(){this.release();}
  private down = (event: KeyboardEvent) => {
-  if(!event.repeat && !this.controls.device && document.activeElement === this.canvas && this.state.running) {
+  if(!event.repeat && !this.controls.device && this.inputFocused() && this.state.running && !((event.target as Element)?.closest('[data-game-input] button')&&['Enter','Space'].includes(event.code))) {
    const mapped=Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code));
    if(mapped || event.code in rapidKeys){event.preventDefault();this.keys.add(event.code);if(!mapped&&event.code in rapidKeys)this.rapidStarted.set(event.code,performance.now());}
   }
@@ -201,7 +218,7 @@ export class LocalPlayer {
  configureControls(controls: Controls) { this.controls = controls; this.release(); this.publish({inputIssue:undefined}); }
  useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
- private canvasBlur = () => {this.release();};
+ private focusChanged = () => {if(!this.inputFocused())this.release();};
  private blur = () => { this.release();void this.persistBattery(); };
  private hidden = () => {
   if(document.hidden){
@@ -217,8 +234,8 @@ export class LocalPlayer {
  }
  private controllerMask(pad:Gamepad|null|undefined) {
   const selected=this.controls.device;
-  const pressed=document.activeElement===this.canvas?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
-  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed) | (selected?0:rapidMask(this.controls.keyboard,this.rapidStarted,performance.now()));
+  const pressed=this.inputFocused()?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
+  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed) | (this.inputFocused()?this.virtualMask:0) | (selected?0:rapidMask(this.controls.keyboard,this.rapidStarted,performance.now()));
  }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
@@ -425,6 +442,6 @@ export class LocalPlayer {
  dispose() {
   clearInterval(this.persistenceTimer);clearInterval(this.backgroundTimer);window.removeEventListener('pagehide',this.pagehide);
   this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
-  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
+  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('resize',this.release);document.removeEventListener('visibilitychange',this.hidden); document.removeEventListener('focusin',this.focusChanged);
  }
 }

@@ -6,8 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
-from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom
+from playwright.sync_api import sync_playwright, expect
+from layout_geometry import browser_zoom, zoom_context, control_visibility, verify_zoom, CLIPPING_BOXES
 from ui_helpers import choose_section, choose_panel
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,8 +37,9 @@ def settings_controls_fit(page):
 def text_fits(locator):
     """Check glyph bounds through every clipping ancestor, including wrapped text."""
     return locator.evaluate("""node => {
+      CLIPPING_BOXES
       let clip = {left: 0, top: 0, right: innerWidth, bottom: innerHeight};
-      for (let parent = node; parent; parent = parent.parentElement) {
+      for (const parent of clippingBoxes(node)) {
         const style = getComputedStyle(parent), box = parent.getBoundingClientRect();
         if (style.display === "contents") continue;
         if (/(hidden|clip|auto|scroll)/.test(style.overflowX)) {
@@ -67,7 +68,7 @@ def text_fits(locator):
         }
       }
       return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
-    }""")
+    }""".replace('CLIPPING_BOXES', CLIPPING_BOXES))
 
 
 def title_fits(page):
@@ -116,8 +117,25 @@ def names_fit(page):
 
 
 def guide_fits(page):
-    nodes = page.locator('.rc-inline-settings .rc-control-line,.rc-inline-settings .rc-shortcuts,.rc-inline-settings .rc-controller-art')
-    return nodes.count() == 8 and all(text_fits(node) for node in nodes.all())
+    # NES targets live in the game band; Settings retains non-controller shortcuts.
+    nodes = page.locator('[aria-label="Game shortcuts"] p,.rc-shortcuts')
+    return nodes.count() >= 2 and all(text_fits(node) for node in nodes.all())
+
+
+def controller_fits(page):
+    band = page.locator('.rc-controller-band')
+    if not band.is_visible():
+        assert page.get_by_role('navigation', name='Lobby sections').is_visible()
+        assert page.locator('.rc-game-fullscreen').count() == 0
+        return
+    targets = band.locator('[data-game-input] button')
+    assert targets.count() == 5
+    for target in targets.all():
+        assert text_fits(target), target.get_attribute('aria-label')
+        control_visibility(target)
+        box = target.bounding_box()
+        assert min(box['width'], box['height']) >= 44, box
+    assert band.evaluate('node=>node.scrollHeight<=node.clientHeight+1'), band.evaluate('node=>({viewport:[innerWidth,innerHeight],height:node.clientHeight,scroll:node.scrollHeight,text:node.innerText})')
 
 
 def regions(page):
@@ -282,6 +300,312 @@ def expired_guest_recovers(browser, url):
         context.close()
 
 
+def controller_input(browser, url, output):
+    """Public Host/Load/Play path, real contacts and exported native controller RAM."""
+    context = browser.new_context(viewport={'width': 1280, 'height': 800}, has_touch=True)
+    context.add_init_script((ROOT / 'scripts/gameplay/fixture.js').read_text() + """
+      addEventListener('DOMContentLoaded',()=>releaseFrames());
+      const NativeWorker=Worker;window.Worker=class extends NativeWorker {
+        postMessage(message,...args) {
+          if(message.type==='frame') {proof.masks??=[];proof.masks.push([message.p1,message.p2]);
+            if(proof.masks.length>32)proof.masks.shift();}
+          return super.postMessage(message,...args);
+        }
+      };
+    """)
+    # Delay delivery of real preference transaction outcomes, including an actual abort.
+    context.add_init_script("""
+      window.controllerPreferenceGate={hold:false,pending:[],abort:false};
+      for(const event of ['oncomplete','onabort']) {
+        const descriptor=Object.getOwnPropertyDescriptor(IDBTransaction.prototype,event);
+        Object.defineProperty(IDBTransaction.prototype,event,{...descriptor,set(callback) {
+          const tx=this;descriptor.set.call(tx,function(...args) {
+            const gate=window.controllerPreferenceGate;
+            if(tx.mode==='readwrite'&&tx.objectStoreNames.contains('preferences')&&gate.hold) {
+              gate.pending.push(()=>callback.apply(tx,args));return;
+            }
+            callback.apply(tx,args);
+          });
+        }});
+      }
+      const put=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(...args) {
+        const request=put.apply(this,args),gate=window.controllerPreferenceGate;
+        if(this.name==='preferences'&&gate.abort) {gate.abort=false;this.transaction.abort();}
+        return request;
+      };
+    """)
+    page = context.new_page()
+    records = []
+    def observe(label, expected):
+        before = page.evaluate('proof.frameCount')
+        page.wait_for_function('({before,mask})=>proof.frameCount>before+proof.room.game.delay+2&&proof.masks.slice(-3).every(value=>value[0]===mask&&value[1]===0)',
+                               arg={'before': before, 'mask': expected})
+        page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
+        page.wait_for_function('proof.controllerRam!==undefined')
+        ram = page.evaluate('proof.controllerRam')
+        # This diagnostic cartridge uses ROL while reading the NES serial port.
+        assert ram == [int(f'{expected:08b}'[::-1], 2), 0], (label, expected, ram)
+        records.append({'action': label, 'mask': expected, 'native_ram': ram,
+                        'frames': page.evaluate('proof.frameCount')})
+        (output / 'controller-native.json').write_text(json.dumps(records, indent=2)+'\n')
+        print(f'controller input: {label}', flush=True)
+    try:
+        page.goto(url)
+        page.get_by_role('button', name='Host a new game').click()
+        page.get_by_role('button', name='Load NES game').click()
+        page.get_by_role('button', name='Add NES file').click()
+        page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
+        page.get_by_role('button', name='Ready', exact=True).wait_for()
+        for width, height in ((1280, 800), (1024, 600), (900, 700)):
+            page.set_viewport_size({'width': width, 'height': height})
+            page.locator('.rc-session').evaluate('async node=>{node.getBoundingClientRect();await Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{})));}')
+            controller_fits(page)
+            assert text_fits(page.locator('.rc-controller-band')), (width, height)
+        page.set_viewport_size({'width': 1280, 'height': 800})
+        page.screenshot(path=str(output / 'controller-desktop-preparation.png'))
+        page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+        editor = page.get_by_label('Edit controller mappings')
+        capture = page.get_by_label('Capture controller key')
+        page.screenshot(path=str(output / 'controller-desktop-editor.png'))
+        capture.focus(); page.keyboard.press('c')
+        assert editor.get_by_role('button', name='Save', exact=True).is_disabled()
+        editor.get_by_role('button', name='Cancel', exact=True).click()
+        desktop_navigation = []
+        for pending in (False, True):
+            page.set_viewport_size({'width': 1280, 'height': 800})
+            choose_panel(page, 'Game')
+            page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+            capture.focus(); page.keyboard.press('k')
+            # Resize alone must preserve a legitimate edit; navigation ends it.
+            page.set_viewport_size({'width': 320, 'height': 568})
+            page.set_viewport_size({'width': 1280, 'height': 800})
+            assert 'Current: Z' in capture.inner_text() and 'Draft: K' in capture.inner_text()
+            if pending:
+                page.evaluate('window.controllerPreferenceGate={hold:true,pending:[],abort:true}')
+                editor.get_by_role('button', name='Save', exact=True).click()
+                page.wait_for_function('controllerPreferenceGate.pending.length>0')
+            page.set_viewport_size({'width': 320, 'height': 568})
+            choose_panel(page, 'Chat'); choose_panel(page, 'Game')
+            expect(editor).to_have_count(0)
+            choose_section(page, 'Controls')
+            page.get_by_role('button', name='Edit controller', exact=True).click()
+            capture.focus(); page.keyboard.press('l')
+            if pending:
+                page.evaluate('async()=>{const gate=controllerPreferenceGate;gate.hold=false;gate.pending.splice(0).forEach(release=>release());await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);}')
+            assert 'Current: Z' in capture.inner_text() and 'Draft: L' in capture.inner_text()
+            assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+            assert not page.get_by_text('Could not save controls. Try Save again.', exact=True).is_visible()
+            desktop_navigation.append({'pending_save': pending, 'ended_on_navigation': True, 'current': 'Z', 'new_draft': 'L', 'resize_preserved_draft': True})
+            page.screenshot(path=str(output / f'controller-desktop-navigation-{pending}.png'))
+            editor.get_by_role('button', name='Cancel', exact=True).click()
+        (output / 'controller-desktop-navigation.json').write_text(json.dumps(desktop_navigation, indent=2)+'\n')
+        choose_panel(page, 'Game')
+        page.set_viewport_size({'width': 1280, 'height': 800})
+        page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+        capture.focus(); page.keyboard.press('k')
+        page.get_by_role('button', name='Change game', exact=True).click()
+        page.get_by_role('button', name='From Below', exact=True).click()
+        page.locator('.rc-game-heading').get_by_text('From Below', exact=True).wait_for()
+        expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+        editor.wait_for(state='hidden')
+        page.get_by_role('button', name='Change game', exact=True).click()
+        page.get_by_role('button', name='Add NES file', exact=True).click()
+        page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
+        page.locator('.rc-game-heading').get_by_text('fixture.local', exact=True).wait_for()
+        expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+        page.set_viewport_size({'width': 320, 'height': 568})
+        lifecycle = []
+        for failed in (False, True):
+            choose_section(page, 'Controls')
+            page.get_by_role('button', name='Edit controller', exact=True).click()
+            capture.focus(); page.keyboard.press('k')
+            page.evaluate('(abort)=>window.controllerPreferenceGate={hold:true,pending:[],abort}', failed)
+            editor.get_by_role('button', name='Save', exact=True).click()
+            page.wait_for_function('window.controllerPreferenceGate.pending.length>0')
+            assert editor.get_by_role('button', name='Cancel', exact=True).is_disabled()
+            capture.press('Escape')
+            assert editor.is_visible()
+            choose_section(page, 'Sound')
+            choose_section(page, 'Controls')
+            page.get_by_role('button', name='Edit controller', exact=True).click()
+            capture.focus(); page.keyboard.press('l')
+            assert 'Current: Z' in capture.inner_text() and 'Draft: L' in capture.inner_text()
+            assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+            page.evaluate('async()=>{const gate=window.controllerPreferenceGate;gate.hold=false;gate.pending.splice(0).forEach(release=>release());await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);}')
+            assert editor.is_visible()
+            assert 'Current: Z' in capture.inner_text() and 'Draft: L' in capture.inner_text()
+            assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+            assert not page.get_by_text('Could not save controls. Try Save again.', exact=True).is_visible()
+            lifecycle.append({'obsolete_outcome': 'abort' if failed else 'commit', 'current': 'Z', 'draft': 'L', 'save_enabled': True})
+            editor.get_by_role('button', name='Cancel', exact=True).click()
+        (output / 'controller-editor-lifecycle.json').write_text(json.dumps({'game_replacement_ends_edit': True, 'delayed_outcomes': lifecycle}, indent=2)+'\n')
+        choose_panel(page, 'Game')
+        page.set_viewport_size({'width': 1280, 'height': 800})
+        page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
+        assert 'Current: Z' in capture.inner_text()
+        capture.focus(); page.keyboard.press('k')
+        editor.get_by_role('button', name='Save', exact=True).click()
+        editor.wait_for(state='hidden')
+        assert 'K' in page.get_by_label('Keyboard controls').inner_text()
+        page.get_by_role('button', name='Ready', exact=True).click()
+        page.get_by_role('button', name='Start →').click()
+        page.wait_for_function('proof.frameCount>10')
+        choose_section(page, 'Sound')
+        page.get_by_role('button', name='Mute game', exact=True).click()
+        choose_panel(page, 'Game')
+        page.locator('canvas').focus()
+        page.keyboard.down('ArrowRight')
+        observe('keyboard right', 128)
+        a = page.get_by_role('button', name='NES A', exact=True)
+        a.hover(); page.mouse.down()
+        observe('keyboard right and mouse A', 129)
+        page.mouse.up()
+        observe('mouse release retains physical right', 128)
+        page.keyboard.up('ArrowRight')
+        observe('physical release', 0)
+        page.locator('canvas').focus(); page.keyboard.down('Space')
+        a.hover(); page.mouse.down()
+        observe('physical Start and mouse A', 9)
+        page.mouse.up()
+        observe('mouse release retains Start', 8)
+        page.keyboard.up('Space')
+        observe('Start released after controller focus', 0)
+        a.focus(); page.keyboard.down('Space')
+        observe('semantic A does not also press Start', 1)
+        page.keyboard.up('Space')
+        observe('semantic release', 0)
+        page.keyboard.down('Enter'); page.keyboard.down('Space')
+        observe('two semantic contacts on A', 1)
+        page.keyboard.up('Enter')
+        observe('releasing Enter retains semantic Space', 1)
+        page.keyboard.up('Space')
+        observe('both semantic contacts released', 0)
+        page.locator('canvas').focus(); page.keyboard.down('k')
+        observe('saved remapping drives A', 1)
+        page.keyboard.up('k')
+        observe('remapped key released', 0)
+        page.set_viewport_size({'width': 320, 'height': 568})
+        page.get_by_role('button', name='Expand game to full screen', exact=True).click()
+        controller_fits(page)
+        expansion = page.get_by_role('button', name='Return to lobby view', exact=True)
+        expansion_box = expansion.bounding_box()
+        page.mouse.move(0, 0)
+        page.wait_for_function('Number(getComputedStyle(document.querySelector(".rc-expansion-action")).opacity)<.6')
+        expansion.focus()
+        page.wait_for_function('Number(getComputedStyle(document.querySelector(".rc-expansion-action")).opacity)>.95')
+        assert expansion.bounding_box() == expansion_box
+        page.locator('canvas').focus()
+        cdp = context.new_cdp_session(page)
+        pad = page.get_by_role('button', name='Direction pad: use arrow keys or drag').bounding_box()
+        ab, bb = a.bounding_box(), page.get_by_role('button', name='NES B', exact=True).bounding_box()
+        points = [{'id': 1, 'x': pad['x']+pad['width']/2, 'y': pad['y']+pad['height']/2}]
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': points})
+        points[0]['x'] += 30; points[0]['y'] -= 30
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': points})
+        observe('touch diagonal', 144)
+        for ident, box in ((2, ab), (3, bb)):
+            points.append({'id': ident, 'x': box['x']+box['width']/2, 'y': box['y']+box['height']/2})
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': points})
+        observe('simultaneous diagonal A and B', 147)
+        page.screenshot(path=str(output / 'controller-portrait-multitouch.png'))
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchCancel', 'touchPoints': []})
+        observe('cancel releases every contact', 0)
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
+            {'id': 4, 'x': ab['x']+ab['width']/2, 'y': ab['y']+ab['height']/2}]})
+        observe('A held before rotation', 1)
+        page.set_viewport_size({'width': 568, 'height': 320})
+        observe('rotation releases held A', 0)
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        controller_fits(page)
+        page.screenshot(path=str(output / 'controller-landscape.png'))
+        box = a.bounding_box()
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
+            {'id': 5, 'x': box['x']+box['width']/2, 'y': box['y']+box['height']/2}]})
+        observe('fresh A after rotation', 1)
+        page.keyboard.press('p')
+        page.wait_for_function('proof.room.game.status==="paused"')
+        assert a.get_attribute('aria-pressed') == 'false'
+        cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+        choose_section(page, 'Game')
+        assert 'M Mute' in page.get_by_label('Other shortcuts').inner_text()
+        expect(page.get_by_role('button', name='Save (Q)', exact=True)).to_be_enabled()
+        expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
+        page.keyboard.press('q')
+        page.get_by_text('Saved to quick slot 1.', exact=True).wait_for()
+        page.keyboard.press('m')
+        choose_section(page, 'Sound')
+        page.get_by_role('button', name='Mute game', exact=True).click()
+        choose_panel(page, 'Game')
+        page.get_by_role('button', name='Prepare to resume', exact=True).click()
+        page.get_by_role('button', name='Resume together', exact=True).click()
+        observe('resume requires fresh contacts', 0)
+        choose_panel(page, 'Chat')
+        page.get_by_role('textbox', name='Message everyone').focus()
+        page.keyboard.press('k')
+        observe('typing A in chat is neutral', 0)
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.get_by_role('button', name='Close lobby', exact=True).click()
+        (output / 'controller-native.json').write_text(json.dumps(records, indent=2)+'\n')
+    finally:
+        context.close()
+
+
+def canceled_preference_read_restores_saved_controls(browser, url, output):
+    # An independent visitor avoids mixing this storage lifecycle with recovery
+    # records created by the controller gameplay journey.
+    context = browser.new_context(viewport={'width': 320, 'height': 568})
+    context.add_init_script("""
+      window.holdPreferenceRead=false;window.preferenceReads=[];
+      const controllerReads=new WeakSet(),get=IDBObjectStore.prototype.get;
+      IDBObjectStore.prototype.get=function(...args){const request=get.apply(this,args),tx=this.transaction;
+        request.addEventListener('success',()=>{if(request.result?.value?.controls)controllerReads.add(tx);});return request;};
+      const descriptor=Object.getOwnPropertyDescriptor(IDBTransaction.prototype,'oncomplete');
+      Object.defineProperty(IDBTransaction.prototype,'oncomplete',{...descriptor,set(callback){
+        const tx=this;descriptor.set.call(tx,function(...args){
+          if(holdPreferenceRead&&controllerReads.has(tx)&&tx.mode==='readonly'&&tx.objectStoreNames.contains('preferences')){preferenceReads.push(()=>callback.apply(tx,args));return;}
+          callback.apply(tx,args);
+        });
+      }});
+    """)
+    page = context.new_page()
+    def load():
+        page.get_by_role('button', name='Host a new game').click()
+        page.get_by_role('button', name='Load NES game').click()
+        page.get_by_role('button', name='From Below', exact=True).click()
+        expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+        choose_section(page, 'Controls')
+        page.get_by_role('button', name='Edit controller', exact=True).click()
+    def close():
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.get_by_role('button', name='Close lobby', exact=True).click()
+        page.locator('.rc-listing').wait_for()
+    try:
+        page.goto(url);load()
+        capture = page.get_by_label('Capture controller key')
+        editor = page.get_by_label('Edit controller mappings')
+        capture.focus();page.keyboard.press('j')
+        editor.get_by_role('button', name='Save', exact=True).click()
+        expect(editor).not_to_be_visible()
+        close();page.reload();page.locator('.rc-listing').wait_for()
+        page.evaluate('holdPreferenceRead=true');load()
+        page.wait_for_function('preferenceReads.length>0')
+        capture.focus();page.keyboard.press('k')
+        editor.get_by_role('button', name='Save', exact=True).click()
+        expect(editor.get_by_role('button', name='Save', exact=True)).to_be_disabled()
+        choose_section(page, 'Sound');choose_section(page, 'Controls')
+        page.get_by_role('button', name='Edit controller', exact=True).click()
+        capture.focus();page.keyboard.press('l')
+        page.evaluate('async()=>{holdPreferenceRead=false;preferenceReads.splice(0).forEach(release=>release());await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);}')
+        expect(capture).to_contain_text('Current: J')
+        assert 'Draft: L' in capture.inner_text()
+        assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
+        (output / 'controller-canceled-preference-read.json').write_text(json.dumps({'restored_current':'J','newer_draft':'L','save_enabled':True})+'\n')
+        editor.get_by_role('button', name='Cancel', exact=True).click();close()
+    finally:
+        context.close()
+
+
 def local_shortcuts(browser, url, output):
     context = browser.new_context(viewport={'width': 1280, 'height': 800})
     context.add_init_script("""(() => {const Native=Worker;window.Worker=class extends Native {
@@ -400,7 +724,10 @@ def unavailable_preview_keeps_game(browser, url):
         context.close()
 
 
-def abandoned_saved_game_cannot_reopen(browser, url):
+def abandoned_saved_game_cannot_reopen(browser, url, output=None):
+    label = "界" * 80
+    filename = label + ".nes"
+    output = output or ROOT / "spikes/d02/public-entrypoint.local/unified-shell"
     context = browser.new_context(viewport={'width': 1280, 'height': 800})
     try:
         page = context.new_page()
@@ -409,13 +736,66 @@ def abandoned_saved_game_cannot_reopen(browser, url):
         page.get_by_role('button', name='Load NES game').click()
         page.get_by_role('button', name='Add NES file').click()
         page.set_input_files('input[aria-label="NES cartridge file"]', {
-            'name': 'saved-fixture.nes', 'mimeType': 'application/octet-stream',
+            'name': filename, 'mimeType': 'application/octet-stream',
             'buffer': (ROOT / 'spikes/d02/fixture.local.nes').read_bytes()})
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         page.wait_for_function("async()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('roms'),count=tx.objectStore('roms').count();count.onsuccess=()=>resolve(count.result>0);tx.oncomplete=()=>db.close()}})")
         page.get_by_role('button', name='Change game').click()
         page.get_by_role('button', name='Saved games').click()
-        page.get_by_role('button', name='saved-fixture.nes').wait_for()
+        page.get_by_role('button', name=label).wait_for()
+        page.emulate_media(reduced_motion='reduce')
+        for width, height in ((1024, 600), (320, 568), (568, 320)):
+            page.set_viewport_size({'width': width, 'height': height})
+            choose_panel(page, 'Game')
+            page.locator('.rc-session').evaluate('async node=>{await document.fonts.ready;node.getBoundingClientRect();await Promise.all(node.getAnimations({subtree:true}).filter(animation=>animation.effect.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})));}')
+            picker = page.locator('.rc-game-picker')
+            fits = text_fits(picker)
+            page.screenshot(path=str(output / f'saved-picker-{width}x{height}.png'))
+            if not fits:
+                geometry = picker.evaluate("""node=>{
+                  const box=n=>({tag:n.tagName,class:n.className,rect:n.getBoundingClientRect().toJSON(),client:[n.clientWidth,n.clientHeight],scroll:[n.scrollWidth,n.scrollHeight],font:getComputedStyle(n).font,overflow:[getComputedStyle(n).overflowX,getComputedStyle(n).overflowY]});
+                  const ancestors=[];for(let n=node;n;n=n.parentElement)ancestors.push(box(n));
+                  const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT),glyphs=[];let text;
+                  while(text=walker.nextNode()){if(!text.textContent.trim())continue;const range=document.createRange();range.selectNodeContents(text);glyphs.push({text:text.textContent,owner:box(text.parentElement),rects:[...range.getClientRects()].map(rect=>rect.toJSON())});}
+                  return {viewport:[innerWidth,innerHeight],reducedMotion:matchMedia('(prefers-reduced-motion:reduce)').matches,ancestors,glyphs,animations:node.getAnimations({subtree:true}).map(animation=>({state:animation.playState,timing:animation.effect.getComputedTiming()}))};
+                }""")
+                (output / f'saved-picker-{width}x{height}-failure.json').write_text(json.dumps(geometry, indent=2)+'\n')
+            assert fits, (width, height)
+            for button in picker.get_by_role('button').all():
+                control_visibility(button)
+            assert page.locator('.rc-controller-band').get_attribute('inert') is not None
+        page.emulate_media(reduced_motion='no-preference')
+        display = page.locator('.rc-game-display').bounding_box()
+        preview_before_cancel = page.locator('.rc-preview img').get_attribute('src')
+        page.get_by_role('button', name='Back to games', exact=True).click()
+        page.get_by_role('button', name='Cancel', exact=True).click()
+        assert page.locator('.rc-game-display').bounding_box() == display
+        assert page.locator('.rc-preview img').get_attribute('src') == preview_before_cancel
+        page.get_by_role('button', name='Change game').click()
+        page.get_by_role('button', name='Saved games').click()
+        choose_section(page, 'Controls')
+        page.get_by_role('button', name='Edit controller', exact=True).click()
+        page.get_by_label('Edit controller mappings').wait_for()
+        assert page.locator('.rc-game-picker').count() == 0
+        page.get_by_label('Edit controller mappings').get_by_role('button', name='Cancel', exact=True).click()
+        choose_panel(page, 'Game')
+        page.get_by_role('button', name='Change game').click()
+        page.get_by_role('button', name='Saved games').click()
+        preview = page.locator('.rc-preview img').get_attribute('src')
+        page.evaluate("()=>{window.realSavedDigest=crypto.subtle.digest.bind(crypto.subtle);crypto.subtle.digest=()=>Promise.reject(Error('Saved game could not be verified.'));}")
+        page.get_by_role('button', name=label).click()
+        page.get_by_text('Saved game could not be verified.', exact=True).wait_for()
+        assert page.locator('.rc-preview img').get_attribute('src') == preview
+        assert text_fits(page.locator('.rc-game-picker'))
+        page.screenshot(path=str(output / 'saved-picker-failed-selection.png'))
+        page.evaluate('()=>{crypto.subtle.digest=window.realSavedDigest;}')
+        page.get_by_role('button', name=label).click()
+        page.get_by_role('button', name='Ready', exact=True).wait_for()
+        page.locator('.rc-game-picker').wait_for(state='hidden')
+        assert page.locator('.rc-game-heading').get_attribute('title') == '界' * 80
+        page.get_by_role('button', name='Change game').click()
+        page.get_by_role('button', name='Saved games').click()
+        page.get_by_role('button', name=label).wait_for()
         page.evaluate("""() => {
           const digest=crypto.subtle.digest.bind(crypto.subtle);
           window.digestHeld=0;
@@ -424,7 +804,7 @@ def abandoned_saved_game_cannot_reopen(browser, url):
             window.releaseDigest=()=>resolve(digest(...args));
           });
         }""")
-        page.get_by_role('button', name='saved-fixture.nes').click()
+        page.get_by_role('button', name=label).click()
         page.wait_for_function('window.digestHeld === 1')
         page.get_by_role('button', name='Back to Main Page').click()
         page.get_by_role('button', name='Close lobby').click()
@@ -605,13 +985,15 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.get_by_role('button', name='Mute game', exact=True).click()
         page.get_by_role('button', name='Unmute game', exact=True).wait_for()
         choose_section(page, 'Game')
-        assert page.locator('.rc-controller-art').is_visible()
+        assert page.get_by_label('Game shortcuts').is_visible()
         assert guide_fits(page), f'Controller guide overflowed at {size}'
-        assert page.locator('.rc-control-a').inner_text().endswith('Z · A rapid')
-        assert page.locator('.rc-control-b').inner_text().endswith('C · D rapid')
-        assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        assert 'A rapid A' in page.get_by_label('Game shortcuts').inner_text()
+        assert 'D rapid B' in page.get_by_label('Game shortcuts').inner_text()
+        expect(page.get_by_role('button', name='Save (Q)', exact=True)).to_be_enabled()
+        expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
         choose_panel(page, 'Game')
         page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
+        controller_fits(page)
         rendered_game = game_fits(page)
         page.screenshot(path=str(output / f'active-game-{size[0]}x{size[1]}.png'))
         page.keyboard.press('q')
@@ -625,6 +1007,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
             choose_panel(page, 'Game')
             frames = int(page.locator('canvas').get_attribute('data-frame-count'))
             page.wait_for_function('(before)=>Number(document.querySelector("canvas").dataset.frameCount)>before', arg=frames)
+            controller_fits(page)
             responsive_results.append({'size': profile, 'rendered_game': game_fits(page), 'frames_advanced': True})
             page.screenshot(path=str(output / f'active-game-{profile[0]}x{profile[1]}.png'))
         if responsive_sizes:
@@ -637,6 +1020,9 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         choose_section(page, 'Game')
         assert guide_fits(page), f'Paused guide overflowed at {size}'
         assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
+        assert 'M Mute' in page.locator('.rc-shortcuts').inner_text()
+        expect(page.get_by_role('button', name='Save (Q)', exact=True)).to_be_enabled()
+        expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
         assert regions(page) == playing_regions
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.keyboard.press('p')
@@ -736,17 +1122,25 @@ def main():
                         page = context.new_page()
                         page.on('pageerror', lambda error: errors.append(str(error)))
                         page.goto(url, wait_until='domcontentloaded')
+                        print(f'shell profile: {size}', flush=True)
                         rows.append(exercise(page, output=output, **scenario))
                     finally:
                         context.close()
                 theme_defaults(browser, url)
                 if args.browser == 'chromium':
+                    print('shell check: expired_guest_recovers', flush=True)
                     expired_guest_recovers(browser, url)
+                    print('shell check: local_shortcuts', flush=True)
                     local_shortcuts(browser, url, output)
+                    print('shell check: controller_input', flush=True)
+                    controller_input(browser, url, output)
+                    print('shell check: automatic_voice', flush=True)
+                    canceled_preference_read_restores_saved_controls(browser, url, output)
                     automatic_voice(browser, url)
+                    print('shell check: restored_battery_preview', flush=True)
                     restored_battery_preview(browser, url)
                     unavailable_preview_keeps_game(browser, url)
-                    abandoned_saved_game_cannot_reopen(browser, url)
+                    abandoned_saved_game_cannot_reopen(browser, url, output)
                 assert not errors, errors
                 print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'local_shortcuts': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
             finally:

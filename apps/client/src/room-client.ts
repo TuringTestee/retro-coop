@@ -7,7 +7,7 @@ import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
-import {readStored,putPreferences,type PreferencesRecord} from './saves.ts';
+import {readStored,putPreferences,type PreferencesRecord,type SaveSlot} from './saves.ts';
 import {text} from '../../../packages/contracts/src/protocol-validation.ts';
 import {TabSession} from './tab-session.ts';
 import {uploadRoomFile} from './room-upload.ts';
@@ -20,7 +20,7 @@ const messages:Record<string,string> = {
  capacity:'Lobby capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',room_full:'All five slots are occupied or closed. Review the lobby or try another.',
  room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired. Reconnect to continue.',
  room_changed:'That lobby has changed. Review the current lobby before trying again.',membership_changed:'That member has left or rejoined. Review the current slot before trying again.',
- slot_occupied:'Remove the member before closing this slot.',slot_empty:'That player has left. Check the slot and try again.',slot_closed:'Open the destination slot before moving someone there.',controller_occupied:'An empty slot cannot take an occupied controller role.',role_change_pending:'Finish or cancel the current player change first.',game_not_playing:'Finish initial preparation before changing roles. If preparation fails, use Retry shared play.',stale_controllers:'The players changed. Review the current slots and retry.',game_prerequisites:'Wait until every player has the game, is connected, and is Ready before starting.',unsupported_role:'This game does not support that controller role.',
+ timeline_change_pending:'Finish or cancel the current game change, then try again.',slot_occupied:'Remove the member before closing this slot.',slot_empty:'That player has left. Check the slot and try again.',slot_closed:'Open the destination slot before moving someone there.',controller_occupied:'An empty slot cannot take an occupied controller role.',role_change_pending:'Finish or cancel the current player change first.',game_not_playing:'Finish initial preparation before changing roles. If preparation fails, use Retry shared play.',stale_controllers:'The players changed. Review the current slots and retry.',game_prerequisites:'Wait until every player has the game, is connected, and is Ready before starting.',unsupported_role:'This game does not support that controller role.',
  host_only:'Only the host can change this lobby.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
  host_expired:'The host did not return. This lobby has closed.',host_closed:'The host closed the lobby.',removed:'The host removed you from this lobby.',left:'You left the lobby. Your local game is still available.',
  operator_removed:'An operator closed this lobby. Your local game is preserved.',admission_blocked:'Access is temporarily restricted by an operator. Retry later. Your local game is preserved.',
@@ -59,6 +59,7 @@ export class RoomClient {
  private creationGeneration = 0;
  private gameSelection?:string;
  private confirmingSelection?:{roomId:string;intent:string;expectedRevision:number};
+ private restoredBinding?:{roomId:string;membership:string;epoch:string;frame:number;hash:string;fingerprint:Fingerprint};
  private selectedFile?:Fingerprint;private loadedReport?:string;
  private joining?:string;
  private previewingId?:string;
@@ -72,6 +73,7 @@ export class RoomClient {
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
   if(!room){this.confirmingSelection=undefined;this.gameSelection=undefined;}
+  const binding=this.restoredBinding;if(binding&&(!room||room.role!=='host'||room.id!==binding.roomId||room.chatMembership!==binding.membership||room.game.epoch!==binding.epoch||!room.fingerprint||!matchesFile(room.fingerprint,binding.fingerprint)))this.restoredBinding=undefined;
   if(room&&room.id!==this.voluntaryExitRoomId)this.voluntaryExitRoomId=undefined;
   // A member admitted from an invitation still needs its preview after removal.
   if(room&&room.id!==this.previewingId){this.previewingInvite=undefined;this.previewingId=undefined;}
@@ -171,7 +173,7 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the lobby service.'});}
- beginSelection() {this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});}
+ beginSelection() {if(this.confirmingSelection){this.publish({status:'Reconnect to finish the previous game selection.'});return false;}if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
  cancelGameSelection(){if(this.confirmingSelection){this.publish({status:'Finishing the game selection. Reconnect to confirm the lobby result.'});return;}const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
  private async confirmSelection(selection:{roomId:string;intent:string;expectedRevision:number}){
   // A lost reply can follow a successful commit. Retry the exact intent, including
@@ -198,6 +200,7 @@ export class RoomClient {
   try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
   if(!isCurrent()) return false;
   const room=this.state.room;
+  if(room?.game.load||room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}
   if(room?.established&&!(room.role==='member'&&room.fingerprint&&matchesFile(room.fingerprint,fingerprint)&&!this.player()?.isLoaded(fingerprint))){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
   if(room?.role==='member'&&room.fingerprint&&!matchesFile(room.fingerprint,fingerprint)){this.publish({status:'Choose the lobby game before getting ready.'});return false;}
   return true;
@@ -272,19 +275,39 @@ export class RoomClient {
  observe(){this.game.observe();}
  retryGame(){const room=this.state.room,file=this.selectedFile;if(room?.role==='host'&&!room.established&&file){void this.game.resumeReady().then(()=>this.startRoom(file));return;}this.game.retry();}
  cancelSynchronization(){this.game.cancelIntent();}
+ loadSaved(record:SaveSlot,current:()=>Promise<boolean>){return this.game.loadSaved(record,current);}
+ decideLoad(accept:boolean){return this.game.decideLoad(accept);}
+ cancelLoad(){return this.game.cancelLoad();}
  async restoreGame(frame:number,hash:string,current:()=>boolean){
-  const room=this.state.room,player=this.player();
-  if(!room||room.role!=='host'||room.started||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Load a game normally.');
-  const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
-  if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
-  this.apply(data);await player.bindGameEpoch(data.room.game.epoch,frame,hash);
-  this.publish({status:'Game restored. Prepare to resume together.'});
+  let room=this.state.room;const player=this.player();
+  if(!room||room.role!=='host'||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Return to the main page.');
+  if(!room.started){
+   try{
+    const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
+    if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
+    this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:data.room.game.epoch,frame,hash,fingerprint:room.fingerprint};
+    this.apply(data);
+   }catch(error){
+    // A committed broadcast can arrive before a lost reply. Retain only this restore's boundary.
+    const active=this.state.room;
+    if(!this.disposed&&active?.started&&active.role==='host'&&active.id===room.id&&active.chatMembership===room.chatMembership&&active.game.epoch&&active.game.epoch!==room.game.epoch&&['paused','failed'].includes(active.game.status)&&active.game.frame===frame&&active.fingerprint&&matchesFile(active.fingerprint,room.fingerprint))this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:active.game.epoch,frame,hash,fingerprint:room.fingerprint};
+    throw error;
+   }
+  }
+  const binding=this.restoredBinding;
+  if(!binding||binding.frame!==frame||binding.hash!==hash)throw Error('The restored lobby changed. Return to the main page.');
+  const owned=()=>{const active=this.state.room;return current()&&this.restoredBinding===binding&&!!active&&active.id===binding.roomId&&active.chatMembership===binding.membership&&active.game.epoch===binding.epoch&&['paused','failed'].includes(active.game.status)&&active.game.frame===binding.frame&&!!active.fingerprint&&matchesFile(active.fingerprint,binding.fingerprint)&&player.isLoaded(binding.fingerprint);};
+  if(!owned())throw Error('The restored lobby changed. Return to the main page.');
+  await player.bindGameEpoch(binding.epoch,binding.frame,binding.hash);
+  if(!owned())throw Error('Restoration cancelled.');
+  this.restoredBinding=undefined;this.publish({status:'Game restored. Prepare to resume together.'});
  }
+
  readyToResume(){void this.game.resumeReady();}
  resumeTogether(){void this.game.resumeTogether();}
  pauseTogether(){this.game.requestPause();}
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {this.confirmingSelection=undefined;this.gameSelection=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {this.restoredBinding=undefined;this.confirmingSelection=undefined;this.gameSelection=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }

@@ -10,7 +10,7 @@ import {encodeCheckpointChunk,type CheckpointMetadata} from '../../../packages/c
 const epoch='e'.repeat(32),peerEpoch='p'.repeat(32),host='h'.repeat(22),member='m'.repeat(22),observer='o'.repeat(22),transferId='t'.repeat(22),hash='c'.repeat(64),identity='d'.repeat(64);
 const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}};
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
-function channel(){const sent:(string|ArrayBuffer)[]=[];const rtc={readyState:'open',bufferedAmount:0,onmessage:undefined,send:(data:string|ArrayBuffer)=>sent.push(data)} as unknown as RTCDataChannel;return {rtc,sent,receive:(data:unknown)=>rtc.onmessage!.call(rtc,new MessageEvent('message',{data}))};}
+function channel(){const sent:(string|ArrayBuffer)[]=[];const rtc=Object.assign(new EventTarget(),{readyState:'open',bufferedAmount:0,onmessage:undefined,send:(data:string|ArrayBuffer)=>sent.push(data)}) as unknown as RTCDataChannel;return {rtc,sent,receive:(data:unknown)=>rtc.onmessage!.call(rtc,new MessageEvent('message',{data}))};}
 async function setup(role:'host'|'member'|'observer',start=917){
  const self=role==='host'?host:role==='member'?member:observer,remote=role==='host'?member:host;
  const commands:Command[]=[],updates:GameplayState[]=[],data=channel(),checkpoint=channel();let frame=start,driver!:GameDriver,drains=0,cancels=0,exports=0,imports=0,stops=0,wakes=0;
@@ -126,4 +126,17 @@ test('pause arriving during observer import retains its fence and drains the sam
   for(let frame=917;frame<919;frame++){assert.deepEqual(h.driver.next(255),{frame,p1:1,p2:2});h.complete(frame);}await flush();
   assert.equal(h.driver.next(255),undefined);assert.ok(h.commands.some(c=>c.type==='gamePaused'&&c.frame===919));assert.ok(h.commands.some(c=>c.type==='gameObserved'&&c.frame===919));assert.equal(h.commands.some(c=>c.type==='gameCheckpointFailed'),false);
  }finally{h.game.dispose();}
+});
+
+test('cancelled observer completion cannot abort a newer Load after its acknowledgment rejects',async()=>{
+ for(const replacement of ['cancel','transfer','membership'] as const){const h=await setup('observer');let reject!:(error:Error)=>void;try{
+  h.setSend(command=>command.type==='gameObserved'?new Promise((_resolve,no)=>{reject=no;}):Promise.resolve());
+  h.game.handle(h.spec);await deliver(h);h.data.receive(JSON.stringify({kind:'live',epoch,transferId,frame:917}));
+  await until(()=>typeof reject==='function');
+  if(replacement==='cancel')h.game.handle({type:'gameSyncStop',epoch,transferId,reason:'Waiting for the game to finish changing.'});
+  else if(replacement==='transfer'){h.game.handle({...h.spec,transferId:'n'.repeat(22)});await flush();}
+  else h.game.enter(undefined);
+  const latest=h.updates.at(-1),stops=h.stats().stops;reject(Error('timeline_change_pending'));await flush();
+  assert.equal(h.commands.some(command=>command.type==='gameAbort'),false);assert.equal(h.stats().stops,stops);assert.deepEqual(h.updates.at(-1),latest);
+ }finally{h.game.dispose();}}
 });

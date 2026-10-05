@@ -4,7 +4,7 @@ Audience: Human
 
 # Mobile controller direction
 
-**Owner-approved direction for [#216](https://github.com/TuringTestee/retro-coop/issues/216).** The phone composition and automatic expanded play entry are approved; implementation waits for independent review, passing checks and merge of the [governing plan PR #233](https://github.com/TuringTestee/retro-coop/pull/233). Audience: general PG-13 players. [References](mobile-controller-references.md) inform the arrangement and touch mechanics.
+**Owner-approved direction for [#216](https://github.com/TuringTestee/retro-coop/issues/216).** The phone composition and automatic expanded play entry are approved; the [governing plan PR #233](https://github.com/TuringTestee/retro-coop/pull/233) is independently accepted and merged. Audience: general PG-13 players. [References](mobile-controller-references.md) inform the arrangement and touch mechanics.
 
 ## Owner-requested behavior
 
@@ -17,7 +17,7 @@ Audience: Human
 
 One shared lobby shell; five physical slots and current controller authority; existing Ready/Start gate, late join and role transitions; chat and settings in lobby view; exact configured keyboard/gamepad bindings, rapid A/D, emulator pause versus NES Start, local-only quick load, game audio/voice behavior. The controller sends only for a synchronized active controller owner. Spectators see a disabled controller with their current role.
 
-`PlayingTools` already supplies the static guide in started Game settings. Replace that display and the duplicated NES keyboard rows with one controller/editor; reuse `Settings`, `controls.ts`, preferences and `LocalPlayer`. Retain gamepad and push-to-talk configuration. No new settings page, account or input protocol.
+Replace the static guide and duplicated NES keyboard rows with one controller/editor; reuse `Settings`, `controls.ts`, preferences and `LocalPlayer`. Retain gamepad and push-to-talk configuration. No new settings page, account or input protocol.
 
 ## Approved phone layout
 
