@@ -529,7 +529,8 @@ def controller_input(browser, url, output):
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
         choose_section(page, 'Game')
         assert 'M Mute' in page.get_by_label('Other shortcuts').inner_text()
-        assert 'Q Save' in page.get_by_label('Other shortcuts').inner_text()
+        expect(page.get_by_role('button', name='Save (Q)', exact=True)).to_be_enabled()
+        expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for()
         page.keyboard.press('m')
@@ -988,7 +989,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         assert guide_fits(page), f'Controller guide overflowed at {size}'
         assert 'A rapid A' in page.get_by_label('Game shortcuts').inner_text()
         assert 'D rapid B' in page.get_by_label('Game shortcuts').inner_text()
-        assert page.locator('.rc-shortcuts').inner_text().find('Q Save') >= 0
+        expect(page.get_by_role('button', name='Save (Q)', exact=True)).to_be_enabled()
+        expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
         choose_panel(page, 'Game')
         page.wait_for_function('Number(document.querySelector(".rc-game-display canvas")?.dataset.frameCount) >= 60')
         controller_fits(page)
@@ -1019,7 +1021,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         assert guide_fits(page), f'Paused guide overflowed at {size}'
         assert 'P Prepare to resume' in page.locator('.rc-shortcuts').inner_text()
         assert 'M Mute' in page.locator('.rc-shortcuts').inner_text()
-        assert 'Q Save' in page.locator('.rc-shortcuts').inner_text()
+        expect(page.get_by_role('button', name='Save (Q)', exact=True)).to_be_enabled()
+        expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
         assert regions(page) == playing_regions
         page.screenshot(path=str(output / f'playing-{size[0]}x{size[1]}.png'))
         page.keyboard.press('p')
