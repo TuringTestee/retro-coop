@@ -456,11 +456,12 @@ def recovery():
         const retain=value=>{proof.recoveryDiagnostics.push({at:Math.round(performance.now()),...value});if(proof.recoveryDiagnostics.length>80)proof.recoveryDiagnostics.shift();};
         const PC=RTCPeerConnection;window.RTCPeerConnection=class extends PC{constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>watch(channel));}createDataChannel(...args){const channel=super.createDataChannel(...args);watch(channel);return channel;}};
         function watch(channel){channels.push(channel);for(const event of ['open','close','error'])channel.addEventListener(event,()=>retain({kind:'channel',label:channel.label,state:channel.readyState,event}));}
-        const Native=Worker;window.Worker=class extends Native{constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(['error','peer-checkpoint-exported','peer-checkpoint-imported'].includes(data.type))retain({kind:'native',type:data.type,message:data.message,frame:data.frame,hash:data.hash});});}};
+        const Native=Worker;window.Worker=class extends Native{postMessage(data,...rest){if(data.type==='peer-checkpoint-bind'&&proof.failBinds?.length){const failure=proof.failBinds.shift();retain({kind:'native-request',type:data.type,requestId:data.requestId,epoch:data.epoch,frame:data.frame,hash:data.hash,failure});if(failure==='reject')queueMicrotask(()=>this.dispatchEvent(new MessageEvent('message',{data:{type:'peer-checkpoint-error',requestId:data.requestId,message:'Binding interrupted.'}})));return;}if(data.type.startsWith('peer-checkpoint-'))retain({kind:'native-request',type:data.type,requestId:data.requestId,epoch:data.epoch,frame:data.frame,hash:data.hash});return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='error'||data.type.startsWith('peer-checkpoint-'))retain({kind:'native',type:data.type,requestId:data.requestId,message:data.message,epoch:data.epoch,frame:data.frame,hash:data.hash});});}};
         const Socket=WebSocket;window.WebSocket=class extends Socket{
-        send(raw){const value=JSON.parse(raw);if(value.type.startsWith('game'))retain({kind:'send',type:value.type,frame:value.frame,hash:value.hash,channels:channels.map(channel=>({label:channel.label,state:channel.readyState}))});return super.send(raw);}
+        send(raw){const value=JSON.parse(raw);if(proof.rejectClose&&value.type==='close'){proof.rejectClose=false;proof.rejectedCloseRequest=value.requestId;const reject=()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:value.requestId,ok:false,error:'close_rejected'})}));if(proof.holdCloseFailure)proof.releaseCloseFailure=reject;else queueMicrotask(reject);return;}if(value.type==='gameRestore')proof.restoreRequest=value.requestId;if(value.type.startsWith('game'))retain({kind:'send',type:value.type,frame:value.frame,hash:value.hash,channels:channels.map(channel=>({label:channel.label,state:channel.readyState}))});return super.send(raw);}
         constructor(...args){super(...args);this.addEventListener('message',event=>{
           const value=JSON.parse(event.data);
+          if(proof.holdRestoreResult&&value.type==='result'&&value.requestId===proof.restoreRequest&&!event.restoreReleased){event.stopImmediatePropagation();proof.releaseRestoreResult=()=>{proof.holdRestoreResult=false;const released=new MessageEvent('message',{data:proof.rejectRestoreResult?JSON.stringify({type:'result',requestId:value.requestId,ok:false,error:'restore_reply_lost'}):event.data});Object.defineProperty(released,'restoreReleased',{value:true});retain({kind:'restore-result-released'});this.dispatchEvent(released);};retain({kind:'restore-result-held'});return;}
           proof.recoveryResponses??=[];
           proof.recoveryResponses.push({type:value.type,reason:value.reason,requestId:value.requestId,
             ok:value.ok,code:value.error??value.code,message:value.message,
@@ -547,7 +548,10 @@ def recovery():
         host.get_by_role('button',name='Save name',exact=True).click()
         host.get_by_role('button',name='Host a new game').click()
         host.wait_for_function('proof.room?.role==="host"')
-        host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        with host.expect_file_chooser() as chooser:
+            host.get_by_role('button',name=re.compile(r'Load NES game')).click()
+            host.get_by_role('button',name='Add NES file',exact=True).click()
+        chooser.value.set_files(str(args.rom.resolve()))
         host.wait_for_function('proof.room?.fingerprint && proof.room?.matches',timeout=30000)
         mute_game(host)
         old=host.evaluate('proof.room');old_token=host.evaluate('proof.session.token')
@@ -605,8 +609,49 @@ def recovery():
         guest.goto(new_invitation);guest.evaluate('releaseFrames()')
         guest.get_by_role('button',name='Join lobby',exact=True).click()
         host.wait_for_function('proof.room.occupancy===2')
+        host.evaluate('proof.holdRestoreResult=true;proof.rejectRestoreResult=true;proof.failBinds=["reject","timeout"]')
         host.get_by_role('button',name='Restore game',exact=True).click()
         host.wait_for_function('proof.room?.started==="shared" && proof.room.game.status==="paused"',timeout=30000)
+        host.get_by_text('Game restored. Prepare to resume together.',exact=True).wait_for()
+        host.wait_for_function('typeof proof.releaseRestoreResult==="function"')
+        dialog=host.get_by_role('alertdialog');expect(dialog).to_be_visible()
+        host.set_viewport_size({'width':320,'height':568})
+        host.wait_for_function('document.querySelector(".rc-dialog-card")?.contains(document.activeElement)')
+        for key in ('Tab','Shift+Tab','Tab','Shift+Tab','p','q','e'):
+            host.keyboard.press(key);assert dialog.evaluate('node=>node.contains(document.activeElement)')
+        box=dialog.bounding_box();assert box and box['x']>=0 and box['y']>=0 and box['x']+box['width']<=320 and box['y']+box['height']<=568,box
+        screenshot(host,'recovery-bind-busy-narrow.png')
+        assert host.evaluate('proof.room.game.status==="paused"&&!proof.recoveryDiagnostics.some(row=>row.type==="gameReady")')
+        # Browser navigation can interrupt even a busy restore. Its committed reply must
+        # retain the binding while Close is pending, then remain usable after rejection.
+        host.evaluate('proof.rejectClose=true;proof.holdCloseFailure=true');host.go_back()
+        host.get_by_role('button',name='Close lobby',exact=True).click()
+        host.wait_for_function('typeof proof.releaseCloseFailure==="function"')
+        host.evaluate('proof.releaseRestoreResult()')
+        host.evaluate('proof.holdCloseFailure=false;proof.releaseCloseFailure()')
+        host.get_by_role('alertdialog').get_by_text('Could not leave. Retry or stay in the lobby.',exact=True).wait_for()
+        host.get_by_role('button',name='Stay',exact=True).click()
+        for failure in ('reply','reject','timeout'):
+            retry=host.get_by_role('button',name='Retry restoration',exact=True);expect(retry).to_be_enabled(timeout=15000)
+            expect(host.get_by_role('button',name='Start fresh',exact=True)).to_have_count(0)
+            assert host.evaluate('proof.recoveryDiagnostics.filter(row=>row.type==="gameRestore").length===1')
+            assert host.evaluate('proof.room.game.frame')==snapshot['frame']
+            if failure=='reply':
+                screenshot(host,'recovery-bind-retry-narrow.png')
+                host.get_by_role('button',name='Back to Main Page',exact=True).click()
+                host.get_by_role('button',name='Stay',exact=True).click()
+                expect(retry).to_be_enabled()
+            if failure=='reject':
+                host.evaluate('proof.rejectClose=true');host.get_by_role('button',name='Back to Main Page',exact=True).click()
+                host.get_by_role('button',name='Close lobby',exact=True).click()
+                host.get_by_role('alertdialog').get_by_text('Could not leave. Retry or stay in the lobby.',exact=True).wait_for()
+                host.get_by_role('button',name='Stay',exact=True).click();expect(retry).to_be_enabled()
+                assert host.evaluate('proof.room.game.frame')==snapshot['frame']
+                screenshot(host,'recovery-rejected-close-stay.png')
+            retry.click()
+        host.get_by_role('alertdialog').wait_for(state='hidden')
+        host.set_viewport_size({'width':args.width,'height':args.height})
+        host.wait_for_function('proof.recoveryDiagnostics.some(row=>row.type==="peer-checkpoint-bound"&&row.epoch===proof.room.game.epoch)')
         host.wait_for_function('frame=>document.querySelector("canvas").dataset.frameCount===String(frame)',arg=snapshot['frame'])
         for page in (host,guest):mute_game(page)
         screenshot(host,'recovery-restored-paused.png')
@@ -633,6 +678,7 @@ def recovery():
         hashes=[page.evaluate('proof.hashes.at(-1)') for page in (host,guest)]
         assert hashes[0]==hashes[1]
         screenshot(host,'recovery-continued-host.png');screenshot(guest,'recovery-continued-guest.png')
+        restore_diagnostics=[page.evaluate('proof.recoveryDiagnostics') for page in (host,guest)]
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         # A damaged newest state offers the older capture with its actual saved time.
         older=record(host)['captures'][1]
@@ -742,7 +788,10 @@ def recovery():
         host.locator('.rc-dialog-card').wait_for(state='hidden')
         host.get_by_role('button',name=re.compile(r'Load NES game|^Change game$')).wait_for()
         assert record(host) is None
-        host.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        with host.expect_file_chooser() as chooser:
+            host.get_by_role('button',name=re.compile(r'Load NES game')).click()
+            host.get_by_role('button',name='Add NES file',exact=True).click()
+        chooser.value.set_files(str(args.rom.resolve()))
         expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
         mute_game(host)
         host.evaluate("proof.hashes=[];currentWorker.postMessage({type:'state-hash',requestId:900005})")
@@ -756,14 +805,17 @@ def recovery():
         offline=open_page(unavailable,args.url)
         offline.get_by_role('button',name='Host a new game').click()
         offline.wait_for_function('proof.room?.role==="host"')
-        offline.locator('input[aria-label="NES cartridge file"]').set_input_files(str(args.rom.resolve()))
+        with offline.expect_file_chooser() as chooser:
+            offline.get_by_role('button',name=re.compile(r'Load NES game')).click()
+            offline.get_by_role('button',name='Add NES file',exact=True).click()
+        chooser.value.set_files(str(args.rom.resolve()))
         expect(offline.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
         mute_game(offline)
         offline.get_by_role('button',name='Ready',exact=True).click();offline.get_by_role('button',name='Start →').click()
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
-        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restore_acknowledgment_ordering':True,'committed_reply_during_rejected_close':True,'rejected_close_stay_keeps_retry':True,'committed_reply_and_bind_failures_retry':True,'busy_dialog_narrow_keyboard':True,'restore_synchronization':restore_diagnostics,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 

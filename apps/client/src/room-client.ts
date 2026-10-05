@@ -57,6 +57,7 @@ export class RoomClient {
  private generation = 0;
  private creationGeneration = 0;
  private gameSelection?:string;
+ private restoredBinding?:{roomId:string;membership:string;epoch:string;frame:number;hash:string;fingerprint:Fingerprint};
  private selectedFile?:Fingerprint;private loadedReport?:string;
  private joining?:string;
  private previewingId?:string;
@@ -67,6 +68,7 @@ export class RoomClient {
  constructor(private update:(state:RoomState)=>void,private player:()=>LocalPlayer|null=()=>null) {try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
+  const binding=this.restoredBinding;if(binding&&(!room||room.role!=='host'||room.id!==binding.roomId||room.chatMembership!==binding.membership||room.game.epoch!==binding.epoch||!room.fingerprint||!matchesFile(room.fingerprint,binding.fingerprint)))this.restoredBinding=undefined;
   if(room&&room.id!==this.voluntaryExitRoomId)this.voluntaryExitRoomId=undefined;
   // A member admitted from an invitation still needs its preview after removal.
   if(room&&room.id!==this.previewingId){this.previewingInvite=undefined;this.previewingId=undefined;}
@@ -250,18 +252,35 @@ export class RoomClient {
  decideLoad(accept:boolean){return this.game.decideLoad(accept);}
  cancelLoad(){return this.game.cancelLoad();}
  async restoreGame(frame:number,hash:string,current:()=>boolean){
-  const room=this.state.room,player=this.player();
-  if(!room||room.role!=='host'||room.started||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Load a game normally.');
-  const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
-  if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
-  this.apply(data);await player.bindGameEpoch(data.room.game.epoch,frame,hash);
-  this.publish({status:'Game restored. Prepare to resume together.'});
+  let room=this.state.room;const player=this.player();
+  if(!room||room.role!=='host'||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Return to the main page.');
+  if(!room.started){
+   try{
+    const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
+    if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
+    this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:data.room.game.epoch,frame,hash,fingerprint:room.fingerprint};
+    this.apply(data);
+   }catch(error){
+    // A committed broadcast can arrive before a lost reply. Retain only this restore's boundary.
+    const active=this.state.room;
+    if(!this.disposed&&active?.started&&active.role==='host'&&active.id===room.id&&active.chatMembership===room.chatMembership&&active.game.epoch&&active.game.epoch!==room.game.epoch&&['paused','failed'].includes(active.game.status)&&active.game.frame===frame&&active.fingerprint&&matchesFile(active.fingerprint,room.fingerprint))this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:active.game.epoch,frame,hash,fingerprint:room.fingerprint};
+    throw error;
+   }
+  }
+  const binding=this.restoredBinding;
+  if(!binding||binding.frame!==frame||binding.hash!==hash)throw Error('The restored lobby changed. Return to the main page.');
+  const owned=()=>{const active=this.state.room;return current()&&this.restoredBinding===binding&&!!active&&active.id===binding.roomId&&active.chatMembership===binding.membership&&active.game.epoch===binding.epoch&&['paused','failed'].includes(active.game.status)&&active.game.frame===binding.frame&&!!active.fingerprint&&matchesFile(active.fingerprint,binding.fingerprint)&&player.isLoaded(binding.fingerprint);};
+  if(!owned())throw Error('The restored lobby changed. Return to the main page.');
+  await player.bindGameEpoch(binding.epoch,binding.frame,binding.hash);
+  if(!owned())throw Error('Restoration cancelled.');
+  this.restoredBinding=undefined;this.publish({status:'Game restored. Prepare to resume together.'});
  }
+
  readyToResume(){void this.game.resumeReady();}
  resumeTogether(){void this.game.resumeTogether();}
  pauseTogether(){this.game.requestPause();}
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {this.restoredBinding=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }
