@@ -112,7 +112,7 @@ export class LocalPlayer {
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
  async loadSave(bytes:ArrayBuffer) {
   if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
-  if(this.shared)throw Error('Shared save loading is not available yet. Leave the lobby before loading a local save.');
+  if(this.shared)throw Error('Use Load in Game settings so every controlling player can agree before shared progress changes.');
   this.pause();
   await this.fileRequest({type:'state-import',bytes});
   this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
@@ -144,6 +144,18 @@ export class LocalPlayer {
    this.publish({frames:frame,rewind:undefined,status:'Paused game synchronized. Waiting for shared resume.'});return reply;
   }finally{if(this.checkpointOperation===operationId)this.cancelPeerCheckpoint();}
  }
+ async inspectSave(bytes:ArrayBuffer){const reply=await this.fileRequest({type:'state-inspect',bytes});if(reply.type!=='state-inspected')throw Error('Unexpected save validation response');return reply;}
+ async prepareSharedSave(transactionId:string,epoch:string,frame:number,bytes:ArrayBuffer,identity:string,hash:string,current:()=>boolean){
+  if(!this.shared||this.state.running||this.busy||!current())throw Error('Save load authorization changed');
+  const reply=await this.fileRequest({type:'peer-checkpoint-prepare',operationId:transactionId,transactionId,epoch,frame,bytes,identity,hash});
+  if(reply.type!=='peer-checkpoint-prepared'||!current())throw Error('Save load authorization changed');return reply;
+ }
+ async commitSharedSave(transactionId:string,current:()=>boolean){
+  if(!current())throw Error('Save load authorization changed');const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId:transactionId});
+  if(reply.type!=='peer-checkpoint-imported'||!current())throw Error('Save load authorization changed');this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Saved game loaded. Waiting for everyone.'});return reply;
+ }
+ async rollbackSharedSave(transactionId:string,current:()=>boolean=()=>true){const reply=await this.fileRequest({type:'peer-checkpoint-rollback',operationId:transactionId});if(reply.type!=='peer-checkpoint-rolled-back')throw Error('Unexpected rollback response');if(!current())return reply;this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Previous progress preserved. Prepare to resume.'});return reply;}
+ async finishSharedSave(transactionId:string){const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');}
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
   if(this.shared)throw Error('Shared rewind is not available yet. Leave the lobby before rewinding locally.');

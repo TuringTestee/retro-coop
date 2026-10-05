@@ -291,7 +291,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-tool-overlay { position: absolute; inset: 0; z-index: 30; display: grid; grid-template-rows: 36px minmax(0, 1fr); gap: 6px; padding: 8px 14px; overflow: hidden; background: var(--paper); }
 .rc-tool-back { justify-self: start; min-width: 80px; border: 1px solid var(--ink); border-radius: 4px; background: transparent; color: var(--ink); }
 .rc-tool-page { display: grid; grid-template-rows: 70px minmax(0, 1fr); gap: 8px; min-width: 0; min-height: 0; padding: 10px; overflow: hidden; border-top: 1px solid var(--rule); }
-.rc-rewind { grid-template-rows: 32px minmax(0, 1fr); }
 .rc-tool-heading { display: grid; grid-template-rows: 30px 34px; gap: 5px; min-width: 0; min-height: 0; }
 .rc-single-heading { grid-template-rows: 1fr; }
 .rc-tool-heading h2, .rc-tool-stack h3 { margin: 0; font-size: 18px; }

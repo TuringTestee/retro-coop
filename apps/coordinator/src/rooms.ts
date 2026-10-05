@@ -240,13 +240,14 @@ export class Rooms {
   }
   if(command.type.startsWith('game')){
    const room=this.room(session),member=this.member(room,session);this.rate(session,'game',ROOM_GAME_BURST,10_000);
-   try{const slot=room.slots.find(slot=>slot.member===member)!;
+   try{if(command.type==='gameLoadPropose'&&room.pendingGame)throw Error('game_selection_pending');const slot=room.slots.find(slot=>slot.member===member)!;
     if(command.type==='gameRoleRetry'){
      const pending=room.game.view().pending;
      const proposed=this.slotViews(room).map(value=>({...value,role:pending?.roles.find(role=>role.slotId===value.id)?.role??value.role}));
      room.game.retryRoles(member.id,command.transactionId,room.revision,{owners:controllerOwners(proposed),revision:room.controllers.revision+1});
     }else if(command.type==='gameReady'&&room.started&&room.game.view().epoch&&slot.role!=='observer'&&!room.controllers.owners.includes(member.id)){const pending:RoleTransaction={id:secret(),revision:room.revision,roles:[{slotId:slot.id,role:slot.role}],status:'freezing'};room.game.requestRoles(pending,this.assigned(room));}else room.game.handle(member.id,command as GameCommand);
    }catch(error){throw new RoomError(error instanceof Error?error.message:'game_failed');}
+   if(command.type==='gameLoadCommitted'&&room.game.view().status==='starting'){room.started='shared';room.established=true;room.hostReady=true;}
    if(command.type==='gameRestore'){room.started='shared';room.established=true;room.hostReady=true;}
    if(room.game.view().status==='playing'){room.established=true;for(const member of this.members(room))if(member.acquisition==='loaded')member.reservationUntil=undefined;}
    this.publish(room);return {room:this.view(room,session)};
@@ -285,6 +286,7 @@ export class Rooms {
    }
    case 'beginGameSelection': {
     const room=this.hosted(session,command.roomId);
+    if(room.game.view().load||room.game.view().pending)throw new RoomError('timeline_change_pending');
     if(!room.confirmed||room.started||room.established)throw new RoomError('game_already_started');
     if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');
     const included=catalogId(command.fingerprint);

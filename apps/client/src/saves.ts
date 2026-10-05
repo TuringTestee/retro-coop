@@ -1,5 +1,5 @@
 /** Sole IndexedDB owner for local saves, preferences, and verified ROM bytes. */
-export type SaveSlot = {identity:string;slot:number;savedAt:number;bytes:ArrayBuffer};
+export type SaveSlot = {identity:string;slot:number;savedAt:number;bytes:ArrayBuffer;frame?:number;hash?:string};
 export type BatteryRecord = {identity:string;savedAt:number;bytes:ArrayBuffer};
 export type PreferencesRecord = {identity:string;savedAt:number;value:unknown};
 export type RomRecord = {sha256:string;bytes:ArrayBuffer;size:number;savedAt:number;label?:string;source?:'import'|'download';lastUsedAt?:number};
@@ -31,19 +31,21 @@ export async function listSaves(identity:string):Promise<SaveSlot[]> {
  const rows=await transaction('readonly',store=>store.index('identity').getAll(identity));
  return rows.filter((row):row is SaveSlot=>row.identity===identity && Number.isSafeInteger(row.slot) && row.slot>0 && validSavedAt(row.savedAt) && row.bytes instanceof ArrayBuffer).sort((a,b)=>a.slot-b.slot);
 }
-async function changeRecord(name:string,key:IDBValidKey,expected:BatteryRecord|undefined,change:(store:IDBObjectStore)=>void) {
+async function changeRecord(name:string,key:IDBValidKey,expected:BatteryRecord|undefined,change:(store:IDBObjectStore)=>void,generation?:number,current:()=>boolean=()=>true) {
  let failure:unknown;
- try {await transaction('readwrite',store=>{
-  const request=store.get(key);
+ try {await transaction('readwrite',(store,tx)=>{
+  const epoch=generation===undefined?undefined:tx.objectStore('meta').get('generation');const request=store.get(key);
   request.addEventListener('success',()=>{
-   const current=request.result as SaveSlot|undefined;
-   const same=sameRecord(current,expected);
+   const stored=request.result as SaveSlot|undefined;
+   const same=sameRecord(stored,expected);
+   if(!current()||epoch&&(epoch.result??0)!==generation){failure=Error('Local data was cleared or the game changed. Save again explicitly.');store.transaction.abort();return;}
    if(!same){failure=Error('This saved data changed in another tab. Reopen the panel before changing it.');store.transaction.abort();return;}
    try{change(store);}catch(error){failure=error;store.transaction.abort();}
   });return request;
- },[name]);}catch(error){throw failure ?? error;}
+ },generation===undefined?[name]:[name,'meta']);}catch(error){throw failure ?? error;}
 }
-export async function putSave(save:SaveSlot,expected?:SaveSlot) {await changeRecord(store,[save.identity,save.slot],expected,store=>{store.put(save);});}
+export async function readSave(identity:string,slot:number):Promise<{generation:number;record:SaveSlot|undefined}>{let generation=0;const record=await transaction('readonly',(store,tx)=>{const epoch=tx.objectStore('meta').get('generation');epoch.onsuccess=()=>{generation=epoch.result??0;};return store.get([identity,slot]);},[store,'meta']);return {generation,record};}
+export async function putSave(save:SaveSlot,expected?:SaveSlot,generation?:number,current:()=>boolean=()=>true) {await changeRecord(store,[save.identity,save.slot],expected,store=>{store.put(save);},generation,current);}
 export async function deleteSave(expected:SaveSlot) {await changeRecord(store,[expected.identity,expected.slot],expected,store=>{store.delete([expected.identity,expected.slot]);});}
 export function downloadSave(bytes:ArrayBuffer,slot?:number,kind:'state'|'battery'|'preferences'='state') {
  const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
@@ -139,7 +141,7 @@ export async function clearLocalData(generation:number) {
   for(const name of ['saves','batteries','preferences','roms','recovery'])tx.objectStore(name).clear();meta.clear();meta.put(generation+1,'generation');
  });return request;},stores);}catch(error){throw failure ?? error;}
 }
-export function sameRecord(current:BatteryRecord|undefined,expected:BatteryRecord|undefined) {return !current && !expected || !!current && !!expected && Object.is(current.savedAt,expected.savedAt) && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && sameBytes(current.bytes,expected.bytes);}
+export function sameRecord(current:BatteryRecord|SaveSlot|undefined,expected:BatteryRecord|SaveSlot|undefined) {return !current && !expected || !!current && !!expected && Object.is(current.savedAt,expected.savedAt) && current.bytes instanceof ArrayBuffer && current.bytes.byteLength===expected.bytes.byteLength && (current as SaveSlot).frame===(expected as SaveSlot).frame && (current as SaveSlot).hash===(expected as SaveSlot).hash && sameBytes(current.bytes,expected.bytes);}
 
 
 /** Automatic host progress has one bounded row; manual save slots are independent. */

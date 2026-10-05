@@ -19,22 +19,41 @@ function check(ok: number) { if (!ok) throw Error(new TextDecoder().decode(copy(
 let loading = false, frame=0, fresh=true;
 let rewindIssue:string|undefined,sharedEpoch:string|undefined;
 let checkpointGeneration=0, preparing=false;
-let candidate: {operationId:string;generation:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;deadline:number}|undefined;
+let candidate: {operationId:string;generation:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;deadline:number;transactionId?:string}|undefined;
 let candidateTimer:ReturnType<typeof setTimeout>|undefined;
 function clearCandidate(){checkpointGeneration++;candidate=undefined;clearTimeout(candidateTimer);candidateTimer=undefined;}
+let rollback: {operationId:string;frame:number;epoch?:string;fresh:boolean;bytes:ArrayBuffer;hash:string;committed:boolean}|undefined;
+function snapshot(){check(core!.local_state_export());const bytes=copy(0);check(core!.local_state_hash());return {bytes,hash:hex(copy(0))};}
+function importState(bytes:ArrayBuffer){const ptr=core!.local_state_alloc(bytes.byteLength);if(!ptr)throw Error('Checkpoint allocation failed');new Uint8Array(core!.memory.buffer,ptr,bytes.byteLength).set(new Uint8Array(bytes));check(core!.local_state_import(ptr,bytes.byteLength));}
+async function inspectState(bytes:ArrayBuffer){
+ if(bytes.byteLength<72||bytes.byteLength>core!.local_state_limit())throw Error('Checkpoint exceeds codec limit');
+ const ptr=core!.local_state_alloc(bytes.byteLength);if(!ptr)throw Error('Checkpoint allocation failed');new Uint8Array(core!.memory.buffer,ptr,bytes.byteLength).set(new Uint8Array(bytes));check(core!.local_state_validate(ptr,bytes.byteLength));
+ const state=new Uint8Array(bytes),identity=hex(state.slice(8,40).buffer);const canonical=new Uint8Array(32+state.byteLength-72);canonical.set(state.subarray(8,40));canonical.set(state.subarray(72),32);
+ return {identity,hash:hex(await crypto.subtle.digest('SHA-256',canonical))};
+}
 function historyInfo():RewindInfo {check(core!.local_rewind_info());return {...JSON.parse(new TextDecoder().decode(copy(0))),issue:rewindIssue};}
 onmessage = async ({data}: MessageEvent<unknown>) => {
  try {
   if (!isWorkerRequest(data)) throw Error('Invalid worker request');
+  if(data.type==='peer-checkpoint-rollback'){
+   if(rollback&&rollback.operationId!==data.operationId)throw Error('Rollback ownership changed');
+   if(candidate?.operationId===data.operationId)clearCandidate();
+   if(rollback){if(rollback.committed)importState(rollback.bytes);frame=rollback.frame;sharedEpoch=rollback.epoch;fresh=rollback.fresh;core!.local_rewind_clear();rollback=undefined;}
+   check(core!.local_state_hash());send({type:'peer-checkpoint-rolled-back',requestId:data.requestId,operationId:data.operationId,epoch:sharedEpoch,frame,hash:hex(copy(0))});return;
+  }
+  if(data.type==='peer-checkpoint-finish'){
+   if(!rollback||rollback.operationId!==data.operationId||!rollback.committed)throw Error('Commit ownership changed');rollback=undefined;send({type:'peer-checkpoint-finished',requestId:data.requestId,operationId:data.operationId});return;
+  }
   if(data.type==='peer-checkpoint-cancel') {
    if(candidate?.operationId===data.operationId)clearCandidate();
    send({type:'peer-checkpoint-cancelled',requestId:data.requestId,operationId:data.operationId});return;
   }
   if(preparing){if(data.type==='peer-checkpoint-prepare'||data.type==='load')clearCandidate();throw Error('Checkpoint preparation is pending');}
   if (loading) throw Error('Emulator is loading');
+  if(rollback&&(data.type==='frame'||data.type==='load'||data.type==='state-import'||data.type==='state-rewind'||data.type==='battery-import'||data.type==='state-capture'||data.type==='state-export'||data.type==='peer-checkpoint-bind'))throw Error('Shared load is awaiting its commit decision');
   if(data.type==='load'||data.type==='frame'||data.type==='state-rewind'||data.type==='state-import'||data.type==='battery-import')clearCandidate();
   if (data.type === 'load') {
-   loading = true;
+   loading = true;rollback=undefined;
    try {
     const response = await fetch(coreUrl);
     if (!response.ok) throw Error('The emulator is unavailable. Reload the page to retry.');
@@ -73,24 +92,20 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     check(core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));
     send({type:'peer-checkpoint-exported',requestId:data.requestId,epoch:data.epoch,frame,bytes,identity,hash},[bytes]);
    } else if(data.type==='peer-checkpoint-prepare') {
-    clearCandidate();
-    const generation=checkpointGeneration;
-    candidate={operationId:data.operationId,generation,epoch:data.epoch,frame:data.frame,bytes:data.bytes,identity:data.identity,hash:data.hash,deadline:performance.now()+15_000};
-    candidateTimer=setTimeout(()=>{if(candidate?.generation===generation)clearCandidate();},15_000);
+    if(rollback&&rollback.operationId!==data.operationId)throw Error('Another shared load is pending');
+    if(data.transactionId!==undefined&&data.transactionId!==data.operationId)throw Error('Checkpoint transaction ownership mismatch');
+    clearCandidate();const generation=checkpointGeneration;
+    const duration=data.transactionId?45_000:15_000;
+    candidate={operationId:data.operationId,generation,epoch:data.epoch,frame:data.frame,bytes:data.bytes,identity:data.identity,hash:data.hash,transactionId:data.transactionId,deadline:performance.now()+duration};
+    candidateTimer=setTimeout(()=>{if(candidate?.generation===generation)clearCandidate();},duration);
     preparing=true;
     try {
-     if(data.bytes.byteLength>core.local_state_limit())throw Error('Checkpoint exceeds codec limit');
-     const ptr=core.local_state_alloc(data.bytes.byteLength);
-     if(!ptr)throw Error('Checkpoint allocation failed');
-     new Uint8Array(core.memory.buffer,ptr,data.bytes.byteLength).set(new Uint8Array(data.bytes));
-     check(core.local_state_validate(ptr,data.bytes.byteLength));
-     const bytes=new Uint8Array(data.bytes);
-     if(hex(bytes.slice(8,40).buffer)!==data.identity)throw Error('Checkpoint identity mismatch');
-     const canonical=new Uint8Array(32+bytes.byteLength-72);canonical.set(bytes.subarray(8,40));canonical.set(bytes.subarray(72),32);
-     const hash=hex(await crypto.subtle.digest('SHA-256',canonical));
-     if(hash!==data.hash)throw Error('Checkpoint state hash mismatch');
+     if(data.transactionId&&!rollback)rollback={operationId:data.operationId,frame,epoch:sharedEpoch,fresh,...snapshot(),committed:false};
+     const info=await inspectState(data.bytes);
+     if(info.identity!==data.identity)throw Error('Checkpoint identity mismatch');
+     if(info.hash!==data.hash)throw Error('Checkpoint state hash mismatch');
      if(candidate?.generation!==generation||performance.now()>=candidate.deadline)throw Error('Checkpoint preparation cancelled or expired');
-     send({type:'peer-checkpoint-prepared',requestId:data.requestId,operationId:data.operationId,epoch:data.epoch,frame:data.frame,hash});
+     send({type:'peer-checkpoint-prepared',requestId:data.requestId,operationId:data.operationId,epoch:data.epoch,frame:data.frame,hash:data.hash});
     } catch(error){if(candidate?.generation===generation)clearCandidate();throw error;}
     finally {preparing=false;}
    } else if(data.type==='peer-checkpoint-commit') {
@@ -98,6 +113,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     if(!prepared||prepared.operationId!==data.operationId)throw Error('Checkpoint commit is stale');
     clearCandidate();
     if(performance.now()>=prepared.deadline)throw Error('Checkpoint preparation expired');
+    if(prepared.transactionId&&rollback?.operationId!==prepared.operationId)throw Error('Rollback state unavailable');
     // No asynchronous gap exists after the owner's final authorization check.
     const ptr=core.local_state_alloc(prepared.bytes.byteLength);
     if(!ptr)throw Error('Checkpoint allocation failed');
@@ -105,8 +121,10 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     // Import validates transactionally and consumes this allocation. A separate
     // validate call here would free the same bytes before import reads them.
     check(core.local_state_import(ptr,prepared.bytes.byteLength));
+    if(prepared.transactionId)rollback!.committed=true;
+    check(core.local_state_hash());const importedHash=hex(copy(0));if(importedHash!==prepared.hash)throw Error('Imported checkpoint hash mismatch');
     core.local_rewind_clear();rewindIssue=undefined;frame=prepared.frame;sharedEpoch=prepared.epoch;fresh=false;
-    send({type:'peer-checkpoint-imported',requestId:data.requestId,operationId:data.operationId,epoch:prepared.epoch,frame,hash:prepared.hash});
+    send({type:'peer-checkpoint-imported',requestId:data.requestId,operationId:data.operationId,epoch:prepared.epoch,frame,hash:importedHash});
    }
   }
   else if (isLocalFileOperation(data)) {
@@ -121,6 +139,7 @@ onmessage = async ({data}: MessageEvent<unknown>) => {
     check(core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));
     send({type:'state-captured',requestId:data.requestId,frame,hash,identity,bytes},[bytes]);
    }
+   else if(data.type==='state-inspect') {const info=await inspectState(data.bytes);send({type:'state-inspected',requestId:data.requestId,...info});}
    else if(data.type==='state-preview') {
     if(frame!==0||!fresh||sharedEpoch)throw Error('A preview is only available before play starts');
     check(core.local_state_hash());const originalHash=hex(copy(0));

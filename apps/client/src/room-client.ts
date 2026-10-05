@@ -7,7 +7,7 @@ import {PeerConnection,type ConnectionState} from './peer.ts';
 import type {PeerEvent} from '../../../packages/contracts/src/peer.ts';
 import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
-import {readStored,putPreferences,type PreferencesRecord} from './saves.ts';
+import {readStored,putPreferences,type PreferencesRecord,type SaveSlot} from './saves.ts';
 import {text} from '../../../packages/contracts/src/protocol-validation.ts';
 import {TabSession} from './tab-session.ts';
 import {uploadRoomFile} from './room-upload.ts';
@@ -166,13 +166,14 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the lobby service.'});}
- beginSelection() {this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});}
+ beginSelection() {if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
  cancelGameSelection(){const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
  async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
   if(!this.token && !this.state.room) return isCurrent();
   try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
   if(!isCurrent()) return false;
   const room=this.state.room;
+  if(room?.game.load||room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}
   if(room?.established&&!(room.role==='member'&&room.fingerprint&&matchesFile(room.fingerprint,fingerprint)&&!this.player()?.isLoaded(fingerprint))){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
   if(room?.role==='member'&&room.fingerprint&&!matchesFile(room.fingerprint,fingerprint)){this.publish({status:'Choose the lobby game before getting ready.'});return false;}
   return true;
@@ -245,6 +246,9 @@ export class RoomClient {
  observe(){this.game.observe();}
  retryGame(){const room=this.state.room,file=this.selectedFile;if(room?.role==='host'&&!room.established&&file){void this.game.resumeReady().then(()=>this.startRoom(file));return;}this.game.retry();}
  cancelSynchronization(){this.game.cancelIntent();}
+ loadSaved(record:SaveSlot,current:()=>Promise<boolean>){return this.game.loadSaved(record,current);}
+ decideLoad(accept:boolean){return this.game.decideLoad(accept);}
+ cancelLoad(){return this.game.cancelLoad();}
  async restoreGame(frame:number,hash:string,current:()=>boolean){
   const room=this.state.room,player=this.player();
   if(!room||room.role!=='host'||room.started||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Load a game normally.');

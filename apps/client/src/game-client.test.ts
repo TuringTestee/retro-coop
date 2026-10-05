@@ -115,3 +115,95 @@ test('prepared timeline retains ordered peer packets arriving before the local S
   }finally{t.game.dispose();}
  }
 });
+
+test('host Load validates the selected save and serializes native preparation, commit and final acceptance',async()=>{
+ const t=setup(host),id='l'.repeat(22),target='t'.repeat(22),identity='a'.repeat(64),bytes=new ArrayBuffer(82),calls:string[]=[];let finish!:()=>void;
+ Object.assign(t.player,{inspectSave:async()=>({identity,hash}),prepareSharedSave:async()=>{calls.push('prepare');await new Promise<void>(resolve=>finish=resolve);return {frame:20,hash};},commitSharedSave:async()=>{calls.push('commit');return {frame:20,hash};},finishSharedSave:async()=>{calls.push('finish');},rollbackSharedSave:async()=>({frame:0,hash})});
+ try{
+  await t.game.loadSaved({identity,slot:1,savedAt:1000,bytes,frame:20,hash},async()=>true);assert.equal(t.commands.at(-1)?.type,'gameLoadPropose');
+  t.game.handle({type:'gameLoadHold',transactionId:id});t.game.enter({...room(host),game:{...room(host).game,load:{id,epoch,phase:'freezing',frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}});await tick();assert.equal(t.commands.at(-1)?.type,'gameLoadBoundary');
+  t.game.handle({type:'gameLoadStage',transactionId:id,epoch:target,frame:20,hash});await tick();
+  t.game.handle({type:'gameLoadCommit',transactionId:id,epoch:target,frame:20,hash});await tick();assert.deepEqual(calls,['prepare']);assert.equal(t.commands.some(c=>c.type==='gameLoadCommitted'),false);
+  finish();await tick();assert.deepEqual(calls,['prepare','commit']);assert.equal(t.commands.at(-1)?.type,'gameLoadCommitted');
+  t.game.handle({type:'gameLoadFinish',transactionId:id});await tick();assert.deepEqual(calls,['prepare','commit','finish']);
+ }finally{t.game.dispose();}
+});
+
+test('cleared or replaced save cannot stage or commit and late completion cannot authorize a new membership',async()=>{
+ const t=setup(host),id='l'.repeat(22),identity='a'.repeat(64),bytes=new ArrayBuffer(82);let valid=true,prepared=0,resolve!:()=>void;
+ Object.assign(t.player,{inspectSave:async()=>({identity,hash}),prepareSharedSave:async()=>{prepared++;await new Promise<void>(done=>resolve=done);return {frame:20,hash};},rollbackSharedSave:async()=>({frame:0,hash})});
+ try{
+  await t.game.loadSaved({identity,slot:1,savedAt:1000,bytes,frame:20,hash},async()=>valid);t.game.handle({type:'gameLoadHold',transactionId:id});t.game.enter({...room(host),game:{...room(host).game,load:{id,epoch,phase:'freezing',frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}});await tick();valid=false;
+  t.game.handle({type:'gameLoadStage',transactionId:id,epoch,frame:20,hash});await tick();assert.equal(prepared,0);assert.equal(t.commands.at(-1)?.type,'gameLoadFailed');
+  valid=true;t.game.handle({type:'gameLoadStage',transactionId:id,epoch,frame:20,hash});await tick();assert.equal(prepared,1);
+  t.game.enter(undefined);resolve();await tick();assert.equal(t.commands.some(c=>c.type==='gameLoadPrepared'),false);
+ }finally{t.game.dispose();}
+});
+
+test('Load rollback acknowledges actual native prior state and rejects a mismatched restoration',async()=>{
+ for(const matches of [true,false]){const t=setup(host),id='l'.repeat(22);Object.assign(t.player,{rollbackSharedSave:async()=>({frame:917,hash:matches?hash:'f'.repeat(64)})});try{
+  t.game.handle({type:'gameLoadHold',transactionId:id});t.game.enter({...room(host),game:{...room(host).game,load:{id,epoch,phase:'freezing',frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}});await tick();t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Declined'});await tick();
+  assert.equal(t.commands.some(c=>c.type==='gameLoadRolledBack'),matches);assert.equal(t.commands.at(-1)?.type,matches?'gameLoadRolledBack':'gameLoadFailed');
+ }finally{t.game.dispose();}}
+});
+
+test('Load announcement waits for the matching authoritative view and cannot migrate into a later lobby',async()=>{
+ const t=setup(host),id='l'.repeat(22);t.defer();try{
+  t.game.handle({type:'gameLoadHold',transactionId:id});await tick();assert.equal(t.holds.length,0);
+  const next={...room(host),id:'n'.repeat(22)};t.game.enter(next);await tick();assert.equal(t.holds.length,0);
+  t.game.enter({...next,game:{...next.game,load:{id,epoch,phase:'freezing',frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}});await tick();assert.equal(t.holds.length,0,'stale event was rebound to a new lobby');
+ }finally{t.game.dispose();}
+});
+
+test('a reconnected controller can acknowledge a resent rollback after local transport cleanup',async()=>{
+ const t=setup(),id='l'.repeat(22),view={...room(),game:{...room().game,load:{id,epoch,phase:'rolling_back' as const,frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}};
+ Object.assign(t.player,{rollbackSharedSave:async()=>({frame:917,hash})});try{
+  t.game.enter(view);t.game.closed(host);t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Connection changed'});await tick();assert.equal(t.commands.at(-1)?.type,'gameLoadRolledBack');
+  t.game.enter(undefined);const count=t.commands.length;t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Connection changed'});await tick();assert.equal(t.commands.length,count);
+ }finally{t.game.dispose();}
+});
+
+test('Load owns async validation exclusively and a cancelled older attempt cannot release a newer request',async()=>{
+ const t=setup(host),identity='a'.repeat(64),record={identity,slot:1,savedAt:1000,bytes:new ArrayBuffer(82)},inspections:Array<(value:{identity:string;hash:string})=>void>=[];
+ Object.assign(t.player,{inspectSave:()=>new Promise(resolve=>inspections.push(resolve))});try{
+  const older=t.game.loadSaved(record,async()=>true);const olderFailure=assert.rejects(older,/Saved progress changed/);
+  await assert.rejects(t.game.loadSaved(record,async()=>true),/Another game change/);assert.equal(inspections.length,1);
+  t.game.enter(undefined);t.game.enter(room(host));const newer=t.game.loadSaved(record,async()=>true);assert.equal(inspections.length,2);
+  inspections[0]({identity,hash});await olderFailure;await assert.rejects(t.game.loadSaved(record,async()=>true),/Another game change/);
+  inspections[1]({identity,hash});await newer;assert.equal(t.commands.filter(c=>c.type==='gameLoadPropose').length,1);
+ }finally{t.game.dispose();}
+});
+
+test('room change during async save-record validation cannot propose the old room after the read resolves',async()=>{
+ const t=setup(host),identity='a'.repeat(64);let resolve!:()=>void;
+ Object.assign(t.player,{inspectSave:async()=>({identity,hash})});try{
+  const request=t.game.loadSaved({identity,slot:1,savedAt:1000,bytes:new ArrayBuffer(82)},async()=>{await new Promise<void>(done=>resolve=done);return true;});const failure=assert.rejects(request,/Saved progress changed/);await tick();t.game.enter(undefined);resolve();await failure;assert.equal(t.commands.some(c=>c.type==='gameLoadPropose'),false);
+ }finally{t.game.dispose();}
+});
+
+test('unused lobby roster revision retains the same transaction native rollback owner',async()=>{
+ const t=setup(host),id='l'.repeat(22);let finish!:(value:{frame:number;hash:string})=>void;
+ Object.assign(t.player,{rollbackSharedSave:()=>new Promise(resolve=>finish=resolve),finishSharedSave:async()=>{}});
+ const view={...room(host),game:{...room(host).game,load:{id,epoch,phase:'freezing' as const,frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}};
+ try{
+  t.game.enter(view);t.game.handle({type:'gameLoadHold',transactionId:id});await tick();
+  t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Roster changed'});await tick();
+  t.game.enter({...view,revision:view.revision+1,game:{...view.game,load:{...view.game.load,phase:'rolling_back'}}});
+  finish({frame:917,hash});await tick();
+  assert.equal(t.commands.at(-1)?.type,'gameLoadRolledBack');
+  t.game.handle({type:'gameLoadFinish',transactionId:id});await tick();
+  t.game.enter({...room(host),revision:2});t.game.playIntent();await tick();
+  assert.equal(t.commands.at(-1)?.type,'gameReady');
+ }finally{t.game.dispose();}
+});
+
+test('late native rollback cannot acknowledge for a departed membership',async()=>{
+ const t=setup(host),id='l'.repeat(22);let finish!:(value:{frame:number;hash:string})=>void;
+ Object.assign(t.player,{rollbackSharedSave:()=>new Promise(resolve=>finish=resolve)});
+ try{
+  t.game.enter({...room(host),game:{...room(host).game,load:{id,epoch,phase:'rolling_back',frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}});
+  t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Roster changed'});await tick();
+  const previous=finish;t.game.enter(undefined);previous({frame:917,hash});await tick();
+  assert.equal(t.commands.some(command=>command.type==='gameLoadRolledBack'),false);
+ }finally{t.game.dispose();}
+});

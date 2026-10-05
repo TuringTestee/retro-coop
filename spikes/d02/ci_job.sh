@@ -61,6 +61,9 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
         timeout --foreground 45s python3 scripts/voice/journey_browser.py --serve --mode "$voice_mode" --output "spikes/d02/public-entrypoint.local/voice-$voice_mode"
       done
       ;;
+    entrypoint-save-load)
+      timeout --foreground 120s python3 scripts/rooms/two_agent_game.py --role shared-load --expect-controller-ram 0,64 --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/shared-load
+      ;;
     entrypoint-recovery)
       timeout --foreground 210s python3 scripts/rooms/two_agent_game.py --role recovery --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/recovery
       ;;
