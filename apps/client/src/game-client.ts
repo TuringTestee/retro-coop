@@ -8,7 +8,7 @@ import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
 type Spec=Extract<GameEvent,{type:'gameCheckpoint'}>;
 type Capture=Awaited<ReturnType<LocalPlayer['exportPeerCheckpoint']>>;
-type Outgoing={request:Extract<GameEvent,{type:'gameCapture'}>;capture?:Capture;digest?:string;spec?:Spec;timer:ReturnType<typeof setTimeout>;cursor?:number;sending?:boolean;exporting?:boolean};
+type Outgoing={request:Extract<GameEvent,{type:'gameCapture'}>;capture?:Capture;digest?:string;spec?:Spec;timer:ReturnType<typeof setTimeout>;cursor?:number;sending?:boolean;exporting?:boolean;sendRequested?:boolean;checkpointStarted?:boolean};
 type ManualSave={record:SaveSlot;capture:Capture;current:()=>Promise<boolean>;serial:number};
 type Link={epoch:string;channel:RTCDataChannel;roundTripMs:number;checkpoint?:RTCDataChannel;live:boolean};
 export type GameplayState={status:string;frame:number;delay?:number;hash?:string;busy:boolean;synchronizing?:boolean;intent?:boolean;observing?:boolean;preparationError?:string};
@@ -143,7 +143,7 @@ export class GameClient {
    if(event.sender!==this.room?.hostMembership||!this.room.slots.some(slot=>slot.member?.id===event.recipient))return;
    if(this.authority()){const outgoing=this.outgoing.get(event.transferId);if(outgoing)outgoing.spec=event;}else if(event.recipient===this.self())void this.beginIncoming(event);return;
   }
-  if(event.type==='gameCheckpointSend'){const outgoing=this.outgoing.get(event.transferId);if(outgoing&&outgoing.request.recipient===event.recipient)this.sendCheckpoint(outgoing);return;}
+  if(event.type==='gameCheckpointSend'){const outgoing=this.outgoing.get(event.transferId);if(outgoing&&outgoing.request.recipient===event.recipient){outgoing.sendRequested=true;this.sendCheckpoint(outgoing);}return;}
   if(event.type==='gameCatchup'){const outgoing=this.outgoing.get(event.transferId);if(outgoing){outgoing.cursor=event.frame;this.catchup(outgoing);}return;}
   if(event.type==='gameSyncStop'){
    const outgoing=this.outgoing.get(event.transferId);if(outgoing)this.cancelOutgoing(outgoing);
@@ -198,6 +198,8 @@ export class GameClient {
  checkpointChannel(member:string,channel:RTCDataChannel,epoch:string){
   this.checkpointLinks.set(member,{epoch,channel});const link=this.links.get(member);if(link?.epoch===epoch)link.checkpoint=channel;channel.binaryType='arraybuffer';channel.bufferedAmountLowThreshold=CHECKPOINT_BUFFER_BYTES/2;
   channel.onbufferedamountlow=()=>{for(const outgoing of this.outgoing.values())if(outgoing.request.recipient===member&&outgoing.sending)this.pump(outgoing);};
+  const flush=()=>{if(this.checkpointLinks.get(member)?.channel!==channel||this.checkpointLinks.get(member)?.epoch!==epoch||channel.readyState!=='open')return;for(const outgoing of this.outgoing.values())if(outgoing.request.recipient===member&&outgoing.sendRequested&&!outgoing.checkpointStarted)this.sendCheckpoint(outgoing);};
+  channel.addEventListener('open',flush);flush();
   channel.onmessage=({data})=>{const spec=this.incoming;if(!spec||member!==spec.sender||this.checkpointLinks.get(member)?.channel!==channel)return;const bytes=typeof data==='string'?data.length:data instanceof ArrayBuffer?data.byteLength:Infinity;
    if(bytes>(typeof data==='string'?2048:CHECKPOINT_CHUNK_BYTES)||this.queuedBytes+bytes>CHECKPOINT_MAX_BYTES+64*1024||this.queuedMessages>=256){this.failIncoming(spec,'Checkpoint queue exceeded its limit.');return;}
    try{const transfer=typeof data==='string'?parseCheckpointMetadata(data)?.transferId:decodeCheckpointChunk(data).transferId;if(transfer&&transfer!==spec.transferId)return;}catch{this.failIncoming(spec,'Malformed checkpoint data.');return;}
@@ -221,7 +223,12 @@ export class GameClient {
   if(!this.exporting||this.exporting.epoch!==request.epoch){const promise=this.player()!.exportPeerCheckpoint(request.epoch);this.exporting={epoch:request.epoch,promise};void promise.finally(()=>{if(this.exporting?.promise===promise)this.exporting=undefined;}).catch(()=>{});}
   void this.exporting.promise.then(async capture=>{const digest=await checkpointDigest(capture.bytes);if(this.outgoing.get(request.transferId)!==outgoing||request.purpose==='observer'&&this.scheduler!==scheduler)return;outgoing.capture=capture;outgoing.digest=digest;await this.send({type:'gameCaptured',epoch:request.epoch,transferId:request.transferId,frame:capture.frame,hash:capture.hash});}).catch(error=>{if(this.outgoing.get(request.transferId)===outgoing)this.failOutgoing(outgoing,String(error));});
  }
- private sendCheckpoint(outgoing:Outgoing){try{const {spec,capture,digest}=outgoing,channel=this.checkpointLinks.get(outgoing.request.recipient)?.channel;if(!spec||!capture||!digest||channel?.readyState!=='open')throw Error('Checkpoint transport unavailable.');const metadata:CheckpointMetadata={transferId:spec.transferId,epoch:spec.epoch,frame:spec.frame,hash:spec.hash,sender:spec.sender,recipient:spec.recipient,identity:capture.identity,digest,byteLength:capture.bytes.byteLength};channel.send(JSON.stringify(metadata));this.sender.begin(metadata,capture.bytes,channel);outgoing.sending=true;this.pump(outgoing);}catch(error){this.failOutgoing(outgoing,String(error));}}
+ private sendCheckpoint(outgoing:Outgoing){try{const {spec,capture,digest}=outgoing,channel=this.checkpointLinks.get(outgoing.request.recipient)?.channel;if(this.outgoing.get(outgoing.request.transferId)!==outgoing||outgoing.checkpointStarted||!outgoing.sendRequested)return;
+  if(!spec||!capture||!digest)throw Error('Checkpoint data unavailable.');
+  // Signaling/control readiness does not imply the independent checkpoint channel is open.
+  // Keep the authorized transfer within its existing deadline until its current channel opens.
+  if(!channel||channel.readyState==='connecting')return;
+  if(channel.readyState!=='open')throw Error('Checkpoint transport unavailable.');const metadata:CheckpointMetadata={transferId:spec.transferId,epoch:spec.epoch,frame:spec.frame,hash:spec.hash,sender:spec.sender,recipient:spec.recipient,identity:capture.identity,digest,byteLength:capture.bytes.byteLength};channel.send(JSON.stringify(metadata));outgoing.checkpointStarted=true;this.sender.begin(metadata,capture.bytes,channel);outgoing.sending=true;this.pump(outgoing);}catch(error){this.failOutgoing(outgoing,String(error));}}
  private pump(outgoing:Outgoing){try{if(this.sender.pump(outgoing.request.recipient,metadata=>this.outgoing.get(metadata.transferId)===outgoing)==='complete')outgoing.sending=false;}catch(error){this.failOutgoing(outgoing,String(error));}}
  private catchup(outgoing:Outgoing){const scheduler=this.scheduler,link=this.links.get(outgoing.request.recipient);if(outgoing.cursor===undefined||!scheduler||!link||outgoing.request.epoch!==scheduler.epoch)return;
   try{while(outgoing.cursor<scheduler.frame){if(link.channel.bufferedAmount>32*1024)return;const packet=scheduler.historyFrame(outgoing.cursor);if(!packet)throw Error('Observer fell outside retained history.');const next:number=outgoing.cursor+1,hash=next%gameplayLimits.hashInterval===0?this.historyHashes.get(next):undefined;if(next%gameplayLimits.hashInterval===0&&!hash){if(this.hashing)return;throw Error('Observer hash history expired.');}link.channel.send(JSON.stringify(packet));if(hash)link.channel.send(JSON.stringify({kind:'hash',epoch:scheduler.epoch,frame:next,hash}));outgoing.cursor=next;}

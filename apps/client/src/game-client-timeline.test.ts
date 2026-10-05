@@ -10,7 +10,7 @@ import {encodeCheckpointChunk,type CheckpointMetadata} from '../../../packages/c
 const epoch='e'.repeat(32),peerEpoch='p'.repeat(32),host='h'.repeat(22),member='m'.repeat(22),observer='o'.repeat(22),transferId='t'.repeat(22),hash='c'.repeat(64),identity='d'.repeat(64);
 const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:0,submapper:0,region:'NTSC',bytes:24592}};
 type Command=GameCommand extends infer T?T extends GameCommand?Omit<T,'requestId'>:never:never;
-function channel(){const sent:(string|ArrayBuffer)[]=[];const rtc={readyState:'open',bufferedAmount:0,onmessage:undefined,send:(data:string|ArrayBuffer)=>sent.push(data)} as unknown as RTCDataChannel;return {rtc,sent,receive:(data:unknown)=>rtc.onmessage!.call(rtc,new MessageEvent('message',{data}))};}
+function channel(){const sent:(string|ArrayBuffer)[]=[];const rtc=Object.assign(new EventTarget(),{readyState:'open',bufferedAmount:0,onmessage:undefined,send:(data:string|ArrayBuffer)=>sent.push(data)}) as unknown as RTCDataChannel;return {rtc,sent,receive:(data:unknown)=>rtc.onmessage!.call(rtc,new MessageEvent('message',{data}))};}
 async function setup(role:'host'|'member'|'observer',start=917){
  const self=role==='host'?host:role==='member'?member:observer,remote=role==='host'?member:host;
  const commands:Command[]=[],updates:GameplayState[]=[],data=channel(),checkpoint=channel();let frame=start,driver!:GameDriver,drains=0,cancels=0,exports=0,imports=0,stops=0,wakes=0;
