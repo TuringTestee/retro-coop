@@ -16,6 +16,8 @@ import {catalogId} from '../../../packages/contracts/src/catalog.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, NewVisibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
 const requestDeadlineMs=8000;
+const selectionConfirmationMessage='Game selection needs confirmation. Choose Retry selection.';
+
 export type RoomState = { storageIssue?:string;gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean;selectionFinishing?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; admissionBlocked?:boolean };
 const messages:Record<string,string> = {
  capacity:'Lobby capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',room_full:'All five slots are occupied or closed. Review the lobby or try another.',
@@ -174,12 +176,12 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the lobby service.'});}
- beginSelection() {if(this.confirmingSelection){this.publish({status:'Reconnect to finish the previous game selection.'});return false;}if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
- cancelGameSelection(){if(this.confirmingSelection){this.publish({status:'Finishing the game selection. Reconnect to confirm the lobby result.'});return;}const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
+ beginSelection() {if(this.confirmingSelection){this.publish({status:this.state.selectionFinishing?'Finishing game selection…':selectionConfirmationMessage});return false;}if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
+ cancelGameSelection(){if(this.confirmingSelection){this.publish({status:this.state.selectionFinishing?'Finishing game selection…':selectionConfirmationMessage});return;}const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
  private async confirmSelection(selection:{roomId:string;intent:string;expectedRevision:number}){
   // A lost reply can follow a successful commit. Retry the exact intent, including
   // its original revision: the server checks idempotency before stale revisions.
-  const unknown=()=>Object.assign(Error('The lobby result is unknown. Reconnect to finish the game selection; both local games are preserved.'),{code:'game_selection_unknown'});
+  const unknown=()=>Object.assign(Error(selectionConfirmationMessage),{code:'game_selection_unknown'});
   let expired=false,timer:ReturnType<typeof setTimeout>|undefined;
   const active=()=>{if(expired)throw unknown();if(this.disposed||this.confirmingSelection!==selection)throw Object.assign(Error('Game selection ended when leaving the lobby.'),{code:'game_selection_ended'});};
   // Reconnection is included in the 24-second budget (three request deadlines).
@@ -215,7 +217,7 @@ export class RoomClient {
   catch(error){if(generation===this.creationGeneration)this.failure(error);return {ok:false,message:error instanceof Error?error.message:'Could not create the lobby. Retry.'};}
  }
  async selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean){
-  if(this.confirmingSelection)return {ok:false,uncertain:true,message:'Reconnect to finish the previous game selection.'};
+  if(this.confirmingSelection)return {ok:false,uncertain:true,message:selectionConfirmationMessage};
   const room=this.state.room;if(room?.role!=='host'||room.started||room.established||!current())return {ok:false,message:'The lobby or selected game changed. Choose the game again.'};
   const intent=crypto.randomUUID();this.gameSelection=intent;this.uploadAbort?.abort();const controller=new AbortController();this.uploadAbort=controller;
   this.publish({busy:true,uploading:false,status:'Preparing NES game…'});

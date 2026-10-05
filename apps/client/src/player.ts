@@ -176,7 +176,7 @@ export class LocalPlayer {
  setSelectionFinishing(){if(this.preparedSelection)this.selectionLock=true;}
  private preparedSelection?:PreparedSelection;
  selectionCompletion(){const prepared=this.preparedSelection;return (result:GameSelectionResult)=>this.finishSelection(result,prepared);}
- private finishSelection(result:GameSelectionResult,prepared:PreparedSelection|undefined){if(!prepared||prepared!==this.preparedSelection)return;if(!prepared.current()){this.abandonCandidate();this.publish({loading:false,selectionPhase:'cancelled'});return;}if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
+ private finishSelection(result:GameSelectionResult,prepared:PreparedSelection|undefined){if(!prepared||prepared!==this.preparedSelection)return;if(!prepared.current()){this.abandonCandidate();this.publish({loading:false,selectionPhase:'cancelled'});return;}if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Game selection needs confirmation.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
