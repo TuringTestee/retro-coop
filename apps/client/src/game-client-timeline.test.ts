@@ -127,3 +127,16 @@ test('pause arriving during observer import retains its fence and drains the sam
   assert.equal(h.driver.next(255),undefined);assert.ok(h.commands.some(c=>c.type==='gamePaused'&&c.frame===919));assert.ok(h.commands.some(c=>c.type==='gameObserved'&&c.frame===919));assert.equal(h.commands.some(c=>c.type==='gameCheckpointFailed'),false);
  }finally{h.game.dispose();}
 });
+
+test('cancelled observer completion cannot abort a newer Load after its acknowledgment rejects',async()=>{
+ for(const replacement of ['cancel','transfer','membership'] as const){const h=await setup('observer');let reject!:(error:Error)=>void;try{
+  h.setSend(command=>command.type==='gameObserved'?new Promise((_resolve,no)=>{reject=no;}):Promise.resolve());
+  h.game.handle(h.spec);await deliver(h);h.data.receive(JSON.stringify({kind:'live',epoch,transferId,frame:917}));
+  await until(()=>typeof reject==='function');
+  if(replacement==='cancel')h.game.handle({type:'gameSyncStop',epoch,transferId,reason:'Waiting for the game to finish changing.'});
+  else if(replacement==='transfer'){h.game.handle({...h.spec,transferId:'n'.repeat(22)});await flush();}
+  else h.game.enter(undefined);
+  const latest=h.updates.at(-1),stops=h.stats().stops;reject(Error('timeline_change_pending'));await flush();
+  assert.equal(h.commands.some(command=>command.type==='gameAbort'),false);assert.equal(h.stats().stops,stops);assert.deepEqual(h.updates.at(-1),latest);
+ }finally{h.game.dispose();}}
+});

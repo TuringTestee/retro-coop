@@ -331,3 +331,25 @@ test('ROM selection and manual Load cannot overlap in an unused lobby',()=>{
  t.act(0,selection);assert.throws(()=>t.act(0,proposal),/game_selection_pending/);t.act(0,{type:'cancelGameSelection',roomId:t.view().id,intent:selection.intent});
  t.act(0,proposal);assert.throws(()=>t.act(0,{...selection,intent:randomUUID()}),/timeline_change_pending/);assert.equal(t.view().fingerprint!.romSha256,fingerprint.romSha256);assert.equal(t.view().game.load!.phase,'freezing');
 });
+
+test('Load supersedes observer catch-up without letting stale completion gate or commit the new timeline',()=>{
+ const t=setup(3),epoch=t.begin();t.act(2,{type:'gameObserve',revision:t.view().game.controllers.revision});
+ const transfer=t.captures().at(-1)!;t.authorize(transfer,917);
+ const proposal={type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000};
+ assert.throws(()=>t.act(2,proposal),/host_only/);
+ assert.equal(t.events[2].some(event=>event.type==='gameSyncStop'&&event.transferId===transfer.transferId),false,'invalid Load cancelled the observer');
+ t.act(0,proposal);const load=t.view().game.load!;
+ assert.ok(load);assert.deepEqual(load.required,[t.members[0],t.members[1]]);
+ assert.ok(t.events[2].some(event=>event.type==='gameSyncStop'&&event.transferId===transfer.transferId));
+ assert.throws(()=>t.act(2,{type:'gameCheckpointAck',epoch,transferId:transfer.transferId,frame:917,hash}),/timeline_change_pending/);
+ assert.throws(()=>t.act(2,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:917}),/timeline_change_pending/);
+ assert.equal(t.view().game.load!.phase,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
+ t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:false});rollbackLoad(t,load.id);
+ assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.status,'paused');
+ t.ready(0,{frame:917,fresh:false});t.ready(1,{frame:917,fresh:false});t.act(0,{type:'gameResume',epoch});
+ const resumed=t.view().game.epoch!;for(const who of [0,1])t.act(who,{type:'gameAck',epoch:resumed,hash});t.advance(3000);
+ assert.equal(t.view().game.status,'playing');assert.notEqual(resumed,epoch);
+ t.act(2,{type:'gameObserve',revision:t.view().game.controllers.revision});assert.notEqual(t.captures().at(-1)!.transferId,transfer.transferId);
+});

@@ -784,9 +784,14 @@ def shared_load():
         });}
       };
       const RoomSocket=WebSocket;
+      proof.readyAttempts=[];proof.commandTypes=new Map();proof.commandResults=[];proof.heldObserverCompletions=[];proof.observerSyncStops=[];
       window.WebSocket=class extends RoomSocket {
-        constructor(...args){super(...args);this.addEventListener('message',({data})=>{
+        send(raw){const value=JSON.parse(raw);if(value.type.startsWith('game'))proof.commandTypes.set(value.requestId,value.type);if(value.type==='gameReady')proof.readyAttempts.push({requestId:value.requestId});
+          if(value.type==='gameObserved'&&proof.holdObserverCompletion){proof.heldObserverCompletions.push({raw,epoch:value.epoch,transferId:value.transferId,frame:value.frame});return;}return super.send(raw);}
+        constructor(...args){super(...args);proof.releaseObserverCompletions=()=>{const held=proof.heldObserverCompletions.splice(0);for(const row of held)super.send(row.raw);return held.map(({raw,...row})=>row);};this.addEventListener('message',({data})=>{
           const value=JSON.parse(data);if(value.type==='result'&&value.ok&&value.data?.room)proof.room=value.data.room;
+          if(value.type==='result'){if(proof.commandTypes.has(value.requestId))proof.commandResults.push({type:proof.commandTypes.get(value.requestId),ok:value.ok,error:value.error??value.code});const attempt=proof.readyAttempts.find(row=>row.requestId===value.requestId);if(attempt)attempt.result={ok:value.ok,error:value.error??value.code};}
+          if(value.type==='gameSyncStop')proof.observerSyncStops.push({epoch:value.epoch,transferId:value.transferId});
           if(value.type.startsWith('gameLoad')){
             proof.loadEvents??=[];proof.loadEvents.push({type:value.type,transactionId:value.transactionId,
               epoch:value.epoch,frame:value.frame,hash:value.hash});
@@ -844,6 +849,7 @@ def shared_load():
             page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
             page.goto(url);page.evaluate('releaseFrames()');pages.append(page)
         host,guest=pages
+        observer=None
         try:
             host.get_by_role('button',name='Host a new game').click()
             rename_lobby(host,LOBBY_NAME)
@@ -856,11 +862,26 @@ def shared_load():
             invitation=host.evaluate('navigator.clipboard.readText()')
             guest.goto(invitation);guest.evaluate('releaseFrames()')
             guest.get_by_role('button',name='Join lobby',exact=True).click()
-            for page in pages:
-                page.wait_for_function('proof.room?.matches&&proof.room.slots.some(s=>s.member?.id===proof.room.chatMembership&&s.member.acquisition==="loaded")')
-                mute(page)
-                page.get_by_role('button',name='Ready',exact=True).click()
-                page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)')
+            for page in pages:mute(page)
+            ready_deadline=time.monotonic()+30;ready_recoveries=[]
+            def remaining_ready():
+                remaining=int((ready_deadline-time.monotonic())*1000)
+                assert remaining>0,'Shared Ready setup exceeded its deadline'
+                return remaining
+            while not host.get_by_role('button',name='Start →',exact=True).count():
+                for label,page in zip(('host','guest'),pages):
+                    page.wait_for_function('''()=>{const room=proof.room,owners=room?.game.controllers.owners;
+                      return room?.matches&&room.slots.filter(slot=>slot.member&&slot.role!=='observer').every(slot=>slot.member.connected&&slot.member.acquisition==='loaded')
+                        &&room.peers.filter(peer=>owners.includes(peer.member)||peer.member===room.hostMembership).every(peer=>peer.status==='connected');}''',timeout=remaining_ready())
+                    if page.get_by_role('button',name='Cancel Ready',exact=True).count():continue
+                    action=page.get_by_role('button',name=re.compile(r'^(Ready|Try Ready again)$'))
+                    if action.inner_text()=='Try Ready again':ready_recoveries.append({'visitor':label,'action':'Try Ready again'})
+                    before=page.evaluate('proof.readyAttempts.length');action.click(timeout=remaining_ready())
+                    outcome=page.wait_for_function('before=>proof.readyAttempts[before]?.result',arg=before,timeout=remaining_ready()).json_value()
+                    if not outcome['ok']:
+                        assert outcome['error'] in ('game_prerequisites','room_changed','stale_controllers'),outcome
+                        ready_recoveries.append({'visitor':label,'error':outcome['error']})
+                    else:page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)',timeout=remaining_ready())
             expect(host.get_by_role('button',name='Start →')).to_be_enabled()
             host.get_by_role('button',name='Start →').click()
             for page in pages:page.wait_for_function('proof.room.game.status==="playing"&&proof.frameCount>30')
@@ -903,6 +924,7 @@ def shared_load():
             assert observer_epoch==host.evaluate('proof.room.game.epoch')
             assert observer.get_by_role('alertdialog').count()==0
             screenshot(observer,'shared-load-observer.png')
+            observer.evaluate('proof.holdObserverCompletion=true')
             # Trusted P2 input must reach both real native machines after replacement.
             controller_ram=None
             if EXPECTED_RAM is not None:
@@ -918,12 +940,18 @@ def shared_load():
                 guest.keyboard.up('c')
                 resume(host,guest)
             # Decline and the real consent deadline preserve the same paused machine.
-            denials=[]
+            if EXPECTED_RAM is None:pause(host,guest);resume(host,guest)
+            denials=[];observer_overlap=[]
             for decision in ('decline','timeout','changed-save'):
                 if decision!='decline':prior=pause(host,guest)
                 else:assert host.evaluate('proof.room.game.status==="playing"')
+                observer.wait_for_function('proof.heldObserverCompletions.length>0')
+                held=observer.evaluate('proof.heldObserverCompletions.map(({raw,...row})=>row)')
                 host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
                 guest.get_by_role('button',name='Load game',exact=True).wait_for()
+                observer.wait_for_function('proof.heldObserverCompletions.every(row=>proof.observerSyncStops.some(stop=>stop.transferId===row.transferId))')
+                observer_overlap.append({'action':decision,'cancelled':held})
+                observer.evaluate('proof.releaseObserverCompletions()')
                 if decision=='decline':
                     prior=native(host);assert native(guest)==prior
                     guest.get_by_role('button',name='Keep current',exact=True).click()
@@ -938,6 +966,12 @@ def shared_load():
                 assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
                 denials.append({'action':decision,'preserved':prior})
                 resume(host,guest)
+            observed_before=observer.evaluate("proof.commandResults.length")
+            observer.evaluate("proof.holdObserverCompletion=false;proof.releaseObserverCompletions()")
+            observer.wait_for_function('before=>proof.commandResults.slice(before).some(row=>row.type==="gameObserved"&&row.ok)',arg=observed_before)
+            observer.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.room.game.status==="playing"')
+            final_observer_epoch=observer.evaluate("proof.room.game.epoch")
+            assert final_observer_epoch==host.evaluate("proof.room.game.epoch")
             # Every Local data confirmation shares the shell blocker and returns keyboard focus.
             choose_section(host,'Profile');host.get_by_role('button',name='Local data',exact=True).click()
             host.get_by_role('button',name='Saves',exact=True).click()
@@ -983,13 +1017,13 @@ def shared_load():
             save('shared-load-result.json' ,{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
                 'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
                 'active_play_load_boundary':boundary[0],'active_play_decline':True,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
-                'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
+                'command_results':[page.evaluate('proof.commandResults') for page in [*pages,observer]],'ready_recoveries':ready_recoveries,'superseded_observer_transfers':observer_overlap,'final_observer_epoch':final_observer_epoch,'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
-            for index,page in enumerate(pages):
+            for index,page in enumerate([*pages,observer] if observer is not None else pages):
                 screenshot(page,f'shared-load-{index}-failure.png')
                 save(f'shared-load-{index}-failure.json',{'status':page.locator('.rc-status').all_inner_texts(),
-                    'game':page.evaluate('proof.room?.game'),'events':page.evaluate('proof.loadEvents??[]'),
-                    'native':page.evaluate('proof.saveReceipts??[]'),'page_errors':errors})
+                    'game':page.evaluate('proof.room?.game'),'peers':page.evaluate('proof.room?.peers'),'command_results':page.evaluate('proof.commandResults'),'events':page.evaluate('proof.loadEvents??[]'),
+                    'native':page.evaluate('proof.saveReceipts??[]'),'held_observer_completions':page.evaluate('proof.heldObserverCompletions?.map(({raw,...row})=>row)??[]'),'observer_sync_stops':page.evaluate('proof.observerSyncStops??[]'),'page_errors':errors})
             raise
         finally:
             try:
