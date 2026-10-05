@@ -58,10 +58,10 @@ async def main():
     output = Path(os.environ.get('RETRO_COOP_RT2_OUTPUT', '/tmp/retro-coop-rt2'))
     output.mkdir(parents=True, exist_ok=True)
     rom_dir = tempfile.TemporaryDirectory(prefix='roms-', dir=output)
+    operator_dir = tempfile.TemporaryDirectory(prefix='retro-op-')
     env = {**os.environ, 'RETRO_COOP_SKIP_INSTALL': '1',
            'RETRO_COOP_SKIP_PREPARE': '1', 'RETRO_COOP_CLIENT_PORT': '8895',
-           'RETRO_COOP_COORDINATOR_PORT': '8897', 'COORDINATOR_ROM_DIR': rom_dir.name, 'COORDINATOR_OPERATOR_DIR':str(output/'operator')}
-    (output/'operator').mkdir(exist_ok=True);(output/'operator').chmod(0o700)
+           'RETRO_COOP_COORDINATOR_PORT': '8897', 'COORDINATOR_ROM_DIR': rom_dir.name, 'COORDINATOR_OPERATOR_DIR':operator_dir.name}
     log = open(output / 'demo.log', 'w')
     service = subprocess.Popen(['sh', 'scripts/demo.sh'], cwd=ROOT, env=env,
                                stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -109,7 +109,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             async def end_owned_lobby():
                 room_id=await host.evaluate('uploadProof.room.id')
                 operator="import{operatorRequest}from'./apps/coordinator/src/operator.ts';const p=await operatorRequest(process.argv[1],{type:'remove-room',roomId:process.argv[2]});await operatorRequest(process.argv[1],{type:'confirm',confirmation:p.confirmation});"
-                process=await asyncio.create_subprocess_exec('node','--input-type=module','-e',operator,str(output/'operator'),room_id,cwd=ROOT)
+                process=await asyncio.create_subprocess_exec('node','--input-type=module','-e',operator,operator_dir.name,room_id,cwd=ROOT)
                 assert await process.wait()==0
                 await host.locator('.rc-listing').wait_for()
                 await host.get_by_role('button',name='Host a new game').click()
@@ -583,6 +583,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             service.wait()
         log.close()
         rom_dir.cleanup()
+        operator_dir.cleanup()
 
 
 if __name__ == '__main__':
