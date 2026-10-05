@@ -375,7 +375,7 @@ def controller_input(browser, url, output):
         page.goto(url)
         page.get_by_role('button', name='Host a new game').click()
         page.get_by_role('button', name='Load NES game').click()
-        page.get_by_role('button', name='Add NES file').click()
+        page.get_by_role('button', name='Add game file').click()
         page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
         page.get_by_role('button', name='Ready', exact=True).wait_for()
         for width, height in ((1280,800),(1024,600),(900,700),(760,520)):
@@ -453,7 +453,7 @@ def controller_input(browser, url, output):
         expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
         editor.wait_for(state='hidden')
         page.get_by_role('button', name='Change game', exact=True).click()
-        page.get_by_role('button', name='Add NES file', exact=True).click()
+        page.get_by_role('button', name='Add game file', exact=True).click()
         page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
         page.locator('.rc-game-heading').get_by_text('fixture.local', exact=True).wait_for()
         expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
@@ -777,7 +777,7 @@ def abandoned_saved_game_cannot_reopen(browser, url, output=None):
         page.goto(url)
         page.get_by_role('button', name='Host a new game').click()
         page.get_by_role('button', name='Load NES game').click()
-        page.get_by_role('button', name='Add NES file').click()
+        page.get_by_role('button', name='Add game file').click()
         page.set_input_files('input[aria-label="NES cartridge file"]', {
             'name': filename, 'mimeType': 'application/octet-stream',
             'buffer': (ROOT / 'spikes/d02/fixture.local.nes').read_bytes()})
@@ -994,7 +994,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.get_by_role('button', name='Load NES game').click()
         if uploaded_title:
             expected_title = '界' * 80
-            page.get_by_role('button', name='Add NES file', exact=True).click()
+            page.get_by_role('button', name='Add game file', exact=True).click()
             page.locator('input[aria-label="NES cartridge file"]').set_input_files({'name': expected_title + '.nes', 'mimeType': 'application/octet-stream', 'buffer': (ROOT / 'spikes/d02/fixture.local.nes').read_bytes()})
         else:
             expected_title = 'From Below'

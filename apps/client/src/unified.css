@@ -225,7 +225,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-game-picker button, .rc-side-content button { min-height: 31px; padding: 4px 7px; border: 1px solid var(--menu-border); border-radius: 4px; background: var(--menu-control); color: var(--menu-text); font-size: 14px; }
 .rc-game-picker .rc-quiet { justify-self: start; border: 0; color: #ffc097; }
 .rc-game-progress { display: grid; align-content: center; justify-items: start; gap: 8px; height: 100%; padding: 12px; overflow: hidden; }
-.rc-game-progress strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
+.rc-game-progress strong { max-width: 100%; overflow-wrap: anywhere; white-space: normal; font-size: 18px; }
 .rc-game-progress small { color: #d3deda; font-size: 14px; }
 .rc-game-progress .rc-quiet { color: #ffc097; }
 .rc-saved-picker { grid-template-rows: auto minmax(0,1fr) 42px auto; align-content: stretch; gap: 4px; padding: 6px 8px; }

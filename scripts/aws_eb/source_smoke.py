@@ -107,6 +107,10 @@ compose = args.compose.read_text() if args.compose else compose
 foundation = (ROOT / "deploy/aws-eb/foundation.yaml").read_text()
 assert "(?<last_peer_address>" in nginx and "X-Forwarded-For $admission_ip" in nginx
 assert "proxy_pass http://127.0.0.1:8787" in nginx and "listen 127.0.0.1:8080" in nginx
+extraction = nginx.split("location = /coordinator/rom-extractions {", 1)[1].split("}", 1)[0]
+assert "proxy_pass http://127.0.0.1:8787/rom-extractions;" in extraction
+assert "proxy_request_buffering off;" in extraction and "proxy_buffering off;" in extraction
+assert "proxy_set_header X-Forwarded-For $admission_ip;" in extraction
 assert "header_up X-Forwarded-For {remote_host}" in caddyfile and "reverse_proxy 127.0.0.1:8080" in caddyfile
 assert "latest/meta-data/public-ipv4" in turn_start and "latest/meta-data/local-ipv4" in turn_start
 assert "network_mode: host" in compose and "COORDINATOR_HOST: 127.0.0.1" in compose

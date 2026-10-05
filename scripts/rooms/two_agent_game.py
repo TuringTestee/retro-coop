@@ -550,7 +550,7 @@ def recovery():
         host.wait_for_function('proof.room?.role==="host"')
         with host.expect_file_chooser() as chooser:
             host.get_by_role('button',name=re.compile(r'Load NES game')).click()
-            host.get_by_role('button',name='Add NES file',exact=True).click()
+            host.get_by_role('button',name='Add game file',exact=True).click()
         chooser.value.set_files(str(args.rom.resolve()))
         host.wait_for_function('proof.room?.fingerprint && proof.room?.matches',timeout=30000)
         mute_game(host)
@@ -790,7 +790,7 @@ def recovery():
         assert record(host) is None
         with host.expect_file_chooser() as chooser:
             host.get_by_role('button',name=re.compile(r'Load NES game')).click()
-            host.get_by_role('button',name='Add NES file',exact=True).click()
+            host.get_by_role('button',name='Add game file',exact=True).click()
         chooser.value.set_files(str(args.rom.resolve()))
         expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
         mute_game(host)
@@ -807,7 +807,7 @@ def recovery():
         offline.wait_for_function('proof.room?.role==="host"')
         with offline.expect_file_chooser() as chooser:
             offline.get_by_role('button',name=re.compile(r'Load NES game')).click()
-            offline.get_by_role('button',name='Add NES file',exact=True).click()
+            offline.get_by_role('button',name='Add game file',exact=True).click()
         chooser.value.set_files(str(args.rom.resolve()))
         expect(offline.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
         mute_game(offline)
@@ -907,7 +907,7 @@ def shared_load():
             rename_lobby(host,LOBBY_NAME)
             with host.expect_file_chooser() as chooser:
                 host.get_by_role('button',name=re.compile(r'Load NES game')).click()
-                host.get_by_role('button',name='Add NES file',exact=True).click()
+                host.get_by_role('button',name='Add game file',exact=True).click()
             chooser.value.set_files(str(args.rom.resolve()))
             host.wait_for_function('proof.room?.matches&&proof.room.fingerprint')
             host.get_by_role('button',name='Copy invite',exact=True).click()
@@ -1057,7 +1057,7 @@ def shared_load():
             host.get_by_role('alertdialog').wait_for(state='hidden')
             with host.expect_file_chooser() as chooser:
                 host.get_by_role('button',name=re.compile(r'Load NES game')).click()
-                host.get_by_role('button',name='Add NES file',exact=True).click()
+                host.get_by_role('button',name='Add game file',exact=True).click()
             chooser.value.set_files(str(args.rom.resolve()))
             host.wait_for_function('proof.room?.matches&&proof.room.fingerprint')
             assert not host.evaluate('proof.room.started')

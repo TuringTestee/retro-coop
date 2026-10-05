@@ -193,6 +193,11 @@ export class Rooms {
  private close(room:Room,reason:string){this.transfer?.discard(room.id);room.game.stop('The room closed. Your local game is preserved.');this.peers.clearRoom(room.id);this.rooms.delete(room.id);this.verifiers.delete(room.id);this.invites.delete(room.invite);if(room.code)this.codes.delete(room.code);for(const member of this.members(room)){member.session.room=undefined;member.session.send?.({type:'ended',reason});}this.publishDirectory();}
  private room(session:Session) { const room = session.room && this.rooms.get(session.room); if(!room) throw new RoomError('not_in_room'); return room; }
  private hosted(session:Session,expectedRoom?:string) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); if(expectedRoom!==undefined && room.id!==expectedRoom) throw new RoomError('room_changed'); return room; }
+ beginExtraction(token:string) {
+  this.sweep();const session=this.session(token),sender=session.send;
+  if(!sender)throw new RoomError('session_expired');this.rate(session,'extraction',5,60_000);
+  return ()=>{if(this.session(token)!==session||session.send!==sender)throw new RoomError('session_expired');session.touched=session.heartbeat=this.now();};
+ }
  beginUpload(token:string,roomId:string,intent:string,bytes:number) {
   this.sweep();const session=this.session(token),room=this.hosted(session,roomId),now=this.now();
   const selection=room.confirmed&&room.pendingGame?.intent===intent?room.pendingGame:undefined;

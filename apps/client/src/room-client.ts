@@ -9,12 +9,18 @@ import { clientConfig } from './config.ts';
 import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 import {readStored,putPreferences,type PreferencesRecord,type SaveSlot} from './saves.ts';
 import {text} from '../../../packages/contracts/src/protocol-validation.ts';
+import {extractZipFile} from './zip-upload.ts';
+import {isZipFile} from '../../../packages/contracts/src/game-file.ts';
 import {TabSession} from './tab-session.ts';
 import {uploadRoomFile} from './room-upload.ts';
 import {catalogId} from '../../../packages/contracts/src/catalog.ts';
 import type { Fingerprint, RoomCommand, RoomData, RoomEvent, RoomPreview, RoomView, SessionInfo, NewVisibility } from '../../../packages/contracts/src/rooms.ts';
 type Command = RoomCommand extends infer T ? T extends RoomCommand ? Omit<T,'requestId'> : never : never;
-export type RoomState = { storageIssue?:string;gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; admissionBlocked?:boolean };
+const requestDeadlineMs=8000;
+const selectionPendingMessage='Finishing game selection…';
+const selectionConfirmationMessage='Game selection needs confirmation. Choose Retry selection.';
+
+export type RoomState = { storageIssue?:string;gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean;selectionFinishing?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; admissionBlocked?:boolean };
 const messages:Record<string,string> = {
  capacity:'Lobby capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',room_full:'All five slots are occupied or closed. Review the lobby or try another.',
  room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired. Reconnect to continue.',
@@ -57,6 +63,7 @@ export class RoomClient {
  private generation = 0;
  private creationGeneration = 0;
  private gameSelection?:string;
+ private confirmingSelection?:{roomId:string;intent:string;expectedRevision:number};
  private restoredBinding?:{roomId:string;membership:string;epoch:string;frame:number;hash:string;fingerprint:Fingerprint};
  private selectedFile?:Fingerprint;private loadedReport?:string;
  private joining?:string;
@@ -65,9 +72,18 @@ export class RoomClient {
  private voluntaryExitRoomId?:string;
  private pending = new Map<string,{kind:Command['type'];resolve:(data:RoomData)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
  private state:RoomState = {status:'No lobby selected.',busy:false,connected:false};
- constructor(private update:(state:RoomState)=>void,private player:()=>LocalPlayer|null=()=>null) {try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
+ private update:(state:RoomState)=>void;
+ private player:()=>LocalPlayer|null;
+ constructor(update:(state:RoomState)=>void,player:()=>LocalPlayer|null=()=>null) {this.update=update;this.player=player;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
+  // Selection work belongs to this lobby membership, not a later admission.
+  if((this.gameSelection||this.confirmingSelection)&&(!room||this.state.room&&
+   (room.id!==this.state.room.id||room.chatMembership!==this.state.room.chatMembership))){
+   this.confirmingSelection=undefined;this.gameSelection=undefined;
+   this.uploadAbort?.abort();this.uploadAbort=undefined;
+   this.publish({selectionFinishing:false,busy:false,uploading:false});
+  }
   const binding=this.restoredBinding;if(binding&&(!room||room.role!=='host'||room.id!==binding.roomId||room.chatMembership!==binding.membership||room.game.epoch!==binding.epoch||!room.fingerprint||!matchesFile(room.fingerprint,binding.fingerprint)))this.restoredBinding=undefined;
   if(room&&room.id!==this.voluntaryExitRoomId)this.voluntaryExitRoomId=undefined;
   // A member admitted from an invitation still needs its preview after removal.
@@ -86,7 +102,7 @@ export class RoomClient {
   if(this.socket?.readyState !== WebSocket.OPEN) return Promise.reject(Error('The lobby service is disconnected. Your local game is preserved.'));
   const requestId = crypto.randomUUID();
   return new Promise((resolve,reject)=>{
-   const timer = setTimeout(()=>{this.pending.delete(requestId);reject(Error('The lobby service did not respond. Retry or cancel; your local game is preserved.'));},8000);
+   const timer = setTimeout(()=>{this.pending.delete(requestId);reject(Error('The lobby service did not respond. Retry or cancel; your local game is preserved.'));},requestDeadlineMs);
    this.pending.set(requestId,{kind:command.type,resolve,reject,timer});this.socket!.send(JSON.stringify({...command,requestId}));
   });
  }
@@ -123,7 +139,7 @@ export class RoomClient {
   const endpoint = new URL(clientConfig.coordinatorUrl,location.href);endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:':'ws:';endpoint.pathname = endpoint.pathname.replace(/\/$/,'')+'/ws';endpoint.hash = '';endpoint.search = '';
   const socket = new WebSocket(endpoint);this.socket = socket;
   this.connecting = new Promise<void>((resolve,reject)=>{
-   const deadline = setTimeout(()=>{socket.close();reject(Error('The lobby service is unavailable. Your local game is preserved.'));},8000);
+   const deadline = setTimeout(()=>{socket.close();reject(Error('The lobby service is unavailable. Your local game is preserved.'));},requestDeadlineMs);
    socket.onmessage = ({data}) => {
     if(this.socket !== socket) return;
     let event:RoomEvent;try {event = JSON.parse(data);}catch{return;}
@@ -168,8 +184,30 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the lobby service.'});}
- beginSelection() {if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
- cancelGameSelection(){const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
+ beginSelection() {if(this.confirmingSelection){this.publish({status:this.state.selectionFinishing?selectionPendingMessage:selectionConfirmationMessage});return false;}if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
+ cancelGameSelection(){if(this.confirmingSelection){this.publish({status:this.state.selectionFinishing?selectionPendingMessage:selectionConfirmationMessage});return;}const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
+ private async confirmSelection(selection:{roomId:string;intent:string;expectedRevision:number}){
+  // A lost reply can follow a successful commit. Retry the exact intent, including
+  // its original revision: the server checks idempotency before stale revisions.
+  const unknown=()=>Object.assign(Error(selectionConfirmationMessage),{code:'game_selection_unknown'});
+  let expired=false,timer:ReturnType<typeof setTimeout>|undefined;
+  const active=()=>{if(expired)throw unknown();if(this.disposed||this.confirmingSelection!==selection)throw Object.assign(Error('Game selection ended when leaving the lobby.'),{code:'game_selection_ended'});};
+  // Reconnection is included in the 24-second budget (three request deadlines).
+  const retry=(async()=>{for(let attempt=0;attempt<3;attempt++){
+   try{active();if(attempt)await this.connectOnce();active();const result=await this.request({type:'confirmGameSelection',...selection});active();return result;}
+   catch(error){if((error as Error & {code?:string}).code)throw error;active();this.publish({status:selectionPendingMessage});}
+  }throw unknown();})();
+  try{return await Promise.race([retry,new Promise<never>((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(unknown());},3*requestDeadlineMs);})]);}
+  finally{clearTimeout(timer);}
+ }
+ async reconcileGameSelection(){
+  const selection=this.confirmingSelection;if(!selection)return {ok:false,message:'No game selection needs confirmation.'};
+  this.publish({selectionFinishing:true,status:selectionPendingMessage});
+  try{const data=await this.confirmSelection(selection);if(this.confirmingSelection!==selection)return {ok:false,message:'Game selection ended when leaving the lobby.'};this.apply(data);this.confirmingSelection=undefined;this.gameSelection=undefined;this.publish({selectionFinishing:false,status:'NES game loaded. Players can get ready.'});return {ok:true};}
+  catch(error){const uncertain=(error as Error & {code?:string}).code==='game_selection_unknown';if(this.confirmingSelection===selection){this.publish({selectionFinishing:false});if(!uncertain){this.confirmingSelection=undefined;this.gameSelection=undefined;}this.failure(error);}return {ok:false,uncertain,message:error instanceof Error?error.message:'Could not confirm the game selection.'};}
+ }
+
+ async prepareFile(file:File,signal:AbortSignal){if(!isZipFile(file.name))return file;await this.connect();signal.throwIfAborted();if(!this.token)throw Error('Reconnect to extract this ZIP.');return extractZipFile(clientConfig.coordinatorUrl,this.token,file,signal);}
  async approveSelection(fingerprint:Fingerprint,isCurrent:()=>boolean):Promise<boolean> {
   if(!this.token && !this.state.room) return isCurrent();
   try {await this.connect();}catch {return isCurrent();} // Local play remains available offline; hosting still requires consent.
@@ -187,24 +225,30 @@ export class RoomClient {
   catch(error){if(generation===this.creationGeneration)this.failure(error);return {ok:false,message:error instanceof Error?error.message:'Could not create the lobby. Retry.'};}
  }
  async selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean){
-  const room=this.state.room;if(room?.role!=='host'||room.started||room.established||!current()||!this.player()?.isLoaded(fingerprint))return {ok:false,message:'The lobby or selected game changed. Choose the game again.'};
+  if(this.confirmingSelection)return {ok:false,uncertain:true,message:this.state.selectionFinishing?selectionPendingMessage:selectionConfirmationMessage};
+  const room=this.state.room;if(room?.role!=='host'||room.started||room.established||!current())return {ok:false,message:'The lobby or selected game changed. Choose the game again.'};
   const intent=crypto.randomUUID();this.gameSelection=intent;this.uploadAbort?.abort();const controller=new AbortController();this.uploadAbort=controller;
   this.publish({busy:true,uploading:false,status:'Preparing NES game…'});
   try{
    await this.connect();const latest=this.state.room;if(!latest||latest.id!==room.id||latest.role!=='host'||!current())return {ok:false,message:'The lobby changed. Choose the game again.'};
-   const begun=await this.request({type:'beginGameSelection',roomId:room.id,intent,expectedRevision:latest.revision,fingerprint,title});
+   const included=catalogId(fingerprint),catalogSelection=included?{roomId:room.id,intent,expectedRevision:latest.revision}:undefined;
+   if(catalogSelection){this.confirmingSelection=catalogSelection;this.player?.()?.setSelectionFinishing();this.publish({selectionFinishing:true,status:selectionPendingMessage});}
+   let begun:RoomData;
+   try{begun=await this.request({type:'beginGameSelection',roomId:room.id,intent,expectedRevision:latest.revision,fingerprint,title});}
+   catch(error){if(!catalogSelection||(error as Error & {code?:string}).code)throw error;begun=await this.confirmSelection(catalogSelection);}
    if(this.gameSelection!==intent||!current())return {ok:false,message:'Game selection cancelled.'};
-   if(catalogId(fingerprint)){this.apply(begun);this.publish({busy:false,status:'NES game loaded. Players can get ready.'});return {ok:true};}
+   if(included){this.confirmingSelection=undefined;this.apply(begun);this.publish({busy:false,status:'NES game loaded. Players can get ready.'});return {ok:true};}
    if(!this.token)throw Error('The lobby session expired. Reconnect and retry.');
    this.publish({uploading:true,status:'Uploading NES game…'});
    const receipt=await uploadRoomFile(clientConfig.coordinatorUrl,room.id,intent,this.token,file,(sent,total)=>{if(this.gameSelection===intent)this.publish({status:`Uploading NES game… ${Math.round(sent/1024)} / ${Math.ceil(total/1024)} KiB`});},controller.signal);
    if(receipt.sha256!==fingerprint.romSha256)throw Error('The uploaded game did not match the selected file.');
    if(this.gameSelection!==intent||!current())return {ok:false,message:'Game selection cancelled.'};
    const fresh=this.state.room;if(!fresh||fresh.id!==room.id)throw Error('The lobby changed. Retry loading the game.');
-   this.apply(await this.request({type:'confirmGameSelection',roomId:room.id,intent,expectedRevision:fresh.revision}));
+   const selection={roomId:room.id,intent,expectedRevision:fresh.revision};this.confirmingSelection=selection;this.player?.()?.setSelectionFinishing();this.publish({selectionFinishing:true,status:selectionPendingMessage});
+   this.apply(await this.confirmSelection(selection));this.confirmingSelection=undefined;
    this.publish({busy:false,uploading:false,status:'NES game loaded. Players can get ready.'});return {ok:true};
-  }catch(error){if(this.gameSelection===intent){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.failure(error);}return {ok:false,message:error instanceof Error?error.message:'Could not add this NES game to the lobby. Retry or choose another.'};}
-  finally{if(this.gameSelection===intent){this.gameSelection=undefined;this.uploadAbort=undefined;this.publish({busy:false,uploading:false});}}
+  }catch(error){const uncertain=(error as Error & {code?:string}).code==='game_selection_unknown';if(this.gameSelection===intent){if(!uncertain){this.confirmingSelection=undefined;void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});}this.failure(error);}return {ok:false,uncertain,message:error instanceof Error?error.message:'Could not add this NES game to the lobby. Retry or choose another.'};}
+  finally{if(this.gameSelection===intent){if(!this.confirmingSelection)this.gameSelection=undefined;this.uploadAbort=undefined;this.publish({busy:false,uploading:false,selectionFinishing:false});}}
  }
  async startRoom(fingerprint:Fingerprint) {
   const room=this.state.room;if(!room||room.role!=='host')return;
@@ -282,5 +326,5 @@ export class RoomClient {
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {this.restoredBinding=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {this.uploadAbort?.abort();this.uploadAbort=undefined;this.restoredBinding=undefined;this.confirmingSelection=undefined;this.gameSelection=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }
