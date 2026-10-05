@@ -7,6 +7,8 @@ D02_JOB=$1
 if [ "$D02_JOB" = build ]; then
   python3 spikes/d02/ci_namespace_probe.py --ci
   git diff --check "$BASE_SHA" HEAD
+  sh scripts/foundation/fceumm_prepare.sh & fceumm_pid=$!
+  trap 'kill "$fceumm_pid" 2>/dev/null || true' EXIT
   rustup toolchain install 1.95.0 --profile minimal --component rustfmt --target wasm32-unknown-unknown
   (cd spikes/d02
    cargo +1.95.0 fetch --locked
@@ -14,7 +16,9 @@ if [ "$D02_JOB" = build ]; then
    cargo +1.95.0 test --locked --release --lib --no-run
    cargo +1.95.0 build --locked --release --lib --target wasm32-unknown-unknown)
   npm ci
-  sh scripts/foundation/prepare.sh
+  wait "$fceumm_pid"
+  trap - EXIT
+  RETRO_COOP_PREBUILT_FCEUMM=1 sh scripts/foundation/prepare.sh
   npm run build:staging
   test ! -e apps/client/dist/generated/diagnostic.nes
   timeout --foreground 60s python3 scripts/public_entrypoint_smoke.py
