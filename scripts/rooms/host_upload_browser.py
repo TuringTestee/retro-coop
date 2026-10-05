@@ -95,7 +95,7 @@ async def main():
                 return uploadSend.apply(this,args);
               };
               const Socket=WebSocket;window.WebSocket=class extends Socket{
-                send(raw){const value=JSON.parse(raw);if(value.type==='confirmGameSelection')uploadProof.confirmRequest=value.requestId;
+                send(raw){const value=JSON.parse(raw);if(value.type==='confirmGameSelection'){uploadProof.confirmRequest=value.requestId;uploadProof.confirmRequests=(uploadProof.confirmRequests??0)+1;}
                   if(uploadProof.rejectClose&&value.type==='close'){uploadProof.rejectClose=false;uploadProof.closeHeld=true;uploadProof.releaseClose=()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:value.requestId,ok:false,error:'close_rejected'})}));return;}return super.send(raw);}
                 constructor(...args){super(...args);this.addEventListener('message',event=>{const {data}=event;const message=JSON.parse(data);
                   if(uploadProof.holdConfirm&&message.type==='result'&&message.requestId===uploadProof.confirmRequest&&!event.confirmReleased){event.stopImmediatePropagation();uploadProof.confirmHeld=true;uploadProof.releaseConfirm=()=>{uploadProof.holdConfirm=false;const released=new MessageEvent('message',{data});Object.defineProperty(released,'confirmReleased',{value:true});this.dispatchEvent(released);};return;}
@@ -207,12 +207,14 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await host.wait_for_function('uploadProof.oldAbortHeld')
             release.set()
             await host.unroute('**/rooms/*/rom', hold_upload)
-            await host.evaluate('uploadProof.holdConfirm=true;uploadProof.confirmHeld=false')
+            await host.evaluate('uploadProof.holdConfirm=true;uploadProof.confirmHeld=false;uploadProof.confirmRequests=0')
             current_selection = bytearray(FIXTURE.read_bytes())
             current_selection[-1] ^= 3
             await selected_file(host, {'name':'replacement-B.nes', 'mimeType':'application/octet-stream', 'buffer':bytes(current_selection)})
             await host.wait_for_function('uploadProof.confirmHeld')
             current_worker = await host.evaluate('uploadProof.workers.filter(worker=>!worker.ended).at(-1).id')
+            pending_guidance = await host.locator('.rc-status-copy').inner_text()
+            await expect(host.get_by_role('button', name='Back to Main Page', exact=True)).to_be_enabled()
             await host.screenshot(path=str(output / 'zip-cancel-retry-confirming.png'))
             await host.evaluate('uploadProof.releaseOldAbort()')
             await host.wait_for_function('uploadProof.oldAbortDelivered')
@@ -220,13 +222,21 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await host.evaluate('async()=>{await new Promise(resolve=>setTimeout(resolve,0));await new Promise(requestAnimationFrame);}')
             await expect(host.get_by_role('button', name='Cancel selection')).to_be_disabled()
             assert await host.evaluate('id=>!uploadProof.workers[id].ended', arg=current_worker)
-            await host.evaluate('uploadProof.releaseConfirm()')
+            # Withhold all three real confirmation replies through the declared 24-second budget.
+            await expect(host.get_by_role('button', name='Retry selection', exact=True)).to_be_enabled(timeout=30000)
+            uncertain_guidance = await host.locator('.rc-status-copy').inner_text()
+            assert await host.evaluate('uploadProof.confirmRequests') == 3
+            await host.screenshot(path=str(output / 'zip-confirmation-uncertain.png'))
+            await host.evaluate('uploadProof.holdConfirm=false')
+            await host.get_by_role('button', name='Retry selection', exact=True).click()
             current_sha = hashlib.sha256(current_selection).hexdigest()
             await host.wait_for_function('sha=>uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.sha===sha&&uploadProof.room.fingerprint.romSha256===sha', arg=current_sha)
             await expect(host.locator('.rc-game-heading')).to_have_attribute('title', 'replacement-B')
             await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
             assert await host.get_by_role('button', name='Cancel selection').count() == 0
             await host.screenshot(path=str(output / 'zip-cancel-retry-installed.png'))
+            assert 'selection' in pending_guidance.lower() and 'Retry game' not in pending_guidance, pending_guidance
+            assert uncertain_guidance == 'Game selection needs confirmation. Choose Retry selection.', uncertain_guidance
             selected_title = 'replacement-B'
 
             old_preview = await preview.get_attribute('src')
@@ -373,6 +383,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                   'invalid_file_keeps_lobby': True, 'failed_replacement_keeps_game': True,
                   'custom_game_preview': True, 'zip_picker_and_drop': True,
                   'zip_title_uses_extracted_name': True, 'zip_failure_preserves_worker_preview_blob': True,
+                  'selection_pending_guidance': pending_guidance, 'selection_uncertain_guidance': uncertain_guidance, 'selection_confirmation_timeout_and_retry': True,
                   'cancelled_selection_late_response_isolated': True, 'cancelled_selection_retry_sha': current_sha, 'zip_confirmation_back_stay': True, 'zip_confirmation_rejected_close_stay': True,
                   'zip_confirmation_narrow_keyboard_focus': True, 'zip_post_extraction_upload_retry': True, 'zip_paired_play_hash': hashes[0], 'included_game_after_creation': True,
                   'duration_seconds': round(time.monotonic() - started, 2)}

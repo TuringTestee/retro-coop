@@ -226,6 +226,8 @@ function App(){
    : undefined;
  const lobbyGuidance=()=>{
   if(!roomState.connected)return 'Connection lost. Retry connection.';
+  if(room?.role==='host'&&playerState.selectionPhase==='uncertain')return 'Game selection needs confirmation. Choose Retry selection.';
+  if(room?.role==='host'&&roomState.selectionFinishing)return roomState.status;
   if(!room?.fingerprint)return room?.role==='host'?'Load a NES game while players join.':'';
   if(unsupported.length)return room.role==='host'?`${unsupported[0].role==='player1'?'Player 1':'Player 2'} cannot play this game. Set as Observer or change game.`:'The host is updating player roles.';
   if(self&&self.role!=='observer'&&!ready){
