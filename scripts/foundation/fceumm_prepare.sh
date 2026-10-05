@@ -12,7 +12,10 @@ if [ "${RETRO_COOP_PREBUILT_FCEUMM:-0}" != 1 ]; then
     fi
     "$sdk/emsdk" install 6.0.11
     "$sdk/emsdk" activate 6.0.11
-    . "$sdk/emsdk_env.sh"
+    repo_directory="$PWD"
+    cd "$sdk"
+    . ./emsdk_env.sh
+    cd "$repo_directory"
   fi
   python3 scripts/foundation/fceumm_build.py
 fi

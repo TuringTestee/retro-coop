@@ -41,10 +41,11 @@ def main():
         if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=source, text=True).strip() != REVISION or \
                 subprocess.check_output(['git', 'diff', 'HEAD', '--'], cwd=source):
             parser.error('FCEUmm must be the clean, unmodified pinned source')
-        run('make', '-f', 'Makefile.libretro', 'clean', 'platform=emscripten', cwd=source)
+        common_objects = 'RETROARCH_OBJECTS=' + ' '.join('src/drivers/libretro/libretro-common/' + name + '.o' for name in COMMON)
+        run('make', '-f', 'Makefile.libretro', 'clean', 'platform=emscripten', common_objects, cwd=source)
         run('make', '-f', 'Makefile.libretro', '-j4', 'platform=emscripten',
             'CC=emcc', 'AR=emar', 'HAVE_HDPACK=0', 'HAVE_NTSC=0',
-            'RETROARCH_OBJECTS=' + ' '.join('src/drivers/libretro/libretro-common/' + name + '.o' for name in COMMON), cwd=source)
+            common_objects, cwd=source)
         generated = ROOT / 'apps/client/src/generated'
         notices = ROOT / 'apps/client/public/generated'
         generated.mkdir(parents=True, exist_ok=True)
