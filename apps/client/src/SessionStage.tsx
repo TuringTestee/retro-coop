@@ -10,7 +10,7 @@ import type {Controls} from './controls.ts';
 import {RoomSlots} from './RoomSlots.tsx';
 import {libraryEntries,verifiedSavedFile,type LibraryEntry} from './rom-library.ts';
 
-const phoneLayoutQuery='(max-width:650px), (max-width:1000px) and (max-height:500px)';
+const compactLayout=()=>getComputedStyle(document.documentElement).getPropertyValue('--rc-compact-layout').trim()==='1';
 type Panel='identity'|'voice'|'settings'|'lobby'|null;
 function GameTitle({title}:{title:string}){
  const windowRef=useRef<HTMLElement>(null),textRef=useRef<HTMLSpanElement>(null);
@@ -37,11 +37,11 @@ export function SessionStage({loadedGameIdentity,controls,controllerEnabled,cont
  loadedGameIdentity?:string;controls:Controls;controllerEnabled:boolean;controllerEditRequest:number;onControllerMask:(mask:number)=>void;onControlsChange:(controls:Controls,current:()=>boolean)=>Promise<boolean>;onControllerEditing:(editing:boolean)=>void;controllerEditorHost:React.RefObject<HTMLDivElement|null>;onRequestControllerEdit:()=>void;onCancelControllerEdit:()=>void;storageIssue?:string;
  room?:RoomView;chat?:ChatState;connected:boolean;canvas:React.ReactNode;canvasLoaded:boolean;playReady:boolean;gameTitle?:string;previewImage?:string;scanlines?:boolean;side:Panel;onSide:(side:Panel)=>void;onAct:RoomClient['act'];onKick:(slot:RoomSlot)=>void;onSlotFeedback:(message:string)=>void;onSlotInspect:(name:string)=>void;onChoose:()=>void;onIncluded:(id:(typeof catalog)[number]['id'])=>void;onSaved:(file:File)=>boolean;onRetryMember:()=>void;onDraft:(text:string)=>void;onSend:()=>void;onDiscard:()=>void;onCancelSelection:()=>void;loadingLabel?:string;sideContent?:React.ReactNode;local?:boolean;selectionAllowed?:boolean;
 }){
- const [phone,setPhone]=useState(()=>matchMedia(phoneLayoutQuery).matches);
+ const [phone,setPhone]=useState(compactLayout);
  const [phonePanel,setPhonePanel]=useState<'game'|'players'|'settings'|'chat'>('game');
  const enteredPlay=useRef(false);
  useEffect(()=>{if(controllerEditRequest){closePicker();if(phone)setPhonePanel('settings');setGameExpanded(false);}},[controllerEditRequest]);
- useEffect(()=>{const query=matchMedia(phoneLayoutQuery),changed=()=>setPhone(query.matches);query.addEventListener('change',changed);return()=>query.removeEventListener('change',changed);},[]);
+ useEffect(()=>{const changed=()=>setPhone(compactLayout());window.addEventListener('resize',changed);changed();return()=>window.removeEventListener('resize',changed);},[]);
  const [picker,setPicker]=React.useState(false);
  const [gameExpanded,setGameExpanded]=React.useState(false);
  const [pickerPage,setPickerPage]=React.useState<'choices'|'saved'>('choices'),[saved,setSaved]=React.useState<LibraryEntry[]>([]),[savedIndex,setSavedIndex]=React.useState(0),[savedStatus,setSavedStatus]=React.useState(''),[savedBusy,setSavedBusy]=React.useState(false);
