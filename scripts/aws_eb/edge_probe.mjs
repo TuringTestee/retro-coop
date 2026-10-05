@@ -115,7 +115,8 @@ try {
   const extract=(body=zipped,bearer=hostToken,requestOrigin=origin)=>fetch(extractionUrl,{method:'POST',headers:{Origin:requestOrigin,Authorization:`Bearer ${bearer}`,'Content-Type':'application/zip','X-Forwarded-For':'203.0.113.1, 127.0.2.1'},body});
   if((await extract(zipped,'x'.repeat(43))).status!==403)throw Error('ZIP extraction accepted an unauthenticated session through the edge');
   if((await extract(zipped,hostToken,'https://untrusted.example')).status!==403)throw Error('ZIP extraction accepted an untrusted origin through the edge');
-  const overLimit=await extract(Buffer.alloc(ZIP_ARCHIVE_LIMIT));if(overLimit.status!==413||(await overLimit.json()).error!=='archive_size_limit')throw Error('ZIP compressed size limit failed through the edge');
+  const overLimit=await extract(Buffer.alloc(ZIP_ARCHIVE_LIMIT)),limitReply=await overLimit.text();
+  if(overLimit.status!==413||JSON.parse(limitReply).error!=='archive_size_limit')throw Error(`ZIP compressed size limit failed through the edge: HTTP ${overLimit.status}, response ${limitReply}`);
   const extracted=await extract();
   if(extracted.status!==200||extracted.headers.get('x-nes-name')!==encodeURIComponent('Edge game.nes')||extracted.headers.get('x-nes-sha256')!==fingerprint.romSha256||!Buffer.from(await extracted.arrayBuffer()).equals(rom))throw Error('Server ZIP extraction through the edge did not return the selected NES identity');
   const intent = randomUUID();
