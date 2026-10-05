@@ -14,6 +14,8 @@ Open the URL printed by the command, normally **http://127.0.0.1:8765/**. If tha
 
 This command starts the current client and a local room coordinator, and Ctrl-C stops both. It supports testing up to five member tabs or browser windows on this computer. A friend on another network needs the deployed HTTPS application; local loopback addresses are not reachable from their computer.
 
+The first preparation also downloads Emscripten 6.0.11 and builds the pinned unmodified FCEUmm core for supported NTSC mapper-225 cartridges. Other supported games and existing saves keep using TetaNES. FCEUmm is GPL software; the build publishes its license and corresponding source instructions under `generated/fceumm-license.txt` and `generated/fceumm-source.txt`. Activate Emscripten 6.0.11 yourself to use an existing SDK installation.
+
 The [AWS website operations guide](docs/implementation/d24-aws-eb-operations.md) has the Elastic Beanstalk release, cost guard, rollback and teardown commands. Public deployment remains separate from the local demo and is gated on reviewed source and cloud checks.
 
 ### Test a five-member lobby

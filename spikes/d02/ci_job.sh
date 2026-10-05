@@ -29,7 +29,7 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
   /tmp/d02-entrypoint-venv/bin/playwright install chromium
   export PATH="/tmp/d02-entrypoint-venv/bin:$PATH"
   npm ci
-  RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
+  RETRO_COOP_PREBUILT_CORE=1 RETRO_COOP_PREBUILT_FCEUMM=1 sh scripts/foundation/prepare.sh
   if [ "$D02_JOB" = entrypoint-journey ]; then
     # The upload and public entry use separate demo ports and evidence paths.
     (
@@ -38,6 +38,7 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       timeout --foreground 90s python3 scripts/public_entrypoint_smoke.py --browser --screenshot-dir spikes/d02/public-entrypoint.local
       wait "$upload_pid"
     )
+    timeout --foreground 60s python3 scripts/foundation/fceumm_browser.py --output spikes/d02/fceumm-boundary.local.json
   fi
   npm run build:staging
   case "$D02_JOB" in

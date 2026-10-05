@@ -7,6 +7,10 @@ node_modules
 **/target
 apps/client/src/generated
 apps/client/public/generated
+!apps/client/src/generated/fceumm.mjs
+!apps/client/src/generated/fceumm.wasm
+!apps/client/public/generated/fceumm-license.txt
+!apps/client/public/generated/fceumm-source.txt
 docs
 .github
 *.log
