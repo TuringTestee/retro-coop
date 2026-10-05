@@ -134,3 +134,26 @@ for(const outcome of ['success','failure'] as const){
   assert.equal((client as unknown as {confirmingSelection:unknown}).confirmingSelection,next);
  });
 }
+
+for(const outcome of ['success','failure'])for(const replacement of [undefined,{id:'next',chatMembership:'next-member',role:'host',peers:[]}]){
+ test(`lobby selection ownership ends on ${replacement?'replacement':'departure'} with late ${outcome}, preserving newer work`,async()=>{
+  const old={id:'old',chatMembership:'old-member',role:'host',peers:[]},selection={roomId:'old',intent:'old-intent',expectedRevision:1};
+  let resolve!:(value:unknown)=>void,reject!:(error:Error)=>void;const abort=new AbortController(),applied:unknown[]=[];
+  const client=Object.assign(Object.create(RoomClient.prototype),{state:{room:old,busy:true,uploading:true,selectionFinishing:true},confirmingSelection:selection,gameSelection:selection.intent,uploadAbort:abort,
+   peers:new Map(),peerStates:new Map(),game:{enter(){}},chat:{enter(){}},player:()=>null,reportLoadedGame(){},closePeers(){},
+   update(){},confirmSelection:()=>new Promise((done,fail)=>{resolve=done;reject=fail;}),apply:(value:unknown)=>applied.push(value)}) as RoomClient;
+  const owned=client as unknown as {setRoom(room?:unknown):void;state:{busy:boolean;uploading:boolean;selectionFinishing:boolean};confirmingSelection:unknown;gameSelection:unknown;uploadAbort:unknown};
+  const pending=client.reconcileGameSelection();owned.setRoom(replacement);
+  assert.equal(abort.signal.aborted,true);assert.equal(owned.confirmingSelection,undefined);assert.equal(owned.gameSelection,undefined);assert.equal(owned.uploadAbort,undefined);
+  assert.equal(owned.state.selectionFinishing,false);assert.equal(owned.state.busy,false);assert.equal(owned.state.uploading,false);
+  Object.assign(client,{confirmingSelection:{roomId:'next',intent:'next-intent'},gameSelection:'next-intent'});owned.state.selectionFinishing=true;
+  if(outcome==='success')resolve({room:old});else reject(Error('Old reply failed.'));await pending;assert.deepEqual(applied,[]);assert.equal(owned.state.selectionFinishing,true);
+ });
+}
+test('same lobby updates preserve selection ownership and unrelated admission work',()=>{
+ const room={id:'same',chatMembership:'member',role:'host',peers:[]},selection={roomId:'same',intent:'intent',expectedRevision:1},abort=new AbortController();
+ const client=Object.assign(Object.create(RoomClient.prototype),{state:{room,busy:true,uploading:true,selectionFinishing:true},confirmingSelection:selection,gameSelection:selection.intent,uploadAbort:abort,
+ peers:new Map(),peerStates:new Map(),game:{enter(){}},chat:{enter(){}},player:()=>null,reportLoadedGame(){},closePeers(){},update(){}}) as unknown as {setRoom(room?:unknown):void;state:{busy:boolean};confirmingSelection:unknown};
+ client.setRoom({...room});assert.equal(abort.signal.aborted,false);assert.equal(client.confirmingSelection,selection);assert.equal(client.state.busy,true);
+ Object.assign(client,{state:{busy:true},confirmingSelection:undefined,gameSelection:undefined,uploadAbort:undefined});client.setRoom(undefined);assert.equal(client.state.busy,true);
+});

@@ -81,7 +81,7 @@ async def main():
             browser = await playwright.chromium.launch(ignore_default_args=['--mute-audio'])
             context = await browser.new_context()
             errors = []
-            await context.add_init_script("""window.uploadProof={workers:[],room:null};
+            await context.add_init_script("""window.uploadProof={workers:[],room:null,requests:{}};
               const WorkerBase=Worker;window.Worker=class extends WorkerBase{
                 constructor(...args){super(...args);const record={worker:this,id:uploadProof.workers.length,ended:false};uploadProof.workers.push(record);this.record=record;
                   this.addEventListener('message',({data})=>{if(data.type==='state-hash')record.hash=data.info;});}
@@ -95,13 +95,63 @@ async def main():
                 return uploadSend.apply(this,args);
               };
               const Socket=WebSocket;window.WebSocket=class extends Socket{
-                send(raw){const value=JSON.parse(raw);if(value.type==='confirmGameSelection'){uploadProof.confirmRequest=value.requestId;uploadProof.confirmRequests=(uploadProof.confirmRequests??0)+1;}
+                send(raw){const value=JSON.parse(raw);uploadProof.requests[value.requestId]=value.type;if(value.type==='confirmGameSelection'){uploadProof.confirmRequest=value.requestId;uploadProof.confirmRequests=(uploadProof.confirmRequests??0)+1;}
                   if(uploadProof.rejectClose&&value.type==='close'){uploadProof.rejectClose=false;uploadProof.closeHeld=true;uploadProof.releaseClose=()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:value.requestId,ok:false,error:'close_rejected'})}));return;}return super.send(raw);}
                 constructor(...args){super(...args);this.addEventListener('message',event=>{const {data}=event;const message=JSON.parse(data);
-                  if(uploadProof.holdConfirm&&message.type==='result'&&message.requestId===uploadProof.confirmRequest&&!event.confirmReleased){event.stopImmediatePropagation();uploadProof.confirmHeld=true;uploadProof.releaseConfirm=()=>{uploadProof.holdConfirm=false;const released=new MessageEvent('message',{data});Object.defineProperty(released,'confirmReleased',{value:true});this.dispatchEvent(released);};return;}
-if(message.type==='room')uploadProof.room=message.room;else if(message.type==='result'&&message.ok&&message.data?.room)uploadProof.room=message.data.room;});}};
+                  if(uploadProof.holdConfirm&&message.type==='result'&&message.requestId===uploadProof.confirmRequest&&!event.confirmReleased){event.stopImmediatePropagation();uploadProof.confirmHeld=true;uploadProof.releaseConfirmFailure=()=>{const reply=JSON.parse(data);this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:reply.requestId,ok:false,error:'game_selection_changed'})}));};uploadProof.releaseConfirm=()=>{uploadProof.holdConfirm=false;const released=new MessageEvent('message',{data});Object.defineProperty(released,'confirmReleased',{value:true});this.dispatchEvent(released);};return;}
+if(message.type==='room')uploadProof.room=message.room;else if(message.type==='result'&&message.ok&&message.data?.room&&(uploadProof.requests[message.requestId]!=='confirmGameSelection'||uploadProof.room?.id===message.data.room.id))uploadProof.room=message.data.room;});}};
             """)
             context.on('page', lambda page: page.on('pageerror', lambda error: errors.append(str(error))))
+            host = await context.new_page()
+            await create_lobby(host, 'Private Upload', protected=True)
+
+            async def close_pending_and_replace(name, data, outcome):
+                # Hold a real reply, leave through the public dialog, and select in the new lobby.
+                # Delivering an old error is a controlled protocol fixture, not a server failure claim.
+                await host.evaluate("outcome=>{uploadProof.oldConfirm=outcome==='success'?uploadProof.releaseConfirm:uploadProof.releaseConfirmFailure;}", arg=outcome)
+                await host.get_by_role('button', name='Back to Main Page', exact=True).click()
+                await host.get_by_role('button', name='Close lobby', exact=True).click()
+                await host.locator('.rc-listing').wait_for()
+                await host.get_by_role('button', name='Host a new game').click()
+                await host.get_by_role('button', name='Load NES game').wait_for(timeout=5000)
+                await host.screenshot(path=str(output / f'zip-{name}-new-lobby.png'))
+                await host.locator('.rc-trail .rc-header-edit').click()
+                await host.get_by_role('textbox', name='Lobby name').fill('Private Upload')
+                await host.get_by_role('textbox', name='Lobby name').press('Enter')
+                await choose_section_async(host, 'Lobby')
+                await host.get_by_role('button', name='Require password').click()
+                await host.get_by_label('New lobby password').fill('blue-sky-room')
+                await host.get_by_role('button', name='Save password').click()
+                await host.get_by_role('button', name='Load NES game').click()
+                await host.evaluate('uploadProof.holdConfirm=true;uploadProof.confirmHeld=false')
+                async with host.expect_file_chooser() as chosen:
+                    await host.get_by_role('button', name='Add game file', exact=True).click()
+                await (await chosen.value).set_files({'name':name+'.nes','mimeType':'application/octet-stream','buffer':bytes(data)})
+                await host.wait_for_function('uploadProof.confirmHeld')
+                room_id = await host.evaluate('uploadProof.room.id')
+                sha = await host.evaluate('uploadProof.room.fingerprint.romSha256')
+                await host.evaluate('uploadProof.oldConfirm()')
+                await host.evaluate('async()=>{await new Promise(requestAnimationFrame);}')
+                assert await host.evaluate('uploadProof.room.id') == room_id
+                assert await host.evaluate('uploadProof.room.fingerprint.romSha256') == sha
+                await expect(host.locator('.rc-status-copy')).to_have_text('Finishing game selection…')
+                await expect(host.get_by_role('button', name='Cancel selection')).to_be_disabled()
+                await host.evaluate('uploadProof.releaseConfirm()')
+                await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+
+            # Initial confirmation leaves through a successful Close; its late failure is obsolete.
+            await host.get_by_role('button', name='Load NES game').click()
+            await host.evaluate('uploadProof.holdConfirm=true;uploadProof.confirmHeld=false')
+            async with host.expect_file_chooser() as chosen:
+                await host.get_by_role('button', name='Add game file', exact=True).click()
+            await (await chosen.value).set_files(str(FIXTURE))
+            await host.wait_for_function('uploadProof.confirmHeld')
+            await close_pending_and_replace('initial-confirmation', FIXTURE.read_bytes(), 'failure')
+            await host.get_by_role('button', name='Back to Main Page', exact=True).click()
+            await host.get_by_role('button', name='Close lobby', exact=True).click()
+            await host.close()
+            # Independent setup scenarios use fresh guest authority, keeping production upload limits intact.
+            # Each departure/replacement assertion above still crosses the boundary in the same session.
             host = await context.new_page()
             await create_lobby(host, 'Private Upload', protected=True)
 
@@ -254,7 +304,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await host.wait_for_function('uploadProof.confirmHeld')
             await expect(host.locator('.rc-status-copy')).to_have_text('Finishing game selection…')
             await expect(host.locator('.rc-game-progress strong')).to_have_text('Finishing game selection…')
-            await host.evaluate('uploadProof.releaseConfirm()')
+            await close_pending_and_replace('replacement-B', current_selection, 'success')
             current_sha = hashlib.sha256(current_selection).hexdigest()
             await host.wait_for_function('sha=>uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.sha===sha&&uploadProof.room.fingerprint.romSha256===sha', arg=current_sha)
             await expect(host.locator('.rc-game-heading')).to_have_attribute('title', 'replacement-B')
@@ -286,7 +336,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await preserved()
             await host.unroute('**/rooms/*/rom', fail_once)
             await host.set_viewport_size({'width':760,'height':520})
-            await host.evaluate('uploadProof.holdConfirm=true')
+            await host.evaluate('uploadProof.holdConfirm=true;uploadProof.confirmHeld=false')
             await pick_zip('outer-picker.zip', picker_zip)
             await host.wait_for_function('uploadProof.confirmHeld')
             await expect(host.get_by_role('button', name='Cancel selection')).to_be_disabled()
@@ -411,7 +461,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                   'custom_game_preview': True, 'zip_picker_and_drop': True,
                   'zip_title_uses_extracted_name': True, 'zip_failure_preserves_worker_preview_blob': True,
                   'selection_pending_guidance': pending_guidance, 'selection_uncertain_guidance': uncertain_guidance, 'selection_confirmation_timeout_and_retry': True, 'retry_pending_guidance': retry_guidance, 'retry_timeout_then_success': True, 'confirmation_headings': confirmation_headings,
-                  'cancelled_selection_late_response_isolated': True, 'cancelled_selection_retry_sha': current_sha, 'zip_confirmation_back_stay': True, 'zip_confirmation_rejected_close_stay': True,
+                  'cancelled_selection_late_response_isolated': True, 'cancelled_selection_retry_sha': current_sha, 'zip_initial_confirmation_close_new_lobby': True, 'zip_active_retry_close_new_lobby': True, 'zip_late_old_success_failure_isolated': True, 'zip_confirmation_back_stay': True, 'zip_confirmation_rejected_close_stay': True,
                   'zip_confirmation_narrow_keyboard_focus': True, 'zip_post_extraction_upload_retry': True, 'zip_paired_play_hash': hashes[0], 'included_game_after_creation': True,
                   'duration_seconds': round(time.monotonic() - started, 2)}
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')

@@ -77,7 +77,13 @@ export class RoomClient {
  constructor(update:(state:RoomState)=>void,player:()=>LocalPlayer|null=()=>null) {this.update=update;this.player=player;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
-  if(!room){this.confirmingSelection=undefined;this.gameSelection=undefined;}
+  // Selection work belongs to this lobby membership, not a later admission.
+  if((this.gameSelection||this.confirmingSelection)&&(!room||this.state.room&&
+   (room.id!==this.state.room.id||room.chatMembership!==this.state.room.chatMembership))){
+   this.confirmingSelection=undefined;this.gameSelection=undefined;
+   this.uploadAbort?.abort();this.uploadAbort=undefined;
+   this.publish({selectionFinishing:false,busy:false,uploading:false});
+  }
   const binding=this.restoredBinding;if(binding&&(!room||room.role!=='host'||room.id!==binding.roomId||room.chatMembership!==binding.membership||room.game.epoch!==binding.epoch||!room.fingerprint||!matchesFile(room.fingerprint,binding.fingerprint)))this.restoredBinding=undefined;
   if(room&&room.id!==this.voluntaryExitRoomId)this.voluntaryExitRoomId=undefined;
   // A member admitted from an invitation still needs its preview after removal.
@@ -268,7 +274,7 @@ export class RoomClient {
  cancelPending() {++this.generation;this.cancelCreation();const intent = this.joining;this.joining = undefined;if(intent) void this.request({type:'leave',intent}).catch(()=>{});this.publish({busy:false,status:'Cancelled. Your local game is preserved.'});}
  async act(command:Exclude<Command,{type:'hello'}>) {const leaving=(command.type==='close'||command.type==='leave')&&!!this.state.room;
   if(leaving)this.voluntaryExitRoomId=this.state.room!.id;
-  try {await this.connect();this.apply(await this.request(command));if(command.type==='nickname'){try{const stored=await readStored<PreferencesRecord>('preferences','chosen-name');await putPreferences({identity:'chosen-name',savedAt:Date.now(),value:this.state.session?.nickname},stored.generation);this.publish({storageIssue:undefined});}catch{this.publish({storageIssue:'Your name changed, but could not be remembered on this device.'});}}if(leaving){this.confirmingSelection=undefined;this.gameSelection=undefined;this.setRoom(undefined);this.publish({releaseNotice:undefined});}return true;}
+  try {await this.connect();this.apply(await this.request(command));if(command.type==='nickname'){try{const stored=await readStored<PreferencesRecord>('preferences','chosen-name');await putPreferences({identity:'chosen-name',savedAt:Date.now(),value:this.state.session?.nickname},stored.generation);this.publish({storageIssue:undefined});}catch{this.publish({storageIssue:'Your name changed, but could not be remembered on this device.'});}}if(leaving){this.setRoom(undefined);this.publish({releaseNotice:undefined});}return true;}
   catch(error){if(leaving)this.voluntaryExitRoomId=undefined;this.failure(error);return false;}}
  private async refreshDirectory() {try {this.apply(await this.request({type:'directory'}));if(!this.state.room&&!this.previewingInvite&&this.state.status.startsWith('Lobby connection lost.'))this.publish({status:'No lobby selected.'});}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
  async watchDirectory() {this.watchingDirectory=true;this.publish({directoryStatus:'loading',directoryError:undefined});const connected=this.state.connected;try {await this.connect();if(connected) await this.refreshDirectory();}catch(error){this.publish({directoryStatus:'stale',directoryError:error instanceof Error ? error.message:'The directory is unavailable.'});}}
@@ -320,5 +326,5 @@ export class RoomClient {
  chatDraft(text:string){this.chat.draft(text);}
  async sendChat(){await this.chat.send(this.state.session?.nickname ?? 'Guest');}
  discardChat(){this.chat.discard();}
- dispose() {this.restoredBinding=undefined;this.confirmingSelection=undefined;this.gameSelection=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
+ dispose() {this.uploadAbort?.abort();this.uploadAbort=undefined;this.restoredBinding=undefined;this.confirmingSelection=undefined;this.gameSelection=undefined;++this.generation;this.game.dispose();this.closePeers();this.cancelCreation();this.disposed = true;this.tabSession.close();this.voice.dispose();clearInterval(this.heartbeat);this.socket?.close();for(const item of this.pending.values()) {clearTimeout(item.timer);item.reject(Error('Room client disposed'));}this.pending.clear();}
 }
