@@ -216,7 +216,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-load-game small { color: #f6d9bc; font-size: 14px; }
 .rc-preview { display: grid; grid-template-rows: minmax(0, 1fr); width: 100%; height: 100%; overflow: hidden; }
 .rc-preview-media { display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; }
-.rc-preview-media img, .rc-preview-placeholder { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; background: #061017; }
+.rc-preview-media img, .rc-preview-placeholder { min-width: 0; min-height: 0; width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; background: #061017; }
 .rc-preview-placeholder { display: grid; place-items: center; border: 1px dashed #7b9298; color: #d3deda; text-align: center; font-size: 14px; }
 .rc-wait-game { display: grid; place-items: center; width: 100%; height: 100%; padding: 8px; text-align: center; color: var(--menu-text); }
 .rc-game-picker { position: absolute; inset: 0; z-index: 3; background: var(--display); display: grid; align-content: center; gap: 9px; width: 100%; height: 100%; padding: 12px; overflow: hidden; }
@@ -435,6 +435,11 @@ button:disabled { cursor: default; opacity: .52; }
 }
 
 /* One persistent session; phone panels select visibility without replacing it. */
+/* Desktop needs 360px players + 250px settings + 216px controller/gutters,
+   plus enough header width for the accepted names (900px in this layout).
+   A short stage also needs its toolbar/chat and a usable game above the band.
+   SessionStage reads this CSS decision instead of owning another breakpoint. */
+:root { --rc-compact-layout: 0; }
 .rc-phone-panels { display: none; }
 .rc-chat-panel { display: contents; }
 .rc-session-settings { grid-column: 3; grid-row: 2; min-width: 0; min-height: 0; overflow: hidden; padding: 8px; background: var(--menu); color: var(--menu-text); }
@@ -453,7 +458,8 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-header .rc-header-edit, .rc-header .rc-header-name > span:last-child { min-width: 0; font-size: 14px; line-height: 1.4; }
  .rc-theme-switch { grid-column: auto; grid-row: auto; }
 }
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
+ :root { --rc-compact-layout: 1; }
  .rc-shell { grid-template-rows: 44px 42px minmax(0,1fr) 60px; }
  .rc-header { display: flex; gap: 8px; padding: 4px 8px; }
  .rc-trail { flex: 1; height: 100%; justify-content: flex-end; }
@@ -480,7 +486,7 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-session[data-phone-panel]:not([data-phone-panel=chat]) > .rc-chat-panel { visibility: hidden; pointer-events: none; }
  .rc-session[data-phone-panel]:not([data-phone-panel=game]) > .rc-game-zone { visibility: hidden; pointer-events: none; }
  .rc-session .rc-game-fullscreen { visibility: visible; pointer-events: auto; }
- .rc-players { padding: 5px 8px; display: grid; grid-template-rows: 22px minmax(0,1fr); }
+ .rc-players { padding: 5px 8px; display: grid; grid-template-rows: minmax(0,1fr); }
  .rc-players .room-slots { grid-template-columns: minmax(0,1fr); grid-template-rows: repeat(5,minmax(0,1fr)); }
  .rc-players .slot-row, .rc-players .slot-readonly { display: grid; grid-template-columns: minmax(0,1fr) 16px; grid-template-rows: minmax(0,1fr) auto; gap: 2px 6px; padding: 3px 6px; }
  .rc-players .slot-row strong { grid-column: 1; grid-row: 1; font-size: 14px; line-height: 1.4; font-family: inherit; }
@@ -531,11 +537,11 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-inline-settings .rc-tool-heading { grid-template-rows: 26px; }
  .rc-inline-settings .rc-tool-heading h2 { display: none; }
 }
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-page-lobby:has(.rc-session[data-phone-panel]:not([data-phone-panel=game])) .rc-footer-actions { visibility: hidden; }
 }
 
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-footer { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px; padding: 4px 6px; }
  .rc-footer-back button { width: 100%; white-space: normal; line-height: 1.25; padding: 3px 6px; }
  .rc-footer-actions { gap: 4px; }
@@ -545,7 +551,7 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-footer-actions button { padding: 3px 6px; white-space: normal; line-height: 1.25; }
 }
 /* Keep the existing compact directory while replacing session composition. */
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-listing { grid-template-rows: 48px 56px minmax(0,1fr) 42px 32px; padding: 3px 6px; }
  .rc-list-head > span { font-size: 14px; }
  .rc-list-head input { width: min(60%,300px); height: 34px; font-size: 14px; }
@@ -578,12 +584,12 @@ button:disabled { cursor: default; opacity: .52; }
 }
 
 /* One controller band owns physical targets and its inline keyboard editor. */
-.rc-game-display { display: grid; grid-template-rows: minmax(0,1fr) 152px; }
+.rc-game-display { display: grid; grid-template-rows: minmax(0,1fr) max-content; container: game-column / inline-size; }
 .rc-game-viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr) 152px; place-items: stretch; }
 .rc-game-fullscreen .rc-game-viewport { grid-row: 2; }
-.rc-game-fullscreen .rc-controller-band { grid-row: 3; }
-.rc-controller-band { min-width: 0; min-height: 0; overflow: hidden; container: controller-band / inline-size; --guide-move: #87d1e8; --guide-b: #eaa8a0; --guide-a: #f5ba7f; --guide-system: #f7d99c; --menu-control: #242a31; --menu-text: #f7f0e4; --menu-border: #aa7542; padding: 4px; background: #080c10; color: #f7f0e4; cursor: default; }
+.rc-game-fullscreen .rc-controller-band { grid-row: 3; height: auto; }
+.rc-controller-band { min-width: 0; min-height: 0; height: 152px; overflow: hidden; container: controller-band / inline-size; --guide-move: #87d1e8; --guide-b: #eaa8a0; --guide-a: #f5ba7f; --guide-system: #f7d99c; --menu-control: #242a31; --menu-text: #f7f0e4; --menu-border: #aa7542; padding: 4px; background: #080c10; color: #f7f0e4; cursor: default; }
 .rc-nes-controller { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 4px; width: min(100%,440px); height: 96px; margin: 0 auto; }
 .rc-nes-controller button { touch-action: none; user-select: none; border: 2px solid #aa7542; background: #242a31; color: #f7f0e4; font: 700 13px/1.2 ui-monospace,monospace; }
 .rc-nes-controller button[aria-pressed=true] { background: #dc761f; border-color: #ffd39a; }
@@ -603,7 +609,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-controller-editor p,.rc-controller-editor > div:last-child { grid-column: 1 / -1; margin: 0; }.rc-controller-editor button { min-height: 28px; margin-right: 6px; }
 .rc-controller-capture { padding: 4px; border: 1px solid #87d1e8; overflow-wrap: anywhere; }
 .rc-controller-status { font-size: 12px; }
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-game-fullscreen .rc-nes-controller { height: 144px; }
  .rc-game-fullscreen .rc-thumb-pad { align-self: center; }
  .rc-game-fullscreen .rc-nes-actions { position: relative; width: 100px; height: 144px; }
@@ -625,15 +631,16 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-connected-hints i { flex: 1; min-width: 5px; border-bottom: 1px solid currentColor; }
 .rc-connected-hints .rc-connected-move { display: block; }
 .rc-controller-edit-action.rc-preparing { display: none; }
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-game-display:not(.rc-game-fullscreen) { grid-template-rows: minmax(0,1fr); }
  .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { display: none; }
  .rc-controller-edit-action.rc-preparing { display: block; }
 }
-@media (min-width:651px) and (min-height:501px) and (max-height:650px) {
+@media (min-width:1001px) and (min-height:601px) and (max-height:700px), (min-width:900px) and (min-height:651px) and (max-height:700px) {
  .rc-session, .rc-shared-playing { grid-template-rows: 72px minmax(0,1fr) 104px; }
  .rc-chat { padding-block: 4px; }
- .rc-game-display { grid-template-rows: minmax(0,1fr) 112px; margin-block: 0; }
+ .rc-game-display { grid-template-rows: minmax(0,1fr) max-content; margin-block: 0; }
+ .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { height: 112px; }
 
  .rc-nes-controller { height: 64px; }
  .rc-thumb-pad, .rc-nes-controller .rc-pad-drag { flex-basis: 64px; width: 64px; height: 64px; }
@@ -652,8 +659,14 @@ button:disabled { cursor: default; opacity: .52; }
 
 .rc-direction[data-pressed=true] { background: #dc761f; border-color: #ffd39a; }
 
-/* Keep all five targets inside narrow desktop game columns. */
+/* Keep the stacked system buttons and mapping row inside their reserved band. */
+@container game-column (max-width:288px) {
+ .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { height: 184px; }
+}
 @container controller-band (max-width: 288px) {
+ .rc-connected-hints { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .rc-connected-move { grid-column: 1 / -1; }
+ .rc-nes-controller { height: 92px; }
  .rc-nes-controller .rc-nes-system { flex-direction: column; }
  .rc-thumb-pad, .rc-nes-controller .rc-pad-drag { flex-basis: 64px; width: 64px; height: 64px; }
  .rc-thumb-dot { left: 10px; top: 10px; }
@@ -662,7 +675,7 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-direction-left, .rc-direction-right { top: 21px; }
 }
 
-@media (max-width:650px), (max-width:1000px) and (max-height:500px) {
+@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-controller-editor { font-size: 16px; line-height: 1.5; }
  .rc-controller-editor select, .rc-controller-editor button { min-height: 44px; font: inherit; }
 }

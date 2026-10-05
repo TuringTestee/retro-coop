@@ -92,8 +92,16 @@ def title_fits(page):
 def title_motion(page):
     """Observe actual animation progress, fixed controls and reduced-motion wrapping."""
     page.mouse.move(0, 0)
-    page.wait_for_function("document.querySelector('.rc-game-heading')?.dataset.overflow==='true'")
+    page.evaluate('document.fonts.ready')
+    measured=page.locator('.rc-game-heading').evaluate('node=>({textWidth:node.querySelector(".rc-title-text").getBoundingClientRect().width,viewportWidth:node.clientWidth})')
+    overflowing=measured['textWidth']>measured['viewportWidth']+1
+    page.wait_for_function('(overflow)=>document.querySelector(".rc-game-heading").dataset.overflow===String(overflow)',arg=overflowing)
     assert title_fits(page)
+    print(f'title geometry: {measured}, overflowing={overflowing}',flush=True)
+    if not overflowing:
+        assert text_fits(page.locator('.rc-game-heading'))
+        assert page.locator('.rc-title-track').evaluate('node=>getComputedStyle(node).animationName')=='none'
+        return
     before = page.locator('.rc-game-toolbar').bounding_box()
     time = page.locator('.rc-title-track').evaluate('node=>node.getAnimations()[0].currentTime')
     page.wait_for_function('(before)=>document.querySelector(".rc-title-track").getAnimations()[0].currentTime>before+100', arg=time)
@@ -113,7 +121,7 @@ def names_fit(page):
     for node in page.locator('.rc-header-name').all():
         if not node.is_visible():
             continue
-        assert text_fits(node), node.inner_text()
+        assert text_fits(node), (page.evaluate('[innerWidth,innerHeight]'),node.inner_text())
 
 
 def guide_fits(page):
@@ -127,6 +135,11 @@ def controller_fits(page):
     if not band.is_visible():
         assert page.get_by_role('navigation', name='Lobby sections').is_visible()
         assert page.locator('.rc-game-fullscreen').count() == 0
+        choose_section(page, 'Controls')
+        edit=page.get_by_role('button', name='Edit controller', exact=True)
+        assert text_fits(edit)
+        control_visibility(edit)
+        choose_panel(page, 'Game')
         return
     targets = band.locator('[data-game-input] button')
     assert targets.count() == 5
@@ -135,12 +148,18 @@ def controller_fits(page):
         control_visibility(target)
         box = target.bounding_box()
         assert min(box['width'], box['height']) >= 44, box
+        if target.get_attribute('aria-disabled') != 'true':
+            assert target.evaluate('node=>{const r=node.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit===node||node.contains(hit);}'), target.get_attribute('aria-label')
+    for action in band.get_by_role('button').all():
+        assert text_fits(action), (page.viewport_size, action.inner_text())
+        control_visibility(action)
+    assert band.evaluate('node=>node.scrollWidth<=node.clientWidth+1'), band.bounding_box()
     assert band.evaluate('node=>node.scrollHeight<=node.clientHeight+1'), band.evaluate('node=>({viewport:[innerWidth,innerHeight],height:node.clientHeight,scroll:node.scrollHeight,text:node.innerText})')
 
 
 def regions(page):
     names = ('.rc-header', '.rc-status', '.rc-players', '.rc-game-toolbar',
-             '.rc-game-display', '.rc-chat', '.rc-footer')
+             '.rc-game-display', '.rc-game-viewport', '.rc-chat', '.rc-footer')
     navigation = page.get_by_role('navigation', name='Lobby sections')
     selected = navigation.locator('[aria-current=page]').inner_text() if navigation.is_visible() else None
     boxes = {}
@@ -149,14 +168,16 @@ def regions(page):
             choose_panel(page, 'Players' if name == '.rc-players' else 'Chat' if name == '.rc-chat' else 'Game')
         boxes[name] = page.locator(name).bounding_box()
     assert all(boxes.values()), boxes
-    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1')
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth + 1 && document.documentElement.scrollHeight <= innerHeight + 1 && scrollY === 0')
     for name, box in boxes.items():
         assert box['x'] >= -1 and box['y'] >= -1, (name, box)
         assert box['x'] + box['width'] <= page.evaluate('innerWidth') + 1, (name, box)
         assert box['y'] + box['height'] <= page.evaluate('innerHeight') + 1, (name, box)
+    for preview in page.locator('.rc-preview-media img').all():
+        if preview.is_visible():control_visibility(preview)
     assert title_fits(page), page.locator('.rc-game-toolbar').inner_text()
     for action in page.locator('.rc-game-links button').all():
-        assert text_fits(action), action.inner_text()
+        assert text_fits(action), (page.viewport_size, action.inner_text())
     assert text_fits(page.locator('.rc-status-copy')), page.locator('.rc-status-copy').inner_text()
     if selected:
         choose_panel(page, 'Players')
@@ -357,12 +378,34 @@ def controller_input(browser, url, output):
         page.get_by_role('button', name='Add NES file').click()
         page.get_by_label('NES cartridge file').set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
         page.get_by_role('button', name='Ready', exact=True).wait_for()
-        for width, height in ((1280, 800), (1024, 600), (900, 700)):
-            page.set_viewport_size({'width': width, 'height': height})
+        for width, height in ((1280,800),(1024,600),(900,700),(760,520)):
+            page.set_viewport_size({'width':width,'height':height})
             page.locator('.rc-session').evaluate('async node=>{node.getBoundingClientRect();await Promise.all(node.getAnimations().map(animation=>animation.finished.catch(()=>{})));}')
+            choose_panel(page,'Game')
+            reserved=page.locator('.rc-game-display,.rc-game-viewport').evaluate_all('nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON())')
             controller_fits(page)
-            assert text_fits(page.locator('.rc-controller-band')), (width, height)
-        page.set_viewport_size({'width': 1280, 'height': 800})
+            if width not in (900,760):continue
+            if page.get_by_role('navigation',name='Lobby sections').is_visible():
+                choose_section(page,'Controls')
+                page.get_by_role('button',name='Edit controller',exact=True).click()
+            else:
+                page.locator('.rc-controller-mappings').get_by_role('button',name='Edit',exact=True).click()
+            editor=page.get_by_label('Edit controller mappings')
+            capture=page.get_by_label('Capture controller key')
+            capture.focus();page.keyboard.press('NumpadSubtract')
+            assert text_fits(editor), (width,height,editor.inner_text())
+            for action in editor.get_by_role('button').all():control_visibility(action)
+            assert page.locator('.rc-game-display,.rc-game-viewport').evaluate_all('nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON())')==reserved
+            editor.get_by_role('button',name='Save',exact=True).click()
+            expect(editor).to_have_count(0)
+            choose_panel(page,'Game')
+            controller_fits(page)
+            assert page.locator('.rc-game-display,.rc-game-viewport').evaluate_all('nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON())')==reserved
+        page.set_viewport_size({'width':1280,'height':800})
+        page.locator('.rc-controller-mappings').get_by_role('button',name='Edit',exact=True).click()
+        page.get_by_label('Capture controller key').focus();page.keyboard.press('z')
+        page.get_by_label('Edit controller mappings').get_by_role('button',name='Save',exact=True).click()
+        expect(page.get_by_label('Edit controller mappings')).to_have_count(0)
         page.screenshot(path=str(output / 'controller-desktop-preparation.png'))
         page.locator('.rc-controller-mappings').get_by_role('button', name='Edit', exact=True).click()
         editor = page.get_by_label('Edit controller mappings')
@@ -884,6 +927,8 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         choose_section(page, 'Profile')
         names_fit(page)
         regions(page)
+        choose_panel(page, 'Game')
+        controller_fits(page)
         page.screenshot(path=str(output / f'maximum-names-{profile[0]}x{profile[1]}.png'))
     if responsive_sizes:
         page.set_viewport_size({'width': size[0], 'height': size[1]})
@@ -957,6 +1002,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.get_by_role('button', name='Ready', exact=True).wait_for(timeout=30000)
         assert regions(page) == base
         if uploaded_title:
+            expect(page.locator('.rc-title-text')).to_have_text(expected_title)
             title_motion(page)
         assert page.get_by_role('button', name='Change game').count() == 1
         assert page.locator('.rc-preview-actions').count() == 0
@@ -1088,25 +1134,28 @@ def main():
         with sync_playwright() as playwright:
             errors = []
             if args.zoom:
-                with zoom_context(playwright, {'width': 640, 'height': 1136}) as (context, worker):
-                    page = context.new_page()
-                    page.goto(url, wait_until='domcontentloaded')
-                    zoom = browser_zoom(page, worker, 2)
-                    page.on('pageerror', lambda error: errors.append(str(error)))
-                    size = tuple(page.evaluate('[innerWidth, innerHeight]'))
-                    rows = [exercise(page, size, output, play=True, uploaded_title=True)]
-                    verify_zoom(worker, zoom)
-                    zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
-                    assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
-                    page.close()
+                rows,zooms=[],[]
+                for backing in ({'width':640,'height':1136},{'width':1520,'height':1040}):
+                    with zoom_context(playwright, backing) as (context, worker):
+                        page = context.new_page()
+                        page.goto(url, wait_until='domcontentloaded')
+                        zoom = browser_zoom(page, worker, 2)
+                        page.on('pageerror', lambda error: errors.append(str(error)))
+                        size = tuple(page.evaluate('[innerWidth, innerHeight]'))
+                        rows.append(exercise(page, size, output, play=True, uploaded_title=True))
+                        verify_zoom(worker, zoom)
+                        zoom['after_journey'] = page.evaluate('({width:innerWidth,height:innerHeight,dpr:devicePixelRatio,scale:visualViewport.scale})')
+                        assert all(zoom['after_journey'][key] == zoom['after'][key] for key in ('width', 'height', 'dpr', 'scale'))
+                        zooms.append(zoom)
+                        page.close()
                 assert not errors, errors
-                print(json.dumps({'result': 'pass', 'zoom': zoom, 'checks': rows}), flush=True)
+                print(json.dumps({'result':'pass','zoom':zooms,'checks':rows}),flush=True)
                 return
             browser = getattr(playwright, args.browser).launch(headless=True, ignore_default_args=['--mute-audio'], **({'args': ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']} if args.browser == 'chromium' else {}))
             try:
                 rows = []
                 scenarios = (
-                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True, 'responsive_sizes': ((900,700),(844,390),(320,650))},
+                    {'size': (1280, 800), 'play': True, 'invitation_recovery': True, 'responsive_sizes': ((900,700),(760,520),(899,700),(1280,520),(844,390),(320,650))},
                     {'size': (1024, 600), 'play': True, 'uploaded_title': True},
                     {'size': (568, 320), 'play': True, 'uploaded_title': True},
                     {'size': (650, 760)},
