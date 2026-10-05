@@ -157,3 +157,11 @@ test('same lobby updates preserve selection ownership and unrelated admission wo
  client.setRoom({...room});assert.equal(abort.signal.aborted,false);assert.equal(client.confirmingSelection,selection);assert.equal(client.state.busy,true);
  Object.assign(client,{state:{busy:true},confirmingSelection:undefined,gameSelection:undefined,uploadAbort:undefined});client.setRoom(undefined);assert.equal(client.state.busy,true);
 });
+
+test('authorization loss force-abandons a locked candidate without disturbing its replacement',async context=>{
+ const t=await preparedReplacement(context);t.player.setSelectionFinishing();const late=t.player.selectionCompletion();
+ t.player.rejectSelection('The lobby changed. Choose a game again.');assert.equal(t.player.selectionLocked(),false);assert.equal(t.candidateStopped,1);
+ const next=await t.next();t.player.setSelectionFinishing();late({ok:true});t.resolve({ok:true});await t.handled;
+ assert.equal(t.player.selectionLocked(),true);assert.equal(t.active,t.old);
+ next.resolve({ok:true});await next.handled;assert.equal(t.active,next.worker);assert.equal(t.player.selectionLocked(),false);
+});
