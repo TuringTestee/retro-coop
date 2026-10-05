@@ -1,6 +1,8 @@
 import WebSocket from 'ws';
 import {createHash, randomUUID} from 'node:crypto';
 import http from 'node:http';
+import {crc32,deflateRawSync} from 'node:zlib';
+import {ZIP_ARCHIVE_LIMIT} from '../../packages/contracts/src/game-file.ts';
 
 const base = process.argv[2];
 if (!base || !base.startsWith('http://')) throw Error('Pass the local HTTP edge URL.');
@@ -104,6 +106,19 @@ let progressingUploadSeconds = 0;
 try {
   const hostToken = (await command(host, {type:'hello'})).session.token;
   const guestToken = (await command(guest, {type:'hello'})).session.token;
+  // An original NES fixture in a deflated archive reaches the production proxy route.
+  const name=Buffer.from('folder/Edge game.nes'),data=deflateRawSync(rom),crc=crc32(rom);
+  const local=Buffer.alloc(30);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);local.writeUInt16LE(8,8);local.writeUInt32LE(crc,14);local.writeUInt32LE(data.length,18);local.writeUInt32LE(rom.length,22);local.writeUInt16LE(name.length,26);
+  const central=Buffer.alloc(46);central.writeUInt32LE(0x02014b50);central.writeUInt16LE(20,4);central.writeUInt16LE(20,6);central.writeUInt16LE(8,10);central.writeUInt32LE(crc,16);central.writeUInt32LE(data.length,20);central.writeUInt32LE(rom.length,24);central.writeUInt16LE(name.length,28);
+  const end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(1,8);end.writeUInt16LE(1,10);end.writeUInt32LE(central.length+name.length,12);end.writeUInt32LE(local.length+name.length+data.length,16);
+  const zipped=Buffer.concat([local,name,data,central,name,end]),extractionUrl=new URL('/coordinator/rom-extractions',base);
+  const extract=(body=zipped,bearer=hostToken,requestOrigin=origin)=>fetch(extractionUrl,{method:'POST',headers:{Origin:requestOrigin,Authorization:`Bearer ${bearer}`,'Content-Type':'application/zip','X-Forwarded-For':'203.0.113.1, 127.0.2.1'},body});
+  if((await extract(zipped,'x'.repeat(43))).status!==403)throw Error('ZIP extraction accepted an unauthenticated session through the edge');
+  if((await extract(zipped,hostToken,'https://untrusted.example')).status!==403)throw Error('ZIP extraction accepted an untrusted origin through the edge');
+  const overLimit=await extract(Buffer.alloc(ZIP_ARCHIVE_LIMIT)),limitReply=await overLimit.text();
+  if(overLimit.status!==413||JSON.parse(limitReply).error!=='archive_size_limit')throw Error(`ZIP compressed size limit failed through the edge: HTTP ${overLimit.status}, response ${limitReply}`);
+  const extracted=await extract();
+  if(extracted.status!==200||extracted.headers.get('x-nes-name')!==encodeURIComponent('Edge game.nes')||extracted.headers.get('x-nes-sha256')!==fingerprint.romSha256||!Buffer.from(await extracted.arrayBuffer()).equals(rom))throw Error('Server ZIP extraction through the edge did not return the selected NES identity');
   const intent = randomUUID();
   const room = (await command(host, {type:'create',intent,visibility:'public',fingerprint})).room;
   const romUrl = new URL(`/coordinator/rooms/${room.id}/rom`, base);
@@ -150,4 +165,4 @@ try {
   guest.close();
 }
 
-console.log(JSON.stringify({edgeAndCoordinatorHealth:true,staticRoute:true,versionedAsset:true,originDenied:true,forgedAddressCannotSplitQuota:true,distinctTransportAddressesAdmitted:21,ipv6ForwardingAndQuota:true,hostUpload:true,progressingUploadSeconds,guestDownload:true,transferAuthorization:true}));
+console.log(JSON.stringify({edgeAndCoordinatorHealth:true,staticRoute:true,versionedAsset:true,originDenied:true,forgedAddressCannotSplitQuota:true,distinctTransportAddressesAdmitted:21,ipv6ForwardingAndQuota:true,serverZipExtraction:true,zipAuthorizationOriginAndSizeLimit:true,hostUpload:true,progressingUploadSeconds,guestDownload:true,transferAuthorization:true}));

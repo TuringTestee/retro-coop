@@ -20,3 +20,19 @@ MediaStreamTrack.prototype.addEventListener=function(kind,callback,...args){
  return trackListen.call(this,kind,callback,...args);
 };
 window.modelMicrophoneRemoval=track=>{const callbacks=endedCallbacks.get(track);if(!callbacks?.length)throw Error('No microphone removal listener installed');for(const callback of callbacks)callback.call(track,new Event('ended'));};
+
+// Observe the coordinator's setup acknowledgments; a click is not Ready acceptance.
+window.lobbyState=undefined;
+window.readyAttempts=[];
+const NativeSocket=WebSocket;
+window.WebSocket=class extends NativeSocket {
+ constructor(...args){super(...args);this.addEventListener('message',({data})=>{
+  const event=JSON.parse(data);
+  if(event.type==='room')window.lobbyState=event.room;
+  if(event.type==='result'){
+   const attempt=readyAttempts.find(value=>value.requestId===event.requestId);
+   if(attempt)attempt.result=event;
+  }
+ });}
+ send(data){const command=JSON.parse(data);if(command.type==='gameReady')readyAttempts.push({requestId:command.requestId});return super.send(data);}
+};

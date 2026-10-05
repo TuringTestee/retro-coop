@@ -247,3 +247,120 @@ test('a new controller in a restored lobby cannot bypass explicit preparation an
  t.ready(0,{frame:917,fresh:false});t.ready(2,{frame:917,fresh:false});assert.equal(t.view().game.status,'resume_ready');
  t.act(0,{type:'gameResume',epoch});assert.equal(t.view().game.status,'starting');
 });
+
+function requestLoad(t:ReturnType<typeof setup>,frame=20){
+ const epoch=t.begin();t.act(0,{type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});
+ const load=t.view().game.load!;assert.equal(load.phase,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
+ assert.equal(t.view().game.load!.phase,'consent');return {epoch,id:load.id,target:load.epoch};
+}
+function rollbackLoad(t:ReturnType<typeof setup>,transactionId:string){for(const who of [0,1])t.act(who,{type:'gameLoadRolledBack',transactionId,frame:917,hash});}
+
+test('shared Load requires controller consent and every staged/committed acknowledgment before its new epoch',()=>{
+ const t=setup(3),load=requestLoad(t);
+ assert.throws(()=>t.act(2,{type:'gameLoadDecision',transactionId:load.id,accept:true}),/controller_only/);
+ assert.throws(()=>t.act(1,{type:'gameLoadCommitted',transactionId:load.id,frame:20,hash:otherHash}),/stale_load/);
+ t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:true});assert.equal(t.view().game.load!.phase,'staging');
+ const transfer=t.captures().at(-1)!;assert.equal(transfer.purpose,'load');
+ t.act(0,{type:'gameLoadPrepared',transactionId:load.id,frame:20,hash:otherHash});
+ t.act(0,{type:'gameCaptured',epoch:load.target,transferId:transfer.transferId,frame:20,hash:otherHash});
+ t.act(1,{type:'gameCheckpointReady',epoch:load.target,transferId:transfer.transferId});
+ t.act(1,{type:'gameCheckpointAck',epoch:load.target,transferId:transfer.transferId,frame:20,hash:otherHash});assert.equal(t.view().game.load!.phase,'committing');
+ t.act(0,{type:'gameLoadCommitted',transactionId:load.id,frame:20,hash:otherHash});assert.equal(t.view().game.epoch,load.epoch);
+ t.act(1,{type:'gameLoadCommitted',transactionId:load.id,frame:20,hash:otherHash});assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.epoch,load.target);assert.equal(t.view().game.frame,20);
+ for(const who of [0,1])t.act(who,{type:'gameAck',epoch:load.target,hash:otherHash});t.advance(3000);assert.equal(t.view().game.status,'playing');
+ assert.throws(()=>t.act(0,{type:'gameAck',epoch:load.epoch,hash}),/stale_game/);
+ assert.equal(t.events[2].some(event=>event.type==='gameLoadCommit'),false,'observer incorrectly gated or imported controller commit');
+});
+
+test('decline and the actual fifteen-second consent deadline retain prior frame/hash and epoch',()=>{
+ for(const mode of ['decline','timeout']){
+  const t=setup(2),load=requestLoad(t);if(mode==='decline')t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:false});else {t.advance(14999);assert.equal(t.view().game.load!.phase,'consent');t.advance(1);}
+  assert.equal(t.view().game.load!.phase,'rolling_back');rollbackLoad(t,load.id);
+  assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.frame,917);assert.equal(t.view().game.epoch,load.epoch);assert.equal(t.view().game.status,'paused');
+  assert.throws(()=>t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:true}),/stale_load/);
+ }
+});
+
+test('a partial native Load commit rolls all controllers back and never starts the replacement',()=>{
+ const t=setup(2),load=requestLoad(t);t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:true});
+ assert.throws(()=>t.act(1,{type:'gameLoadPrepared',transactionId:load.id,frame:20,hash:otherHash}),/checkpoint_required/);
+ t.act(0,{type:'gameLoadPrepared',transactionId:load.id,frame:20,hash:otherHash});
+ const transfer=t.captures().at(-1)!;t.act(0,{type:'gameCaptured',epoch:load.target,transferId:transfer.transferId,frame:20,hash:otherHash});t.act(1,{type:'gameCheckpointReady',epoch:load.target,transferId:transfer.transferId});t.act(1,{type:'gameCheckpointAck',epoch:load.target,transferId:transfer.transferId,frame:20,hash:otherHash});
+ t.act(0,{type:'gameLoadCommitted',transactionId:load.id,frame:20,hash:otherHash});t.act(1,{type:'gameLoadFailed',transactionId:load.id});
+ assert.equal(t.view().game.load!.phase,'rolling_back');assert.equal(t.view().game.epoch,load.epoch);rollbackLoad(t,load.id);
+ assert.equal(t.view().game.frame,917);assert.equal(t.view().game.status,'paused');assert.equal(t.view().game.epoch,load.epoch);
+ assert.equal(t.events[0].some(event=>event.type==='gamePrepare'&&event.epoch===load.target),false);
+});
+
+test('only host proposes Load; concurrency, roles and stale metadata cannot change its prior timeline',()=>{
+ const t=setup(2),load=requestLoad(t),proposal={type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000};
+ assert.throws(()=>t.act(1,proposal),/host_only/);assert.throws(()=>t.act(0,proposal),/timeline_change_pending/);
+ assert.throws(()=>t.role('slot-2','observer'),/timeline_change_pending/);
+ assert.throws(()=>t.act(0,{type:'gameLoadCancel',transactionId:'x'.repeat(22)}),/stale_load/);
+ t.act(0,{type:'gameLoadCancel',transactionId:load.id});rollbackLoad(t,load.id);assert.equal(t.view().game.frame,917);
+ assert.throws(()=>t.act(0,{...proposal,roomRevision:999}),/room_changed/);
+});
+
+test('Load can initialize an unused solo lobby with validated saved progress and a fresh epoch',()=>{
+ const t=setup(1);t.load(0);t.act(0,{type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});const load=t.view().game.load!;
+ t.act(0,{type:'gameLoadBoundary',transactionId:load.id,frame:0,hash});assert.equal(t.view().game.load!.phase,'staging');
+ t.act(0,{type:'gameLoadPrepared',transactionId:load.id,frame:20,hash:otherHash});t.act(0,{type:'gameLoadCommitted',transactionId:load.id,frame:20,hash:otherHash});assert.equal(t.view().started,'shared');assert.equal(t.view().game.epoch,load.epoch);
+ t.act(0,{type:'gameAck',epoch:load.epoch,hash:otherHash});t.advance(3000);assert.equal(t.view().game.status,'playing');assert.equal(t.view().game.frame,20);
+});
+
+test('Load transfer failure and native preparation deadline preserve exact prior progress',()=>{
+ for(const failure of ['transfer','deadline']){
+  const t=setup(2),load=requestLoad(t);t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:true});
+  if(failure==='transfer'){const transfer=t.captures().at(-1)!;t.act(1,{type:'gameCheckpointFailed',epoch:load.target,transferId:transfer.transferId});}else t.advance(30000);
+  assert.equal(t.view().game.load!.phase,'rolling_back');rollbackLoad(t,load.id);assert.equal(t.view().game.frame,917);assert.equal(t.view().game.epoch,load.epoch);assert.equal(t.view().game.status,'paused');
+ }
+});
+
+test('reconnected host receives pending rollback again and cannot resume a partially replaced timeline',()=>{
+ const t=setup(2),load=requestLoad(t);t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:true});
+ t.rooms.detach(t.sessions[0].token,t.senders[0]);const guestView=t.events[1].filter(e=>e.type==='room').at(-1)!;assert.equal(guestView.type==='room'&&guestView.room.game.load!.phase,'rolling_back');
+ t.act(1,{type:'gameLoadRolledBack',transactionId:load.id,frame:917,hash});const previous=t.events[0].filter(e=>e.type==='gameLoadRollback').length;
+ t.rooms.attach(t.sessions[0].token,t.senders[0],()=>{});t.act(0,{type:'heartbeat'});assert.equal(t.events[0].filter(e=>e.type==='gameLoadRollback').length,previous+1);
+ t.act(0,{type:'gameLoadRolledBack',transactionId:load.id,frame:917,hash});assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.frame,917);assert.equal(t.view().game.epoch,load.epoch);assert.equal(t.view().game.status,'paused');
+});
+
+test('ROM selection and manual Load cannot overlap in an unused lobby',()=>{
+ const t=setup(1);t.load(0);const selection={type:'beginGameSelection',roomId:t.view().id,intent:randomUUID(),expectedRevision:t.view().revision,fingerprint:{...fingerprint,romSha256:otherHash},title:'Another game'},proposal={type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000};
+ t.act(0,selection);assert.throws(()=>t.act(0,proposal),/game_selection_pending/);t.act(0,{type:'cancelGameSelection',roomId:t.view().id,intent:selection.intent});
+ t.act(0,proposal);assert.throws(()=>t.act(0,{...selection,intent:randomUUID()}),/timeline_change_pending/);assert.equal(t.view().fingerprint!.romSha256,fingerprint.romSha256);assert.equal(t.view().game.load!.phase,'freezing');
+});
+
+test('Load supersedes observer catch-up without letting stale completion gate or commit the new timeline',()=>{
+ const t=setup(3),epoch=t.begin();t.act(2,{type:'gameObserve',revision:t.view().game.controllers.revision});
+ const transfer=t.captures().at(-1)!;t.authorize(transfer,917);
+ const proposal={type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000};
+ assert.throws(()=>t.act(2,proposal),/host_only/);
+ assert.equal(t.events[2].some(event=>event.type==='gameSyncStop'&&event.transferId===transfer.transferId),false,'invalid Load cancelled the observer');
+ t.act(0,proposal);const load=t.view().game.load!;
+ assert.ok(load);assert.deepEqual(load.required,[t.members[0],t.members[1]]);
+ assert.ok(t.events[2].some(event=>event.type==='gameSyncStop'&&event.transferId===transfer.transferId));
+ assert.throws(()=>t.act(2,{type:'gameCheckpointAck',epoch,transferId:transfer.transferId,frame:917,hash}),/timeline_change_pending/);
+ assert.throws(()=>t.act(2,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:917}),/timeline_change_pending/);
+ assert.equal(t.view().game.load!.phase,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
+ t.act(1,{type:'gameLoadDecision',transactionId:load.id,accept:false});rollbackLoad(t,load.id);
+ assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.status,'paused');
+ t.ready(0,{frame:917,fresh:false});t.ready(1,{frame:917,fresh:false});t.act(0,{type:'gameResume',epoch});
+ const resumed=t.view().game.epoch!;for(const who of [0,1])t.act(who,{type:'gameAck',epoch:resumed,hash});t.advance(3000);
+ assert.equal(t.view().game.status,'playing');assert.notEqual(resumed,epoch);
+ t.act(2,{type:'gameObserve',revision:t.view().game.controllers.revision});assert.notEqual(t.captures().at(-1)!.transferId,transfer.transferId);
+});
+
+test('observer failure preserves Load consent while controller failure still rolls it back',()=>{
+ const t=setup(3),epoch=t.begin();
+ t.act(0,{type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});
+ const load=t.view().game.load!;
+ t.act(2,{type:'gameAbort',epoch,reason:'network'});assert.equal(t.view().game.load!.phase,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
+ assert.equal(t.view().game.load!.phase,'consent');t.act(2,{type:'gameAbort',epoch,reason:'network'});assert.equal(t.view().game.load!.phase,'consent');
+ t.act(1,{type:'gameAbort',epoch,reason:'network'});assert.equal(t.view().game.load!.phase,'rolling_back');rollbackLoad(t,load.id);
+ assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.status,'paused');
+});

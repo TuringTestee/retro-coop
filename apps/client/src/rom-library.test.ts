@@ -116,3 +116,15 @@ test('queued automatic capture stops at revoked owner and unchanged progress is 
   try{const first=owner.capture();while(!release)await new Promise(resolve=>setImmediate(resolve));const queued=owner.capture();if(revoke==='stop')owner.stop();if(revoke==='membership')current=false;release();await Promise.all([first,queued]);const record=(await readRecovery()).record;assert.equal(exports,revoke==='unchanged'?2:1);assert.equal(record?.captures.length,revoke==='unchanged'?1:undefined);}finally{owner.stop();}
  }
 });
+
+test('manual save capture binds storage generation, prior slot and selection without overwriting newer progress',async()=>{
+ const {readSave,putSave,sameRecord}=await import('./saves.ts');await reset();const identity='a'.repeat(64),before=await readSave(identity,1);
+ const first={identity,slot:1,savedAt:10,bytes:Uint8Array.of(1,2,3).buffer,frame:20,hash:'b'.repeat(64)};
+ await putSave(first,before.record,before.generation);const stored=await readSave(identity,1);assert.equal(stored.record!.frame,20);
+ assert.equal(sameRecord({...first,frame:21},first),false,'timeline metadata replacement was not detected');
+ await assert.rejects(putSave({...first,savedAt:11},stored.record,stored.generation,()=>false),/game changed/);assert.equal((await readSave(identity,1)).record!.savedAt,10);
+ const newer={...first,savedAt:12,frame:40};await putSave(newer,stored.record,stored.generation);
+ await assert.rejects(putSave({...first,savedAt:13},stored.record,stored.generation),/changed in another tab/);assert.equal((await readSave(identity,1)).record!.frame,40);
+ const cleared=await readSave(identity,1);await clearLocalData(cleared.generation);await assert.rejects(putSave(first,undefined,cleared.generation),/cleared/);assert.equal((await readSave(identity,1)).record,undefined);
+ const fresh=await readSave(identity,1),legacy={identity,slot:1,savedAt:14,bytes:first.bytes};await putSave(legacy,fresh.record,fresh.generation);assert.equal((await readSave(identity,1)).record!.frame,undefined,'legacy save was assigned an invented frame');
+});

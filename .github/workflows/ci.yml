@@ -31,7 +31,7 @@ jobs:
           else
             python3 spikes/d02/ci_budget.py watch \
               --gate entrypoint-journey --gate entrypoint-controls \
-              --gate entrypoint-ui --gate entrypoint-layout --gate entrypoint-recovery --gate images
+              --gate entrypoint-ui --gate entrypoint-layout --gate entrypoint-recovery --gate entrypoint-save-load --gate images
           fi
   build:
     runs-on: ubuntu-latest
@@ -72,6 +72,15 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         timeout-minutes: 1
         with:
+          name: fceumm-build
+          path: |
+            apps/client/src/generated/fceumm.*
+            apps/client/public/generated/fceumm-*.txt
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        timeout-minutes: 1
+        with:
           name: foundation-client
           path: apps/client/dist
           if-no-files-found: error
@@ -84,7 +93,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [journey, controls, ui, layout, recovery]
+        suite: [journey, controls, ui, layout, recovery, save-load]
     env:
       D02_DEADLINE: ${{ needs.build.outputs.deadline }}
     steps:
@@ -98,6 +107,11 @@ jobs:
         with:
           name: d02-build
           path: spikes/d02
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: fceumm-build
+          path: apps/client
       - name: Install pinned Node within the shared deadline
         timeout-minutes: 1
         run: python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 spikes/d02/ci_node.py --deadline "$D02_DEADLINE"
@@ -133,6 +147,11 @@ jobs:
         with:
           name: d02-build
           path: spikes/d02
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        timeout-minutes: 1
+        with:
+          name: fceumm-build
+          path: apps/client
       - name: Build and probe the EB source package within the shared deadline
         run: |
           python3 spikes/d02/ci_budget.py run --deadline "$D02_DEADLINE" -- python3 scripts/aws_eb/source_smoke.py

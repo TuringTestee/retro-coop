@@ -12,7 +12,7 @@ COPY scripts/foundation scripts/foundation
 RUN npm ci
 COPY deploy/aws-eb/core.wasm \
     /app/spikes/d02/target/wasm32-unknown-unknown/release/retro_coop_d02.wasm
-RUN RETRO_COOP_PREBUILT_CORE=1 sh scripts/foundation/prepare.sh
+RUN RETRO_COOP_PREBUILT_CORE=1 RETRO_COOP_PREBUILT_FCEUMM=1 sh scripts/foundation/prepare.sh
 ENV PUBLIC_COORDINATOR_URL=/coordinator
 ENV PUBLIC_CATALOG_GAMES=super-tilt-bro-pal,from-below-1.0
 RUN npm run build:staging

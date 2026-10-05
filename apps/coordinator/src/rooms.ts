@@ -193,6 +193,11 @@ export class Rooms {
  private close(room:Room,reason:string){this.transfer?.discard(room.id);room.game.stop('The room closed. Your local game is preserved.');this.peers.clearRoom(room.id);this.rooms.delete(room.id);this.verifiers.delete(room.id);this.invites.delete(room.invite);if(room.code)this.codes.delete(room.code);for(const member of this.members(room)){member.session.room=undefined;member.session.send?.({type:'ended',reason});}this.publishDirectory();}
  private room(session:Session) { const room = session.room && this.rooms.get(session.room); if(!room) throw new RoomError('not_in_room'); return room; }
  private hosted(session:Session,expectedRoom?:string) { const room = this.room(session); if(room.host !== session) throw new RoomError('host_only'); if(expectedRoom!==undefined && room.id!==expectedRoom) throw new RoomError('room_changed'); return room; }
+ beginExtraction(token:string) {
+  this.sweep();const session=this.session(token),sender=session.send;
+  if(!sender)throw new RoomError('session_expired');this.rate(session,'extraction',5,60_000);
+  return ()=>{if(this.session(token)!==session||session.send!==sender)throw new RoomError('session_expired');session.touched=session.heartbeat=this.now();};
+ }
  beginUpload(token:string,roomId:string,intent:string,bytes:number) {
   this.sweep();const session=this.session(token),room=this.hosted(session,roomId),now=this.now();
   const selection=room.confirmed&&room.pendingGame?.intent===intent?room.pendingGame:undefined;
@@ -240,13 +245,14 @@ export class Rooms {
   }
   if(command.type.startsWith('game')){
    const room=this.room(session),member=this.member(room,session);this.rate(session,'game',ROOM_GAME_BURST,10_000);
-   try{const slot=room.slots.find(slot=>slot.member===member)!;
+   try{if(command.type==='gameLoadPropose'&&room.pendingGame)throw Error('game_selection_pending');const slot=room.slots.find(slot=>slot.member===member)!;
     if(command.type==='gameRoleRetry'){
      const pending=room.game.view().pending;
      const proposed=this.slotViews(room).map(value=>({...value,role:pending?.roles.find(role=>role.slotId===value.id)?.role??value.role}));
      room.game.retryRoles(member.id,command.transactionId,room.revision,{owners:controllerOwners(proposed),revision:room.controllers.revision+1});
     }else if(command.type==='gameReady'&&room.started&&room.game.view().epoch&&slot.role!=='observer'&&!room.controllers.owners.includes(member.id)){const pending:RoleTransaction={id:secret(),revision:room.revision,roles:[{slotId:slot.id,role:slot.role}],status:'freezing'};room.game.requestRoles(pending,this.assigned(room));}else room.game.handle(member.id,command as GameCommand);
    }catch(error){throw new RoomError(error instanceof Error?error.message:'game_failed');}
+   if(command.type==='gameLoadCommitted'&&room.game.view().status==='starting'){room.started='shared';room.established=true;room.hostReady=true;}
    if(command.type==='gameRestore'){room.started='shared';room.established=true;room.hostReady=true;}
    if(room.game.view().status==='playing'){room.established=true;for(const member of this.members(room))if(member.acquisition==='loaded')member.reservationUntil=undefined;}
    this.publish(room);return {room:this.view(room,session)};
@@ -285,6 +291,7 @@ export class Rooms {
    }
    case 'beginGameSelection': {
     const room=this.hosted(session,command.roomId);
+    if(room.game.view().load||room.game.view().pending)throw new RoomError('timeline_change_pending');
     if(!room.confirmed||room.started||room.established)throw new RoomError('game_already_started');
     if(command.expectedRevision!==room.revision)throw new RoomError('room_changed');
     const included=catalogId(command.fingerprint);

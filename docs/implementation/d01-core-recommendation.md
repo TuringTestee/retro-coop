@@ -8,7 +8,7 @@ Recommend the pinned TetaNES core for the bounded feasibility experiment. It off
 
 This completes the inventory portion of [D01 / issue #5](https://github.com/TuringTestee/retro-coop/issues/5), under [epic #2](https://github.com/TuringTestee/retro-coop/issues/2), approved planning merge `ecf6bd4c7443526f0a163b721a351c854ee90fd4`. The [governing design](../design/browser-nes-platform.md), [technical plan](browser-nes-platform.md), and [UI stories](../design/browser-nes-ui.md) retain authority. Historical “awaiting approval” text in the merged planning snapshot describes that snapshot, not live dispatch status.
 
-Inspection date: 2026-09-13. [inventory.json](d01/inventory.json) records full commit pins, inspected-file SHA-256 values, all selected mapper dispatch entries, regions, fixture provenance, and separate local/netplay statuses. It is developer evidence, not a runtime admission list or public ROM directory. No third-party source, ROM, assembler, or artwork is copied into this PR.
+Inspection date: 2026-09-13. [inventory.json](https://github.com/TuringTestee/retro-coop/blob/882be13f1e8ad7128439922505146fe651d36713/docs/implementation/d01/inventory.json) records full commit pins, inspected-file SHA-256 values, all selected mapper dispatch entries, regions, fixture provenance, and separate local/netplay statuses. It is developer evidence, not a runtime admission list or public ROM directory. No third-party source, ROM, assembler, or artwork is copied into this PR.
 
 | Candidate and immutable source | Source evidence | Tradeoff and decision |
 |---|---|---|

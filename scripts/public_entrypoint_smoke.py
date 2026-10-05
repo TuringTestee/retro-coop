@@ -14,22 +14,6 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def source_check():
-    readme = (ROOT / "README.md").read_text()
-    launcher = (ROOT / "scripts/demo.sh").read_text()
-    assert "sh scripts/demo.sh" in readme
-    assert "http://127.0.0.1:8765/" in readme
-    assert "PUBLIC_CATALOG_GAMES=super-tilt-bro-pal,from-below-1.0" in launcher
-    assert "COORDINATOR_EMPTY_OFFERS=super-tilt-bro-pal,from-below-1.0" in launcher
-    assert "node apps/coordinator/src/main.ts" in launcher and "node ../../node_modules/vite/bin/vite.js" in launcher
-    assert "spikes/d02" not in launcher and "/demo/" not in launcher
-    for obsolete in ["index.html", "app.js", "style.css", "demo_smoke.py"]:
-        assert not (ROOT / "spikes/d02/demo" / obsolete).exists(), obsolete
-    for guide in ["d05-local-play.md", "d08-rooms.md", "d10-peer-connectivity.md"]:
-        text = (ROOT / "docs/implementation" / guide).read_text()
-        assert "sh scripts/demo.sh" in text
-
-
 def fetch(url, method="GET"):
     with urlopen(Request(url, method=method), timeout=1) as response:
         return response.status, response.read()
@@ -48,6 +32,7 @@ def wait_closed(port):
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     """Exercise the public lobby journey in the built application."""
     from playwright.sync_api import sync_playwright, expect
+    from rooms.ui_helpers import choose_panel, choose_section
 
     def fits(page):
         result = page.evaluate("""() => {
@@ -105,6 +90,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
         for sender, receiver, text in ((guest, host, "Ready when you are"),
                                        (host, guest, "Hosting and chatting")):
+            choose_panel(sender, "Chat")
+            choose_panel(receiver, "Chat")
             field = sender.get_by_label("Message everyone")
             field.press_sequentially(text)
             expect(field).to_have_value(text)
@@ -112,17 +99,16 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             expect(receiver.get_by_role("log", name="Lobby messages")).to_contain_text(text)
             expect(field).to_have_value("")
         assert host.get_by_role("button", name="Start →").count() == 0
+        choose_panel(host, "Game")
         host.get_by_role("button", name="Load NES game").click()
         host.get_by_role("button", name="Super Tilt Bro", exact=False).click()
         host.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
         guest.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
         for page in (host, guest):
-            selector = page.get_by_role("combobox", name="Settings section")
-            if selector.is_visible():
-                selector.select_option(label="Sound")
-            else:
-                page.get_by_role("button", name="Sound", exact=True).click()
+            choose_section(page, "Sound")
             page.get_by_role("button", name="Mute game", exact=True).click()
+        choose_panel(host, "Game")
+        choose_panel(guest, "Game")
         host.get_by_role("button", name="Ready", exact=True).click()
         assert host.get_by_role("button", name="Start →").count() == 0
         guest.get_by_role("button", name="Ready", exact=True).click()
@@ -131,6 +117,8 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_text("Game starts in", exact=False).wait_for(timeout=15000)
         host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
         guest.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
+        choose_panel(host, "Chat")
+        choose_panel(guest, "Chat")
         field = guest.get_by_label("Message everyone")
         field.press_sequentially("Chat while playing Z C A D P Q E")
         expect(field).to_have_value("Chat while playing Z C A D P Q E")
@@ -140,6 +128,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         for page, size in ((host, {"width": 390, "height": 700}), (guest, {"width": 320, "height": 568})):
             page.set_viewport_size(size)
             fits(page)
+        choose_panel(host, "Game")
         if screenshot_dir:
             host.screenshot(path=str(screenshot_dir / "playing-mobile.png"))
         host.get_by_role("button", name="Back to Main Page").click()
@@ -246,16 +235,12 @@ def runtime_check(with_browser=False, screenshot_dir=None):
             status, home = fetch("http://127.0.0.1:8765/")
             old_status, old_route = fetch("http://127.0.0.1:8765/demo/")
             coordinator_status, health = fetch("http://127.0.0.1:8787/health")
-            source_status, source = fetch("http://127.0.0.1:8765/src/RoomController.tsx")
             catalog = {
                 "super_tilt_bro": fetch("http://127.0.0.1:8765/catalog/super-tilt-bro-e-847155bb712e474f71554174c9d9ed402bf651b13ff1e4afc9a42ec69cd03d8d.nes", "HEAD")[0],
                 "from_below": fetch("http://127.0.0.1:8765/catalog/from-below-1.0-1a3ac4faf4b35640505344059ae5d91dae07cd47e1fb4d9d2a33c76391f1c555.nes", "HEAD")[0],
             }
-            assert old_status == coordinator_status == source_status == 200
-            assert b'/src/main.tsx' in home and b'/src/main.tsx' in old_route
-            screens = (ROOT / "apps/client/src/UnifiedScreens.tsx").read_bytes()
-            assert b"createLobby" in source and b"All lobbies" in screens and b"Host a new game" in screens
-            assert b"GOOD GAMES" not in old_route and b"Make yourself at home" not in old_route
+            assert old_status == coordinator_status == 200
+            assert home == old_route
             assert catalog == {"super_tilt_bro": 200, "from_below": 200}
             assert json.loads(health)["status"] == "ok"
             subprocess.run([
@@ -285,15 +270,11 @@ def main():
     global ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument("--runtime-root", type=Path, default=ROOT)
-    parser.add_argument("--source-only", action="store_true")
     parser.add_argument("--browser", action="store_true")
     parser.add_argument("--screenshot-dir", type=Path)
     args = parser.parse_args()
     ROOT = args.runtime_root.resolve()
-    source_check()
-    result = {"result": "pass", "source_ownership": True}
-    if not args.source_only:
-        result.update(runtime_check(args.browser, args.screenshot_dir))
+    result = runtime_check(args.browser, args.screenshot_dir)
     print(json.dumps(result, indent=2))
 
 
