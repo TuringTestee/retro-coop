@@ -99,3 +99,13 @@ test('a retained selection retry reports waiting until its actual reply',async()
  finally{release(t.act({type:'confirmGameSelection',...t.selection}));await pending;}
  assert.equal((await pending).ok,true);assert.equal(t.states.at(-1)?.selectionFinishing,false);
 });
+
+
+test('a second selection uses the current confirmation phase without issuing another command',async()=>{
+ const t=prepared(),file=new File([], 'another.nes');
+ Object.assign(t.client,{state:{selectionFinishing:true}});
+ assert.match((await t.client.selectLobbyGame(file,fingerprint,'Another',()=>true)).message!,/Finishing game selection/);
+ Object.assign(t.client,{state:{selectionFinishing:false}});
+ assert.match((await t.client.selectLobbyGame(file,fingerprint,'Another',()=>true)).message!,/Retry selection/);
+ assert.equal(t.commands.length,0);
+});

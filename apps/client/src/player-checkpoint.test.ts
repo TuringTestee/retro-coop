@@ -130,7 +130,7 @@ for(const outcome of ['success','failure'] as const){
    confirmSelection:()=>new Promise((done,fail)=>{resolve=done;reject=fail;}),publish:(value:unknown)=>published.push(value),apply:(value:unknown)=>applied.push(value),failure:(value:unknown)=>failed.push(value)}) as RoomClient;
   const pending=client.reconcileGameSelection();Object.assign(client,{confirmingSelection:next,gameSelection:next.intent});
   if(outcome==='success')resolve({room:{id:old.roomId}});else reject(Error('Old confirmation failed.'));
-  await pending;assert.deepEqual(applied,[]);assert.deepEqual(failed,[]);assert.deepEqual(published,[{selectionFinishing:true}]);
+  await pending;assert.deepEqual(applied,[]);assert.deepEqual(failed,[]);assert.deepEqual(published,[{selectionFinishing:true,status:'Finishing game selection…'}]);
   assert.equal((client as unknown as {confirmingSelection:unknown}).confirmingSelection,next);
  });
 }

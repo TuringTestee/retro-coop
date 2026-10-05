@@ -219,7 +219,7 @@ export class RoomClient {
   catch(error){if(generation===this.creationGeneration)this.failure(error);return {ok:false,message:error instanceof Error?error.message:'Could not create the lobby. Retry.'};}
  }
  async selectLobbyGame(file:File,fingerprint:Fingerprint,title:string,current:()=>boolean){
-  if(this.confirmingSelection)return {ok:false,uncertain:true,message:selectionConfirmationMessage};
+  if(this.confirmingSelection)return {ok:false,uncertain:true,message:this.state.selectionFinishing?selectionPendingMessage:selectionConfirmationMessage};
   const room=this.state.room;if(room?.role!=='host'||room.started||room.established||!current())return {ok:false,message:'The lobby or selected game changed. Choose the game again.'};
   const intent=crypto.randomUUID();this.gameSelection=intent;this.uploadAbort?.abort();const controller=new AbortController();this.uploadAbort=controller;
   this.publish({busy:true,uploading:false,status:'Preparing NES game…'});
