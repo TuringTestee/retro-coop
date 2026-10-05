@@ -88,7 +88,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
 
  useImperativeHandle(ref,()=>({
   prepareFile(file,signal){return client.current?.prepareFile(file,signal)??Promise.reject(Error('The game service is unavailable. Retry.'));},
-  async reconcileSelection(){const result=await client.current?.reconcileGameSelection();if(result)player()?.finishSelection(result);},
+  async reconcileSelection(){const complete=player()?.selectionCompletion();const result=await client.current?.reconcileGameSelection();if(result)complete?.(result);},
   loadSaved(record,current){return client.current?.loadSaved(record,current)??Promise.reject(Error('Lobby unavailable.'));},decideLoad(accept){return client.current?.decideLoad(accept)??Promise.reject(Error('Lobby unavailable.'));},cancelLoad(){return client.current?.cancelLoad()??Promise.reject(Error('Lobby unavailable.'));},
   currentMembership(roomId,membership,unusedHost){return client.current?.currentMembership(roomId,membership,unusedHost)??false;},restoreGame(frame,hash,current){return client.current?.restoreGame(frame,hash,current)??Promise.reject(Error('Lobby unavailable.'));},voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
   cancelSelection(){cancelIncluded();client.current?.cancelGameSelection();onGameProgress('');},cancelCreation(){client.current?.cancelCreation();},

@@ -193,9 +193,8 @@ export class RoomClient {
  async reconcileGameSelection(){
   const selection=this.confirmingSelection;if(!selection)return {ok:false,message:'No game selection needs confirmation.'};
   this.publish({selectionFinishing:true});
-  try{const data=await this.confirmSelection(selection);this.apply(data);this.confirmingSelection=undefined;this.gameSelection=undefined;this.publish({selectionFinishing:false,status:'NES game loaded. Players can get ready.'});return {ok:true};}
-  catch(error){const uncertain=(error as Error & {code?:string}).code==='game_selection_unknown';if(this.confirmingSelection===selection){if(!uncertain){this.confirmingSelection=undefined;this.gameSelection=undefined;}this.failure(error);}return {ok:false,uncertain,message:error instanceof Error?error.message:'Could not confirm the game selection.'};}
-  finally{this.publish({selectionFinishing:false});}
+  try{const data=await this.confirmSelection(selection);if(this.confirmingSelection!==selection)return {ok:false,message:'Game selection ended when leaving the lobby.'};this.apply(data);this.confirmingSelection=undefined;this.gameSelection=undefined;this.publish({selectionFinishing:false,status:'NES game loaded. Players can get ready.'});return {ok:true};}
+  catch(error){const uncertain=(error as Error & {code?:string}).code==='game_selection_unknown';if(this.confirmingSelection===selection){this.publish({selectionFinishing:false});if(!uncertain){this.confirmingSelection=undefined;this.gameSelection=undefined;}this.failure(error);}return {ok:false,uncertain,message:error instanceof Error?error.message:'Could not confirm the game selection.'};}
  }
 
  async prepareFile(file:File,signal:AbortSignal){if(!/\.zip$/i.test(file.name))return file;await this.connect();signal.throwIfAborted();if(!this.token)throw Error('Reconnect to extract this ZIP.');return extractZipFile(clientConfig.coordinatorUrl,this.token,file,signal);}

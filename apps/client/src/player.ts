@@ -14,6 +14,7 @@ const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the k
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
 export type GameSelectionResult={ok:boolean;uncertain?:boolean;message?:string};
+type PreparedSelection={current:()=>boolean;commit:()=>void;fail:(message:string)=>void};
 export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionPhase?:'loading'|'uncertain'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
@@ -173,8 +174,9 @@ export class LocalPlayer {
  private selectionLock=false;
  selectionLocked(){return this.selectionLock;}
  setSelectionFinishing(){if(this.preparedSelection)this.selectionLock=true;}
- private preparedSelection?:{current:()=>boolean;commit:()=>void;fail:(message:string)=>void};
- finishSelection(result:GameSelectionResult){const prepared=this.preparedSelection;if(!prepared)return;if(!prepared.current()){this.abandonCandidate();this.publish({loading:false,selectionPhase:'cancelled'});return;}if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
+ private preparedSelection?:PreparedSelection;
+ selectionCompletion(){const prepared=this.preparedSelection;return (result:GameSelectionResult)=>this.finishSelection(result,prepared);}
+ private finishSelection(result:GameSelectionResult,prepared:PreparedSelection|undefined){if(!prepared||prepared!==this.preparedSelection)return;if(!prepared.current()){this.abandonCandidate();this.publish({loading:false,selectionPhase:'cancelled'});return;}if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
@@ -430,8 +432,8 @@ export class LocalPlayer {
      if(!startPaused)this.canvas.focus();
      };
      if(prepare){
-      this.preparedSelection={current:isCurrent,commit,fail};
-      try{this.finishSelection(await prepare(fingerprint,isCurrent));}catch(error){if(isCurrent())this.finishSelection({ok:false,message:error instanceof Error?error.message:'Could not prepare the lobby game.'});}
+      const prepared={current:isCurrent,commit,fail};this.preparedSelection=prepared;
+      try{this.finishSelection(await prepare(fingerprint,isCurrent),prepared);}catch(error){this.finishSelection({ok:false,message:error instanceof Error?error.message:'Could not prepare the lobby game.'},prepared);}
      }else commit();
      return;
     }

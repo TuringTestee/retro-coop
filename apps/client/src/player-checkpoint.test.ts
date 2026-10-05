@@ -2,6 +2,7 @@ import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {setImmediate} from 'node:timers/promises';
 import {LocalPlayer} from './player.ts';
+import {RoomClient} from './room-client.ts';
 
 test('late committed checkpoint response cannot publish or release inputs owned by a newer attempt',async()=>{
  const pending:Array<{operationId:string;resolve:(reply:unknown)=>void}>=[],published:unknown[]=[];let flushed=0,released=0;
@@ -58,7 +59,15 @@ async function preparedReplacement(context:TestContext){
  const reachedGate=new Promise<void>(done=>reached=done),gate=new Promise<{ok:boolean;uncertain?:boolean;message?:string}>(done=>resolve=done);
  await player.load(new File([rom],'replacement.nes'),undefined,true,()=>current,async()=>{reached();return gate;},()=>remembered++);
  const handled=candidate!.onmessage!({data:{type:'ready',coreSha256:'a'.repeat(64),fps:60,battery:false}});await reachedGate;
- return {player,old,fingerprint,resolve,handled,get state(){return (player as unknown as {state:{fingerprint:unknown;previewImage?:string;loaded:boolean;loading:boolean;selectionPhase:string}}).state;},get active(){return (player as unknown as {active:unknown}).active;},get oldStopped(){return oldStopped;},get candidateStopped(){return candidateStopped;},get remembered(){return remembered;},replaceContext(){current=false;}};
+ async function next(){
+  let resolveNext!:(result:{ok:boolean;uncertain?:boolean;message?:string})=>void,reachedNext!:()=>void;
+  const nextGate=new Promise<{ok:boolean;uncertain?:boolean;message?:string}>(done=>resolveNext=done);
+  const nextReached=new Promise<void>(done=>reachedNext=done);
+  await player.load(new File([rom],'next.nes'),undefined,true,()=>true,async()=>{reachedNext();return nextGate;},()=>remembered++);
+  const handledNext=candidate!.onmessage!({data:{type:'ready',coreSha256:'b'.repeat(64),fps:60,battery:false}});await nextReached;
+  return {resolve:resolveNext,handled:handledNext,worker:candidate!};
+ }
+ return {player,old,fingerprint,resolve,handled,next,get state(){return (player as unknown as {state:{fingerprint:unknown;previewImage?:string;loaded:boolean;loading:boolean;selectionPhase:string}}).state;},get active(){return (player as unknown as {active:unknown}).active;},get oldStopped(){return oldStopped;},get candidateStopped(){return candidateStopped;},get remembered(){return remembered;},replaceContext(){current=false;}};
 }
 
 test('failed lobby upload retains the previous worker, fingerprint and preview without remembering the candidate',async context=>{
@@ -77,7 +86,7 @@ test('uncertain confirmation preserves both workers, blocks Cancel and installs 
  t.resolve({ok:false,uncertain:true,message:'Unknown confirmation.'});await t.handled;
  assert.equal(t.state.selectionPhase,'uncertain');assert.equal(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.remembered,0);
  t.player.cancel();assert.equal(t.candidateStopped,0);
- t.player.finishSelection({ok:true});assert.notEqual(t.active,t.old);assert.equal(t.oldStopped,1);assert.equal(t.state.loaded,true);assert.equal(t.state.loading,false);assert.equal(t.remembered,1);assert.equal(t.player.selectionLocked(),false);
+ t.player.selectionCompletion()({ok:true});assert.notEqual(t.active,t.old);assert.equal(t.oldStopped,1);assert.equal(t.state.loaded,true);assert.equal(t.state.loading,false);assert.equal(t.remembered,1);assert.equal(t.player.selectionLocked(),false);
  // Recovery selects an already initialized worker, so its confirmation cannot lock a later fallback load.
  t.player.setSelectionFinishing();assert.equal(t.player.selectionLocked(),false);
 });
@@ -96,3 +105,32 @@ test('successful departure abandons a confirming candidate before battery persis
  t.resolve({ok:true});await t.handled;assert.equal(t.remembered,0);
  persisted();await quitting;assert.equal(t.oldStopped,1);
 });
+
+for(const result of [{ok:true},{ok:false,message:'Old upload failed.'},{ok:false,uncertain:true,message:'Old upload uncertain.'}]){
+ test(`cancelled selection cannot finish its replacement with ${JSON.stringify(result)}`,async context=>{
+  const t=await preparedReplacement(context),lateReconciliation=t.player.selectionCompletion();t.player.cancel();const next=await t.next();t.player.setSelectionFinishing();
+  lateReconciliation(result);
+  t.resolve(result);await t.handled;
+  assert.equal(t.candidateStopped,1,'old completion terminated the newer worker');
+  assert.equal(t.player.selectionLocked(),true,'old completion changed the current confirmation lock');
+  assert.equal(t.state.selectionPhase,'loading');assert.equal(t.active,t.old);
+  next.resolve({ok:true});await next.handled;
+  assert.equal(t.active,next.worker);assert.equal(t.oldStopped,1);assert.equal(t.remembered,1);
+  assert.equal((t.state.fingerprint as {coreSha256:string}).coreSha256,'b'.repeat(64));
+  assert.equal(t.state.selectionPhase,'loaded');assert.equal(t.player.selectionLocked(),false);
+ });
+}
+
+for(const outcome of ['success','failure'] as const){
+ test(`old selection reconciliation ${outcome} cannot publish into a replacement context`,async()=>{
+  let resolve!:(value:unknown)=>void,reject!:(error:Error)=>void;
+  const old={roomId:'old-room',intent:'old-intent',expectedRevision:1},next={roomId:'new-room',intent:'new-intent',expectedRevision:2};
+  const published:unknown[]=[],applied:unknown[]=[],failed:unknown[]=[];
+  const client=Object.assign(Object.create(RoomClient.prototype),{confirmingSelection:old,gameSelection:old.intent,
+   confirmSelection:()=>new Promise((done,fail)=>{resolve=done;reject=fail;}),publish:(value:unknown)=>published.push(value),apply:(value:unknown)=>applied.push(value),failure:(value:unknown)=>failed.push(value)}) as RoomClient;
+  const pending=client.reconcileGameSelection();Object.assign(client,{confirmingSelection:next,gameSelection:next.intent});
+  if(outcome==='success')resolve({room:{id:old.roomId}});else reject(Error('Old confirmation failed.'));
+  await pending;assert.deepEqual(applied,[]);assert.deepEqual(failed,[]);assert.deepEqual(published,[{selectionFinishing:true}]);
+  assert.equal((client as unknown as {confirmingSelection:unknown}).confirmingSelection,next);
+ });
+}
