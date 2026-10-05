@@ -353,3 +353,14 @@ test('Load supersedes observer catch-up without letting stale completion gate or
  assert.equal(t.view().game.status,'playing');assert.notEqual(resumed,epoch);
  t.act(2,{type:'gameObserve',revision:t.view().game.controllers.revision});assert.notEqual(t.captures().at(-1)!.transferId,transfer.transferId);
 });
+
+test('observer failure preserves Load consent while controller failure still rolls it back',()=>{
+ const t=setup(3),epoch=t.begin();
+ t.act(0,{type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});
+ const load=t.view().game.load!;
+ t.act(2,{type:'gameAbort',epoch,reason:'network'});assert.equal(t.view().game.load!.phase,'freezing');
+ t.act(0,{type:'gameFrozen',epoch,frame:917,hash});for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
+ assert.equal(t.view().game.load!.phase,'consent');t.act(2,{type:'gameAbort',epoch,reason:'network'});assert.equal(t.view().game.load!.phase,'consent');
+ t.act(1,{type:'gameAbort',epoch,reason:'network'});assert.equal(t.view().game.load!.phase,'rolling_back');rollbackLoad(t,load.id);
+ assert.equal(t.view().game.load,undefined);assert.equal(t.view().game.status,'paused');
+});

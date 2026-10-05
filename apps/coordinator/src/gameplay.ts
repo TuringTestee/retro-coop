@@ -160,8 +160,8 @@ export class GameSession {
   if(command.type==='gameResume'){if(member!==this.host||this.state.status!=='resume_ready')throw Error('resume_not_ready');this.begin(this.frame,this.hash!);return;}
   if(command.type==='gamePaused')return;
   if(command.type==='gameAbort'){
-   if(this.loadState){this.abortLoad('Game loading failed. Previous progress is preserved.');return;}
    if(!this.owners().includes(member)){for(const transfer of [...this.transfers.values()])if(transfer.recipient===member)this.cancelTransfer(transfer,'Observer synchronization failed. Retry.');return;}
+   if(this.loadState){this.abortLoad('Game loading failed. Previous progress is preserved.');return;}
    this.stop(`Play paused (${command.reason}). Prepare again; game progress is preserved.`,'failed');return;
   }
   if(!('transferId' in command))throw Error('invalid_game');

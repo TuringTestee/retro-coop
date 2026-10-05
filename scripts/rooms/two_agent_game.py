@@ -788,7 +788,7 @@ def shared_load():
       window.WebSocket=class extends RoomSocket {
         send(raw){const value=JSON.parse(raw);if(value.type.startsWith('game'))proof.commandTypes.set(value.requestId,value.type);if(value.type==='gameReady')proof.readyAttempts.push({requestId:value.requestId});
           if(value.type==='gameObserved'&&proof.holdObserverCompletion){proof.heldObserverCompletions.push({raw,epoch:value.epoch,transferId:value.transferId,frame:value.frame});return;}return super.send(raw);}
-        constructor(...args){super(...args);proof.releaseObserverCompletions=()=>{const held=proof.heldObserverCompletions.splice(0);for(const row of held)super.send(row.raw);return held.map(({raw,...row})=>row);};this.addEventListener('message',({data})=>{
+        constructor(...args){super(...args);proof.abortObservation=()=>this.send(JSON.stringify({type:'gameAbort',requestId:crypto.randomUUID(),epoch:proof.room.game.epoch,reason:'network'}));proof.releaseObserverCompletions=()=>{const held=proof.heldObserverCompletions.splice(0);for(const row of held)super.send(row.raw);return held.map(({raw,...row})=>row);};this.addEventListener('message',({data})=>{
           const value=JSON.parse(data);if(value.type==='result'&&value.ok&&value.data?.room)proof.room=value.data.room;
           if(value.type==='result'){if(proof.commandTypes.has(value.requestId))proof.commandResults.push({type:proof.commandTypes.get(value.requestId),ok:value.ok,error:value.error??value.code});const attempt=proof.readyAttempts.find(row=>row.requestId===value.requestId);if(attempt)attempt.result={ok:value.ok,error:value.error??value.code};}
           if(value.type==='gameSyncStop')proof.observerSyncStops.push({epoch:value.epoch,transferId:value.transferId});
@@ -953,6 +953,9 @@ def shared_load():
                 observer_overlap.append({'action':decision,'cancelled':held})
                 observer.evaluate('proof.releaseObserverCompletions()')
                 if decision=='decline':
+                    observer.evaluate('proof.abortObservation()')
+                    observer.wait_for_function('proof.commandResults.some(row=>row.type==="gameAbort"&&row.ok)')
+                    assert host.evaluate('proof.room.game.load?.phase==="consent"')
                     prior=native(host);assert native(guest)==prior
                     guest.get_by_role('button',name='Keep current',exact=True).click()
                 if decision=='changed-save':
