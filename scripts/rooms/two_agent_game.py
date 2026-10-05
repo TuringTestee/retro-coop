@@ -812,7 +812,7 @@ def shared_load():
             page.get_by_role('button',name='Prepare to resume',exact=True).click()
             page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)')
         host.get_by_role('button',name='Resume together',exact=True).click()
-        for page in (host,guest):page.wait_for_function('proof.room.game.status==="playing"')
+        for page in (host,guest):page.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
     with sync_playwright() as playwright, ExitStack() as resources:
         url=args.url
         if not url:
@@ -871,7 +871,7 @@ def shared_load():
             for page in pages:
                 page.wait_for_function('old=>proof.room.game.epoch!==old&&proof.room.game.status==="playing"&&!proof.room.game.load',arg=old_epoch)
                 receipt=page.evaluate('proof.saveReceipts.filter(row=>row.type==="peer-checkpoint-imported").at(-1)')
-                info=receipt.get('info',receipt)
+                info=receipt.get('info') or receipt
                 assert info['frame']==saved['frame'] and info['hash']==saved['hash'],(receipt,saved)
             check_shell(host,shell)
             screenshot(host,'shared-load-restored-host.png');screenshot(guest,'shared-load-restored-guest.png')

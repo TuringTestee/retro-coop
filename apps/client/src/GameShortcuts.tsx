@@ -23,7 +23,7 @@ export function GameShortcuts({
           {!assigned.has("KeyD") && " · D rapid B"}
         </p>
       )}
-      <div className="rc-tool-actions"><button disabled={busy} onClick={onSave}>Save{!assigned.has('KeyQ')?' (Q)':''}</button><button disabled={busy||!host} onClick={onLoad}>Load{!assigned.has('KeyE')?' (E)':''}</button></div>
+      <div className="rc-tool-actions"><button disabled={busy} onClick={onSave}>Save{!assigned.has('KeyQ')?' (Q)':''}</button><button disabled={busy||!host} onClick={onLoad}>Load{host&&!busy&&!assigned.has('KeyE')?' (E)':''}</button></div>
       {!host&&<p>Only the host can load saved progress.</p>}
       <div className="rc-shortcuts" aria-label="Other shortcuts">
         {pauseActionLabel && !assigned.has("KeyP") && (
