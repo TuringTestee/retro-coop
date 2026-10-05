@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {setImmediate} from 'node:timers/promises';
 import {RoomClient} from './room-client.ts';
+import {catalog} from '../../../packages/contracts/src/catalog.ts';
 import {Rooms} from '../../coordinator/src/rooms.ts';
 import type {Fingerprint,RoomCommand,RoomData} from '../../../packages/contracts/src/rooms.ts';
 
 type Selection={roomId:string;intent:string;expectedRevision:number};
 type Command=RoomCommand extends infer T?T extends RoomCommand?Omit<T,'requestId'>:never:never;
-type TestClient=Pick<RoomClient,'reconcileGameSelection'|'cancelGameSelection'|'act'> & {confirmSelection:(selection:Selection)=>Promise<RoomData>};
+type TestClient=Pick<RoomClient,'reconcileGameSelection'|'cancelGameSelection'|'selectLobbyGame'|'act'> & {confirmSelection:(selection:Selection)=>Promise<RoomData>};
 const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64),localSchema:1,settings:'auto-region;zero-ram;48000hz;standard-p1-p2',cartridge:{format:'iNES',mapper:4,submapper:0,region:'NTSC',bytes:40976}};
 function prepared(){
  let now=1000;const rooms=new Rooms(()=>now),host=rooms.attach(undefined,()=>{},()=>{});
@@ -75,4 +76,16 @@ test('room exit remains available during unknown confirmation and a late reply c
  await assert.rejects(pending,error=>(error as Error & {code:string}).code==='game_selection_ended');
  assert.equal((t.client as unknown as {state:{room?:unknown}}).state.room,undefined);
  assert.equal((t.client as unknown as {confirmingSelection?:Selection}).confirmingSelection,undefined);
+});
+
+
+test('an included-game commit with a lost begin reply reconciles its exact intent before local replacement',async()=>{
+ const t=prepared(),entry=catalog[0],included:Fingerprint={...fingerprint,romSha256:entry.sha256,cartridge:{format:entry.format,mapper:entry.mapper,submapper:entry.submapper,region:entry.region,bytes:entry.bytes}};
+ let locked=0;
+ Object.assign(t.client,{confirmingSelection:undefined,gameSelection:undefined,player:()=>({setSelectionFinishing(){locked++;}}),async request(command:Command){t.commands.push(command);const data=t.act(command);if(command.type==='beginGameSelection')throw Error('Reply lost after catalogue commit');return data;}});
+ const result=await t.client.selectLobbyGame(new File(['already verified'],'included.nes'),included,entry.title,()=>true);
+ assert.equal(result.ok,true);assert.equal(locked,1);assert.equal(t.commands.length,2);
+ const begun=t.commands[0] as {intent:string;expectedRevision:number};
+ assert.deepEqual(t.commands[1],{type:'confirmGameSelection',roomId:t.selection.roomId,intent:begun.intent,expectedRevision:begun.expectedRevision});
+ assert.equal((t.client as unknown as {state:{room:{catalogId:string}}}).state.room.catalogId,entry.id);
 });

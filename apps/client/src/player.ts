@@ -13,7 +13,8 @@ const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the k
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
-export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionPhase?:'loading'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
+export type GameSelectionResult={ok:boolean;uncertain?:boolean;message?:string};
+export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionPhase?:'loading'|'uncertain'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
  isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && !this.state.loading && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
@@ -169,6 +170,11 @@ export class LocalPlayer {
  }
 
  private candidate?: Worker;
+ private selectionLock=false;
+ selectionLocked(){return this.selectionLock;}
+ setSelectionFinishing(){this.selectionLock=true;}
+ private preparedSelection?:{current:()=>boolean;commit:()=>void;fail:(message:string)=>void};
+ finishSelection(result:GameSelectionResult){const prepared=this.preparedSelection;if(!prepared||!prepared.current())return;if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
@@ -285,9 +291,10 @@ export class LocalPlayer {
   if(!this.game?.draining()||!this.active||this.busy)return;
   const next=this.game.next(0);if(!next)return;this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  }
- private abandonCandidate() { this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
+ private abandonCandidate() {this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
  rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,selectionPhase:'failed',status:message}); }
  cancel() {
+  if(this.selectionLock)return;
   this.abandonCandidate();
   this.publish({loading:false,selectionPhase:'cancelled',status:this.state.loaded ? 'Selection cancelled. Your previous game is still here.' : 'Selection cancelled. Choose a game whenever you’re ready.'});
  }
@@ -346,8 +353,8 @@ export class LocalPlayer {
    reader.readAsArrayBuffer(file);
   });
  }
- async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false,selectionCurrent:()=>boolean=()=>true) {
-  if(!file || this.disposed || !selectionCurrent()) return; // A chooser cancellation does not replace the valid selection.
+ async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false,selectionCurrent:()=>boolean=()=>true,prepare?:(fingerprint:LocalFingerprint,current:()=>boolean)=>Promise<GameSelectionResult>,committed?:(fingerprint:LocalFingerprint)=>void) {
+  if(!file || this.disposed || this.selectionLock || !selectionCurrent()) return; // A chooser cancellation does not replace the valid selection.
   this.abandonCandidate(); const request = this.generation;
   this.activateAudio(); this.publish({loading:true,selectionPhase:'loading',status:'Reading your file locally…'});
   try {
@@ -414,11 +421,19 @@ export class LocalPlayer {
       if(!previewImage.startsWith('data:image/png'))throw Error('The game preview could not be saved.');
      }}catch{previewImage=undefined;}
      if(!isCurrent()) {worker.terminate();return;}
+     const {available} = this.inputDevice();
+     const commit=()=>{
      this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
-     const {available} = this.inputDevice();
      this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:available&&!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Resume whenever you’re ready.' : available ? 'Playing locally. The game runs in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint,previewImage});
-     if(!startPaused)this.canvas.focus();return;
+     committed?.(fingerprint);
+     if(!startPaused)this.canvas.focus();
+     };
+     if(prepare){
+      this.preparedSelection={current:isCurrent,commit,fail};
+      try{this.finishSelection(await prepare(fingerprint,isCurrent));}catch(error){if(isCurrent())this.finishSelection({ok:false,message:error instanceof Error?error.message:'Could not prepare the lobby game.'});}
+     }else commit();
+     return;
     }
     if(this.active !== worker) return;
     if(data.type === 'frame') {

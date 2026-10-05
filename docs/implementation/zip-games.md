@@ -4,7 +4,7 @@ Audience: Agent
 
 Players can drop a ZIP or select it in the existing game picker. The server extracts its NES game automatically; the existing lobby, preview, readiness and shared play flow then continues. Failed replacements keep the current lobby and game.
 
-This is planned support for [issue #238](https://github.com/TuringTestee/retro-coop/issues/238), separate from #208. Merge this governing plan after independent review before implementation. The automatic selection rule below follows the requested automatic loading without another picker.
+This governs support for [issue #238](https://github.com/TuringTestee/retro-coop/issues/238), separate from #208; the plan was independently reviewed and merged in [PR #240](https://github.com/TuringTestee/retro-coop/pull/240). The automatic selection rule below follows the requested automatic loading without another picker.
 
 ## Journeys
 

@@ -1,4 +1,4 @@
-import {test} from 'node:test';
+import {test,type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {setImmediate} from 'node:timers/promises';
 import {LocalPlayer} from './player.ts';
@@ -37,4 +37,45 @@ test('an invalid replacement keeps the previous game but reports a failed new se
  assert.equal(result.loaded,true);
  assert.equal(result.fingerprint,previous);
  assert.match(result.status,/not an NES game/);
+});
+
+// Exercise the real candidate handler across the asynchronous lobby commit gate.
+async function preparedReplacement(context:TestContext){
+ let candidate: {onmessage?:(event:unknown)=>Promise<void>;terminate:()=>void},candidateStopped=0,oldStopped=0,remembered=0,current=true;
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'Worker');
+ Object.defineProperty(globalThis,'Worker',{configurable:true,writable:true,value:class {constructor(){candidate=this;}terminate(){candidateStopped++;}}});
+ context.after(()=>{if(descriptor)Object.defineProperty(globalThis,'Worker',descriptor);else Reflect.deleteProperty(globalThis,'Worker');});
+ const old={terminate(){oldStopped++;}},fingerprint={romSha256:'old-rom',coreSha256:'old-core'};
+ const rom=new Uint8Array(16+16384);rom.set([0x4e,0x45,0x53,0x1a,1,0]);
+ const player=Object.assign(Object.create(LocalPlayer.prototype),{
+  selectionListeners:new Set(),generation:0,disposed:false,active:old,
+  state:{loaded:true,loading:false,running:false,frames:0,status:'Previous game loaded.',fingerprint,previewImage:'old-preview'},
+  rejectPending(){},activateAudio(){},read:async()=>rom.buffer,send(){},persistBattery:async()=>{},
+  fileRequest:async(command:{type:string})=>{if(command.type==='state-preview')throw Error('Optional preview unavailable');return {type:'state-hash',info:{hash:'prepared',frame:0,fresh:true}};},
+  inputDevice:()=>({available:true}),audio:{flush(){}},release(){},update(){}
+ }) as LocalPlayer;
+ let resolve!:(result:{ok:boolean;uncertain?:boolean;message?:string})=>void,reached!:()=>void;
+ const reachedGate=new Promise<void>(done=>reached=done),gate=new Promise<{ok:boolean;uncertain?:boolean;message?:string}>(done=>resolve=done);
+ await player.load(new File([rom],'replacement.nes'),undefined,true,()=>current,async()=>{reached();return gate;},()=>remembered++);
+ const handled=candidate!.onmessage!({data:{type:'ready',coreSha256:'a'.repeat(64),fps:60,battery:false}});await reachedGate;
+ return {player,old,fingerprint,resolve,handled,get state(){return (player as unknown as {state:{fingerprint:unknown;previewImage?:string;loaded:boolean;loading:boolean;selectionPhase:string}}).state;},get active(){return (player as unknown as {active:unknown}).active;},get oldStopped(){return oldStopped;},get candidateStopped(){return candidateStopped;},get remembered(){return remembered;},replaceContext(){current=false;}};
+}
+
+test('failed lobby upload retains the previous worker, fingerprint and preview without remembering the candidate',async context=>{
+ const t=await preparedReplacement(context);assert.equal(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.remembered,0);
+ t.resolve({ok:false,message:'Upload failed. Retry.'});await t.handled;
+ assert.equal(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.candidateStopped,1);assert.equal(t.state.fingerprint,t.fingerprint);assert.equal(t.state.previewImage,'old-preview');assert.equal(t.state.selectionPhase,'failed');assert.equal(t.remembered,0);
+});
+
+test('cancelled or replaced contexts cannot install a late confirmed candidate',async context=>{
+ const t=await preparedReplacement(context);t.replaceContext();t.player.cancel();t.resolve({ok:true});await t.handled;
+ assert.equal(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.candidateStopped,1);assert.equal(t.remembered,0);
+});
+
+test('uncertain confirmation preserves both workers, blocks Cancel and installs only after exact reconciliation',async context=>{
+ const t=await preparedReplacement(context);t.player.setSelectionFinishing();t.player.cancel();assert.equal(t.candidateStopped,0);
+ t.resolve({ok:false,uncertain:true,message:'Unknown confirmation.'});await t.handled;
+ assert.equal(t.state.selectionPhase,'uncertain');assert.equal(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.remembered,0);
+ t.player.cancel();assert.equal(t.candidateStopped,0);
+ t.player.finishSelection({ok:true});assert.notEqual(t.active,t.old);assert.equal(t.oldStopped,1);assert.equal(t.state.loaded,true);assert.equal(t.state.loading,false);assert.equal(t.remembered,1);assert.equal(t.player.selectionLocked(),false);
 });
