@@ -6,10 +6,10 @@ permissions:
   contents: read
 env:
   # Set the frozen deployed main and a unique cohort before pushing this branch.
-  QUALIFICATION_SERIES: FinalReleasePrepared
-  QUALIFICATION_PASSWORD: QualificationCohortFinalPrepared
-  PUBLIC_PRODUCT_REVISION: pending
-  PUBLIC_CORE_SHA256: a8478f5e67edf77a1af7d43a0015b3234a1d309af269ef2e59294495ee26872b
+  QUALIFICATION_SERIES: "Release51d1-234516-fec3d7"
+  QUALIFICATION_PASSWORD: "JPZmA_Uiz5sjjr-F4oaCMcfm9MEbzsha"
+  PUBLIC_PRODUCT_REVISION: "51d1a11ab412e236ea74189134a6b96fa3297b8d"
+  PUBLIC_CORE_SHA256: "a8478f5e67edf77a1af7d43a0015b3234a1d309af269ef2e59294495ee26872b"
 jobs:
   guest:
     runs-on: ubuntu-24.04
