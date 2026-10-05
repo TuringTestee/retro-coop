@@ -172,7 +172,7 @@ export class LocalPlayer {
  private candidate?: Worker;
  private selectionLock=false;
  selectionLocked(){return this.selectionLock;}
- setSelectionFinishing(){this.selectionLock=true;}
+ setSelectionFinishing(){if(this.preparedSelection)this.selectionLock=true;}
  private preparedSelection?:{current:()=>boolean;commit:()=>void;fail:(message:string)=>void};
  finishSelection(result:GameSelectionResult){const prepared=this.preparedSelection;if(!prepared||!prepared.current())return;if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
  private reader?: FileReader;

@@ -78,4 +78,6 @@ test('uncertain confirmation preserves both workers, blocks Cancel and installs 
  assert.equal(t.state.selectionPhase,'uncertain');assert.equal(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.remembered,0);
  t.player.cancel();assert.equal(t.candidateStopped,0);
  t.player.finishSelection({ok:true});assert.notEqual(t.active,t.old);assert.equal(t.oldStopped,1);assert.equal(t.state.loaded,true);assert.equal(t.state.loading,false);assert.equal(t.remembered,1);assert.equal(t.player.selectionLocked(),false);
+ // Recovery selects an already initialized worker, so its confirmation cannot lock a later fallback load.
+ t.player.setSelectionFinishing();assert.equal(t.player.selectionLocked(),false);
 });
