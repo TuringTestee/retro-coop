@@ -715,9 +715,16 @@ def automatic_voice(browser, url):
         guest_context.close()
 
 
-def restored_battery_preview(browser, url):
+def restored_battery_preview(browser, url, output=None):
     # The ROM exercises the same preview path as every battery-backed game.
+    output = output or ROOT / 'spikes/d02/public-entrypoint.local/unified-shell'
     context = browser.new_context(viewport={'width': 1280, 'height': 800})
+    context.add_init_script("""window.batteryPreviewProof={imports:0,previews:0};const BatteryWorker=Worker;
+      window.Worker=class extends BatteryWorker{constructor(...args){super(...args);window.batteryPreviewWorker=this;this.addEventListener('message',({data})=>{
+        if(data.type==='battery-imported')batteryPreviewProof.imports++;
+        if(data.type==='state-preview')batteryPreviewProof.previews++;
+        if(data.type==='state-hash'&&data.requestId===925801)batteryPreviewProof.native=data.info;
+      });}};""")
     page = context.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -733,16 +740,34 @@ def restored_battery_preview(browser, url):
 
     try:
         load()
-        choose_panel(page, 'Game')
-        page.get_by_role('button', name='Ready', exact=True).click()
-        page.get_by_role('button', name='Start →').click()
-        page.get_by_text('Playing together.', exact=True).wait_for(timeout=15000)
-        page.wait_for_function("async()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('batteries'),count=tx.objectStore('batteries').count();count.onsuccess=()=>resolve(count.result>0);tx.oncomplete=()=>db.close()}})", timeout=20000)
+        # Save actual native battery bytes through the public control, without
+        # waiting for periodic persistence or starting an unrelated play session.
+        choose_section(page, 'Profile')
+        page.get_by_role('button', name='Local data', exact=True).click()
+        page.get_by_role('button', name='Current', exact=True).click()
+        page.get_by_role('button', name='Retry battery saving', exact=True).click()
+        page.wait_for_function("async()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('batteries'),count=tx.objectStore('batteries').count();count.onsuccess=()=>resolve(count.result>0);tx.oncomplete=()=>db.close()}})", timeout=10000)
+        stored=page.evaluate("""()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('batteries'),all=tx.objectStore('batteries').getAll();all.onsuccess=()=>resolve(all.result.map(row=>({bytes:row.bytes.byteLength})));tx.oncomplete=()=>db.close()}})""")
+        assert len(stored) == 1 and stored[0]['bytes'] > 0
+        page.get_by_role('button', name='Back', exact=True).click()
         page.get_by_role('button', name='Back to Main Page', exact=True).click()
         page.get_by_role('button', name='Close lobby').click()
         page.locator('.rc-listing').wait_for()
         load()
+        assert page.evaluate('batteryPreviewProof.imports') == 1
+        assert page.evaluate('batteryPreviewProof.previews') == 1
+        page.evaluate("batteryPreviewWorker.postMessage({type:'state-hash',requestId:925801})")
+        page.wait_for_function('batteryPreviewProof.native')
+        assert page.evaluate('batteryPreviewProof.native.frame === 0 && batteryPreviewProof.native.fresh === true')
+        page.get_by_role('button', name='Ready', exact=True).click()
+        expect(page.get_by_role('button', name='Start →', exact=True)).to_be_enabled()
+        (output / 'restored-battery-result.json').write_text(json.dumps({'stored':stored,**page.evaluate('batteryPreviewProof')},indent=2))
+        page.screenshot(path=str(output / 'restored-battery-preview.png'))
         assert not errors, errors
+    except Exception:
+        page.screenshot(path=str(output / 'restored-battery-failure.png'))
+        (output / 'restored-battery-failure.json').write_text(json.dumps({'body':page.locator('body').inner_text(),'native':page.evaluate('batteryPreviewProof'),'errors':errors},indent=2))
+        raise
     finally:
         context.close()
 
@@ -1187,7 +1212,7 @@ def main():
                     canceled_preference_read_restores_saved_controls(browser, url, output)
                     automatic_voice(browser, url)
                     print('shell check: restored_battery_preview', flush=True)
-                    restored_battery_preview(browser, url)
+                    restored_battery_preview(browser, url, output)
                     unavailable_preview_keeps_game(browser, url)
                     abandoned_saved_game_cannot_reopen(browser, url, output)
                 assert not errors, errors
