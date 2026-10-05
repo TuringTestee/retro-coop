@@ -160,8 +160,8 @@ export class GameSession {
   if(command.type==='gameResume'){if(member!==this.host||this.state.status!=='resume_ready')throw Error('resume_not_ready');this.begin(this.frame,this.hash!);return;}
   if(command.type==='gamePaused')return;
   if(command.type==='gameAbort'){
-   if(this.loadState){this.abortLoad('Game loading failed. Previous progress is preserved.');return;}
    if(!this.owners().includes(member)){for(const transfer of [...this.transfers.values()])if(transfer.recipient===member)this.cancelTransfer(transfer,'Observer synchronization failed. Retry.');return;}
+   if(this.loadState){this.abortLoad('Game loading failed. Previous progress is preserved.');return;}
    this.stop(`Play paused (${command.reason}). Prepare again; game progress is preserved.`,'failed');return;
   }
   if(!('transferId' in command))throw Error('invalid_game');
@@ -192,8 +192,9 @@ export class GameSession {
   if(command.type==='gameLoadPropose'){
    if(member!==this.host)throw Error('host_only');this.checkRevision(command.revision);
    if(command.roomRevision!==this.roomRevision)throw Error('room_changed');
-   if(this.loadState||this.state.pending||this.transfers.size)throw Error('timeline_change_pending');
+   if(this.loadState||this.state.pending||[...this.transfers.values()].some(transfer=>transfer.purpose!=='observer'))throw Error('timeline_change_pending');
    if(!['waiting','playing','paused','resume_ready','failed'].includes(this.state.status)||this.owners().some(owner=>!this.available(owner)))throw Error('game_prerequisites');
+   for(const transfer of [...this.transfers.values()])if(transfer.purpose==='observer')this.cancelTransfer(transfer,'Waiting for the game to finish changing.');
    const initial=!this.state.epoch,view:SaveLoadView={id:id(),epoch:id(),phase:'freezing',frame:command.frame,hash:command.hash,identity:command.identity,savedAt:command.savedAt,required:this.owners(),accepted:[this.host],expiresAt:this.now()+gameplayLimits.barrierMs};
    this.loadState={view,initial,revision:this.roomRevision??0,controllers:this.state.controllers.revision,oldEpoch:this.state.epoch,oldFrame:this.frame,oldHash:this.hash,boundaries:new Map(),prepared:new Set(),committed:new Set(),rolledBack:new Set()};
    this.offers.clear();
