@@ -181,18 +181,23 @@ export class LocalPlayer {
   this.canvas=canvas;this.update=update;
   this.persistenceTimer=window.setInterval(()=>{void this.persistBattery();},10000);window.addEventListener('pagehide',this.pagehide);
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
-  window.addEventListener('blur',this.blur);document.addEventListener('visibilitychange',this.hidden);
-  canvas.addEventListener('blur',this.canvasBlur);
+  window.addEventListener('blur',this.blur);window.addEventListener('resize',this.release);document.addEventListener('visibilitychange',this.hidden);
+  document.addEventListener('focusin',this.focusChanged);
   this.animation = requestAnimationFrame(this.tick);
  }
  private selectionListeners=new Set<()=>void>();
  private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state);for(const listener of this.selectionListeners)listener(); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
  private releasedPad=new ReleasedInputs();
- private release = () => { this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
+ private virtualMask=0;
+ private inputBlocked=false;
+ blockGameInput(blocked:boolean){this.inputBlocked=blocked;if(blocked)this.release();}
+ private inputFocused(){const active=document.activeElement;return !this.inputBlocked&&(active===this.canvas || !!active?.closest('[data-game-input] button, [data-game-input] [tabindex]'));}
+ setVirtualInput(mask:number){this.virtualMask=this.state.running&&!document.hidden&&this.inputFocused()&&this.game?.ownsInput!==false?mask&255:0;}
+ private release = () => { this.virtualMask=0;this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
  releaseControllers(){this.release();}
  private down = (event: KeyboardEvent) => {
-  if(!event.repeat && !this.controls.device && document.activeElement === this.canvas && this.state.running) {
+  if(!event.repeat && !this.controls.device && this.inputFocused() && this.state.running && !((event.target as Element)?.closest('[data-game-input] button')&&['Enter','Space'].includes(event.code))) {
    const mapped=Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code));
    if(mapped || event.code in rapidKeys){event.preventDefault();this.keys.add(event.code);if(!mapped&&event.code in rapidKeys)this.rapidStarted.set(event.code,performance.now());}
   }
@@ -201,7 +206,7 @@ export class LocalPlayer {
  configureControls(controls: Controls) { this.controls = controls; this.release(); this.publish({inputIssue:undefined}); }
  useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
- private canvasBlur = () => {this.release();};
+ private focusChanged = () => {if(!this.inputFocused())this.release();};
  private blur = () => { this.release();void this.persistBattery(); };
  private hidden = () => {
   if(document.hidden){
@@ -217,8 +222,8 @@ export class LocalPlayer {
  }
  private controllerMask(pad:Gamepad|null|undefined) {
   const selected=this.controls.device;
-  const pressed=document.activeElement===this.canvas?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
-  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed) | (selected?0:rapidMask(this.controls.keyboard,this.rapidStarted,performance.now()));
+  const pressed=this.inputFocused()?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
+  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed) | (this.inputFocused()?this.virtualMask:0) | (selected?0:rapidMask(this.controls.keyboard,this.rapidStarted,performance.now()));
  }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
@@ -425,6 +430,6 @@ export class LocalPlayer {
  dispose() {
   clearInterval(this.persistenceTimer);clearInterval(this.backgroundTimer);window.removeEventListener('pagehide',this.pagehide);
   this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
-  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.hidden); this.canvas.removeEventListener('blur',this.canvasBlur);
+  window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('resize',this.release);document.removeEventListener('visibilitychange',this.hidden); document.removeEventListener('focusin',this.focusChanged);
  }
 }
