@@ -81,3 +81,18 @@ test('uncertain confirmation preserves both workers, blocks Cancel and installs 
  // Recovery selects an already initialized worker, so its confirmation cannot lock a later fallback load.
  t.player.setSelectionFinishing();assert.equal(t.player.selectionLocked(),false);
 });
+
+
+test('an acknowledged candidate after actual context departure releases its lock and worker',async context=>{
+ const t=await preparedReplacement(context);t.player.setSelectionFinishing();t.replaceContext();
+ t.resolve({ok:true});await t.handled;
+ assert.equal(t.player.selectionLocked(),false);assert.equal(t.candidateStopped,1);assert.equal(t.state.loading,false);assert.equal(t.active,t.old);assert.equal(t.remembered,0);
+});
+
+test('successful departure abandons a confirming candidate before battery persistence completes',async context=>{
+ const t=await preparedReplacement(context);t.player.setSelectionFinishing();let persisted!:()=>void;
+ Object.assign(t.player,{canvas:{getContext(){return null;}},pause(){},persistBattery:()=>new Promise<void>(resolve=>persisted=resolve)});
+ const quitting=t.player.quit();assert.equal(t.player.selectionLocked(),false);assert.equal(t.candidateStopped,1);
+ t.resolve({ok:true});await t.handled;assert.equal(t.remembered,0);
+ persisted();await quitting;assert.equal(t.oldStopped,1);
+});

@@ -174,7 +174,7 @@ export class LocalPlayer {
  selectionLocked(){return this.selectionLock;}
  setSelectionFinishing(){if(this.preparedSelection)this.selectionLock=true;}
  private preparedSelection?:{current:()=>boolean;commit:()=>void;fail:(message:string)=>void};
- finishSelection(result:GameSelectionResult){const prepared=this.preparedSelection;if(!prepared||!prepared.current())return;if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
+ finishSelection(result:GameSelectionResult){const prepared=this.preparedSelection;if(!prepared)return;if(!prepared.current()){this.abandonCandidate();this.publish({loading:false,selectionPhase:'cancelled'});return;}if(result.ok){this.selectionLock=false;this.preparedSelection=undefined;prepared.commit();}else if(result.uncertain)this.publish({loading:true,selectionPhase:'uncertain',status:result.message??'Reconnect to finish the game selection.'});else{this.selectionLock=false;this.preparedSelection=undefined;prepared.fail(result.message??'Could not prepare the lobby game. Retry.');}}
  private reader?: FileReader;
  private generation = 0;
  private disposed = false;
@@ -301,8 +301,8 @@ export class LocalPlayer {
  /** End the local session after a successful room exit or before opening the directory. */
  async quit() {
   this.pause();
-  await this.persistBattery();
   this.abandonCandidate();
+  await this.persistBattery();
   this.rejectPending('Game closed.');
   this.active?.terminate();this.active=undefined;this.batterySession=undefined;
   this.game=undefined;clearTimeout(this.gameTimer);this.shared=false;this.busy=false;

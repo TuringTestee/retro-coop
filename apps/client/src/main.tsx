@@ -100,6 +100,8 @@ function App(){
  useEffect(()=>{if(!inviteCopyFallback)return;const frame=requestAnimationFrame(()=>{const field=document.querySelector<HTMLTextAreaElement>('.rc-invite-link');field?.focus();field?.select();});return()=>cancelAnimationFrame(frame);},[inviteCopyFallback]);
  useEffect(()=>{if(!['Invitation copied.','Saved to quick slot 1.','Quick slot 1 loaded. Choose Resume to play.'].includes(statusOverride))return;const timer=setTimeout(()=>setStatusOverride(''),3000);return()=>clearTimeout(timer);},[statusOverride]);
  useEffect(()=>{if(kick||exitPrompt||quickLoad||recovery)requestAnimationFrame(()=>(document.querySelector<HTMLElement>('.rc-dialog-card button:not(:disabled)')??document.querySelector<HTMLElement>('.rc-dialog-card'))?.focus());},[kick,exitPrompt,quickLoad,recovery,recoveryBusy,recoveryCommitting,room?.started]);
+ const exitWasVisible=useRef(false);
+ useEffect(()=>{const dismissed=exitWasVisible.current&&!exitPrompt;exitWasVisible.current=exitPrompt;if(dismissed&&room&&!exitBusy)requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.rc-footer-back button')?.focus());},[exitPrompt,room?.id,exitBusy]);
  const recoveryWasVisible=useRef(false);
  useEffect(()=>{const dismissed=recoveryWasVisible.current&&!recovery;recoveryWasVisible.current=!!recovery;if(dismissed&&room&&!exitPrompt&&!exitBusy)requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.rc-load-game, .rc-footer button:not(:disabled)')?.focus());},[recovery,room?.id,exitPrompt,exitBusy]);
  useEffect(()=>{const update=()=>setViewport({width:window.innerWidth,height:window.innerHeight});window.addEventListener('resize',update);return()=>window.removeEventListener('resize',update);},[]);
@@ -109,7 +111,7 @@ function App(){
   const target=recoveryContext.current.room,serial=++selectionSerial.current,controller=new AbortController();
   selectionAbort.current?.abort();selectionAbort.current=controller;
   player.current.cancel();
-  const isCurrent=()=>serial===selectionSerial.current&&!controller.signal.aborted&&(!current||current())&&!recoveryContext.current.leaving&&recoveryContext.current.room?.id===target?.id&&(!target||recoveryContext.current.room?.chatMembership===target.chatMembership&&(target.role!=='host'||!recoveryContext.current.room.started));
+  const isCurrent=()=>serial===selectionSerial.current&&!controller.signal.aborted&&(!current||current())&&recoveryContext.current.room?.id===target?.id&&(!target||recoveryContext.current.room?.chatMembership===target.chatMembership&&(target.role!=='host'||!recoveryContext.current.room.started));
   ++createSerial.current;++recoverySerial.current;setRecovery(undefined);++quickEpoch.current;setQuickLoad(undefined);setStatusOverride('');setSlotFeedback('');
   void (async()=>{
    try{
