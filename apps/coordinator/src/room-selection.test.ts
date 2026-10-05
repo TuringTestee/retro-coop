@@ -89,3 +89,13 @@ test('an included-game commit with a lost begin reply reconciles its exact inten
  assert.deepEqual(t.commands[1],{type:'confirmGameSelection',roomId:t.selection.roomId,intent:begun.intent,expectedRevision:begun.expectedRevision});
  assert.equal((t.client as unknown as {state:{room:{catalogId:string}}}).state.room.catalogId,entry.id);
 });
+
+
+test('a retained selection retry reports waiting until its actual reply',async()=>{
+ const t=prepared();let release!:(data:RoomData)=>void;
+ Object.assign(t.client,{request(command:Command){t.commands.push(command);return new Promise<RoomData>(resolve=>{release=resolve;});}});
+ const pending=t.client.reconcileGameSelection();await setImmediate();
+ try{assert.equal(t.states[0].selectionFinishing,true);assert.match(String(t.states[0].status),/Finishing game selection/);assert.doesNotMatch(String(t.states[0].status),/Retry/);}
+ finally{release(t.act({type:'confirmGameSelection',...t.selection}));await pending;}
+ assert.equal((await pending).ok,true);assert.equal(t.states.at(-1)?.selectionFinishing,false);
+});

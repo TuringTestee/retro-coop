@@ -13,6 +13,7 @@ import {SharedLoadDialog} from './SharedLoadDialog.tsx';
 import {LocalData} from './LocalData.tsx';
 import {defaults,type Controls} from './controls.ts';
 import {usePreferences} from './preferences.ts';
+import {isZipFile} from '../../../packages/contracts/src/game-file.ts';
 import {fileIdentity} from '../../../packages/contracts/src/fingerprint.ts';
 import {savedCandidate,candidateStillStored} from './rom-library.ts';
 import {HostRecoveryCapture,recoveryOffer,validRecovery,type RecoveryOffer} from './host-recovery.ts';
@@ -115,7 +116,7 @@ function App(){
   ++createSerial.current;++recoverySerial.current;setRecovery(undefined);++quickEpoch.current;setQuickLoad(undefined);setStatusOverride('');setSlotFeedback('');
   void (async()=>{
    try{
-    if(/\.zip$/i.test(file.name))setGameProgress('Extracting NES game from ZIP…');
+    if(isZipFile(file.name))setGameProgress('Extracting NES game from ZIP…');
     const prepared=await rooms.current!.prepareFile(file,controller.signal);
     if(!isCurrent())return;
     setGameProgress('');
@@ -226,8 +227,8 @@ function App(){
    : undefined;
  const lobbyGuidance=()=>{
   if(!roomState.connected)return 'Connection lost. Retry connection.';
-  if(room?.role==='host'&&playerState.selectionPhase==='uncertain')return playerState.status;
   if(room?.role==='host'&&roomState.selectionFinishing)return roomState.status;
+  if(room?.role==='host'&&playerState.selectionPhase==='uncertain')return playerState.status;
   if(!room?.fingerprint)return room?.role==='host'?'Load a NES game while players join.':'';
   if(unsupported.length)return room.role==='host'?`${unsupported[0].role==='player1'?'Player 1':'Player 2'} cannot play this game. Set as Observer or change game.`:'The host is updating player roles.';
   if(self&&self.role!=='observer'&&!ready){

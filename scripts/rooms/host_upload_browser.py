@@ -235,8 +235,26 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                 confirmation_headings.append(heading)
                 await host.screenshot(path=str(output / f'zip-confirmation-heading-{width}.png'))
             await host.set_viewport_size({'width':1280, 'height':720})
-            await host.evaluate('uploadProof.holdConfirm=false')
+            # A retry is active work until its real reply or the same declared deadline.
+            await host.evaluate('uploadProof.confirmHeld=false')
             await host.get_by_role('button', name='Retry selection', exact=True).click()
+            await host.wait_for_function('uploadProof.confirmHeld')
+            retry_guidance = await host.locator('.rc-status-copy').inner_text()
+            retry_heading = await host.locator('.rc-game-progress strong').inner_text()
+            await host.screenshot(path=str(output / 'zip-retry-pending.png'))
+            assert retry_guidance == retry_heading == 'Finishing game selection…', (retry_guidance, retry_heading)
+            assert await host.get_by_role('button', name='Retry selection', exact=True).count() == 0
+            await expect(host.get_by_role('button', name='Cancel selection', exact=True)).to_be_disabled()
+            await expect(host.get_by_role('button', name='Retry selection', exact=True)).to_be_enabled(timeout=30000)
+            assert await host.locator('.rc-status-copy').inner_text() == uncertain_guidance
+            assert await host.locator('.rc-game-progress strong').inner_text() == uncertain_guidance
+            assert await host.evaluate('uploadProof.confirmRequests') == 6
+            await host.evaluate('uploadProof.confirmHeld=false')
+            await host.get_by_role('button', name='Retry selection', exact=True).click()
+            await host.wait_for_function('uploadProof.confirmHeld')
+            await expect(host.locator('.rc-status-copy')).to_have_text('Finishing game selection…')
+            await expect(host.locator('.rc-game-progress strong')).to_have_text('Finishing game selection…')
+            await host.evaluate('uploadProof.releaseConfirm()')
             current_sha = hashlib.sha256(current_selection).hexdigest()
             await host.wait_for_function('sha=>uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.sha===sha&&uploadProof.room.fingerprint.romSha256===sha', arg=current_sha)
             await expect(host.locator('.rc-game-heading')).to_have_attribute('title', 'replacement-B')
@@ -392,7 +410,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                   'invalid_file_keeps_lobby': True, 'failed_replacement_keeps_game': True,
                   'custom_game_preview': True, 'zip_picker_and_drop': True,
                   'zip_title_uses_extracted_name': True, 'zip_failure_preserves_worker_preview_blob': True,
-                  'selection_pending_guidance': pending_guidance, 'selection_uncertain_guidance': uncertain_guidance, 'selection_confirmation_timeout_and_retry': True, 'confirmation_headings': confirmation_headings,
+                  'selection_pending_guidance': pending_guidance, 'selection_uncertain_guidance': uncertain_guidance, 'selection_confirmation_timeout_and_retry': True, 'retry_pending_guidance': retry_guidance, 'retry_timeout_then_success': True, 'confirmation_headings': confirmation_headings,
                   'cancelled_selection_late_response_isolated': True, 'cancelled_selection_retry_sha': current_sha, 'zip_confirmation_back_stay': True, 'zip_confirmation_rejected_close_stay': True,
                   'zip_confirmation_narrow_keyboard_focus': True, 'zip_post_extraction_upload_retry': True, 'zip_paired_play_hash': hashes[0], 'included_game_after_creation': True,
                   'duration_seconds': round(time.monotonic() - started, 2)}

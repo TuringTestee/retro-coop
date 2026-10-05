@@ -1,3 +1,4 @@
+import {isZipFile} from '../../../packages/contracts/src/game-file.ts';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer,type IncomingMessage,type ServerResponse} from 'node:http';
@@ -47,4 +48,10 @@ test('client cancellation aborts the server transfer and allows a fresh retry',a
 test('client communicates archive failure and supports a successful retry',async()=>{
  let count=0;const t=await service((_request,response)=>{if(++count===1)response.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:'archive_no_game'}));else response.writeHead(200,headers).end(bytes);});
  try{await assert.rejects(extractZipFile(t.url,'token',file(),new AbortController().signal),/contains no NES game/);const retry=await extractZipFile(t.url,'token',file(),new AbortController().signal);assert.equal(retry.size,bytes.length);}finally{await t.close();}
+});
+
+
+test('shared filename detection routes ZIP case variants without changing NES admission',()=>{
+ for(const name of ['game.zip','game.ZIP','game.Zip'])assert.equal(isZipFile(name),true);
+ for(const name of ['game.nes','game.NES','game.zip.nes','game.zip.exe'])assert.equal(isZipFile(name),false);
 });
