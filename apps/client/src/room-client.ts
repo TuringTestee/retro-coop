@@ -255,6 +255,7 @@ export class RoomClient {
   const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
   if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
   this.apply(data);await player.bindGameEpoch(data.room.game.epoch,frame,hash);
+  if(!current())throw Error('Restoration cancelled.');
   this.publish({status:'Game restored. Prepare to resume together.'});
  }
  readyToResume(){void this.game.resumeReady();}

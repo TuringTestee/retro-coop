@@ -45,7 +45,7 @@ function App(){
  const inviteAttempt=useRef(0);
  const [localDataConfirmation,setLocalDataConfirmation]=useState(false);
  const [recovery,setRecovery]=useState<RecoveryOffer>(),[recoveryIndex,setRecoveryIndex]=useState(0),[recoveryError,setRecoveryError]=useState(''),[recoveryBusy,setRecoveryBusy]=useState(false),[recoveryCommitting,setRecoveryCommitting]=useState(false),[automaticIssue,setAutomaticIssue]=useState('');
- const recoverySerial=useRef(0),recoveryCommit=useRef(false),recoveryAbort=useRef<AbortController|undefined>(undefined),captureOwner=useRef<HostRecoveryCapture|undefined>(undefined);
+ const recoverySerial=useRef(0),recoveryCommit=useRef<{roomId:string;membership:string}|undefined>(undefined),recoveryAbort=useRef<AbortController|undefined>(undefined),captureOwner=useRef<HostRecoveryCapture|undefined>(undefined);
  const [quickLoad,setQuickLoad]=useState<SaveSlot>();
  const quickBusy=useRef<symbol|undefined>(undefined),quickGeneration=useRef(0);
  const loadDecisionSerial=useRef(0),loadDecisionActive=useRef<number|undefined>(undefined),loadDecisionContext=useRef('');
@@ -80,7 +80,11 @@ function App(){
   return()=>{owner.stop();if(captureOwner.current===owner)captureOwner.current=undefined;};
  },[room?.id,room?.started,room?.role,playerState.fingerprint]);
  useEffect(()=>{if(room?.game.status==='paused'&&!playerState.running&&!playerState.loading)void captureOwner.current?.capture();},[room?.game.status,playerState.running,playerState.loading]);
- useEffect(()=>{if(!room||room.role!=='host'||room.started){++recoverySerial.current;setRecovery(undefined);setRecoveryBusy(false);setRecoveryCommitting(false);recoveryCommit.current=false;}},[room?.id,room?.role,room?.started]);
+ useEffect(()=>{
+  const committing=recoveryCommit.current,currentCommit=!!committing&&committing.roomId===room?.id&&committing.membership===room?.chatMembership;
+  // The restored room can arrive before the reply that binds its native epoch.
+  if(!room||room.role!=='host'||committing&&!currentCommit||room.started&&!currentCommit){++recoverySerial.current;setRecovery(undefined);setRecoveryBusy(false);setRecoveryCommitting(false);recoveryCommit.current=undefined;}
+ },[room?.id,room?.chatMembership,room?.role,room?.started]);
  const preferencesIdentity=playerState.fingerprint?fileIdentity(playerState.fingerprint):undefined;
  const preferences=usePreferences(preferencesIdentity,value=>{setControls(value.controls);player.current?.configureControls(value.controls);setFilter(value.filter);setVolume(value.volume);player.current?.setVolume(value.volume);});
  useEffect(()=>{if(!canvas.current)return;const current=new LocalPlayer(canvas.current,setPlayerState);player.current=current;return()=>{current.dispose();if(player.current===current)player.current=null;};},[]);
@@ -250,18 +254,19 @@ function App(){
    if(saved&&!await candidateStillStored(saved,fingerprint))throw Error('The saved NES file was deleted or changed.');
    const info=await active.saveInfo();if(info.identity!==capture.identity)throw Error('Saved progress does not match this game.');
    const selected=await rooms.current?.selectLobbyGame(file,fingerprint,capture.title,current);if(!selected?.ok)throw Error(selected?.message??'Could not select the saved game.');
-   if(!current())return;recoveryCommit.current=true;setRecoveryCommitting(true);
+   if(!current())return;recoveryCommit.current={roomId:target.id,membership:target.chatMembership};setRecoveryCommitting(true);
    await active.holdForGame(false);
    await active.importPeerCheckpoint(crypto.randomUUID().replaceAll('-',''),capture.frame,capture.bytes,capture.identity,capture.hash,current);
    if(!current())return;
    const latest=await readRecovery();if(latest.generation!==offer.generation||latest.record?.revision!==offer.record.revision)throw Error('Recovery data was cleared or changed before restoration.');
    await rooms.current?.restoreGame(capture.frame,capture.hash,current);
+   if(!current())return;
    setRecovery(undefined);setStatusOverride('');
   }catch(error){if(current()){
    const message=error instanceof Error?error.message:'Restoration could not complete.';
    if(recoveryIndex+1<offer.record.captures.length){setRecoveryIndex(recoveryIndex+1);setRecoveryError(`${message} You can try the older save shown below.`);}
    else{setRecovery(undefined);setStatusOverride(`${message} Load a NES game normally.`);}
-  }}finally{if(recoverySerial.current===serial){setRecoveryBusy(false);setRecoveryCommitting(false);recoveryCommit.current=false;recoveryAbort.current=undefined;}}
+  }}finally{if(recoverySerial.current===serial){setRecoveryBusy(false);setRecoveryCommitting(false);recoveryCommit.current=undefined;recoveryAbort.current=undefined;}}
  };
  const startFreshRecovery=async()=>{if(!recovery||recoveryCommit.current)return;const offer=recovery,target=room,serial=++recoverySerial.current;recoveryAbort.current?.abort();recoveryAbort.current=undefined;if(recoveryBusy){rooms.current?.cancelSelection();player.current?.cancelPeerCheckpoint();player.current?.cancel();}setRecovery(undefined);setRecoveryError('');setRecoveryBusy(false);setStatusOverride('');const current=()=>serial===recoverySerial.current&&!!target&&!!rooms.current?.currentMembership(target.id,target.chatMembership)&&!recoveryContext.current.leaving;try{await changeRecovery(offer.record,offer.generation,undefined,current);}catch(error){if(current())setStatusOverride(`${error instanceof Error?error.message:'Could not discard the saved progress.'} You can load a NES game normally.`);}};
  const recoveryCapture=recovery?.record.captures[recoveryIndex];
