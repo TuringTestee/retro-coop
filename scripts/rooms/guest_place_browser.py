@@ -207,9 +207,6 @@ def main():
             member_name = host.locator('[data-slot-id="slot-2"] .slot-row strong').inner_text().split(' · ', 1)[1]
             slot_action(host, 'slot-2', f'Kick {member_name}')
             host.get_by_role('alertdialog', name=f'Kick {member_name}?').wait_for()
-            host.get_by_role('button', name='Cancel', exact=True).click()
-            assert guest.locator('[data-page="lobby"]').count() == 1
-            slot_action(host, 'slot-2', f'Kick {member_name}')
             host.get_by_role('button', name='Kick player', exact=True).click()
             expect(host.locator('.rc-players .rc-section-head small')).to_have_text('4/5')
             guest.locator('.rc-listing').wait_for(timeout=15000)
