@@ -1,6 +1,6 @@
 # Retro Coop
 
-Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound, saves and local rewind. Public and password-protected lobbies have five slots. Create or join a lobby first, then choose a NES game while friends arrive. The host can assign Player 1 and Player 2 and close empty slots. Other visitors can watch. Only occupied controller players must be Ready before Start.
+Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound and saves. Public and password-protected lobbies have five slots. Create or join a lobby first, then choose a NES game while friends arrive. The host can assign Player 1 and Player 2 and close empty slots. Other visitors can watch. Only occupied controller players must be Ready before Start.
 
 ## Play
 
@@ -26,7 +26,7 @@ The [AWS website operations guide](docs/implementation/d24-aws-eb-operations.md)
 A sixth visitor cannot join until a slot is free and open. For a custom `.nes` file, wait for the verified upload before asking players to get ready. A joining visitor downloads the host's game or uses a verified local copy; **Retry game** recovers a failed download. The host leaving closes the lobby; another visitor leaving preserves it. Voice controls live under Settings → Voice; [remaining voice qualification](https://github.com/TuringTestee/retro-coop/issues/198) is tracked separately.
 ## Application
 
-The application plays included or host-shared NES files with keyboard/gamepad controls, sound, saves and local rewind. The [lobby coordinator](docs/implementation/d08-rooms.md) creates anonymous public or password-protected lobbies; verified matching games can use shared play, text chat and [optional voice](docs/implementation/d17-voice.md). Settings → Local data shows saved game copies and lets you remove one or all. The [unified lobby design](docs/design/unified-lobbies-direction.md) defines the current journey and layout. Shared save loading and rewind remain separate delivery work.
+The application plays included or host-shared NES files with keyboard/gamepad controls, sound and saves. The [lobby coordinator](docs/implementation/d08-rooms.md) creates anonymous public or password-protected lobbies; verified matching games can use shared play, text chat and [optional voice](docs/implementation/d17-voice.md). Settings → Local data shows saved game copies and lets you remove one or all. The [unified lobby design](docs/design/unified-lobbies-direction.md) defines the current journey and layout. Game settings provides Save (Q) and host Load (E); shared loading waits for the controlling players to agree. Shared rewind remains deferred.
 
 ## Start working
 
