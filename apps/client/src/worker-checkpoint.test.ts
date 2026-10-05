@@ -16,14 +16,16 @@ async function harness(){
  const emit=(bytes:Uint8Array)=>{output=bytes;new Uint8Array(memory.buffer,4096,bytes.length).set(bytes);return 1;};
  const allocations=new Set<number>();
  const consume=(ptr:number)=>assert.equal(allocations.delete(ptr),true,'native state operations consume their allocation exactly once');
- const core={memory,local_state_limit:()=>2*1024*1024,local_state_alloc:()=>{assert.equal(allocations.has(1024),false);allocations.add(1024);return 1024;},local_state_validate:(ptr:number)=>{consume(ptr);return 1;},local_state_import:(ptr:number,size:number)=>{consume(ptr);current=new Uint8Array(memory.buffer,ptr,size).slice();imports++;return 1;},local_rewind_clear:()=>{clears++;},local_state_export:()=>emit(current),local_state_hash:()=>emit(createHash('sha256').update(current.subarray(8,40)).update(current.subarray(72)).digest()),local_state_info:()=>emit(new TextEncoder().encode(JSON.stringify({identity}))),local_output:()=>4096,local_output_len:()=>output.length};
+ let releaseExport:(()=>void)|undefined,exportGate:Promise<void>|undefined;
+ const deferExport=()=>{exportGate=new Promise<void>(resolve=>{releaseExport=resolve;});return ()=>{releaseExport!();exportGate=undefined;};};
+ const core={memory,local_frame:()=>1,local_rewind_record:()=>1,local_rewind_info:()=>emit(new TextEncoder().encode(JSON.stringify({frame:1}))),local_state_limit:()=>2*1024*1024,local_state_alloc:()=>{assert.equal(allocations.has(1024),false);allocations.add(1024);return 1024;},local_state_validate:(ptr:number)=>{consume(ptr);return 1;},local_state_import:(ptr:number,size:number)=>{consume(ptr);current=new Uint8Array(memory.buffer,ptr,size).slice();imports++;return 1;},local_rewind_clear:()=>{clears++;},local_state_export:async()=>{if(exportGate)await exportGate;return emit(current);},local_state_hash:()=>emit(createHash('sha256').update(current.subarray(8,40)).update(current.subarray(72)).digest()),local_state_info:()=>emit(new TextEncoder().encode(JSON.stringify({identity}))),local_output:()=>4096,local_output_len:()=>output.length};
  const messages:contracts.WorkerResponse[]=[];
  const source=readFileSync(new URL('./worker.ts',import.meta.url),'utf8').replace(/^import .*;$/gm,'').replace('let core: Core | undefined;','let core: Core | undefined = injectedCore;');
  let now=0;
  const context={performance:{now:()=>now},setTimeout:(fn:()=>void,ms:number)=>setTimeout(fn,ms).unref(),clearTimeout,...contracts,injectedCore:core,hex,crypto,ArrayBuffer,Uint8Array,TextDecoder,TextEncoder,postMessage:(message:contracts.WorkerResponse)=>messages.push(structuredClone(message)),onmessage:undefined};
  runInNewContext(stripTypeScriptTypes(source),context);
  const rpc=context.onmessage as unknown as (event:{data:unknown})=>Promise<void>;
- return {bytes:bytes.buffer,hash,messages,rpc,advance:(ms:number)=>{now+=ms;},stats:()=>({imports,clears})};
+ return {bytes:bytes.buffer,hash,messages,rpc,deferExport,advance:(ms:number)=>{now+=ms;},stats:()=>({imports,clears})};
 }
 test('dedicated peer RPC consumes each native allocation once and restores exact frame/epoch/hash',async()=>{
  const h=await harness();const request={type:'peer-checkpoint-prepare',operationId,requestId:1,epoch,frame:917,bytes:h.bytes,identity,hash:h.hash};
@@ -105,4 +107,20 @@ test('cancelled shared preparation retains the old machine and final acceptance 
  await h.rpc({data:prepare});await h.rpc({data:{type:'peer-checkpoint-commit',requestId:3,operationId}});
  await h.rpc({data:{type:'peer-checkpoint-finish',requestId:4,operationId}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-finished');
  await h.rpc({data:{type:'peer-checkpoint-bind',requestId:5,epoch:'n'.repeat(22),frame:20,hash:h.hash}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-bound');
+});
+
+for(const action of ['rollback','cancel','expiry'] as const)test(`shared ${action} during deferred snapshot cannot recreate its transaction`,async()=>{
+ const h=await harness(),release=h.deferExport();
+ const prepare={type:'peer-checkpoint-prepare',requestId:1,operationId,transactionId:operationId,epoch,frame:20,bytes:h.bytes,identity,hash:h.hash};
+ const pending=h.rpc({data:prepare});
+ if(action==='expiry')h.advance(45000);
+ else await h.rpc({data:{type:`peer-checkpoint-${action}`,requestId:2,operationId}});
+ release();await pending;
+ assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-error');
+ await h.rpc({data:{type:'frame',epoch,frame:0,p1:0,p2:0}});
+ assert.equal(h.messages.at(-1)?.type,'frame','cancelled snapshot must not block prior gameplay');
+ await h.rpc({data:prepare});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-prepared');
+ await h.rpc({data:{type:'peer-checkpoint-commit',requestId:3,operationId}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-imported');
+ await h.rpc({data:{type:'peer-checkpoint-finish',requestId:4,operationId}});assert.equal(h.messages.at(-1)?.type,'peer-checkpoint-finished');
+ assert.equal(h.stats().imports,1);
 });

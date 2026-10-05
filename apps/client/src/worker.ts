@@ -23,9 +23,9 @@ let rewindIssue:string|undefined,sharedEpoch:string|undefined;
 let checkpointGeneration=0, preparing=false;
 let candidate: {operationId:string;generation:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;deadline:number;transactionId?:string}|undefined;
 let candidateTimer:ReturnType<typeof setTimeout>|undefined;
-function clearCandidate(preserveStage=false){if(!preserveStage)core?.cancelStage?.();checkpointGeneration++;candidate=undefined;clearTimeout(candidateTimer);candidateTimer=undefined;}
+function clearCandidate(preserveStage=false){if(!preserveStage){core?.cancelStage?.();if(rollback&&!rollback.committed&&rollback.operationId===candidate?.transactionId)rollback=undefined;}checkpointGeneration++;candidate=undefined;clearTimeout(candidateTimer);candidateTimer=undefined;}
 let rollback: {operationId:string;frame:number;epoch?:string;fresh:boolean;bytes:ArrayBuffer;hash:string;committed:boolean}|undefined;
-async function snapshot(){check(await core!.local_state_export());const bytes=copy(0);check(await core!.local_state_hash());return {bytes,hash:hex(copy(0))};}
+async function snapshot(assertOwner:()=>void){check(await core!.local_state_export());assertOwner();const bytes=copy(0);check(await core!.local_state_hash());assertOwner();return {bytes,hash:hex(copy(0))};}
 async function importState(bytes:ArrayBuffer){const ptr=core!.local_state_alloc(bytes.byteLength);if(!ptr)throw Error('Checkpoint allocation failed');new Uint8Array(core!.memory.buffer,ptr,bytes.byteLength).set(new Uint8Array(bytes));check(await core!.local_state_import(ptr,bytes.byteLength));}
 async function inspectState(bytes:ArrayBuffer){
  if(bytes.byteLength<72||bytes.byteLength>core!.local_state_limit())throw Error('Checkpoint exceeds codec limit');
@@ -100,29 +100,34 @@ async function handle({data}: {data:unknown}) {
     check(await core.local_state_info());const {identity}=JSON.parse(new TextDecoder().decode(copy(0)));
     send({type:'peer-checkpoint-exported',requestId:data.requestId,epoch:data.epoch,frame,bytes,identity,hash},[bytes]);
    } else if(data.type==='peer-checkpoint-prepare') {
-    if(rollback&&rollback.operationId!==data.operationId)throw Error('Another shared load is pending');
+    if(rollback&&(rollback.operationId!==data.operationId||rollback.committed))throw Error('Another shared load is pending');
     if(data.transactionId!==undefined&&data.transactionId!==data.operationId)throw Error('Checkpoint transaction ownership mismatch');
     clearCandidate();const generation=checkpointGeneration;
     const duration=data.transactionId?45_000:15_000;
     candidate={operationId:data.operationId,generation,epoch:data.epoch,frame:data.frame,bytes:data.bytes,identity:data.identity,hash:data.hash,transactionId:data.transactionId,deadline:performance.now()+duration};
     candidateTimer=setTimeout(()=>{if(candidate?.generation===generation)clearCandidate();},duration);
+    const assertOwner=()=>{if(candidate?.generation!==generation||performance.now()>=candidate.deadline)throw Error('Checkpoint preparation cancelled or expired');};
     preparing=true;
     try {
-     if(data.transactionId&&!rollback)rollback={operationId:data.operationId,frame,epoch:sharedEpoch,fresh,...(await snapshot()),committed:false};
-     const info=await inspectState(data.bytes);
+     if(data.transactionId&&!rollback){
+      const previous={operationId:data.operationId,frame,epoch:sharedEpoch,fresh,committed:false};
+      const state=await snapshot(assertOwner);assertOwner();
+      rollback={...previous,...state};
+     }
+     const info=await inspectState(data.bytes);assertOwner();
      if(info.identity!==data.identity)throw Error('Checkpoint identity mismatch');
      if(info.hash!==data.hash)throw Error('Checkpoint state hash mismatch');
-     if(candidate?.generation!==generation||performance.now()>=candidate.deadline)throw Error('Checkpoint preparation cancelled or expired');
+     assertOwner();
      send({type:'peer-checkpoint-prepared',requestId:data.requestId,operationId:data.operationId,epoch:data.epoch,frame:data.frame,hash:data.hash});
     } catch(error){if(candidate?.generation===generation)clearCandidate();throw error;}
     finally {preparing=false;}
    } else if(data.type==='peer-checkpoint-commit') {
     const prepared=candidate;
     if(!prepared||prepared.operationId!==data.operationId)throw Error('Checkpoint commit is stale');
+    if(performance.now()>=prepared.deadline){clearCandidate();throw Error('Checkpoint preparation expired');}
+    if(prepared.transactionId&&rollback?.operationId!==prepared.operationId){clearCandidate();throw Error('Rollback state unavailable');}
     clearCandidate(true);
-    if(performance.now()>=prepared.deadline)throw Error('Checkpoint preparation expired');
-    if(prepared.transactionId&&rollback?.operationId!==prepared.operationId)throw Error('Rollback state unavailable');
-    // No asynchronous gap exists after the owner's final authorization check.
+    // Dispatch queues commit/import and rollback; only preparation admits concurrent cancellation.
     const ptr=core.local_state_alloc(prepared.bytes.byteLength);
     if(!ptr)throw Error('Checkpoint allocation failed');
     new Uint8Array(core.memory.buffer,ptr,prepared.bytes.byteLength).set(new Uint8Array(prepared.bytes));

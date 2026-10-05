@@ -68,14 +68,19 @@ SCRIPT = r'''async rom=>{
   expect(await rpc(a,'peer-checkpoint-prepare',{operationId:op,epoch,frame:saved.frame,bytes:saved.bytes,identity:saved.identity,hash:saved.hash,transactionId:op}),'peer-checkpoint-prepared');
   expect(await rpc(a,'peer-checkpoint-commit',{operationId:op}),'peer-checkpoint-imported');expect(await rpc(a,'peer-checkpoint-rollback',{operationId:op}),'peer-checkpoint-rolled-back');
   if(expect(await rpc(a,'state-hash'),'state-hash').info.hash!==replay.hash)throw Error('Shared rollback lost prior progress');
-  const pending=rpc(a,'peer-checkpoint-prepare',{operationId:op,epoch,frame:saved.frame,bytes:saved.bytes,identity:saved.identity,hash:saved.hash});
+  const pending=rpc(a,'peer-checkpoint-prepare',{operationId:op,epoch,frame:saved.frame,bytes:saved.bytes,identity:saved.identity,hash:saved.hash,transactionId:op});
   const cancelled=rpc(a,'peer-checkpoint-cancel',{operationId:op});
   const messages=await Promise.all([pending,cancelled]);
   if(!messages.some(m=>m.type==='peer-checkpoint-cancelled')||!messages.some(m=>m.type==='peer-checkpoint-error'))throw Error('Cancellation accepted stale preparation');
   expect(await rpc(a,'peer-checkpoint-commit',{operationId:op}),'peer-checkpoint-error');
   if(expect(await rpc(a,'state-hash'),'state-hash').info.hash!==replay.hash)throw Error('Cancelled prepare changed active progress');
+  expect(await rpc(a,'frame',{p1:1,p2:2}),'frame');
+  expect(await rpc(a,'peer-checkpoint-prepare',{operationId:op,epoch,frame:saved.frame,bytes:saved.bytes,identity:saved.identity,hash:saved.hash,transactionId:op}),'peer-checkpoint-prepared');
+  expect(await rpc(a,'peer-checkpoint-commit',{operationId:op}),'peer-checkpoint-imported');
+  expect(await rpc(a,'peer-checkpoint-finish',{operationId:op}),'peer-checkpoint-finished');
+  expect(await rpc(a,'state-import',{bytes:replay.bytes}),'state-imported');
   window.boundaryHold={worker:a,bytes:replay.bytes,hash:replay.hash,rpc,expect};retained=true;b.terminate();
-  return {backend:readyA.coreSha256,pairedFrames:240,nativeRam:[raw[ram.offset],raw[ram.offset+1],raw[ram.offset+2]],stateBytes:saved.bytes.byteLength,replayFrames:180,frameBytes,audioBytes,failures,sharedRollback:true,cancelledPrepare:true,failedReplacementPreserved:true,rewindPreserved:true};
+  return {backend:readyA.coreSha256,pairedFrames:240,nativeRam:[raw[ram.offset],raw[ram.offset+1],raw[ram.offset+2]],stateBytes:saved.bytes.byteLength,replayFrames:180,frameBytes,audioBytes,failures,sharedRollback:true,cancelledPrepare:true,cancelledTransactionResumedAndRetried:true,failedReplacementPreserved:true,rewindPreserved:true};
  }finally{if(!retained)workers.forEach(worker=>worker.terminate());}
 }'''
 
