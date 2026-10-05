@@ -21,7 +21,8 @@ function prepared(){
  const fixture={disposed:false,confirmingSelection:selection,gameSelection:intent,state:{room:lobby},
   publish(patch:Record<string,unknown>){states.push(patch);},failure(error:Error){states.push({status:error.message});},apply(data:RoomData){this.state.room=data.room!;},
   async connectOnce(){rooms.attach(host.token,()=>{},()=>{});},async connect(){},
-  async request(command:Command){commands.push(command);return act(command);},setRoom(room:typeof lobby){this.state.room=room;}
+  async request(command:Command){commands.push(command);return act(command);},
+  game:{enter(){}},chat:{enter(){}},peers:new Map(),peerStates:new Map(),player:()=>null,reportLoadedGame(){},closePeers(){}
  };
  const client=Object.assign(Object.create(RoomClient.prototype),fixture) as TestClient;
  return {client,selection,rooms,host,act,commands,states,advance(ms:number){now+=ms;rooms.sweep();}};
