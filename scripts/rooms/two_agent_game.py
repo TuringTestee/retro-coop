@@ -576,6 +576,8 @@ def recovery():
         host.close()
         # Observe the production host reservation expiry; no clock or expiry mutation.
         guest.get_by_role('button',name='Host a new game').wait_for(timeout=100000)
+        guest.get_by_text('The host did not return. This lobby has closed.',exact=True).wait_for()
+        assert guest.evaluate('proof.recoveryResponses.some(event=>event.type==="ended" && event.reason==="host_expired")')
         host=open_page(contexts[0],args.url)
         host.evaluate('sessionStorage.removeItem("retro-coop-guest")')
         host.reload();host.evaluate('releaseFrames()')
@@ -588,7 +590,9 @@ def recovery():
         assert new['host']=='Recovery Host'
         screenshot(host,'recovery-offer.png')
         new_invitation=args.url+'/#invite='+new['invite']
-        guest.goto(invitation);guest.evaluate('releaseFrames()')
+        # The guest is already at this invitation: goto alone is a same-document navigation.
+        # Reload explicitly tests a fresh lookup, separately from the live expiry explanation.
+        guest.goto(invitation);guest.reload();guest.evaluate('releaseFrames()')
         guest.get_by_text('This lobby is closed, unavailable, or the invitation has expired.',exact=True).wait_for()
         assert guest.get_by_role('button',name='Join lobby',exact=True).is_disabled()
         guest.goto(new_invitation);guest.evaluate('releaseFrames()')
@@ -867,7 +871,8 @@ def shared_load():
             saved=slot(host)
             assert saved and saved['bytes']>72 and saved.get('frame') is not None and saved.get('hash'),saved
             host.wait_for_function('frame=>proof.frames.at(-1)?.frame>frame+60',arg=saved['frame'])
-            before=pause(host,guest)
+            assert host.evaluate('proof.room.game.status==="playing"')
+            before=native(host)
             old_epoch=host.evaluate('proof.room.game.epoch')
             shell=shell_bounds(host)
             host.keyboard.press('e')
@@ -875,6 +880,8 @@ def shared_load():
             screenshot(host,'shared-load-host-confirm.png')
             host.get_by_role('button',name='Load game',exact=True).click()
             guest.get_by_role('button',name='Load game',exact=True).wait_for()
+            boundary=[native(page) for page in pages]
+            assert boundary[0]==boundary[1],boundary
             screenshot(guest,'shared-load-guest-consent.png')
             guest.get_by_role('button',name='Load game',exact=True).click()
             for page in pages:
@@ -906,10 +913,13 @@ def shared_load():
             # Decline and the real consent deadline preserve the same paused machine.
             denials=[]
             for decision in ('decline','timeout','changed-save'):
-                prior=pause(host,guest)
+                if decision!='decline':prior=pause(host,guest)
+                else:assert host.evaluate('proof.room.game.status==="playing"')
                 host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
                 guest.get_by_role('button',name='Load game',exact=True).wait_for()
-                if decision=='decline':guest.get_by_role('button',name='Keep current',exact=True).click()
+                if decision=='decline':
+                    prior=native(host);assert native(guest)==prior
+                    guest.get_by_role('button',name='Keep current',exact=True).click()
                 if decision=='changed-save':
                     host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{
                       const db=request.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),rows=store.getAll();
@@ -921,6 +931,19 @@ def shared_load():
                 assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
                 denials.append({'action':decision,'preserved':prior})
                 resume(host,guest)
+            # Every Local data confirmation shares the shell blocker and returns keyboard focus.
+            choose_section(host,'Profile');host.get_by_role('button',name='Local data',exact=True).click()
+            host.get_by_role('button',name='Saves',exact=True).click()
+            for action in ('Delete save','Delete all local data'):
+                trigger=host.get_by_role('button',name=action,exact=True);trigger.click()
+                dialog=host.get_by_role('alertdialog',name='Confirm local data action');expect(dialog).to_be_visible()
+                for key in ('Tab','Tab','Shift+Tab','Shift+Tab'):
+                    host.keyboard.press(key)
+                    assert dialog.evaluate('node=>node.contains(document.activeElement)')
+                assert host.locator('.rc-tool-back').evaluate('node=>!!node.closest("[inert]")')
+                host.keyboard.press('Escape');expect(dialog).to_have_count(0)
+                expect(trigger).to_be_focused()
+            host.get_by_role('button',name='Back',exact=True).click();choose_section(host,'Game')
             # A production-format byte-only copy remains usable after refresh in a new lobby.
             restored_epoch=host.evaluate('proof.room.game.epoch')
             host.get_by_role('button',name='Back to Main Page',exact=True).click()
@@ -952,7 +975,7 @@ def shared_load():
             assert not errors,errors
             save('shared-load-result.json' ,{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
                 'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
-                'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
+                'active_play_load_boundary':boundary[0],'active_play_decline':True,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
                 'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
             for index,page in enumerate(pages):

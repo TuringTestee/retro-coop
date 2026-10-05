@@ -15,7 +15,7 @@ export type GameplayState={status:string;frame:number;delay?:number;hash?:string
 /** One local emulator; the authority owns at most four independently bounded replica links. */
 export class GameClient {
  private manualLoadRequest?:symbol;private manualSave?:ManualSave;
- private loadAttempt?:{id:string;serial:number;room:string;member:string};private loadEvents=Promise.resolve();private loadHold?:Extract<GameEvent,{type:'gameLoadHold'}>;private announcedLoad?:{event:Extract<GameEvent,{type:'gameLoadHold'}>;room:string;member:string;serial:number};
+ private loadAttempt?:{id:string;room:string;member:string};private loadEvents=Promise.resolve();private loadHold?:Extract<GameEvent,{type:'gameLoadHold'}>;private announcedLoad?:{event:Extract<GameEvent,{type:'gameLoadHold'}>;room:string;member:string;serial:number};
  private room?:RoomView;private file?:Fingerprint;private intent=false;private serial=0;private offered?:string;private offering=false;
  private links=new Map<string,Link>();private checkpointLinks=new Map<string,{epoch:string;channel:RTCDataChannel}>();
  private scheduler?:GameScheduler;private controllers:ControllerAssignment={owners:[null,null],revision:0};private prepared?:Extract<GameEvent,{type:'gamePrepare'|'gameStart'}>;
@@ -72,7 +72,8 @@ export class GameClient {
  }
  async decideLoad(accept:boolean){const load=this.room?.game.load;if(!load||load.phase!=='consent')throw Error('This Load request has ended.');await this.send({type:'gameLoadDecision',transactionId:load.id,accept});}
  async cancelLoad(){const load=this.room?.game.load;if(load&&this.authority())await this.send({type:'gameLoadCancel',transactionId:load.id});}
- private ownsLoad(id:string){const attempt=this.loadAttempt;return !!attempt&&attempt.id===id&&attempt.serial===this.serial&&attempt.room===this.room?.id&&attempt.member===this.self()&&this.loaded();}
+ // Ready revisions do not revoke the native rollback obligation of the same room transaction.
+ private ownsLoad(id:string){const attempt=this.loadAttempt;return !!attempt&&attempt.id===id&&attempt.room===this.room?.id&&attempt.member===this.self()&&this.loaded();}
  private loadFailure(id:string,error:unknown){if(!this.ownsLoad(id))return;this.publish({busy:false,status:String(error)});void this.send({type:'gameLoadFailed',transactionId:id}).catch(()=>{});}
  private async completeLoadHold(event:Extract<GameEvent,{type:'gameLoadHold'}>){
   if(!this.ownsLoad(event.transactionId)||this.loadHold!==event)return;
@@ -84,7 +85,7 @@ export class GameClient {
  private async handleLoad(event:Extract<GameEvent,{type:'gameLoadHold'|'gameLoadStage'|'gameLoadCommit'|'gameLoadRollback'|'gameLoadFinish'}>){
   if(event.type==='gameLoadHold'){
    if(!this.room||!this.loaded())return;
-   this.loadAttempt={id:event.transactionId,serial:this.serial,room:this.room.id,member:this.self()};this.loadHold=event;this.intent=false;this.offered=undefined;this.publish({busy:true,status:'Preparing to load saved progress.'});
+   this.loadAttempt={id:event.transactionId,room:this.room.id,member:this.self()};this.loadHold=event;this.intent=false;this.offered=undefined;this.publish({busy:true,status:'Preparing to load saved progress.'});
    if(event.frame!==undefined&&this.scheduler&&this.scheduler.frame<event.frame){this.fence=event.frame;this.frozen=false;this.player()?.drainGame();return;}
    await this.completeLoadHold(event);return;
   }
@@ -132,7 +133,7 @@ export class GameClient {
   else if(this.authority()&&this.controllers.owners.includes(member))this.pause('network');
  }
  handle(event:GameEvent){
-  if(event.type==='gameLoadRollback'&&!this.loadAttempt&&this.room?.game.load?.id===event.transactionId&&this.loaded())this.loadAttempt={id:event.transactionId,serial:this.serial,room:this.room.id,member:this.self()};
+  if(event.type==='gameLoadRollback'&&!this.loadAttempt&&this.room?.game.load?.id===event.transactionId&&this.loaded())this.loadAttempt={id:event.transactionId,room:this.room.id,member:this.self()};
   if(event.type==='gameLoadHold'&&this.room?.game.load?.id!==event.transactionId){if(this.room)this.announcedLoad={event,room:this.room.id,member:this.self(),serial:this.serial};return;}
   if(event.type==='gameLoadHold'||event.type==='gameLoadStage'||event.type==='gameLoadCommit'||event.type==='gameLoadRollback'||event.type==='gameLoadFinish'){const loadEvent=event;this.loadEvents=this.loadEvents.then(()=>this.handleLoad(loadEvent)).catch(error=>this.loadFailure(loadEvent.transactionId,error));return;}
   if(event.type==='gamePrepare'&&this.loadAttempt){this.loadEvents=this.loadEvents.then(()=>{if(!this.loadAttempt)this.handle(event);});return;}

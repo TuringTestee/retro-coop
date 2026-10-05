@@ -180,3 +180,30 @@ test('room change during async save-record validation cannot propose the old roo
   const request=t.game.loadSaved({identity,slot:1,savedAt:1000,bytes:new ArrayBuffer(82)},async()=>{await new Promise<void>(done=>resolve=done);return true;});const failure=assert.rejects(request,/Saved progress changed/);await tick();t.game.enter(undefined);resolve();await failure;assert.equal(t.commands.some(c=>c.type==='gameLoadPropose'),false);
  }finally{t.game.dispose();}
 });
+
+test('unused lobby roster revision retains the same transaction native rollback owner',async()=>{
+ const t=setup(host),id='l'.repeat(22);let finish!:(value:{frame:number;hash:string})=>void;
+ Object.assign(t.player,{rollbackSharedSave:()=>new Promise(resolve=>finish=resolve),finishSharedSave:async()=>{}});
+ const view={...room(host),game:{...room(host).game,load:{id,epoch,phase:'freezing' as const,frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}};
+ try{
+  t.game.enter(view);t.game.handle({type:'gameLoadHold',transactionId:id});await tick();
+  t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Roster changed'});await tick();
+  t.game.enter({...view,revision:view.revision+1,game:{...view.game,load:{...view.game.load,phase:'rolling_back'}}});
+  finish({frame:917,hash});await tick();
+  assert.equal(t.commands.at(-1)?.type,'gameLoadRolledBack');
+  t.game.handle({type:'gameLoadFinish',transactionId:id});await tick();
+  t.game.enter({...room(host),revision:2});t.game.playIntent();await tick();
+  assert.equal(t.commands.at(-1)?.type,'gameReady');
+ }finally{t.game.dispose();}
+});
+
+test('late native rollback cannot acknowledge for a departed membership',async()=>{
+ const t=setup(host),id='l'.repeat(22);let finish!:(value:{frame:number;hash:string})=>void;
+ Object.assign(t.player,{rollbackSharedSave:()=>new Promise(resolve=>finish=resolve)});
+ try{
+  t.game.enter({...room(host),game:{...room(host).game,load:{id,epoch,phase:'rolling_back',frame:20,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],accepted:[host],expiresAt:20000}}});
+  t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:917,hash,reason:'Roster changed'});await tick();
+  const previous=finish;t.game.enter(undefined);previous({frame:917,hash});await tick();
+  assert.equal(t.commands.some(command=>command.type==='gameLoadRolledBack'),false);
+ }finally{t.game.dispose();}
+});

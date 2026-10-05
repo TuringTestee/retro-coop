@@ -4,15 +4,16 @@ import {createPortal} from 'react-dom';
 import type {LocalPlayer} from './player.ts';
 import {safeLabel} from './rom-library.ts';
 
-export function LocalData({open,player,preferencesIdentity,beforeClear,afterClear,timelineBusy,batteryAvailable}:{open:boolean;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void;timelineBusy?:boolean;batteryAvailable?:boolean}) {
+export function LocalData({open,player,preferencesIdentity,beforeClear,afterClear,timelineBusy,batteryAvailable,onConfirmationChange}:{open:boolean;player:LocalPlayer|null;preferencesIdentity?:string;beforeClear:()=>void;afterClear:()=>void;timelineBusy?:boolean;batteryAvailable?:boolean;onConfirmationChange?:(visible:boolean)=>void}) {
  const picker=useRef<HTMLInputElement>(null),pendingTimeline=useRef(timelineBusy);pendingTimeline.current=timelineBusy;
  const operation=useRef(0);
  const page=useRef<HTMLElement>(null),epoch=useRef(0),confirmFocus=useRef<HTMLElement|null>(null);
  const [data,setData]=useState<Data|null>(null),[current,setCurrent]=useState<string[]>([]),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const [confirmation,setConfirmationState]=useState<{label:string;action:()=>Promise<void>}|null>(null),[backup,setBackup]=useState<{bytes:ArrayBuffer;kind:'state'|'battery'|'preferences'}|null>(null),[exportFailed,setExportFailed]=useState(false),[focusRevision,setFocusRevision]=useState(0);
  const [category,setCategory]=useState<'current'|'games'|'saves'|'battery'|'preferences'>('games'),[record,setRecord]=useState(0);
+ useLayoutEffect(()=>{onConfirmationChange?.(!!confirmation);return ()=>onConfirmationChange?.(false);},[!!confirmation,onConfirmationChange]);
  const restoreFocus=()=>{const target=confirmFocus.current;confirmFocus.current=null;if(!target||!open)return;const connected=target.isConnected&&page.current?.contains(target)&&!target.closest('[hidden]');(connected?target:page.current?.querySelector<HTMLElement>('#local-data-title'))?.focus();};
- const setConfirmation=(value:typeof confirmation)=>{if(value)confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);if(!value)requestAnimationFrame(restoreFocus);};
+ const setConfirmation=(value:typeof confirmation)=>{if(value&&page.current?.contains(document.activeElement))confirmFocus.current=document.activeElement as HTMLElement;setConfirmationState(value);if(!value)requestAnimationFrame(restoreFocus);};
  useLayoutEffect(()=>{if(focusRevision)restoreFocus();},[focusRevision]);
  useEffect(()=>{
   const token=++epoch.current;if(!open)return;
@@ -54,7 +55,7 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
   <div className="rc-tool-body"><div className="rc-tool-stack">
    <>
     {!message&&!exportFailed&&<p>Data is stored in this browser. Export backups before deleting.</p>}
-     {category==='current'&&<div className="rc-tool-actions"><button disabled={busy||timelineBusy||!player?.isLoaded()} onClick={()=>void exportCurrent('state')}>Export current save</button><button disabled={busy||timelineBusy||!player?.isLoaded()} onClick={()=>{picker.current!.value='';picker.current!.click();}}>Import save</button><button disabled={busy||timelineBusy||!batteryAvailable||!player?.isLoaded()} onClick={()=>void exportCurrent('battery')}>Export battery backup</button><button disabled={busy||timelineBusy||!batteryAvailable||!player?.isLoaded()} onClick={()=>void run(async()=>{await player!.retryBatteryPersistence();})}>Retry battery saving</button></div>}
+     {category==='current'&&<div className="rc-tool-actions"><button disabled={busy||timelineBusy||!player?.isLoaded()} onClick={()=>void exportCurrent('state')}>Export current save</button><button disabled={busy||timelineBusy||!player?.isLoaded()} onClick={()=>{confirmFocus.current=document.activeElement as HTMLElement;picker.current!.value='';picker.current!.click();}}>Import save</button><button disabled={busy||timelineBusy||!batteryAvailable||!player?.isLoaded()} onClick={()=>void exportCurrent('battery')}>Export battery backup</button><button disabled={busy||timelineBusy||!batteryAvailable||!player?.isLoaded()} onClick={()=>void run(async()=>{await player!.retryBatteryPersistence();})}>Retry battery saving</button></div>}
     {!data?<p role="status">{message}</p>:<>
      {category!=='current'&&<div className="rc-tool-actions"><button disabled={index===0} onClick={()=>setRecord(index-1)}>Previous</button><span>{count?`${index+1} of ${count}`:'No records'}</span><button disabled={index+1>=count} onClick={()=>setRecord(index+1)}>Next</button></div>}
      {rom&&<><h3>{safeLabel(rom.label??'NES game')}</h3><p>{rom.size<1_000_000?`${Math.max(1,Math.ceil(rom.size/1000))} KB`:`${(rom.size/1_000_000).toFixed(1)} MB`} · {when(rom.savedAt)}</p><button disabled={busy} onClick={()=>setConfirmation({label:'Delete this saved game? Current play stays in memory. Add the file again or download it from a lobby to reuse it later.',action:()=>deleteRom(rom.sha256,data.generation)})}>Delete game</button></>}
@@ -68,7 +69,7 @@ export function LocalData({open,player,preferencesIdentity,beforeClear,afterClea
    </>
   </div></div>
   <input ref={picker} type="file" hidden aria-label="Save file" accept=".rcstate" onChange={event=>void importCurrent(event.target.files?.[0])}/>
-  {confirmation&&createPortal(<div className="rc-dialog-layer"><div className="rc-dialog-card" role="alertdialog" aria-modal="true" aria-label="Confirm local data action"><p>{confirmation.label}</p><div className="rc-dialog-actions"><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></div></div></div>,document.body)}
+  {confirmation&&createPortal(<div className="rc-dialog-layer"><div className="rc-dialog-card" role="alertdialog" aria-modal="true" aria-label="Confirm local data action" onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setConfirmation(null);}if(event.key==='Tab'){event.preventDefault();const buttons=Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));const index=buttons.indexOf(document.activeElement as HTMLButtonElement);buttons[(index+(event.shiftKey?-1:1)+buttons.length)%buttons.length]?.focus();}}}><p>{confirmation.label}</p><div className="rc-dialog-actions"><button autoFocus disabled={busy} onClick={()=>void run(confirmation.action)}>Confirm</button><button onClick={()=>setConfirmation(null)}>Cancel</button></div></div></div>,document.body)}
  </section>;
 }
 function text(error:unknown){return error instanceof Error ? error.message : 'Local data is unavailable. Retry later.';}
