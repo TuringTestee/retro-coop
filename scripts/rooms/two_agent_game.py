@@ -458,7 +458,7 @@ def recovery():
         function watch(channel){channels.push(channel);for(const event of ['open','close','error'])channel.addEventListener(event,()=>retain({kind:'channel',label:channel.label,state:channel.readyState,event}));}
         const Native=Worker;window.Worker=class extends Native{postMessage(data,...rest){if(data.type==='peer-checkpoint-bind'&&proof.failBinds?.length){const failure=proof.failBinds.shift();retain({kind:'native-request',type:data.type,requestId:data.requestId,epoch:data.epoch,frame:data.frame,hash:data.hash,failure});if(failure==='reject')queueMicrotask(()=>this.dispatchEvent(new MessageEvent('message',{data:{type:'peer-checkpoint-error',requestId:data.requestId,message:'Binding interrupted.'}})));return;}if(data.type.startsWith('peer-checkpoint-'))retain({kind:'native-request',type:data.type,requestId:data.requestId,epoch:data.epoch,frame:data.frame,hash:data.hash});return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='error'||data.type.startsWith('peer-checkpoint-'))retain({kind:'native',type:data.type,requestId:data.requestId,message:data.message,epoch:data.epoch,frame:data.frame,hash:data.hash});});}};
         const Socket=WebSocket;window.WebSocket=class extends Socket{
-        send(raw){const value=JSON.parse(raw);if(value.type==='gameRestore')proof.restoreRequest=value.requestId;if(value.type.startsWith('game'))retain({kind:'send',type:value.type,frame:value.frame,hash:value.hash,channels:channels.map(channel=>({label:channel.label,state:channel.readyState}))});return super.send(raw);}
+        send(raw){const value=JSON.parse(raw);if(proof.rejectClose&&value.type==='close'){proof.rejectClose=false;proof.rejectedCloseRequest=value.requestId;const reject=()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify({type:'result',requestId:value.requestId,ok:false,error:'close_rejected'})}));if(proof.holdCloseFailure)proof.releaseCloseFailure=reject;else queueMicrotask(reject);return;}if(value.type==='gameRestore')proof.restoreRequest=value.requestId;if(value.type.startsWith('game'))retain({kind:'send',type:value.type,frame:value.frame,hash:value.hash,channels:channels.map(channel=>({label:channel.label,state:channel.readyState}))});return super.send(raw);}
         constructor(...args){super(...args);this.addEventListener('message',event=>{
           const value=JSON.parse(event.data);
           if(proof.holdRestoreResult&&value.type==='result'&&value.requestId===proof.restoreRequest&&!event.restoreReleased){event.stopImmediatePropagation();proof.releaseRestoreResult=()=>{proof.holdRestoreResult=false;const released=new MessageEvent('message',{data:proof.rejectRestoreResult?JSON.stringify({type:'result',requestId:value.requestId,ok:false,error:'restore_reply_lost'}):event.data});Object.defineProperty(released,'restoreReleased',{value:true});retain({kind:'restore-result-released'});this.dispatchEvent(released);};retain({kind:'restore-result-held'});return;}
@@ -622,7 +622,15 @@ def recovery():
         box=dialog.bounding_box();assert box and box['x']>=0 and box['y']>=0 and box['x']+box['width']<=320 and box['y']+box['height']<=568,box
         screenshot(host,'recovery-bind-busy-narrow.png')
         assert host.evaluate('proof.room.game.status==="paused"&&!proof.recoveryDiagnostics.some(row=>row.type==="gameReady")')
+        # Browser navigation can interrupt even a busy restore. Its committed reply must
+        # retain the binding while Close is pending, then remain usable after rejection.
+        host.evaluate('proof.rejectClose=true;proof.holdCloseFailure=true');host.go_back()
+        host.get_by_role('button',name='Close lobby',exact=True).click()
+        host.wait_for_function('typeof proof.releaseCloseFailure==="function"')
         host.evaluate('proof.releaseRestoreResult()')
+        host.evaluate('proof.holdCloseFailure=false;proof.releaseCloseFailure()')
+        host.get_by_role('alertdialog').get_by_text('Could not leave. Retry or stay in the lobby.',exact=True).wait_for()
+        host.get_by_role('button',name='Stay',exact=True).click()
         for failure in ('reply','reject','timeout'):
             retry=host.get_by_role('button',name='Retry restoration',exact=True);expect(retry).to_be_enabled(timeout=15000)
             expect(host.get_by_role('button',name='Start fresh',exact=True)).to_have_count(0)
@@ -633,6 +641,13 @@ def recovery():
                 host.get_by_role('button',name='Back to Main Page',exact=True).click()
                 host.get_by_role('button',name='Stay',exact=True).click()
                 expect(retry).to_be_enabled()
+            if failure=='reject':
+                host.evaluate('proof.rejectClose=true');host.get_by_role('button',name='Back to Main Page',exact=True).click()
+                host.get_by_role('button',name='Close lobby',exact=True).click()
+                host.get_by_role('alertdialog').get_by_text('Could not leave. Retry or stay in the lobby.',exact=True).wait_for()
+                host.get_by_role('button',name='Stay',exact=True).click();expect(retry).to_be_enabled()
+                assert host.evaluate('proof.room.game.frame')==snapshot['frame']
+                screenshot(host,'recovery-rejected-close-stay.png')
             retry.click()
         host.get_by_role('alertdialog').wait_for(state='hidden')
         host.set_viewport_size({'width':args.width,'height':args.height})
@@ -800,7 +815,7 @@ def recovery():
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
-        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restore_acknowledgment_ordering':True,'committed_reply_and_bind_failures_retry':True,'busy_dialog_narrow_keyboard':True,'restore_synchronization':restore_diagnostics,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restore_acknowledgment_ordering':True,'committed_reply_during_rejected_close':True,'rejected_close_stay_keeps_retry':True,'committed_reply_and_bind_failures_retry':True,'busy_dialog_narrow_keyboard':True,'restore_synchronization':restore_diagnostics,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 

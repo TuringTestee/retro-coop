@@ -263,7 +263,7 @@ export class RoomClient {
    }catch(error){
     // A committed broadcast can arrive before a lost reply. Retain only this restore's boundary.
     const active=this.state.room;
-    if(current()&&active?.started&&active.role==='host'&&active.id===room.id&&active.chatMembership===room.chatMembership&&active.game.epoch&&active.game.epoch!==room.game.epoch&&['paused','failed'].includes(active.game.status)&&active.game.frame===frame&&active.fingerprint&&matchesFile(active.fingerprint,room.fingerprint))this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:active.game.epoch,frame,hash,fingerprint:room.fingerprint};
+    if(!this.disposed&&active?.started&&active.role==='host'&&active.id===room.id&&active.chatMembership===room.chatMembership&&active.game.epoch&&active.game.epoch!==room.game.epoch&&['paused','failed'].includes(active.game.status)&&active.game.frame===frame&&active.fingerprint&&matchesFile(active.fingerprint,room.fingerprint))this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:active.game.epoch,frame,hash,fingerprint:room.fingerprint};
     throw error;
    }
   }
