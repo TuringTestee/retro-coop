@@ -825,6 +825,22 @@ def shared_load():
         parser.error('shared-load needs --rom')
     started = time.monotonic()
     errors = []
+    expected_download_errors=set()
+    download_faults=[]
+    def console_error(message):
+        if message.type!='error':return
+        if message.location.get('url') in expected_download_errors and message.text=='Failed to load resource: net::ERR_FAILED':
+            expected_download_errors.discard(message.location['url']);return
+        errors.append(message.text)
+    def fail_first_download(page,stage):
+        requests=[]
+        def download(route):
+            if route.request.method=='GET' and not requests:
+                requests.append(route.request.url);expected_download_errors.add(route.request.url)
+                download_faults.append({'stage':stage,'method':'GET','fault':'deliberate first ROM GET abort'});route.abort('failed')
+            else:route.continue_()
+        page.route('**/rooms/*/rom',download)
+        return requests
     fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + """
       const NativeWorker=Worker;
       window.Worker=class extends NativeWorker {
@@ -898,7 +914,7 @@ def shared_load():
             context.add_init_script(fixture)
             page=context.new_page();page.set_default_timeout(15000)
             page.on('pageerror',lambda error:errors.append(str(error)))
-            page.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
+            page.on('console',console_error)
             page.goto(url);page.evaluate('releaseFrames()');pages.append(page)
         host,guest=pages
         observer=None
@@ -912,8 +928,14 @@ def shared_load():
             host.wait_for_function('proof.room?.matches&&proof.room.fingerprint')
             host.get_by_role('button',name='Copy invite',exact=True).click()
             invitation=host.evaluate('navigator.clipboard.readText()')
+            prestart_requests=fail_first_download(guest,'before Start')
             guest.goto(invitation);guest.evaluate('releaseFrames()')
             guest.get_by_role('button',name='Join lobby',exact=True).click()
+            guest.wait_for_function('proof.room?.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==="failed"')
+            assert len(prestart_requests)==1
+            expect(guest.get_by_role('button',name='Retry game',exact=True)).to_be_enabled()
+            guest.get_by_role('button',name='Retry game',exact=True).click()
+            guest.wait_for_function('proof.room?.matches')
             for page in pages:mute(page)
             ready_deadline=time.monotonic()+30;ready_recoveries=[]
             def remaining_ready():
@@ -941,10 +963,23 @@ def shared_load():
             observer_context.add_init_script(fixture)
             observer=observer_context.new_page();observer.set_default_timeout(15000)
             observer.on('pageerror',lambda error:errors.append(str(error)))
-            observer.on('console',lambda message:errors.append(message.text) if message.type=='error' else None)
+            observer.on('console',console_error)
+            late_requests=fail_first_download(observer,'ongoing play')
+            established=host.evaluate('({epoch:proof.room.game.epoch,owners:proof.room.game.controllers.owners,frames:proof.frameCount})')
             observer.goto(invitation);observer.evaluate('releaseFrames()')
             observer.get_by_role('button',name='Join lobby',exact=True).click()
+            observer.wait_for_function('proof.room?.slots.find(slot=>slot.member?.id===proof.room.chatMembership)?.member.acquisition==="failed"')
+            assert len(late_requests)==1
+            expect(observer.get_by_role('button',name='Retry game',exact=True)).to_be_enabled()
+            screenshot(observer,'ongoing-download-retry.png')
+            observer.get_by_role('button',name='Retry game',exact=True).click()
             observer.wait_for_function('proof.room?.matches&&proof.frameCount>10')
+            host.wait_for_function('before=>proof.frameCount>before.frames&&proof.room.game.epoch===before.epoch&&JSON.stringify(proof.room.game.controllers.owners)===JSON.stringify(before.owners)',arg=established)
+            late_native=pause(host,guest)
+            observer.wait_for_function('proof.room.game.status==="paused"')
+            assert native(observer)==late_native
+            screenshot(observer,'ongoing-download-recovered.png')
+            resume(host,guest)
             mute(observer)
             host.keyboard.press('q')
             host.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
@@ -1070,7 +1105,7 @@ def shared_load():
             screenshot(host,'shared-load-later-byte-only.png')
             assert not errors,errors
             save('shared-load-result.json' ,{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
-                'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
+                'download_recovery_faults':download_faults,'late_download_native':late_native,'established_during_recovery':established,'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
                 'active_play_load_boundary':boundary[0],'active_play_decline':True,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
                 'command_results':[page.evaluate('proof.commandResults') for page in [*pages,observer]],'ready_recoveries':ready_recoveries,'superseded_observer_transfers':observer_overlap,'final_observer_epoch':final_observer_epoch,'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
