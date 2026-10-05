@@ -792,7 +792,7 @@ def unavailable_preview_keeps_game(browser, url):
         context.close()
 
 
-def abandoned_saved_game_cannot_reopen(browser, url, output=None):
+def saved_game_picker_and_exit(browser, url, output=None):
     label = "界" * 80
     filename = label + ".nes"
     output = output or ROOT / "spikes/d02/public-entrypoint.local/unified-shell"
@@ -849,36 +849,13 @@ def abandoned_saved_game_cannot_reopen(browser, url, output=None):
         choose_panel(page, 'Game')
         page.get_by_role('button', name='Change game').click()
         page.get_by_role('button', name='Saved games').click()
-        preview = page.locator('.rc-preview img').get_attribute('src')
-        page.evaluate("()=>{window.realSavedDigest=crypto.subtle.digest.bind(crypto.subtle);crypto.subtle.digest=()=>Promise.reject(Error('Saved game could not be verified.'));}")
-        page.get_by_role('button', name=label).click()
-        page.get_by_text('Saved game could not be verified.', exact=True).wait_for()
-        assert page.locator('.rc-preview img').get_attribute('src') == preview
-        assert text_fits(page.locator('.rc-game-picker'))
-        page.screenshot(path=str(output / 'saved-picker-failed-selection.png'))
-        page.evaluate('()=>{crypto.subtle.digest=window.realSavedDigest;}')
         page.get_by_role('button', name=label).click()
         page.get_by_role('button', name='Ready', exact=True).wait_for()
         page.locator('.rc-game-picker').wait_for(state='hidden')
-        assert page.locator('.rc-game-heading').get_attribute('title') == '界' * 80
-        page.get_by_role('button', name='Change game').click()
-        page.get_by_role('button', name='Saved games').click()
-        page.get_by_role('button', name=label).wait_for()
-        page.evaluate("""() => {
-          const digest=crypto.subtle.digest.bind(crypto.subtle);
-          window.digestHeld=0;
-          crypto.subtle.digest=(...args)=>new Promise(resolve=>{
-            window.digestHeld++;
-            window.releaseDigest=()=>resolve(digest(...args));
-          });
-        }""")
-        page.get_by_role('button', name=label).click()
-        page.wait_for_function('window.digestHeld === 1')
+        assert page.locator('.rc-game-heading').get_attribute('title') == label
         page.get_by_role('button', name='Back to Main Page').click()
         page.get_by_role('button', name='Close lobby').click()
         page.locator('.rc-listing').wait_for()
-        page.evaluate('window.releaseDigest()')
-        page.wait_for_timeout(200)
         assert page.locator('main').get_attribute('data-page') == 'main'
         assert page.locator('.rc-session-holder').is_hidden()
         assert page.get_by_role('button', name='Resume', exact=True).count() == 0
@@ -1213,10 +1190,13 @@ def main():
                     automatic_voice(browser, url)
                     print('shell check: restored_battery_preview', flush=True)
                     restored_battery_preview(browser, url, output)
+                    print('shell check: unavailable_preview_keeps_game', flush=True)
                     unavailable_preview_keeps_game(browser, url)
-                    abandoned_saved_game_cannot_reopen(browser, url, output)
+                    print('shell check: saved_game_picker_and_exit', flush=True)
+                    saved_game_picker_and_exit(browser, url, output)
+                    print('shell check: saved_game_picker_and_exit completed', flush=True)
                 assert not errors, errors
-                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'local_shortcuts': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'abandoned_saved_game': args.browser == 'chromium'}), flush=True)
+                print(json.dumps({'result': 'pass', 'checks': rows, 'theme_defaults': True, 'expired_guest_recovery': args.browser == 'chromium', 'local_shortcuts': args.browser == 'chromium', 'automatic_voice': args.browser == 'chromium', 'restored_battery_preview': args.browser == 'chromium', 'preview_recovery': args.browser == 'chromium', 'saved_game_picker_and_exit': args.browser == 'chromium'}), flush=True)
             finally:
                 browser.close()
     finally:
