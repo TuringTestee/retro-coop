@@ -47,6 +47,7 @@ function App(){
  const recoverySerial=useRef(0),recoveryCommit=useRef(false),recoveryAbort=useRef<AbortController|undefined>(undefined),captureOwner=useRef<HostRecoveryCapture|undefined>(undefined);
  const [quickLoad,setQuickLoad]=useState<SaveSlot>();
  const quickBusy=useRef<symbol|undefined>(undefined),quickGeneration=useRef(0);
+ const loadDecisionSerial=useRef(0),loadDecisionActive=useRef<number|undefined>(undefined),loadDecisionContext=useRef('');
  const [loadDecisionBusy,setLoadDecisionBusy]=useState(false),[loadDecisionError,setLoadDecisionError]=useState('');
  const quickEpoch=useRef(0),quickLoadVersion=useRef(0);
  const quickScope=useRef<{page:ShellPage;roomId?:string;membership?:string;leaving:boolean}>({page:'main',leaving:false});
@@ -151,8 +152,16 @@ function App(){
  };
  const sharedLoad=room?.game.load,loadParticipant=!!sharedLoad&&sharedLoad.required.includes(room!.chatMembership);
  useEffect(()=>{player.current?.blockGameInput(controllerEditing||!!quickLoad||loadParticipant||!!tool||exitPrompt||!!kick||!!editTarget||!!recovery);},[controllerEditing,quickLoad,loadParticipant,tool,exitPrompt,kick,editTarget,recovery]);
- const decideLoad=async(accept?:boolean)=>{if(loadDecisionBusy)return;setLoadDecisionBusy(true);setLoadDecisionError('');try{if(accept===undefined)await rooms.current?.cancelLoad();else await rooms.current?.decideLoad(accept);}catch(error){setLoadDecisionError(error instanceof Error?error.message:'Could not answer Load. Retry.');}finally{setLoadDecisionBusy(false);}};
- useEffect(()=>{setLoadDecisionError('');setLoadDecisionBusy(false);if(loadParticipant)requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.rc-dialog-card button')?.focus());},[sharedLoad?.id,sharedLoad?.phase,loadParticipant]);
+ loadDecisionContext.current=[room?.id,room?.chatMembership,sharedLoad?.id,sharedLoad?.phase].join(':');
+ const decideLoad=async(accept?:boolean)=>{
+  if(loadDecisionActive.current!==undefined)return;const request=++loadDecisionSerial.current,context=loadDecisionContext.current;loadDecisionActive.current=request;
+  const current=()=>loadDecisionActive.current===request&&loadDecisionSerial.current===request&&loadDecisionContext.current===context;
+  setLoadDecisionBusy(true);setLoadDecisionError('');
+  try{if(accept===undefined)await rooms.current?.cancelLoad();else await rooms.current?.decideLoad(accept);}
+  catch(error){if(current())setLoadDecisionError(error instanceof Error?error.message:'Could not answer Load. Retry.');}
+  finally{if(current()){loadDecisionActive.current=undefined;setLoadDecisionBusy(false);}}
+ };
+ useEffect(()=>{++loadDecisionSerial.current;loadDecisionActive.current=undefined;setLoadDecisionError('');setLoadDecisionBusy(false);if(loadParticipant)requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.rc-dialog-card button')?.focus());},[sharedLoad?.id,sharedLoad?.phase,loadParticipant,room?.id,room?.chatMembership]);
  useEffect(()=>{if(!loadParticipant)return;const escape=(event:KeyboardEvent)=>{if(event.key!=='Escape'||event.defaultPrevented)return;event.preventDefault();if(room?.role==='host')void decideLoad();else if(sharedLoad?.phase==='consent')void decideLoad(false);};document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape);},[loadParticipant,sharedLoad?.phase,room?.role,loadDecisionBusy]);
  const tooSmall=viewport.width<320||Math.min(viewport.width,viewport.height)<320||Math.max(viewport.width,viewport.height)<568&&['lobby','playing','local'].includes(currentPage);
  useEffect(()=>{if(tooSmall){setTool(null);setSide(null);}},[tooSmall]);
