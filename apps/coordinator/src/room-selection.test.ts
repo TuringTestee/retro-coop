@@ -47,7 +47,7 @@ test('exhausted transport retries retain exact intent and report unknown outcome
  const t=prepared();Object.assign(t.client,{async request(command:unknown){t.commands.push(command);throw Error('Disconnected');}});
  const result=await t.client.reconcileGameSelection();assert.equal(result.ok,false);assert.equal(result.uncertain,true);assert.equal(t.commands.length,3);
  assert.equal((t.client as unknown as {confirmingSelection:Selection}).confirmingSelection,t.selection);
- t.client.cancelGameSelection();assert.equal(t.commands.length,3);assert.match(String(t.states.at(-1)?.status),/Reconnect/);
+ t.client.cancelGameSelection();assert.equal(t.commands.length,3);assert.match(String(t.states.at(-1)?.status),/Retry selection/);
 });
 
 test('a retained unknown selection is reconciled by exact intent on the next retry',async()=>{
@@ -64,7 +64,7 @@ test('reconnection is bounded by three existing request deadlines even if connec
  context.mock.timers.enable({apis:['setTimeout']});
  const t=prepared();let calls=0;Object.assign(t.client,{async request(){calls++;throw Error('Lost reply');},connectOnce(){return new Promise(()=>{});}});
  const pending=t.client.reconcileGameSelection();await setImmediate();context.mock.timers.tick(24_000);
- const result=await pending;assert.equal(result.uncertain,true);assert.equal(calls,1);assert.match(result.message!,/unknown/);
+ const result=await pending;assert.equal(result.uncertain,true);assert.equal(calls,1);assert.match(result.message!,/Retry selection/);
 });
 
 test('room exit remains available during unknown confirmation and a late reply cannot reinstall it',async()=>{
