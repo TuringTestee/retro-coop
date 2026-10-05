@@ -25,6 +25,41 @@ def run(*args: str, input_text: str | None = None) -> str:
     return subprocess.run(args, cwd=ROOT, input=input_text, text=True, check=True, capture_output=True).stdout.strip()
 
 
+def edge_inventory(filesystem: Path) -> tuple[dict[str, str], str]:
+    """Require one versioned file per declared core; retain the original worker's identity."""
+    imports = re.compile(r"^import \w+ from ['\"]\./generated/([A-Za-z0-9_-]+)\.wasm\?url['\"];", re.MULTILINE)
+    sources = ROOT / "apps/client/src"
+    primary = imports.findall((sources / "worker.ts").read_text())
+    declared = {name for source in sources.rglob("*.ts") if not source.name.endswith(".test.ts")
+                for name in imports.findall(source.read_text())}
+    if len(primary) != 1 or not declared:
+        raise ValueError("The client must declare one primary emulator and its core assets")
+    cores: dict[str, str] = {}
+    assets: dict[str, str] = {}
+    with tarfile.open(filesystem) as archive:
+        for member in archive:
+            path = member.name.removeprefix("./")
+            prefix = "usr/share/nginx/html/"
+            if not member.isfile() or not path.startswith(prefix):
+                continue
+            relative = path.removeprefix(prefix)
+            if not relative or any(part in ("", ".", "..") for part in relative.split("/")) or "/" + relative in assets:
+                raise ValueError("The edge image has an ambiguous static asset path")
+            content = archive.extractfile(member).read()
+            digest = hashlib.sha256(content).hexdigest()
+            assets["/" + relative] = digest
+            if relative.endswith(".wasm"):
+                matches = [name for name in declared if re.fullmatch(
+                    r"assets/" + re.escape(name) + r"-[A-Za-z0-9_-]{8,}\.wasm", relative)]
+                name = matches[0] if len(matches) == 1 else None
+                if name is None or name in cores or content[:8] != b"\0asm\x01\0\0\0":
+                    raise ValueError("The edge image has an undeclared, ambiguous or corrupt emulator WASM")
+                cores[name] = digest
+    if set(cores) != declared or "/index.html" not in assets:
+        raise ValueError("The edge image lacks a declared versioned emulator WASM or static entry point")
+    return assets, cores[primary[0]]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
@@ -115,28 +150,16 @@ def main() -> None:
             references[target] = f"{repository_uri}@{digest}"
         filesystem = temporary / "edge-filesystem.tar"
         run(str(args.crane), "export", references["edge"], str(filesystem))
-        assets = {}
-        core = []
-        with tarfile.open(filesystem) as archive:
-            for member in archive:
-                path = member.name.removeprefix("./")
-                prefix = "usr/share/nginx/html/"
-                if not member.isfile() or not path.startswith(prefix):
-                    continue
-                relative = path.removeprefix(prefix)
-                content = archive.extractfile(member).read()
-                digest = hashlib.sha256(content).hexdigest()
-                assets["/" + relative] = digest
-                if relative.endswith(".wasm"):
-                    core.append(digest)
-        if len(core) != 1 or not assets:
-            parser.error("The edge image must contain one versioned emulator WASM and static assets")
+        try:
+            assets, primary_core = edge_inventory(filesystem)
+        except ValueError as error:
+            parser.error(str(error))
         manifest = temporary / "assets.json"
         manifest.write_text(json.dumps(assets, sort_keys=True))
         subprocess.run([sys.executable, str(ROOT / "scripts/aws_eb/package.py"),
                         "--edge-image", references["edge"], "--coordinator-image", references["coordinator"],
                         "--caddy-image", references["caddy"], "--turn-image", references["turn"],
-                        "--source-revision", revision, "--core-sha256", core[0],
+                        "--source-revision", revision, "--core-sha256", primary_core,
                         "--asset-manifest", str(manifest), "--output", str(args.output)], check=True)
         print(json.dumps({"sourceRevision": revision, "ciRunId": run_id,
                           "bundle": str(args.output)}))
