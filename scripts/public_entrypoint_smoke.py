@@ -80,7 +80,7 @@ def cartridge_replacement(browser,url,output):
     """Replace through public controls; reject a real staged native commit and restore the old game."""
     from playwright.sync_api import expect
     start=time.monotonic();pages=[];contexts=[];page_errors=[]
-    native_hook="const NativeCartridgeWorker=Worker;proof.native=[];window.Worker=class extends NativeCartridgeWorker{postMessage(data,...rest){if(data.type==='peer-checkpoint-prepare'&&data.initial)this.cartridgeOperation=data.operationId;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,initial:data.initial});if(data.type==='peer-checkpoint-prepare'&&data.initial&&proof.rejectCandidatePrepare){proof.rejectCandidatePrepare=false;const bytes=data.bytes.slice(0),original=new Uint8Array(bytes)[0];new Uint8Array(bytes)[0]^=255;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,fault:'native candidate bytes corrupted',originalHeader:original,sentHeader:new Uint8Array(bytes)[0],bytes:bytes.byteLength});data={...data,bytes};}if(data.type==='peer-checkpoint-commit'&&proof.rejectCandidateCommit&&data.operationId===this.cartridgeOperation){proof.rejectCandidateCommit=false;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,fault:'actual stale operation sent after preparation'});data={...data,operationId:data.operationId+'_stale'};}return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='frame'&&data.epoch)proof.acceptedCartridgeWorker=this;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'response',type:data.type,requestId:data.requestId,frame:data.frame,hash:data.hash,message:data.message});});}};"
+    native_hook="const NativeCartridgeWorker=Worker;proof.native=[];window.Worker=class extends NativeCartridgeWorker{postMessage(data,...rest){if(data.type==='frame'&&data.epoch){(proof.cartridgeInputs??=[]).push({epoch:data.epoch,frame:data.frame,p1:data.p1,p2:data.p2});if(proof.cartridgeInputs.length>32)proof.cartridgeInputs.shift();}if(data.type==='peer-checkpoint-prepare'&&data.initial)this.cartridgeOperation=data.operationId;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,initial:data.initial});if(data.type==='peer-checkpoint-prepare'&&data.initial&&proof.rejectCandidatePrepare){proof.rejectCandidatePrepare=false;const bytes=data.bytes.slice(0),original=new Uint8Array(bytes)[0];new Uint8Array(bytes)[0]^=255;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,fault:'native candidate bytes corrupted',originalHeader:original,sentHeader:new Uint8Array(bytes)[0],bytes:bytes.byteLength});data={...data,bytes};}if(data.type==='peer-checkpoint-commit'&&proof.rejectCandidateCommit&&data.operationId===this.cartridgeOperation){proof.rejectCandidateCommit=false;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,fault:'actual stale operation sent after preparation'});data={...data,operationId:data.operationId+'_stale'};}return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='frame'&&data.epoch)proof.acceptedCartridgeWorker=this;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'response',type:data.type,requestId:data.requestId,frame:data.frame,hash:data.hash,message:data.message});});}};"
     try:
         for i in range(3):
          ctx=browser.new_context(viewport={'width':1280,'height':800},permissions=['clipboard-read','clipboard-write']);contexts.append(ctx);ctx.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text());ctx.add_init_script(native_hook);p=ctx.new_page();p.set_default_timeout(15000);p.on('pageerror',lambda e:page_errors.append(str(e)));p.goto(url);p.evaluate('releaseFrames()');pages.append(p)
@@ -95,6 +95,7 @@ def cartridge_replacement(browser,url,output):
         roster=h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))');invite=h.evaluate('proof.room.invite')
         h.set_viewport_size({'width':390,'height':700});h.get_by_role('button',name='Full screen',exact=True).click()
         assert h.get_by_role('button',name='Change game',exact=True).count()==1
+        h.screenshot(path=str(output/'replacement-expanded-action-phone.png'))
         h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Cancel',exact=True).click()
         assert h.evaluate('proof.room.catalogId')=='super-tilt-bro-pal'
         h.evaluate('proof.rejectCandidatePrepare=true')
@@ -114,6 +115,8 @@ def cartridge_replacement(browser,url,output):
         h.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&!proof.room.started',timeout=35000)
         for p in pages:p.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&proof.room.matches',timeout=15000)
         assert h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))')==roster
+        assert h.get_by_text('Saved progress loaded.',exact=True).count()==0
+        h.screenshot(path=str(output/'replacement-one-controller-prepare.png'))
         h.get_by_role('button',name='Prepare',exact=True).click();h.get_by_role('button',name='Start →',exact=True).click();h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         g.evaluate('proof.rejectCandidateCommit=true')
         h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Super Tilt Bro',exact=True).click()
@@ -125,6 +128,10 @@ def cartridge_replacement(browser,url,output):
         injected=next(row for row in native_fault if row.get('fault'))
         assert any(row['type']=='peer-checkpoint-error' and row['requestId']==injected['requestId'] and row['message']=='Checkpoint commit is stale' for row in native_fault),native_fault
         print(json.dumps({'actual_native_commit_rejection_rollback':native_fault}),flush=True)
+        assert h.get_by_role('button',name='Retry Load',exact=True).count()==0
+        assert 'Game change failed. Progress kept.' in h.locator('.rc-status').inner_text()
+        assert h.locator('.rc-status-copy').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight')
+        h.screenshot(path=str(output/'replacement-rollback-prepare-resume.png'))
         h.get_by_role('button',name='Prepare to resume',exact=True).click();h.get_by_role('button',name='Resume together',exact=True).click()
         h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Super Tilt Bro',exact=True).click()
@@ -147,23 +154,33 @@ def cartridge_replacement(browser,url,output):
         h.screenshot(path=str(output/'replacement-playing-phone.png'))
         assert h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))')==roster
         assert h.evaluate('proof.room.invite')==invite
-        for page,key,mask in ((h,'z',[128,0]),(g,'c',[0,64])):
-         page.get_by_label('NES game screen',exact=True).focus();before=page.evaluate('proof.frameCount');page.keyboard.down(key)
-         page.wait_for_function('before=>proof.frameCount>before+proof.room.game.delay+3',arg=before)
-         page.evaluate("delete proof.controllerRam;proof.acceptedCartridgeWorker.postMessage({type:'state-export',requestId:900000})")
-         page.wait_for_function('proof.controllerRam!==undefined');assert page.evaluate('proof.controllerRam')==mask
-         page.keyboard.up(key)
+        input_receipts=[]
+        def completed_input(page,mask):
+            epoch=page.evaluate('proof.room.game.epoch')
+            page.wait_for_function('wanted=>proof.cartridgeInputs?.some(row=>row.epoch===wanted.epoch&&row.p1===wanted.mask[0]&&row.p2===wanted.mask[1])',arg={'epoch':epoch,'mask':mask})
+            frame=page.evaluate('wanted=>proof.cartridgeInputs.find(row=>row.epoch===wanted.epoch&&row.p1===wanted.mask[0]&&row.p2===wanted.mask[1]).frame',{'epoch':epoch,'mask':mask})
+            page.wait_for_function('wanted=>proof.frames.at(-1)?.epoch===wanted.epoch&&proof.frames.at(-1).frame>=wanted.frame',arg={'epoch':epoch,'frame':frame})
+            return {'epoch':epoch,'input_frame':frame,'completed_frame':page.evaluate('proof.frames.at(-1).frame')}
+        for page,key,mask,native_mask in ((h,'z',[128,0],[1,0]),(g,'c',[0,64],[0,2])):
+            page.get_by_label('NES game screen',exact=True).focus();expect(page.get_by_label('NES game screen',exact=True)).to_be_focused()
+            page.evaluate('proof.cartridgeInputs=[]');page.keyboard.down(key)
+            receipt=completed_input(page,native_mask)
+            page.evaluate("delete proof.controllerRam;proof.acceptedCartridgeWorker.postMessage({type:'state-export',requestId:900000})")
+            page.wait_for_function('proof.controllerRam!==undefined');actual=page.evaluate('proof.controllerRam')
+            receipt.update(key=key,native_mask=native_mask,expected_ram=mask,actual_ram=actual);print(json.dumps({'cartridge_native_input':receipt}),flush=True)
+            assert actual==mask,receipt;input_receipts.append(receipt)
+            page.evaluate('proof.cartridgeInputs=[]');page.keyboard.up(key);completed_input(page,[0,0])
         h.get_by_label('NES game screen',exact=True).focus();h.keyboard.press('q');h.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
         epoch=h.evaluate('proof.room.game.epoch');h.keyboard.press('e')
         for page in (h,g):page.wait_for_function('epoch=>proof.room.game.status==="playing"&&proof.room.game.epoch!==epoch&&proof.frames.at(-1)?.epoch===proof.room.game.epoch',arg=epoch)
         h.get_by_label('NES game screen',exact=True).focus();epoch=h.evaluate('proof.room.game.epoch');h.keyboard.press('n');h.get_by_role('button',name='Restart cartridge',exact=True).click()
         for page in (h,g):page.wait_for_function('epoch=>proof.room.game.status==="playing"&&proof.room.game.epoch!==epoch&&proof.frames.at(-1)?.epoch===proof.room.game.epoch',arg=epoch)
         assert not page_errors,page_errors
-        result={'result':'pass','seconds':round(time.monotonic()-start,3),'two_one_two_roles':True,'same_group_slots_invite':True,'native_prepare_rejection':True,'native_commit_rejection_rollback_retry':True,'phone_expanded_picker_cancel':True,'uploaded_candidate_all_members':True,'native_p1_p2_input':True,'same_cartridge_direct_load_restart':True}
+        result={'result':'pass','seconds':round(time.monotonic()-start,3),'two_one_two_roles':True,'same_group_slots_invite':True,'native_prepare_rejection':True,'native_commit_rejection_rollback_retry':True,'phone_expanded_picker_cancel':True,'uploaded_candidate_all_members':True,'native_p1_p2_input':True,'same_cartridge_direct_load_restart':True,'input_receipts':input_receipts}
         (output/'cartridge-replacement.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'cartridge_replacement':result}),flush=True)
     except Exception:
         for index,page in enumerate(pages):
-            print(json.dumps({'cartridge_failure_member':index,'state':page.evaluate("({status:document.querySelector('.rc-status')?.textContent,catalog:proof.room?.catalogId,matches:proof.room?.matches,game:proof.room?.game,native:proof.native,events:proof.events})")}),flush=True)
+            print(json.dumps({'cartridge_failure_member':index,'state':page.evaluate("({status:document.querySelector('.rc-status')?.textContent,catalog:proof.room?.catalogId,matches:proof.room?.matches,game:proof.room?.game,native:proof.native,inputs:proof.cartridgeInputs,actualRam:proof.controllerRam,events:proof.events})")}),flush=True)
         raise
     finally:
         for context in contexts:context.close()

@@ -358,7 +358,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-local-session { grid-template-columns: 0px minmax(0,1fr) 0px; grid-template-rows: 42px minmax(0,1fr) 0px; }
 .rc-local-session.rc-has-side { grid-template-columns: 0px minmax(0,1fr) clamp(250px,30vw,360px); }
 .rc-game-links { flex-wrap: wrap; justify-content: flex-end; }
-.rc-game-links .rc-direct-action { min-height: 30px; padding: 3px 10px; border: 1px solid var(--orange-dark); border-radius: 4px; background: var(--orange); color: #1b2022; font-weight: 800; }
+.rc-game-links .rc-direct-action,.rc-expanded-change { min-height: 30px; padding: 3px 10px; border: 1px solid var(--orange-dark); border-radius: 4px; background: var(--orange); color: #1b2022; font-weight: 800; }
 .rc-side-panel { padding: 8px; border-left: 1px solid var(--orange); background: var(--menu); }
 .rc-side-panel .rc-side-content { height: 100%; padding: 0; }
 .rc-playing-menu { display: block; padding: 8px; }
@@ -785,4 +785,4 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-inline-settings .rc-game-actions { grid-column: 1 / -1; grid-row: 3; }
 }
 
-.rc-expanded-change { position: absolute; top: max(8px,env(safe-area-inset-top)); left: max(8px,env(safe-area-inset-left)); z-index: 3; }
+.rc-expanded-change { min-height: 44px; position: absolute; top: max(8px,env(safe-area-inset-top)); left: max(8px,env(safe-area-inset-left)); z-index: 3; }

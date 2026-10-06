@@ -216,7 +216,7 @@ export class GameSession {
   if(!('transactionId' in command))throw Error('invalid_game');
   const load=this.loadState;if(!load||load.view.id!==command.transactionId)throw Error('stale_load');const {view}=load;
   if(!this.loadMembers(load).includes(member))throw Error('controller_only');
-  if(command.type==='gameLoadFailed'){this.abortLoad('Could not load saved progress. Previous progress is preserved.');return;}
+  if(command.type==='gameLoadFailed'){this.abortLoad(view.replacement?'Game change failed. Progress kept.':'Could not load saved progress. Previous progress is preserved.');return;}
   if(command.type==='gameLoadBoundary'){
    if(view.phase!=='freezing')throw Error('stale_load');
    if(!load.initial&&load.freezeRequired.includes(member)&&(command.frame!==load.oldFrame||command.hash!==load.oldHash)){this.abortLoad('Players could not pause together. Previous progress is preserved.');return;}
