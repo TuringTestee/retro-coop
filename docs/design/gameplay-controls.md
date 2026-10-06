@@ -26,14 +26,14 @@ This bounded revision implements the owner's [#261 request](https://github.com/T
 [RETRO COOP] [Lobby name: … ✎] [Set Password] [Copy invite] [Your name: … ✎] [Theme]
 | Players          | ROM name                              | Controls | Audio |
 | P1 / P2 / watchers| [Saving… / Saved / Save failed: Retry] | Current bindings |
-| fixed slots      | [preview + centered Prepare if needed]| Edit controller  |
-|                  |          NES controller              | Save / Load      |
-|                  | [idle: current keys by each button]   | Pause / Mute     |
+| fixed slots      | [preview + centered Prepare if needed]| A [Z] / B [C]    |
+|                  |          NES controller              | All key mappings |
+|                  | [idle: current keys by each button]   | Save/Load/Restart|
 |---------------------------- Chat -----------------------------------------|
 [Back to Main Page]                                         [current action]
 ```
 
-This shows Controls selected; selecting Audio replaces its contents in the same fixed right region. Muting remains one action in Audio, with its shortcut listed in Controls. Phone Game/Players/Settings/Chat still share one reserved panel. Expanded Game reserves top-left feedback and the existing Return action; a blocking dialog covers and dims it. Readable control/binding groups adapt inside the fixed panel; no page or settings scrolling.
+This shows Controls selected; selecting Audio replaces its contents in the same fixed right region. Bracketed keys are editable buttons showing actual committed mappings, not fixed defaults. The complete inventory includes directions, rapid buttons and every implemented game/voice action; selecting a key opens the capture dialog. Muting remains one action in Audio, with its shortcut listed in Controls. Phone Game/Players/Settings/Chat still share one reserved panel. Expanded Game reserves top-left feedback and the existing Return action; a blocking dialog covers and dims it. Readable control/binding groups adapt inside the fixed panel; no page or settings scrolling.
 
 | Journey/scenario | Observable outcome and recovery |
 |---|---|
