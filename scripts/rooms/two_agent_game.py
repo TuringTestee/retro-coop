@@ -421,7 +421,6 @@ def player():
             wait_for(f'{"guest" if args.role == "host" else "host"}.json', 15)
             print(json.dumps(evidence))
         except Exception:
-            screenshot(page, f'{args.role}-failure.png')
             save(f'{args.role}-failure.json', {
                 'role':args.role,'room':page.evaluate('''()=>{const room=window.proof?.room;return room?{id:room.id,role:room.role,status:room.status,matches:room.matches,started:room.started,occupancy:room.occupancy,fingerprint:room.fingerprint,game:room.game,slots:room.slots.map(slot=>({id:slot.id,role:slot.role,open:slot.open,member:slot.member?{id:slot.member.id,connected:slot.member.connected,acquisition:slot.member.acquisition}:undefined}))}:null}'''),
                 'frames':page.evaluate('window.proof?.frameCount'),
@@ -889,6 +888,7 @@ def shared_load():
       const NativeWorker=Worker;
       window.Worker=class extends NativeWorker {
         constructor(...args){super(...args);this.addEventListener('message',({data})=>{
+          if(data.requestId===900005)proof.nativeProbe=data.type==='state-hash'?{info:data.info}:{error:data.message??data.type};
           if(['state-captured','peer-checkpoint-imported','peer-checkpoint-rolled-back'].includes(data.type)){
             proof.saveReceipts??=[];proof.saveReceipts.push({type:data.type,info:data.info,
               frame:data.frame,hash:data.hash,identity:data.identity,bytes:data.bytes?.byteLength});
@@ -917,10 +917,11 @@ def shared_load():
       };
     """
     def native(page):
-        before = page.evaluate('proof.hashes.length')
-        page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
-        page.wait_for_function('n=>proof.hashes.length>n',arg=before)
-        return page.evaluate('proof.hashes.at(-1)')
+        page.evaluate("delete proof.nativeProbe;currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        page.wait_for_function('proof.nativeProbe!==undefined')
+        result=page.evaluate('proof.nativeProbe')
+        assert 'error' not in result,result
+        return result['info']
     def slot(page):
         return page.evaluate("""()=>new Promise((resolve,reject)=>{
           const request=indexedDB.open('retro-coop-local');request.onerror=()=>reject(request.error);
@@ -1181,7 +1182,6 @@ def shared_load():
                 'command_results':[page.evaluate('proof.commandResults') for page in [*pages,observer]],'ready_recoveries':ready_recoveries,'superseded_observer_transfers':observer_overlap,'final_observer_epoch':final_observer_epoch,'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
             for index,page in enumerate([*pages,observer] if observer is not None else pages):
-                screenshot(page,f'shared-load-{index}-failure.png')
                 save(f'shared-load-{index}-failure.json',{'status':page.locator('.rc-status').all_inner_texts(),
                     'game':page.evaluate('proof.room?.game'),'peers':page.evaluate('proof.room?.peers'),'command_results':page.evaluate('proof.commandResults'),'events':page.evaluate('proof.loadEvents??[]'),
                     'native':page.evaluate('proof.saveReceipts??[]'),'held_observer_completions':page.evaluate('proof.heldObserverCompletions?.map(({raw,...row})=>row)??[]'),'observer_sync_stops':page.evaluate('proof.observerSyncStops??[]'),'page_errors':errors})
