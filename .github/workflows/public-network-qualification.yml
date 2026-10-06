@@ -55,3 +55,36 @@ jobs:
           name: public-guest-${{ env.QUALIFICATION_MODE }}
           path: proof
           retention-days: 7
+
+  five-members:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          path: qualification
+      - name: Check out the frozen deployed product for maintained helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ env.PUBLIC_PRODUCT_REVISION }}
+          path: product
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install one pinned browser
+        run: |
+          python -m pip install playwright==1.58.0
+          python -m playwright install --with-deps chromium
+      - name: Verify five real members on the frozen public release
+        run: >-
+          python qualification/.qualification/five_members.py
+          --root product --source "$PUBLIC_PRODUCT_REVISION"
+          --output proof-five
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: public-five-members
+          path: proof-five
+          retention-days: 7
