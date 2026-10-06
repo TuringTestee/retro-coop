@@ -28,6 +28,7 @@ jobs:
     env:
       QUALIFICATION_MODE: ${{ matrix.mode }}
       QUALIFICATION_PLAY_SECONDS: ${{ matrix.play_seconds }}
+      RETRO_QUALIFICATION_ROOT: product
     steps:
       - name: Require the frozen deployment revision
         shell: bash
@@ -35,6 +36,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          path: qualification
+      - name: Check out the frozen product for maintained helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: ${{ env.PUBLIC_PRODUCT_REVISION }}
+          path: product
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
@@ -44,7 +52,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Join public host from independent GitHub network
         run: >-
-          python .qualification/public_peer.py --role guest
+          python qualification/.qualification/public_peer.py --role guest
           --lobby "$QUALIFICATION_SERIES-$QUALIFICATION_MODE" --mode "$QUALIFICATION_MODE"
           --product-revision "$PUBLIC_PRODUCT_REVISION"
           --core-sha256 "$PUBLIC_CORE_SHA256"
