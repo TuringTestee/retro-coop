@@ -1,4 +1,4 @@
-This wireframe is the current local design: one lobby list, then one persistent lobby with a center game and right game menu. It supersedes earlier draft screen sets.
+Historical baseline: one lobby list and one persistent lobby. Its directory and slot patterns remain reference material. The old Settings routes, phone composition and preparation placement are superseded by [mobile direction](mobile-controller-direction.md) and [gameplay controls](gameplay-controls.md); this sketch is not the current screen set for those areas.
 
 # Unified lobbies: wireframe v6
 

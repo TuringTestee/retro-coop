@@ -1,4 +1,4 @@
-Put one recognizable, usable NES controller beside the game flow, with keyboard help before play and reachable touch controls during play.
+Put one recognizable, usable NES controller beside the game flow, with current keyboard help when idle and reachable touch controls during play.
 
 Audience: Human
 
@@ -11,21 +11,25 @@ The subsequent owner request [#261](https://github.com/TuringTestee/retro-coop/i
 ## Owner-requested behavior
 
 - Restore the Famicom shape: direction pad left, Select/Start center, B/A right. Actual mouse/touch input uses the full controls, including large square A/B hit areas and simultaneous holds.
-- Desktop preparation shows current configured keyboard keys connected to their buttons, with one inline Edit → Save/Cancel path. Default live play hides mappings while retaining the controller. Selecting Controls deliberately reveals the same editor during play; it does not create another editor.
+- Current-key help appears after five seconds without action; accepted keyboard input highlights the actual controller. Controls shows all mappings together, and each mapped key opens the centered capture dialog with Save/Cancel. This replaces the inline controller editor.
 - Portrait touch controls sit low in reserved black space; landscape expanded-play controls overlay the lower corners translucently. A large draggable thumb dot produces one or two direction keys. Keep targets reachable by two thumbs and respect safe areas.
 - Preserve the requested canvas-click expansion and return gesture. The top-right Full screen/Return to lobby view control requested in #216 activates that same presentation state. Touching controller targets must never toggle fullscreen. Fade decoration at idle, retaining an identifiable, focusable target; pointer proximity/focus restores contrast.
 
 ## Existing behavior to preserve
 
-One shared lobby shell; five physical slots and current controller authority; existing Ready/Start gate, late join and role transitions; chat and settings in lobby view; exact configured keyboard/gamepad bindings, rapid A/D, emulator pause versus NES Start, local-only quick load, game audio/voice behavior. The controller sends only for a synchronized active controller owner. Spectators see a disabled controller with their current role.
+One shared lobby shell; five physical slots and current controller authority; existing Ready/Start gate, late join and role transitions; chat and settings in lobby view; exact configured keyboard/gamepad bindings, rapid A/D, emulator pause versus NES Start, coordinated host quick load, game audio/voice behavior. The controller sends only for a synchronized active controller owner. Spectators see a disabled controller with their current role.
 
-Replace the static guide and duplicated NES keyboard rows with one controller/editor; reuse `Settings`, `controls.ts`, preferences and `LocalPlayer`. Retain gamepad and push-to-talk configuration. No new settings page, account or input protocol.
+Replace the static guide and inline/paginated editors with one complete Controls inventory and capture dialog; reuse `Settings`, `controls.ts`, preferences and `LocalPlayer`. Retain gamepad and push-to-talk configuration. No new settings page, account or input protocol.
 
-## Approved phone layout
+## Historical phone approval
 
 The owner approved the concrete local demo with one reserved phone panel with Game, Players, Settings and Chat tabs. The lobby and your full names move to Settings → Profile, with existing centered edit dialogs. All five slots, moderation, chat, settings and their recovery actions remain in the same session. Desktop retains its full header, Players | Game | Settings and full-width chat below.
 
 On 2026-10-04 the owner approved one phone section at a time and the demonstrated Settings → Profile placement for full names/editing. This supersedes the earlier all-regions-visible phone requirement. Desktop centers the lobby-name and your-name controls side by side in the top header row. Phones keep complete names/editing in Settings → Profile, as confirmed by the owner. ROM titles retain their fixed window. Only overflowing titles move continuously in one direction and loop seamlessly; the complete title remains accessible, hover/focus pauses it, and reduced motion restores readable wrapping. Identity names do not animate. Ordinary desktop labels and values share one line; maximum accepted text may wrap within its reserved control, without clipping or moving unrelated regions.
+
+## Current phone behavior
+
+The earlier Profile placement above is historical. Current names use reserved header values and centered edit dialogs; Settings contains Controls and Audio as specified in [gameplay controls](gameplay-controls.md).
 
 Keep Game as the initial phone panel. The owner selected automatic expanded game view when play starts on a phone. Enter expansion only when the local game is usable; synchronized late join uses the same entry. Do not repeat expansion after Return, pause/resume, reconnect, rotation or snapshot updates within that play session. Desktop expansion remains manual. The already requested canvas-click toggle and top-right Full screen control open the same expanded play presentation with large thumb controls; Return restores the selected lobby panel without ending play. Touching a controller target never toggles presentation. Do not introduce another fullscreen gesture.
 
