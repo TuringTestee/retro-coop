@@ -11,7 +11,7 @@ import type {Controls} from './controls.ts';
 import type {VoiceSession,VoiceState} from './voice.ts';
 
 type Operation={roomId:string;membership:string;target:RoomView;controller:AbortController;loading:boolean};
-type IncludedOperation={id:CatalogId;membership:string;target?:RoomView;controller:AbortController;loading:boolean;candidate:boolean};
+type IncludedOperation={id:CatalogId;membership:string;target?:RoomView;controller:AbortController;loading:boolean;candidate:boolean;current?:()=>boolean};
 export type RoomControllerHandle={
  loadSaved(record:SaveSlot,current:()=>Promise<boolean>):Promise<void>;decideLoad(accept:boolean):Promise<void>;cancelLoad():Promise<void>;
  currentMembership(roomId:string,membership:string,unusedHost?:boolean):boolean;restoreGame(frame:number,hash:string,current:()=>boolean):Promise<void>;voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
@@ -36,7 +36,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  const acquisitionCurrent=(target:RoomView)=>{const active=room.current;return connected.current&&active?.id===target.id&&active.chatMembership===target.chatMembership&&active.role===target.role&&active.slot===target.slot&&active.game.controllers.revision===target.game.controllers.revision&&active.game.epoch===target.game.epoch&&!!active.fingerprint&&!!target.fingerprint&&matchesFile(active.fingerprint,target.fingerprint);};
  const memberCurrent=(operation:Operation)=>member.current===operation&&!operation.controller.signal.aborted&&acquisitionCurrent(operation.target);
  const cancelMember=()=>{const operation=member.current;member.current=undefined;operation?.controller.abort();if(operation?.loading)player()?.cancel();if(operation)onGameProgress('');};
- const cancelIncluded=()=>{const operation=included.current;included.current=undefined;operation?.controller.abort();if(operation?.candidate)player()?.cancel();if(operation)onGameProgress('');};
+ const cancelIncluded=()=>{const operation=included.current;included.current=undefined;operation?.controller.abort();if(operation?.candidate)player()?.cancel();if(operation){onGameProgress('');onNotice('');}};
  const acquireMember=async(target:RoomView)=>{
   if(target.catalogId||!target.fingerprint)return;
   cancelMember();const token=client.current?.memberToken();if(!token){onNotice('Reconnect to download the lobby game.');return;}
@@ -57,7 +57,8 @@ export const RoomController=forwardRef<RoomControllerHandle,{
   if(fingerprint&&player()?.isLoaded(fingerprint)&&catalogId(fingerprint)===id&&(currentRoom?.role!=='host'||currentRoom.catalogId===id)){if(currentRoom?.role==='member')void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'loaded');onNotice('');return;}
   if(client.current?.beginSelection()===false)return;cancelIncluded();
   const operation:IncludedOperation={id,membership:currentRoom?`${currentRoom.id}:${currentRoom.role}:${currentRoom.chatMembership}`:'',target:currentRoom,controller:new AbortController(),loading:false,candidate:false};included.current=operation;
-  const current=()=>included.current===operation&&!operation.controller.signal.aborted&&(currentRoom?room.current?.id===currentRoom.id&&room.current.chatMembership===currentRoom.chatMembership&&room.current.role===currentRoom.role&&(currentRoom.started?acquisitionCurrent(currentRoom):!room.current.started):!room.current);
+  const current=()=>included.current===operation&&!operation.controller.signal.aborted&&(currentRoom?connected.current&&room.current?.id===currentRoom.id&&room.current.chatMembership===currentRoom.chatMembership&&room.current.role===currentRoom.role&&(currentRoom.started?acquisitionCurrent(currentRoom):!room.current.started):!room.current);
+  operation.current=current;
   const progress=(message:string)=>onGameProgress(message);
   onNotice(`Downloading ${entry.title}…`);progress(`Downloading ${entry.title}…`);if(currentRoom)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'downloading');
   const timeout=setTimeout(()=>operation.controller.abort(Error('The download timed out. Retry.')),15000);
@@ -78,13 +79,13 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useEffect(()=>onConnection(connectionStatus(state)),[state.connection,state.room?.peers,onConnection]);
  useEffect(()=>{if(state.session)onNickname(state.session.nickname);},[state.session,onNickname]);
  useEffect(()=>onRoomChange(state.room),[state.room,onRoomChange]);
- useEffect(()=>{if(included.current&&included.current.membership!==membership)cancelIncluded();if(state.releaseNotice){cancelIncluded();cancelMember();}},[membership,state.releaseNotice]);
+ useEffect(()=>{if(included.current&&!included.current.current?.()){cancelIncluded();attemptedIncluded.current='';}if(state.releaseNotice){cancelIncluded();cancelMember();}},[state.connected,membership,state.releaseNotice,state.room?.game.epoch,state.room?.game.controllers.revision,state.room?.slot]);
  // Server confirmation can render before the local candidate commits; that selection still owns loading.
  useEffect(()=>{const target=room.current;if(target?.role==='host'&&!target.started&&(selectionLoading||client.current?.selectionPending()))return;if(state.connected&&target&&!target.catalogId&&target.fingerprint){if(fingerprint&&matchesFile(target.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){void client.current?.memberAcquisition(target.id,target.chatMembership,'loaded');onNotice('');}else void acquireMember(target);}else cancelMember();return()=>cancelMember();},[state.connected,membership,state.room?.fingerprint?.romSha256,state.room?.game.epoch,state.room?.game.controllers.revision,state.room?.slot]);
  useEffect(()=>{if(!state.connected&&member.current){cancelMember();onNotice('Connection lost. Reconnect to retry the game download.');}},[state.connected]);
  useEffect(()=>{const operation=member.current;if(!operation||!memberCurrent(operation)||!operation.loading)return;if(selectionLoading)return;onGameProgress('');if(fingerprint&&room.current?.fingerprint&&matchesFile(room.current.fingerprint,fingerprint)&&player()?.isLoaded(fingerprint)){operation.loading=false;onNotice('');void client.current?.memberAcquisition(operation.roomId,operation.membership,'loaded');}else{operation.loading=false;onNotice('The game could not load. Retry download.');void client.current?.memberAcquisition(operation.roomId,operation.membership,'failed');}},[selectionLoading,fingerprint]);
  useEffect(()=>{const operation=included.current;if(!operation?.candidate)return;if(selectionLoading){operation.loading=true;return;}if(operation.loading){operation.candidate=false;const loaded=!!fingerprint&&catalogId(fingerprint)===operation.id;included.current=undefined;onNotice(loaded?'':'The game could not load. Retry.');onGameProgress('');}},[selectionLoading,fingerprint]);
- useEffect(()=>{const target=state.room;if(!target?.catalogId){attemptedIncluded.current='';return;}if(!state.connected)return;const key=`${membership}:${target.catalogId}`;if(attemptedIncluded.current===key)return;attemptedIncluded.current=key;if(!selectionLoading&&(!fingerprint||!player()?.isLoaded(fingerprint)||catalogId(fingerprint)!==target.catalogId))void loadIncluded(target.catalogId);},[state.connected,membership,state.room?.catalogId]);
+ useEffect(()=>{const target=state.room;if(!target?.catalogId){attemptedIncluded.current='';return;}if(!state.connected||selectionLoading||included.current)return;const key=`${membership}:${target.catalogId}:${target.game.epoch}:${target.game.controllers.revision}:${target.slot}`;if(attemptedIncluded.current===key)return;attemptedIncluded.current=key;if(!selectionLoading&&(!fingerprint||!player()?.isLoaded(fingerprint)||catalogId(fingerprint)!==target.catalogId))void loadIncluded(target.catalogId);},[state.connected,membership,state.room?.catalogId,state.room?.game.epoch,state.room?.game.controllers.revision,state.room?.slot,selectionLoading]);
  useEffect(()=>{if(!fingerprint||seenFile.current===fingerprint)return;seenFile.current=fingerprint;client.current?.selectedGame(fingerprint);},[fingerprint]);
  useEffect(()=>{const target=state.room;if(!fingerprint||target?.role!=='member'){sentFile.current='';return;}const key=target.id+fingerprint.romSha256+fingerprint.coreSha256;if(sentFile.current!==key){sentFile.current=key;void client.current?.act({type:'file',fingerprint});}},[fingerprint,state.room?.id,state.room?.role]);
 

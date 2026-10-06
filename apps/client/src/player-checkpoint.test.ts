@@ -165,3 +165,9 @@ test('authorization loss force-abandons a locked candidate without disturbing it
  assert.equal(t.player.selectionLocked(),true);assert.equal(t.active,t.old);
  next.resolve({ok:true});await next.handled;assert.equal(t.active,next.worker);assert.equal(t.player.selectionLocked(),false);
 });
+test('asynchronous checkpoint authorization is checked again after preparation before native commit',async()=>{
+ let checks=0,commits=0;const player=Object.assign(Object.create(LocalPlayer.prototype),{shared:true,state:{running:false},busy:false,audio:{flush(){}},release(){},publish(){},fileRequest:async(command:{type:string})=>{if(command.type==='peer-checkpoint-commit')commits++;return {...command,type:command.type==='peer-checkpoint-prepare'?'peer-checkpoint-prepared':command.type==='peer-checkpoint-commit'?'peer-checkpoint-imported':'peer-checkpoint-cancelled'};}}) as LocalPlayer;
+ const authorized=async()=>++checks===1;
+ await assert.rejects(player.importPeerCheckpoint('epoch',10,new ArrayBuffer(72),'identity','hash',authorized),/authorization changed/);
+ assert.equal(commits,0);
+});

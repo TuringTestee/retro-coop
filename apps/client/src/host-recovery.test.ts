@@ -28,3 +28,9 @@ test('clearing captures during completed validation revokes the pending import',
  await records(capture(10));const t=machine(async()=>{const stored=await readRecovery();await clearLocalData(stored.generation);return {identity,hash};});
  await assert.rejects(recoverLiveHost(t.player,fingerprint,()=>true,()=>{}),/changed or was cleared/);assert.deepEqual(t.imported,[]);
 });
+test('clearing during checkpoint preparation revokes native commit and the recovery receipt',async()=>{
+ await records(capture(10));let committed=0,receipts=0;
+ const player={saveInfo:async()=>({identity}),inspectSave:async()=>({identity,hash}),importPeerCheckpoint:async(_epoch:string,_frame:number,_bytes:ArrayBuffer,_identity:string,_hash:string,current:()=>boolean|Promise<boolean>)=>{const stored=await readRecovery();await clearLocalData(stored.generation);if(!await current())throw Error('Synchronization authorization changed.');committed++;}} as unknown as LocalPlayer;
+ await assert.rejects(recoverLiveHost(player,fingerprint,()=>true,()=>{},()=>{receipts++;}),/changed|cleared/);
+ assert.equal(committed,0);assert.equal(receipts,0);
+});
