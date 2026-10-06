@@ -19,12 +19,13 @@ else:
 ROOT=args.root.resolve()
 assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()==args.source,'Qualification helper checkout must match declared source'
 sys.path.insert(0,str(ROOT/'scripts/rooms'));sys.path.insert(0,str(ROOT/'spikes/d02'))
-from ui_helpers import rename_lobby,choose_section,choose_panel
+from ui_helpers import rename_lobby,choose_section,choose_panel,protect_lobby
 from unified_shell_browser import regions,controller_fits,game_fits,text_fits
 from layout_geometry import control_visibility
 from original_fixture import build
 OUT=args.output.resolve();OUT.mkdir(parents=True,exist_ok=False)
 URL='https://retro-coop.atobot.cloud/';NAME='Five release '+str(time.time_ns())[-6:]
+PASSWORD=os.environ.get('QUALIFICATION_PASSWORD');assert PASSWORD,'Private qualification password is required'
 result={'url':URL,'deployed_source':args.source,'observation_helper_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'audio_output':audio_output,'scope':'Live swaps/host observer, empty close/reopen, grace Retry and deliberately stalled-owner recovery; five members across four Chromium processes, with Host/P2 sharing one browser context: native input/state, all-member decoded voice/playback, chat, phone panels/Return/release, moderation, promotion and rejoin. Generated diagnostic and four process-specific fake microphone tones (shared-context pair shares one tone) prove browser transport/decoding, not physical-device or conversational quality. Production asset identity verified separately before/after.','errors':[]}
 fixture=(ROOT/'scripts/gameplay/fixture.js').read_text()+'''\n(()=>{const S=WebSocket;window.WebSocket=class extends S{constructor(...a){super(...a);this.addEventListener('message',({data})=>{try{const p=JSON.parse(data);if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room;}catch{}})}}})();'''
 def wait(p,s):p.wait_for_function(s,timeout=30000,polling=100)
@@ -56,7 +57,7 @@ def join(p,established=None):
     requests.append({'method':'GET','path':urlsplit(route.request.url).path,'failure':'deliberate route abort of first actual ROM GET'});route.abort('failed')
    else:route.continue_()
   p.route('**/rooms/*/rom',fail_first_rom)
- p.get_by_placeholder('Search lobbies').fill(NAME);p.locator('.rc-lobby-card').filter(has_text=NAME).click();wait(p,'proof.room?.role==="member"')
+ p.get_by_placeholder('Search lobbies').fill(NAME);p.locator('.rc-lobby-card').filter(has_text=NAME).click();p.get_by_label('Lobby password').fill(PASSWORD);p.get_by_role('button',name='Join lobby',exact=True).click();wait(p,'proof.room?.role==="member"')
  if established:
   retry=p.get_by_role('button',name='Retry game',exact=True);expect(retry).to_be_visible(timeout=30000)
   assert len(requests)==1,'First ROM GET was not actually attempted/aborted (cached bytes are not this proof)'
@@ -362,7 +363,7 @@ with sync_playwright() as pw:
   result['cohort']={'members':5,'browser_processes':4,'shared_context_members':['Release 1','Release 2'],
    'microphone_limit':'Shared-context members use the same real browser fake device/tone. Production capture constraints are unchanged; all real four-track decoding/playback and energy assertions remain. No synthetic energy, phase machinery or automatic exception.'}
 
-  host=pages[0];host.get_by_role('button',name='Host a new game').click();rename_lobby(host,NAME);host.get_by_role('button',name=re.compile('^Load NES game')).click()
+  host=pages[0];host.get_by_role('button',name='Host a new game').click();rename_lobby(host,NAME);protect_lobby(host,PASSWORD);host.get_by_role('button',name=re.compile('^Load NES game')).click()
   with host.expect_file_chooser() as chooser:host.get_by_role('button',name='Add game file',exact=True).click()
   chooser.value.set_files({'name':'release-controller.nes','mimeType':'application/octet-stream','buffer':build()})
   wait(host,'proof.room?.fingerprint');mute(host)
