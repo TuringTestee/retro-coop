@@ -6,6 +6,8 @@ Audience: Human
 
 **Owner-approved direction for [#216](https://github.com/TuringTestee/retro-coop/issues/216).** The phone composition and automatic expanded play entry are approved; the [governing plan PR #233](https://github.com/TuringTestee/retro-coop/pull/233) is independently accepted and merged. Audience: general PG-13 players. [References](mobile-controller-references.md) inform the arrangement and touch mechanics.
 
+The subsequent owner request [#261](https://github.com/TuringTestee/retro-coop/issues/261) replaces Profile placement, separate game/settings sections and live binding feedback through the [gameplay controls revision](gameplay-controls.md). The earlier phone approval below records the original decision; the one-panel layout and automatic expanded play remain current.
+
 ## Owner-requested behavior
 
 - Restore the Famicom shape: direction pad left, Select/Start center, B/A right. Actual mouse/touch input uses the full controls, including large square A/B hit areas and simultaneous holds.

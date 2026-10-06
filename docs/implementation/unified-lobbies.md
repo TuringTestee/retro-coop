@@ -4,7 +4,7 @@ Audience: Agent
 
 # Unified lobbies: implementation plan
 
-Governing design: [direction](../design/unified-lobbies-direction.md), [journeys](../design/unified-lobbies-journeys.md), [scenarios](../design/unified-lobbies-scenarios.md), and [current wireframe](../design/unified-lobbies-wireframe-v6.md).
+Governing design: [direction](../design/unified-lobbies-direction.md), [journeys](../design/unified-lobbies-journeys.md), [scenarios](../design/unified-lobbies-scenarios.md), and [current wireframe](../design/unified-lobbies-wireframe-v6.md). The [gameplay controls revision](../design/gameplay-controls.md) replaces the old settings sections, phone Profile placement and input/action feedback rules where they conflict.
 
 ## Authority and state
 
