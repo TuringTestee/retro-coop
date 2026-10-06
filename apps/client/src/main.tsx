@@ -28,7 +28,7 @@ import './unified.css';
 
 type Side='identity'|'voice'|'settings'|'lobby'|null;
 type Tool='localData'|null;
-type GameAction={label:string;run:()=>void;disabled?:boolean;keyboard?:boolean};
+type GameAction={label:string;run:()=>void;disabled?:boolean;reason?:string;keyboard?:boolean};
 const initialPlayer:PlayerState={status:'Choose a game to start playing.',loading:false,running:false,loaded:false,frames:0};
 const initialRooms:RoomState={status:'',busy:false,connected:false};
 const inviteFromUrl=()=>new URLSearchParams(location.hash.slice(1)).get('invite');
@@ -276,6 +276,9 @@ function App(){
    : undefined;
  const lobbyGuidance=()=>{
   if(!roomState.connected)return 'Connection lost. Retry connection.';
+  if(roomState.startingRoom)return 'Starting lobby…';
+  const startFailure=roomState.startFailure;
+  if(canStart&&startFailure&&startFailure.roomId===room?.id&&startFailure.membership===room.chatMembership&&startFailure.revision===room.revision)return 'Could not start. Retry Start.';
   if(room?.role==='host'&&roomState.selectionFinishing)return roomState.status;
   if(room?.role==='host'&&playerState.selectionPhase==='uncertain')return playerState.status;
   if(!room?.fingerprint)return room?.role==='host'?'Load a NES game while players join.':'';
@@ -316,8 +319,8 @@ function App(){
    event.preventDefault();pauseAction.run();
  });
  useEffect(()=>{const shortcut=(event:KeyboardEvent)=>onPauseShortcut(event);window.addEventListener('keydown',shortcut);return()=>window.removeEventListener('keydown',shortcut);},[]);
- const preparationAction:GameAction|undefined=currentPage==='lobby'&&room?.fingerprint&&!observer&&!ready?{label:readyError?'Retry preparation':'Prepare',disabled:!canReady,run:()=>rooms.current?.ready()}:currentPage==='playing'&&playAction?.label.startsWith('Prepare')?playAction:undefined;
- const actions=currentPage==='main'||currentPage==='lobbies'?null:currentPage==='lobby'?<>{hostObserverNeedsPreparation&&<button disabled={!localMatch||!roomState.connected||!!roomState.gameplay?.busy} onClick={()=>rooms.current?.ready()}>Retry game setup</button>}{!observer&&<span className="rc-action-slot rc-ready-slot">{ready&&<button className="rc-secondary-action" onClick={()=>rooms.current?.unready()}>Cancel Ready</button>}</span>}{room?.role==='host'&&<span className="rc-action-slot rc-start-slot">{canStart&&<button onClick={start}>Start →</button>}</span>}</>:currentPage==='playing'?playAction&&!preparationAction?<button aria-label={playAction.label} disabled={playAction.disabled} onClick={playAction.run}>{playAction.label}{idle&&pauseAction===playAction&&<small className="rc-input-hint">{controls.keyboard.pause.map(bindingLabel).join(' / ')||'Unbound'}</small>}</button>:null:pauseAction?<button aria-label={pauseAction.label} onClick={pauseAction.run}>{pauseAction.label}{idle&&<small className="rc-input-hint">{controls.keyboard.pause.map(bindingLabel).join(' / ')||'Unbound'}</small>}</button>:null;
+ const preparationAction:GameAction|undefined=currentPage==='lobby'&&room?.fingerprint&&!observer&&!ready?{label:readyError?'Retry preparation':'Prepare',disabled:!canReady,run:()=>rooms.current?.ready()}:currentPage==='lobby'&&room?.role==='host'&&room.fingerprint&&authorityReady?{label:'Start →',disabled:!canStart,reason:canStart?undefined:lobbyGuidance(),run:start}:currentPage==='playing'&&playAction?.label.startsWith('Prepare')?playAction:undefined;
+ const actions=currentPage==='main'||currentPage==='lobbies'?null:currentPage==='lobby'?<>{hostObserverNeedsPreparation&&<button disabled={!localMatch||!roomState.connected||!!roomState.gameplay?.busy} onClick={()=>rooms.current?.ready()}>Retry game setup</button>}{!observer&&<span className="rc-action-slot rc-ready-slot">{ready&&<button className="rc-secondary-action" onClick={()=>rooms.current?.unready()}>Cancel Ready</button>}</span>}</>:currentPage==='playing'?playAction&&!preparationAction?<button aria-label={playAction.label} disabled={playAction.disabled} onClick={playAction.run}>{playAction.label}{idle&&pauseAction===playAction&&<small className="rc-input-hint">{controls.keyboard.pause.map(bindingLabel).join(' / ')||'Unbound'}</small>}</button>:null:pauseAction?<button aria-label={pauseAction.label} onClick={pauseAction.run}>{pauseAction.label}{idle&&<small className="rc-input-hint">{controls.keyboard.pause.map(bindingLabel).join(' / ')||'Unbound'}</small>}</button>:null;
  const restoreRecovery=async()=>{
   const active=player.current,offer=recovery,capture=offer?.record.captures[recoveryIndex],target=room;
   if(!active||!offer||!target||target.role!=='host'||target.started&&!recoveryCommit.current||recoveryBusy)return;

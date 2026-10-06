@@ -20,7 +20,7 @@ const requestDeadlineMs=8000;
 const selectionPendingMessage='Finishing game selection…';
 const selectionConfirmationMessage='Game selection needs confirmation. Choose Retry selection.';
 
-export type RoomState = { storageIssue?:string;gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean;selectionFinishing?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; admissionBlocked?:boolean };
+export type RoomState = { storageIssue?:string;gameplay?:GameplayState; voice?:VoiceState; chat?:ChatState; connection?:ConnectionState; directory?:RoomPreview[]; directoryStatus?:'loading'|'live'|'stale'; directoryError?:string; room?:RoomView; preview?:RoomPreview; session?:SessionInfo; status:string; busy:boolean; uploading?:boolean; startingRoom?:boolean;startFailure?:{roomId:string;membership:string;revision:number};selectionFinishing?:boolean; releaseNotice?:string; connected:boolean; retryAfterMs?:number; admissionError?:{code?:string;message:string}; admissionBlocked?:boolean };
 const messages:Record<string,string> = {
  capacity:'Lobby capacity is full. Your local game is preserved. Try again later.',rate_limited:'Too many attempts. Wait before retrying.',room_full:'All five slots are occupied or closed. Review the lobby or try another.',
  room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired. Reconnect to continue.',
@@ -254,12 +254,12 @@ export class RoomClient {
  async startRoom(fingerprint:Fingerprint) {
   const room=this.state.room;if(!room||room.role!=='host')return;
   if(!this.player()?.isLoaded(fingerprint)){this.publish({status:messages.host_not_ready});return;}
-  this.publish({busy:true,startingRoom:true,status:'Starting lobby…'});
+  this.publish({busy:true,startingRoom:true,startFailure:undefined,status:'Starting lobby…'});
   try {await this.connect();if(!this.player()?.isLoaded(fingerprint))throw Error(messages.host_not_ready);
    this.apply(await this.request({type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
    if(this.state.room?.id!==room.id||this.state.room.chatMembership!==room.chatMembership||!this.player()?.isLoaded(fingerprint))throw Error('The lobby or loaded game changed. Review it before Start.');
    this.apply(await this.request({type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint}));this.publish({busy:false,startingRoom:false});}
-  catch(error){if(this.state.room?.started)this.publish({busy:false,startingRoom:false});else this.failure(error);}
+  catch(error){if(this.state.room?.started)this.publish({busy:false,startingRoom:false});else {this.failure(error);const active=this.state.room;if(active?.id===room.id&&active.chatMembership===room.chatMembership&&active.revision===room.revision)this.publish({startFailure:{roomId:room.id,membership:room.chatMembership,revision:room.revision}});}}
   finally {this.publish({startingRoom:false});}
  }
  dismissRelease(){this.publish({releaseNotice:undefined});}

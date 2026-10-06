@@ -520,11 +520,13 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                 await page.wait_for_function('uploadProof.workers.filter(worker=>!worker.ended).at(-1).hash')
                 hashes.append(await page.evaluate('uploadProof.workers.filter(worker=>!worker.ended).at(-1).hash'))
             assert hashes[0] == hashes[1], hashes
+            print(json.dumps({'phase':'paired-play-complete','elapsed_seconds':round(time.monotonic()-started,2)}),flush=True)
             await host.screenshot(path=str(output / 'zip-paired-play.png'))
             await host.get_by_role('button', name='Back to Main Page').click()
             await host.get_by_role('button', name='Close lobby', exact=True).click()
             await guest.locator('.rc-listing').wait_for()
             await host.wait_for_function('uploadProof.workers.every(worker=>worker.ended)')
+            print(json.dumps({'phase':'old-lobby-released','elapsed_seconds':round(time.monotonic()-started,2)}),flush=True)
 
             public = await context.new_page()
             await create_lobby(public, 'Open Arcade', fresh=True)
