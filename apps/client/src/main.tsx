@@ -150,7 +150,7 @@ function App(){
  const inviteLink=room?`${location.origin}/#invite=${room.invite}`:undefined;
  const copyInvite=()=>{if(!inviteLink||!room)return;const attempt=++inviteAttempt.current,context={roomId:room.id,membership:room.chatMembership,link:inviteLink};setInviteCopyFallback(null);const current=()=>inviteAttempt.current===attempt&&inviteContext.current.roomId===context.roomId&&inviteContext.current.membership===context.membership&&!inviteContext.current.leaving;void (async()=>{try{await navigator.clipboard.writeText(context.link);if(current()){setStatusOverride('Invitation copied.');setInviteCopyFallback(null);}}catch{if(current())setInviteCopyFallback(context);}})();};
  const currentPage:ShellPage=room?.started?'playing':room?'lobby':playerState.loaded?'local':page;
- const saveContext=JSON.stringify([currentPage,room?.id,room?.chatMembership,preferencesIdentity,player.current?.selectionVersion(),quickEpoch.current]);
+ const saveContext=JSON.stringify([currentPage,room?.id,room?.chatMembership,room?.game.epoch,preferencesIdentity,player.current?.selectionVersion(),quickEpoch.current]);
  quickScope.current={page:currentPage,roomId:room?.id,membership:room?.chatMembership,leaving:exitPrompt||exitBusy};
  useEffect(()=>{if(!['local','playing','lobby'].includes(currentPage)||playerState.loading)setQuickLoad(undefined);},[currentPage,playerState.loading]);
  const quickAction=async(kind:'save'|'load')=>{
@@ -158,8 +158,8 @@ function App(){
   const active=player.current,fingerprint=playerState.fingerprint;if(!active||!fingerprint||playerState.loading||!active.isLoaded(fingerprint))return;
   if(room&&kind==='load'&&room.role!=='host'){setStatusOverride('Only the host can load saved progress. You can save your own copy.');return;}
   if(room&&(room.game.load||room.game.pending)){const message='Another game change is pending. Wait before saving or loading.';if(kind==='save')setSaveFeedback({context:saveContext,message,failed:true});else setStatusOverride(message);return;}
-  const request=Symbol(),version=active.selectionVersion(),epoch=quickEpoch.current,scope={...quickScope.current};quickBusy.current=request;
-  const current=()=>player.current===active&&active.selectionVersion()===version&&quickEpoch.current===epoch&&!quickScope.current.leaving&&quickScope.current.page===scope.page&&quickScope.current.roomId===scope.roomId&&quickScope.current.membership===scope.membership&&active.isLoaded(fingerprint)&&!recoveryContext.current.room?.game.load;
+  const request=Symbol(),version=active.selectionVersion(),epoch=quickEpoch.current,timeline=room?.game.epoch,scope={...quickScope.current};quickBusy.current=request;
+  const current=()=>player.current===active&&active.selectionVersion()===version&&quickEpoch.current===epoch&&!quickScope.current.leaving&&quickScope.current.page===scope.page&&quickScope.current.roomId===scope.roomId&&quickScope.current.membership===scope.membership&&recoveryContext.current.room?.game.epoch===timeline&&active.isLoaded(fingerprint)&&!recoveryContext.current.room?.game.load;
   if(kind==='save')setSaveFeedback({context:saveContext,message:'Saving…'});
   try{
    const info=await active.saveInfo();if(!current())return;const prior=await readSave(info.identity,1);if(!current())return;
