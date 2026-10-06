@@ -6,9 +6,9 @@ permissions:
   contents: read
 env:
   # Set the frozen deployed main and a unique cohort before pushing this branch.
-  QUALIFICATION_SERIES: "Release51d1-234516-fec3d7"
+  QUALIFICATION_SERIES: "Release836904d-20261006-172150-3dd73b"
   QUALIFICATION_PASSWORD: ${{ secrets.RELEASE_QUALIFICATION_PASSWORD }}
-  PUBLIC_PRODUCT_REVISION: "51d1a11ab412e236ea74189134a6b96fa3297b8d"
+  PUBLIC_PRODUCT_REVISION: "836904d59e599d049ba2d81f473ec2cb4a568541"
   PUBLIC_CORE_SHA256: "a8478f5e67edf77a1af7d43a0015b3234a1d309af269ef2e59294495ee26872b"
 jobs:
   guest:
