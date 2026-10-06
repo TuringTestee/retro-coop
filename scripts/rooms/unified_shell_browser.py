@@ -581,23 +581,38 @@ def controller_input(browser, url, output):
         expect(feedback).to_have_count(1)
         assert feedback.evaluate('n=>!n.closest("[inert],[aria-hidden=true]")')
         page.screenshot(path=str(output / 'save-inactive-phone-game.png'))
-        page.evaluate("""() => {window.saveStorePut=IDBObjectStore.prototype.put;
-          IDBObjectStore.prototype.put=function(...args){if(this.name==='saves')throw Error('Storage is full.');return window.saveStorePut.apply(this,args);};} """)
+        page.evaluate("""() => {window.saveStorePut=IDBObjectStore.prototype.put;window.failSaveStore=true;
+          IDBObjectStore.prototype.put=function(...args){if(this.name==='saves'&&window.failSaveStore)throw Error('Storage is full.');return window.saveStorePut.apply(this,args);};} """)
         page.keyboard.press('q')
         expect(feedback).to_contain_text('Save failed: Storage is full.')
         for control in page.locator('.rc-session-settings button:visible,.rc-session-settings select:visible').all():
             control_visibility(control)
             assert control.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
         page.screenshot(path=str(output / 'save-inactive-phone-retry.png'))
-        page.evaluate('()=>{IDBObjectStore.prototype.put=window.saveStorePut;}')
+        page.evaluate('window.failSaveStore=false')
         feedback.get_by_role('button', name='Retry Save').click()
         expect(feedback).to_have_text('Saved to quick slot 1.')
         page.set_viewport_size({'width': 320, 'height': 568})
+        page.evaluate('window.failSaveStore=true')
         page.get_by_role('button', name='Save (Q)', exact=True).click()
-        expect(feedback).to_have_text('Saved to quick slot 1.')
+        expect(feedback).to_contain_text('Save failed: Storage is full.')
         for control in page.locator('.rc-session-settings button:visible,.rc-session-settings select:visible').all():
             control_visibility(control)
             assert control.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
+        retry=feedback.get_by_role('button',name='Retry Save',exact=True)
+        control_visibility(retry)
+        assert retry.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
+        page.screenshot(path=str(output / 'save-inactive-phone-portrait-failure.png'))
+        page.evaluate('window.failSaveStore=false')
+        for _ in range(16):
+            if retry.evaluate('n=>n===document.activeElement'):break
+            page.keyboard.press('Shift+Tab')
+        assert retry.evaluate('n=>n===document.activeElement&&n.matches(":focus-visible")')
+        page.keyboard.press('Space')
+        expect(feedback).to_have_text('Saved to quick slot 1.')
+        assert page.locator('.rc-session').get_attribute('data-phone-panel')=='settings'
+        page.evaluate('()=>{IDBObjectStore.prototype.put=window.saveStorePut;}')
+        print('controller input: portrait failure and keyboard Retry preserve Settings controls',flush=True)
         page.screenshot(path=str(output / 'save-inactive-phone-portrait.png'))
         page.set_viewport_size({'width': 568, 'height': 320})
         page.keyboard.press('m')
