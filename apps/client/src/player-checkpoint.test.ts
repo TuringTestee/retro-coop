@@ -191,3 +191,9 @@ test('optional pad loss keeps local/shared keyboard and touch available without 
  player.releaseControllers();assert.equal(player.sampleGameInput(),0);
  player.stopGame('Paused together.');assert.equal(player.resume(),false,'shared authority cannot silently become local play');
 });
+test('asynchronous checkpoint authorization is checked again after preparation before native commit',async()=>{
+ let checks=0,commits=0;const player=Object.assign(Object.create(LocalPlayer.prototype),{shared:true,state:{running:false},busy:false,audio:{flush(){}},release(){},publish(){},fileRequest:async(command:{type:string})=>{if(command.type==='peer-checkpoint-commit')commits++;return {...command,type:command.type==='peer-checkpoint-prepare'?'peer-checkpoint-prepared':command.type==='peer-checkpoint-commit'?'peer-checkpoint-imported':'peer-checkpoint-cancelled'};}}) as LocalPlayer;
+ const authorized=async()=>++checks===1;
+ await assert.rejects(player.importPeerCheckpoint('epoch',10,new ArrayBuffer(72),'identity','hash',authorized),/authorization changed/);
+ assert.equal(commits,0);
+});

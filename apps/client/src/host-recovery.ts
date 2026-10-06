@@ -62,13 +62,14 @@ export async function recoverLiveHost(player:LocalPlayer,fingerprint:Fingerprint
   try{inspected=await player.inspectSave(capture.bytes);check();}
   catch(error){check();if(error instanceof Error&&'code' in error&&error.code==='invalid_state')continue;throw error;}
   if(inspected.identity!==capture.identity||inspected.hash!==capture.hash)continue;
-  const latest=await readRecovery();check();
-  if(latest.generation!==stored.generation||latest.record?.revision!==stored.record?.revision)throw Error('Automatic progress changed or was cleared. Retry recovery.');
+  const storedCurrent=async()=>{const latest=await readRecovery();if(latest.generation!==stored.generation||latest.record?.revision!==stored.record?.revision)throw Error('Automatic progress changed or was cleared. Retry recovery.');};
+  const authorized=async()=>{check();await storedCurrent();check();return true;};
+  await authorized();
   progress('Restoring automatic host progress…');
-  await player.importPeerCheckpoint(crypto.randomUUID().replaceAll('-',''),capture.frame,capture.bytes,capture.identity,capture.hash,current);
+  await player.importPeerCheckpoint(crypto.randomUUID().replaceAll('-',''),capture.frame,capture.bytes,capture.identity,capture.hash,authorized);
   const result={frame:capture.frame,hash:capture.hash,savedAt:capture.savedAt,older:index>0};
   // Retain an atomic native import receipt for an explicit retry even if its
   // asynchronous completion arrived after cancellation. It grants no room authority.
-  committed?.(result);check();return result;
+  await storedCurrent();committed?.(result);check();return result;
  }
 }
