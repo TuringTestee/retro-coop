@@ -941,9 +941,10 @@ def restored_battery_preview(browser, url, output=None):
         page.get_by_role('button', name='Local data', exact=True).click()
         page.get_by_role('button', name='Current', exact=True).click()
         page.get_by_role('button', name='Retry battery saving', exact=True).click()
+        page.get_by_text('Local data updated.', exact=True).wait_for()
         page.wait_for_function("async()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('batteries'),count=tx.objectStore('batteries').count();count.onsuccess=()=>resolve(count.result>0);tx.oncomplete=()=>db.close()}})", timeout=10000)
         stored=page.evaluate("""()=>new Promise(resolve=>{const q=indexedDB.open('retro-coop-local');q.onsuccess=()=>{const db=q.result,tx=db.transaction('batteries'),all=tx.objectStore('batteries').getAll();all.onsuccess=()=>resolve(all.result.map(row=>({bytes:row.bytes.byteLength})));tx.oncomplete=()=>db.close()}})""")
-        assert len(stored) == 1 and stored[0]['bytes'] > 0
+        assert len(stored) == 1 and stored[0]['bytes'] > 0, {'stored': stored, 'status': page.locator('.rc-status').inner_text(), 'native': page.evaluate('batteryPreviewProof')}
         page.get_by_role('button', name='Back', exact=True).click()
         page.get_by_role('button', name='Back to Main Page', exact=True).click()
         page.get_by_role('button', name='Close lobby').click()

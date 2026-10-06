@@ -1140,19 +1140,21 @@ def shared_load():
             # preserve the previous machine; no human acceptance is involved.
             if EXPECTED_RAM is None:pause(host,guest);resume(host,guest)
             denials=[];observer_overlap=[]
-            for decision in ('native-failure','timeout','changed-save'):
+            for decision in ('native-failure','restart-failure','timeout','changed-save'):
                 prior=pause(host,guest)
                 observer.wait_for_function('proof.heldObserverCompletions.length>0')
                 held=observer.evaluate('proof.heldObserverCompletions.map(({raw,...row})=>row)')
                 guest.evaluate('proof.holdLoadBoundary=true;proof.releaseLoadBoundary=undefined')
-                host.keyboard.press('e')
+                if decision=='restart-failure':
+                    host.keyboard.press('n');host.get_by_role('button',name='Restart cartridge',exact=True).click()
+                else:host.keyboard.press('e')
                 guest.wait_for_function('typeof proof.releaseLoadBoundary==="function"')
                 observer.wait_for_function('proof.heldObserverCompletions.every(row=>proof.observerSyncStops.some(stop=>stop.transferId===row.transferId))')
                 observer_overlap.append({'action':decision,'cancelled':held})
                 observer.evaluate('proof.releaseObserverCompletions()')
                 assert host.get_by_role('alertdialog').count()==0
                 assert guest.get_by_role('alertdialog').count()==0
-                if decision=='native-failure':
+                if decision in ('native-failure','restart-failure'):
                     guest.evaluate("""()=>{const socket=window.gameLoadSocket;socket.send(JSON.stringify({type:'gameLoadFailed',requestId:crypto.randomUUID(),transactionId:proof.room.game.load.id}));}""")
                 if decision=='changed-save':
                     host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{
@@ -1163,7 +1165,12 @@ def shared_load():
                 for page in pages:page.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load',timeout=20000)
                 snapshots=[native(page) for page in pages]
                 assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
-                denials.append({'action':decision,'preserved':prior})
+                retry=host.get_by_role('button',name='Retry Restart' if decision=='restart-failure' else 'Retry Load',exact=True)
+                expect(retry).to_be_visible()
+                if decision=='restart-failure':
+                    retry.click();expect(host.get_by_role('alertdialog',name='Restart this cartridge?')).to_be_visible()
+                    host.get_by_role('button',name='Keep playing',exact=True).click()
+                denials.append({'action':decision,'preserved':prior,'matching_retry':True})
                 guest.evaluate('proof.holdLoadBoundary=false;proof.releaseLoadBoundary=undefined')
                 resume(host,guest)
             observed_before=observer.evaluate("proof.commandResults.length")
