@@ -157,6 +157,32 @@ def controller_fits(page):
     assert band.evaluate('node=>node.scrollHeight<=node.clientHeight+1'), band.evaluate('node=>({viewport:[innerWidth,innerHeight],height:node.clientHeight,scroll:node.scrollHeight,text:node.innerText})')
 
 
+def phone_controller_geometry(page):
+    """Measure real phone targets against the whole controller band (#272)."""
+    band = page.locator('.rc-controller-band').bounding_box()
+    viewport = page.evaluate('({width:innerWidth,height:visualViewport.height})')
+    assert viewport['height']/4-1 <= band['height'] <= viewport['height']/2+1, (viewport, band)
+    targets = {
+        'Direction pad: use arrow keys or drag': (0, 0, 1/3, 1),
+        'NES B': (2/3, 0, 1/6, 1), 'NES A': (5/6, 0, 1/6, 1),
+        'NES Select': (1/3, 1/2, 1/6, 1/2), 'NES Start': (1/2, 1/2, 1/6, 1/2),
+    }
+    actual = {}
+    for name, (x, y, width, height) in targets.items():
+        node = page.get_by_role('button', name=name, exact=True)
+        assert node.count() == 1, page.locator('.rc-controller-band').evaluate("n=>({viewport:[innerWidth,innerHeight],ancestors:[...function*(p){while(p){yield [p.className,p.getAttribute('aria-hidden'),p.inert,getComputedStyle(p).visibility];p=p.parentElement;}}(n)]})")
+        box = node.bounding_box()
+        expected = {'x':band['x']+x*band['width'], 'y':band['y']+y*band['height'],
+                    'width':width*band['width'], 'height':height*band['height']}
+        assert all(abs(box[k]-expected[k]) <= 1 for k in expected), (name, expected, box)
+        actual[name] = box
+        # Artwork does not intercept the outer part of the target.
+        assert node.evaluate("node=>{const r=node.getBoundingClientRect();return [[r.left+2,r.top+2],[r.right-2,r.bottom-2]].every(([x,y])=>node.contains(document.elementFromPoint(x,y)));}"), name
+    result = {'viewport':viewport,'band':band,'targets':actual}
+    print('phone controller geometry: '+json.dumps(result), flush=True)
+    return result
+
+
 def regions(page):
     names = ('.rc-header', '.rc-status', '.rc-players', '.rc-game-toolbar',
              '.rc-game-display', '.rc-game-viewport', '.rc-chat', '.rc-footer')
@@ -539,6 +565,14 @@ def controller_input(browser, url, output):
         page.wait_for_function('Number(getComputedStyle(document.querySelector(".rc-expansion-action")).opacity)>.95')
         assert expansion.bounding_box() == expansion_box
         page.locator('canvas').focus()
+        geometries = [phone_controller_geometry(page)]
+        for width, height in ((320,650),(390,844),(320,1000)):
+            page.set_viewport_size({'width':width,'height':height})
+            geometries.append(phone_controller_geometry(page))
+            assert page.evaluate('document.documentElement.scrollHeight<=innerHeight+1')
+            game_fits(page)
+        page.set_viewport_size({'width':320,'height':568})
+        (output / 'phone-controller-geometry.json').write_text(json.dumps(geometries,indent=2)+'\n')
         cdp = context.new_cdp_session(page)
         pad = page.get_by_role('button', name='Direction pad: use arrow keys or drag').bounding_box()
         ab, bb = a.bounding_box(), page.get_by_role('button', name='NES B', exact=True).bounding_box()
@@ -548,12 +582,27 @@ def controller_input(browser, url, output):
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove', 'touchPoints': points})
         observe('touch diagonal', 144)
         for ident, box in ((2, ab), (3, bb)):
-            points.append({'id': ident, 'x': box['x']+box['width']/2, 'y': box['y']+box['height']/2})
+            points.append({'id': ident, 'x': box['x']+2, 'y': box['y']+2})
             cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': points})
         observe('simultaneous diagonal A and B', 147)
         page.screenshot(path=str(output / 'controller-portrait-multitouch.png'))
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchCancel', 'touchPoints': []})
         observe('cancel releases every contact', 0)
+        for ident, name, mask in ((6, 'NES Select', 4), (7, 'NES Start', 8)):
+            box = page.get_by_role('button', name=name, exact=True).bounding_box()
+            page.mouse.move(box['x']+2,box['y']+2); page.mouse.down()
+            observe(name+' exact outer pointer area', mask)
+            page.mouse.up(); observe(name+' pointer release', 0)
+            cdp.send('Input.dispatchTouchEvent', {'type':'touchStart','touchPoints':[{'id':ident,'x':box['x']+box['width']/2,'y':box['y']+10}]})
+            observe(name+' outer hit area', mask)
+            cdp.send('Input.dispatchTouchEvent', {'type':'touchMove','touchPoints':[{'id':ident,'x':20,'y':20}]})
+            cdp.send('Input.dispatchTouchEvent', {'type':'touchEnd','touchPoints':[]})
+            observe(name+' release outside', 0)
+        band = page.locator('.rc-controller-band').bounding_box()
+        cdp.send('Input.dispatchTouchEvent', {'type':'touchStart','touchPoints':[{'id':8,'x':band['x']+band['width']/2,'y':band['y']+band['height']/4}]})
+        observe('center upper area sends no input', 0)
+        cdp.send('Input.dispatchTouchEvent', {'type':'touchEnd','touchPoints':[]})
+        assert page.locator('.rc-game-fullscreen').count() == 1
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
             {'id': 4, 'x': ab['x']+ab['width']/2, 'y': ab['y']+ab['height']/2}]})
         observe('A held before rotation', 1)
@@ -561,6 +610,7 @@ def controller_input(browser, url, output):
         observe('rotation releases held A', 0)
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
         controller_fits(page)
+        phone_controller_geometry(page)
         page.screenshot(path=str(output / 'controller-landscape.png'))
         box = a.bounding_box()
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [

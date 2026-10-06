@@ -603,6 +603,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-nes-controller button { touch-action: none; user-select: none; border: 2px solid #aa7542; background: #242a31; color: #f7f0e4; font: 700 13px/1.2 ui-monospace,monospace; }
 .rc-nes-controller button[aria-pressed=true] { background: #dc761f; border-color: #ffd39a; }
 .rc-nes-controller button[aria-disabled=true] { opacity: .6; }
+.rc-pad-art { position: absolute; inset: 0; pointer-events: none; }
 .rc-thumb-pad { position: relative; flex: 0 0 96px; height: 96px; }
 .rc-direction { display: grid; place-items: center; color: #f7f0e4; background: #242a31; border: 2px solid #aa7542; font: 700 13px/1.2 ui-monospace,monospace; position: absolute; width: 44px; height: 32px; padding: 0; }
 .rc-direction-up { top: 0; left: 26px; }.rc-direction-down { bottom: 0; left: 26px; }.rc-direction-left { left: 0; top: 32px; }.rc-direction-right { right: 0; top: 32px; }
@@ -618,22 +619,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-controller-editor p,.rc-controller-editor > div:last-child { grid-column: 1 / -1; margin: 0; }.rc-controller-editor button { min-height: 28px; margin-right: 6px; }
 .rc-controller-capture { padding: 4px; border: 1px solid #87d1e8; overflow-wrap: anywhere; }
 .rc-controller-status { font-size: 12px; }
-@media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
- .rc-game-fullscreen .rc-nes-controller { height: 144px; }
- .rc-game-fullscreen .rc-thumb-pad { align-self: center; }
- .rc-game-fullscreen .rc-nes-actions { position: relative; width: 100px; height: 144px; }
- .rc-game-fullscreen .rc-nes-actions button { position: absolute; width: 64px; height: 64px; }
- .rc-game-fullscreen .rc-nes-a { top: 0; right: 0; }.rc-game-fullscreen .rc-nes-b { bottom: 0; left: 0; }
- .rc-game-fullscreen .rc-controller-band { padding-bottom: max(4px,env(safe-area-inset-bottom)); }
-}
-@media (orientation:landscape) and (max-height:500px) {
- .rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr); }
- .rc-game-fullscreen .rc-controller-band { position: absolute; bottom: max(4px,env(safe-area-inset-bottom)); left: max(8px,env(safe-area-inset-left)); right: max(8px,env(safe-area-inset-right)); height: 104px; background: #080c1044; }
- .rc-game-fullscreen .rc-nes-controller { width: 100%; height: 96px; }
- .rc-game-fullscreen .rc-nes-actions { display: flex; gap: 8px; width: auto; height: 64px; }
- .rc-game-fullscreen .rc-nes-actions button { position: static; }
-}
-
 /* Reserve action-label width; directional bindings use the remaining space. */
 .rc-connected-hints { display: grid; grid-template-columns: minmax(0,1fr) max-content max-content; align-items: center; flex: 1; gap: 4px; min-width: 0; }
 .rc-connected-hints span { display: flex; align-items: center; gap: 3px; overflow-wrap: anywhere; }
@@ -682,6 +667,36 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-direction { width: 32px; height: 22px; }
  .rc-direction-up, .rc-direction-down { left: 16px; }
  .rc-direction-left, .rc-direction-right { top: 21px; }
+}
+
+/* Phone hit regions fill one rectangle; artwork never limits a target. */
+.rc-game-display.rc-game-fullscreen:has(.rc-phone-controller) {
+ --phone-usable-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+ --phone-controller-height: clamp(calc(var(--phone-usable-height) / 4),160px,calc(var(--phone-usable-height) / 2));
+ padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+ grid-template-rows: 44px minmax(0,1fr) var(--phone-controller-height);
+}
+.rc-game-fullscreen .rc-phone-controller { height: var(--phone-controller-height); padding: 0; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-controller {
+ display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
+ gap: 0; width: 100%; height: 100%; margin: 0;
+}
+.rc-game-fullscreen .rc-phone-controller .rc-thumb-pad { width: 100%; height: 100%; min-width: 0; }
+.rc-game-fullscreen .rc-phone-controller .rc-pad-drag { width: 100%; height: 100%; }
+.rc-game-fullscreen .rc-phone-controller .rc-pad-art { inset: auto; left: 50%; top: 50%; width: min(96px,100%); aspect-ratio: 1; transform: translate(-50%,-50%); }
+.rc-game-fullscreen .rc-phone-controller .rc-thumb-dot { left: calc(50% - 22px); top: calc(50% - 22px); }
+.rc-game-fullscreen .rc-phone-controller .rc-direction-up, .rc-game-fullscreen .rc-phone-controller .rc-direction-down { left: calc(50% - 22px); }
+.rc-game-fullscreen .rc-phone-controller .rc-direction-left, .rc-game-fullscreen .rc-phone-controller .rc-direction-right { top: calc(50% - 16px); }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-system { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-self: end; height: 50%; gap: 0; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); height: 100%; gap: 0; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-button { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.rc-game-fullscreen .rc-phone-controller button:focus-visible { outline-offset: -3px; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-button-art { display: grid; place-items: center; width: min(48px,100%); height: 32px; border: 2px solid currentColor; border-radius: 16px; background: #242a31; pointer-events: none; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-actions .rc-nes-button-art { height: auto; aspect-ratio: 1; border-radius: 50%; font-size: 22px; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-button[aria-pressed=true] .rc-nes-button-art { background: #dc761f; border-color: #ffd39a; }
+@media (orientation:landscape) and (max-height:500px) {
+ .rc-game-display.rc-game-fullscreen:has(.rc-phone-controller) { grid-template-rows: 44px minmax(0,1fr); }
+ .rc-game-fullscreen .rc-phone-controller { position: absolute; bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left); right: env(safe-area-inset-right); background: #080c1044; }
 }
 
 @media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
