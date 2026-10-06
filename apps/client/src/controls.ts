@@ -60,3 +60,20 @@ export class ReleasedInputs {
  release(pressed:ReadonlySet<string>){for(const input of pressed)this.blocked.add(input);}
  sample(pressed:ReadonlySet<string>){for(const input of this.blocked)if(!pressed.has(input))this.blocked.delete(input);return new Set([...pressed].filter(input=>!this.blocked.has(input)));}
 }
+
+/** Device APIs are optional; keyboard and on-screen input remain available. */
+export function availableGamepads():Gamepad[] {
+ try{return [...(navigator.getGamepads?.()??[])].filter((pad):pad is Gamepad=>!!pad&&pad.connected);}catch{return [];}
+}
+/** Returning peripherals must release held buttons before generating new input. */
+export class GamepadInput {
+ private identity?:string;
+ private released=new ReleasedInputs();
+ sample(device:Controls['device']) {
+  const pad=device?availableGamepads().find(pad=>pad.index===device.index&&pad.id===device.id):undefined;
+  const identity=pad?`${pad.index}:${pad.id}`:undefined,pressed=padInputs(pad);
+  if(identity!==this.identity){this.released.release(pressed);this.identity=identity;}
+  return {pad,available:!device||!!pad,pressed:this.released.sample(pressed)};
+ }
+ release(device:Controls['device']) {this.released.release(padInputs(this.sample(device).pad));}
+}

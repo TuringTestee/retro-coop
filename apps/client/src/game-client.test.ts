@@ -34,9 +34,9 @@ test('paused preparation waits for authoritative file match and retries only ret
 });
 test('failed preparation exposes the reason, stops retrying in the background, and accepts an explicit retry',async()=>{
  const t=setup();try{
-  t.failHold(Error('Reconnect your controller before shared play.'));
+  t.failHold(Error('The emulator could not prepare its state.'));
   t.game.playIntent();await tick();
-  assert.equal(t.updates.at(-1)?.preparationError,'Reconnect your controller before shared play.');
+  assert.equal(t.updates.at(-1)?.preparationError,'The emulator could not prepare its state.');
   assert.equal(t.updates.at(-1)?.intent,false);
   t.game.enter(room());await tick();assert.equal(t.commands.filter(command=>command.type==='gameReady').length,0);
   t.failHold();t.game.playIntent();await tick();

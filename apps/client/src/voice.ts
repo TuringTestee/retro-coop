@@ -1,4 +1,4 @@
-import {defaults,padInputs,type Controls} from './controls.ts';
+import {defaults,GamepadInput,type Controls} from './controls.ts';
 import {Microphone,type MicrophoneState} from './microphone.ts';
 export type VoiceState={microphone:MicrophoneState;connected:boolean;listening:boolean;remoteMuted:boolean;volume:number;devices:{id:string;label:string}[];deviceError?:string;playbackError?:string;connectionError?:string};
 type VoicePeer={pc:RTCPeerConnection;audio:HTMLAudioElement;connected:boolean;binding?:number;playback?:number;connectionError?:string;playbackError?:string};
@@ -8,31 +8,30 @@ export class VoiceSession {
  private peers=new Map<string,VoicePeer>();
  private disposed=false;
  private deviceRequest=0;
- private controls:Controls=defaults();private keys=new Set<string>();private animation=0;private padArmed=false;private pointerHeld=false;
+ private controls:Controls=defaults();private keys=new Set<string>();private animation=0;private gamepadInput=new GamepadInput();private pointerHeld=false;
  private state:VoiceState={microphone:{phase:'off',mode:'open',muted:true,transmitting:false,device:'default'},connected:false,listening:false,remoteMuted:false,volume:1,devices:[]};
  private update:(state:VoiceState)=>void;
  constructor(update:(state:VoiceState)=>void){
   this.update=update;this.microphone=new Microphone(constraints=>navigator.mediaDevices.getUserMedia(constraints),microphone=>this.publish({microphone}));
+  window.addEventListener('gamepadconnected',this.deviceChanged);window.addEventListener('gamepaddisconnected',this.deviceChanged);
   window.addEventListener('blur',this.blur);document.addEventListener('visibilitychange',this.visibility);
   navigator.mediaDevices?.addEventListener('devicechange',this.devicesChanged);
   window.addEventListener('keydown',this.down);window.addEventListener('keyup',this.up);this.animation=requestAnimationFrame(this.input);
  }
  current(){return this.state;}
  private publish(patch:Partial<VoiceState>){if(!this.disposed){this.state={...this.state,...patch};this.update(this.state);}}
- private blur=()=>{this.keys.clear();this.padArmed=false;this.pointerHeld=false;this.microphone.blur();};
+ private deviceChanged=(event:GamepadEvent)=>{if(this.controls.device?.index===event.gamepad.index&&this.controls.device.id===event.gamepad.id)this.gamepadInput.release(this.controls.device);};
+ private blur=()=>{this.keys.clear();this.gamepadInput.release(this.controls.device);this.pointerHeld=false;this.microphone.blur();};
  private editable(){const element=document.activeElement;return !!element?.closest('input,textarea,select,[contenteditable="true"],dialog');}
  private down=(event:KeyboardEvent)=>{if(this.state.microphone.phase==='ready' && this.state.microphone.mode==='push' && !this.state.microphone.muted && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey && !this.editable() && this.controls.keyboard.pushToTalk.includes(event.code)){event.preventDefault();this.keys.add(event.code);}};
  private up=(event:KeyboardEvent)=>{this.keys.delete(event.code);};
  private input=()=>{
   this.animation=requestAnimationFrame(this.input);
-  const device=this.controls.device,pad=device?navigator.getGamepads()[device.index]:undefined;
-  const available=!device||!!pad&&pad.connected&&pad.id===device.id;
-  if(!available){if(this.state.microphone.transmitting)this.blur();return;}
-  const held=device?this.controls.gamepad.pushToTalk.some(binding=>padInputs(pad).has(binding)):this.controls.keyboard.pushToTalk.some(binding=>this.keys.has(binding));
-  if(!held)this.padArmed=true;
-  this.microphone.hold(document.hasFocus() && (this.pointerHeld || !this.editable() && held && this.padArmed));
+  const {pressed}=this.gamepadInput.sample(this.controls.device);
+  const held=this.controls.keyboard.pushToTalk.some(binding=>this.keys.has(binding)) || this.controls.gamepad.pushToTalk.some(binding=>pressed.has(binding));
+  this.microphone.hold(document.hasFocus() && (this.pointerHeld || !this.editable() && held));
  };
- configureControls(controls:Controls){this.controls=controls;this.keys.clear();this.padArmed=false;this.pointerHeld=false;this.microphone.hold(false);}
+ configureControls(controls:Controls){this.controls=controls;this.keys.clear();this.gamepadInput.release(this.controls.device);this.pointerHeld=false;this.microphone.hold(false);}
  hold(held:boolean){this.pointerHeld=held;this.microphone.hold(held);}
 
  private visibility=()=>{if(document.hidden)this.blur();};
@@ -100,5 +99,5 @@ export class VoiceSession {
  retrySound(){this.publish({listening:true});void this.play();}
  remoteMute(remoteMuted:boolean){for(const peer of this.peers.values())peer.audio.muted=remoteMuted;this.publish({remoteMuted});if(!remoteMuted)void this.play();}
  volume(volume:number){if(!Number.isFinite(volume)||volume<0||volume>1)return;for(const peer of this.peers.values())peer.audio.volume=volume;this.publish({volume});}
- dispose(){this.close();this.disposed=true;window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.visibility);navigator.mediaDevices?.removeEventListener('devicechange',this.devicesChanged);window.removeEventListener('keydown',this.down);window.removeEventListener('keyup',this.up);cancelAnimationFrame(this.animation);}
+ dispose(){window.removeEventListener('gamepadconnected',this.deviceChanged);window.removeEventListener('gamepaddisconnected',this.deviceChanged);this.close();this.disposed=true;window.removeEventListener('blur',this.blur);document.removeEventListener('visibilitychange',this.visibility);navigator.mediaDevices?.removeEventListener('devicechange',this.devicesChanged);window.removeEventListener('keydown',this.down);window.removeEventListener('keyup',this.up);cancelAnimationFrame(this.animation);}
 }
