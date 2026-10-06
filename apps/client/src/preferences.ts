@@ -1,11 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
-import {migrateDefaultKeyboard,validControls,type Controls} from './controls.ts';
+import {normalizeControls,type Controls} from './controls.ts';
 import {readStored,putPreferences,type PreferencesRecord} from './saves.ts';
 export type Preferences={controls:Controls;filter:'nearest'|'scanlines';volume:number};
-export function validPreferences(value:unknown):value is Preferences {
+export function validPreferences(value:unknown):value is Omit<Preferences,'controls'>&{controls:unknown} {
  if(!value || typeof value!=='object')return false;
  const candidate=value as Preferences;
- return Object.keys(candidate).length===3 && validControls(candidate.controls) && ['nearest','scanlines'].includes(candidate.filter) && Number.isFinite(candidate.volume) && candidate.volume>=0 && candidate.volume<=1;
+ return Object.keys(candidate).length===3 && !!normalizeControls(candidate.controls) && ['nearest','scanlines'].includes(candidate.filter) && Number.isFinite(candidate.volume) && candidate.volume>=0 && candidate.volume<=1;
 }
 type Context={identity:string;generation?:number;pending?:{value:Preferences;current:()=>boolean;resolve:(saved:boolean)=>void};stopped:boolean;loading:boolean};
 /** Restore never writes defaults; only an explicit user edit schedules persistence. */
@@ -28,7 +28,7 @@ export function usePreferences(identity:string|undefined,restore:(value:Preferen
    const {generation,record}=await readStored<PreferencesRecord>('preferences',current.identity);
    if(context.current!==current || current.stopped)return;current.generation=generation;
    if(current.pending){const pending=current.pending;current.pending=undefined;if(pending.current()){pending.resolve(await write(current,pending.value,pending.current));return;}pending.resolve(false);}
-   if(record){if(validPreferences(record.value)){const controls=migrateDefaultKeyboard(record.value.controls);const value=controls===record.value.controls?record.value:{...record.value,controls};restoreRef.current(value);if(controls!==record.value.controls)write(current,value);}else setIssue('Stored preferences are invalid. Current controls are preserved; export or delete the record in Local data.');}
+   if(record){if(validPreferences(record.value)){const controls=normalizeControls(record.value.controls)!;const value={...record.value,controls};restoreRef.current(value);if(controls!==record.value.controls)write(current,value);}else setIssue('Stored preferences are invalid. Current controls are preserved; export or delete the record in Local data.');}
   }catch(error){current.pending?.resolve(false);current.pending=undefined;if(context.current===current)setIssue(`Preferences could not be loaded. Your game can still run. ${error instanceof Error ? error.message : ''}`);}
   finally{current.loading=false;}
  };

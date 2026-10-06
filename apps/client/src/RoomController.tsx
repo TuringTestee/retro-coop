@@ -13,7 +13,7 @@ import type {VoiceSession,VoiceState} from './voice.ts';
 type Operation={roomId:string;membership:string;target:RoomView;controller:AbortController;loading:boolean};
 type IncludedOperation={id:CatalogId;membership:string;target?:RoomView;controller:AbortController;loading:boolean;candidate:boolean;current?:()=>boolean};
 export type RoomControllerHandle={
- loadSaved(record:SaveSlot,current:()=>Promise<boolean>):Promise<void>;decideLoad(accept:boolean):Promise<void>;cancelLoad():Promise<void>;
+ loadSaved(record:SaveSlot,current:()=>Promise<boolean>):Promise<void>;
  currentMembership(roomId:string,membership:string,unusedHost?:boolean):boolean;restoreGame(frame:number,hash:string,current:()=>boolean):Promise<void>;voice():VoiceSession|undefined;setNickname(name:string):Promise<boolean>;localPlayIntent():void;observeGame():void;cancelPreparation():void;readyToResume():void;resumeTogether():void;pauseTogether():void;
  prepareFile(file:File,signal:AbortSignal):Promise<File>;reconcileSelection():Promise<void>;cancelSelection():void;cancelCreation():void;
  leaveNow():Promise<boolean>;joinCode(code:string,password?:string):Promise<void>;joinInvite(invite:string,password?:string):Promise<void>;retryDirectory():Promise<void>;reconnect():Promise<void>;retryPeer(pairId:string):Promise<void>;clearAdmissionError():void;cancelJoin():void;
@@ -92,7 +92,7 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  useImperativeHandle(ref,()=>({
   prepareFile(file,signal){return client.current?.prepareFile(file,signal)??Promise.reject(Error('The game service is unavailable. Retry.'));},
   async reconcileSelection(){const complete=player()?.selectionCompletion();const result=await client.current?.reconcileGameSelection();if(result)complete?.(result);},
-  loadSaved(record,current){return client.current?.loadSaved(record,current)??Promise.reject(Error('Lobby unavailable.'));},decideLoad(accept){return client.current?.decideLoad(accept)??Promise.reject(Error('Lobby unavailable.'));},cancelLoad(){return client.current?.cancelLoad()??Promise.reject(Error('Lobby unavailable.'));},
+  loadSaved(record,current){return client.current?.loadSaved(record,current)??Promise.reject(Error('Lobby unavailable.'));},
   currentMembership(roomId,membership,unusedHost){return client.current?.currentMembership(roomId,membership,unusedHost)??false;},restoreGame(frame,hash,current){return client.current?.restoreGame(frame,hash,current)??Promise.reject(Error('Lobby unavailable.'));},voice:()=>client.current?.voice,setNickname(name){return client.current?.act({type:'nickname',nickname:name})??Promise.resolve(false);},localPlayIntent(){client.current?.localPlayIntent();},observeGame(){client.current?.retryGame();},cancelPreparation(){client.current?.cancelSynchronization();},readyToResume(){client.current?.readyToResume();},resumeTogether(){client.current?.resumeTogether();},pauseTogether(){client.current?.pauseTogether();},
   cancelSelection(){cancelIncluded();cancelMember();client.current?.cancelGameSelection();onGameProgress('');},cancelCreation(){client.current?.cancelCreation();},
   // A rejected exit keeps preparation alive; successful membership loss owns cancellation.

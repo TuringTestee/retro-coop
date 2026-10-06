@@ -294,8 +294,6 @@ export class RoomClient {
  retryGame(){const room=this.state.room,file=this.selectedFile;if(room?.role==='host'&&!room.established&&file){void this.game.resumeReady().then(()=>this.startRoom(file));return;}this.game.retry();}
  cancelSynchronization(){this.game.cancelIntent();}
  loadSaved(record:SaveSlot,current:()=>Promise<boolean>){return this.game.loadSaved(record,current);}
- decideLoad(accept:boolean){return this.game.decideLoad(accept);}
- cancelLoad(){return this.game.cancelLoad();}
  async restoreGame(frame:number,hash:string,current:()=>boolean){
   let room=this.state.room;const player=this.player();
   if(!room||room.role!=='host'||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Return to the main page.');

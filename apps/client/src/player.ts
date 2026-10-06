@@ -1,7 +1,7 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import type { WorkerRequest, WorkerResponse, LocalFileRequest, PeerCheckpointRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
-import { defaults, inputMask, GamepadInput, rapidKeys, rapidMask, type Controls } from './controls.ts';
+import { defaults, inputMask, GamepadInput, rapidMask, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
@@ -21,6 +21,7 @@ export class LocalPlayer {
  isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && !this.state.loading && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
  selectionVersion(){return this.generation;}
  private active?: Worker;
+ private selectedRom?:ArrayBuffer;
  private game?:GameDriver;
  private gameTimer?:ReturnType<typeof setTimeout>;
  private gameProgressAt=0;
@@ -109,15 +110,33 @@ export class LocalPlayer {
  }
  // loadRecovery resolves only after the active candidate is initialized.
  recoveryFingerprint(){return this.state.fingerprint;}
+ /** Prepare a fresh OSS machine without replacing the active timeline. */
+ async freshCartridge(current:()=>boolean){
+  const rom=this.selectedRom?.slice(0),version=this.generation;if(!rom||!this.active||this.state.loading)throw Error('Load a cartridge before restarting.');
+  const worker=new Worker(new URL('./worker.ts',import.meta.url),{type:'module'});
+  try{return await new Promise<Extract<WorkerResponse,{type:'state-captured'}>>((resolve,reject)=>{
+   const timer=setTimeout(()=>reject(Error('Cartridge restart preparation timed out. Previous progress is preserved.')),10000);
+   const fail=(message:string)=>{clearTimeout(timer);reject(Error(message));};
+   worker.onerror=()=>fail('Could not restart this cartridge. Previous progress is preserved.');
+   worker.onmessage=({data}:MessageEvent<WorkerResponse>)=>{
+    if(!current()||this.generation!==version||this.disposed){fail('The game changed. Restart cancelled.');return;}
+    if(data.type==='ready'){worker.postMessage({type:'state-capture',requestId:1});return;}
+    if(data.type==='state-captured'){clearTimeout(timer);resolve(data);return;}
+    if(data.type==='error'||data.type==='state-error')fail(data.message);
+   };
+   worker.postMessage({type:'load',rom},[rom]);
+  });}finally{worker.terminate();}
+ }
  async captureRecovery(){const reply=await this.fileRequest({type:'state-capture'});if(reply.type!=='state-captured')throw Error('Unexpected recovery response');return reply;}
  async exportSave():Promise<ArrayBuffer> {const reply=await this.fileRequest({type:'state-export'});if(reply.type!=='state-exported')throw Error('Unexpected save response');return reply.bytes;}
  async validateSave(bytes:ArrayBuffer) {await this.fileRequest({type:'state-validate',bytes});}
  async loadSave(bytes:ArrayBuffer) {
   if(this.disposed || this.state.loading)throw Error('Wait for a game to finish loading.');
-  if(this.shared)throw Error('Use Load in Game settings so every controlling player can agree before shared progress changes.');
-  this.pause();
+  if(this.shared)throw Error('Only the host can load shared progress.');
+  const running=this.state.running;this.pause();
   await this.fileRequest({type:'state-import',bytes});
-  this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
+  this.audio.flush();this.release();this.publish({rewind:undefined,status:'Paused. Resume whenever you’re ready.'});
+  if(running)this.resume();
  }
 
  sampleGameInput(){return this.controllerMask(this.inputDevice().pressed);}
@@ -221,7 +240,7 @@ export class LocalPlayer {
  private down = (event: KeyboardEvent) => {
   if(!event.repeat && this.inputFocused() && this.state.running && !((event.target as Element)?.closest('[data-game-input] button')&&['Enter','Space'].includes(event.code))) {
    const mapped=Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code));
-   if(mapped || event.code in rapidKeys){event.preventDefault();this.keys.add(event.code);if(!mapped&&event.code in rapidKeys)this.rapidStarted.set(event.code,performance.now());}
+   if(mapped){event.preventDefault();this.keys.add(event.code);if(this.controls.keyboard.rapidA.includes(event.code)||this.controls.keyboard.rapidB.includes(event.code))this.rapidStarted.set(event.code,performance.now());}
   }
  };
  private up = (event: KeyboardEvent) => { this.keys.delete(event.code);this.rapidStarted.delete(event.code); };
@@ -299,7 +318,7 @@ export class LocalPlayer {
   this.abandonCandidate();
   await this.persistBattery();
   this.rejectPending('Game closed.');
-  this.active?.terminate();this.active=undefined;this.batterySession=undefined;
+  this.active?.terminate();this.active=undefined;this.selectedRom=undefined;this.batterySession=undefined;
   this.game=undefined;clearTimeout(this.gameTimer);this.shared=false;this.busy=false;
   this.audio.flush();this.release();
   this.canvas.getContext('2d')?.clearRect(0,0,this.canvas.width,this.canvas.height);
@@ -417,7 +436,7 @@ export class LocalPlayer {
      if(!isCurrent()) {worker.terminate();return;}
      this.inputDevice();
      const commit=()=>{
-     this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
+     this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,status:startPaused ? 'Game loaded. Resume whenever you’re ready.' : 'Playing locally. The game runs in this browser.',fingerprint,previewImage});
      committed?.(fingerprint);
@@ -443,7 +462,7 @@ export class LocalPlayer {
      else if(document.hidden)this.stepLocal(performance.now());
     }
    };
-   this.send(worker,{type:'load',rom},[rom]);
+   this.send(worker,{type:'load',rom});
   } catch(error) {
    if(request === this.generation && !this.disposed) this.publish({loading:false,selectionPhase:'failed',status:`${error instanceof Error ? error.message : 'Unable to read this file.'}${this.state.loaded ? ' Your previous game is preserved.' : ''}`});
   }

@@ -173,7 +173,7 @@ def main():
             expect(host.locator('[data-slot-id="slot-2"] .slot-row')).to_have_attribute(
                 'aria-label', re.compile('P2 ·'), timeout=15000)
 
-            choose_section(guest, 'Profile')
+            choose_section(guest, 'Controls')
             guest.get_by_role('button', name='Edit your name:', exact=False).click()
             guest.get_by_role('textbox', name='Your name').fill('Landscape Moderation Guest Name')
             guest.get_by_role('button', name='Save name', exact=True).click()

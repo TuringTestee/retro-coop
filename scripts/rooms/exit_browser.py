@@ -6,7 +6,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from ui_helpers import choose_section
+from ui_helpers import choose_section, choose_audio
 from playwright.sync_api import expect, sync_playwright
 
 
@@ -88,19 +88,19 @@ def main():
             instrument(guest)
             guest.goto(invite)
             guest.get_by_role('button', name='Join lobby').click()
-            expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
-            expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
-            host.get_by_role('button', name='Ready', exact=True).click()
-            guest.get_by_role('button', name='Ready', exact=True).click()
+            expect(guest.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
+            expect(host.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
+            host.get_by_role('button', name='Prepare', exact=True).click()
+            guest.get_by_role('button', name='Prepare', exact=True).click()
             expect(host.get_by_role('button', name='Start →')).to_be_enabled(timeout=30000)
             host.get_by_role('button', name='Start →').click()
             host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount)>30",
                                    timeout=30000)
-            choose_section(host, 'Sound')
+            choose_audio(host, 'Game sound')
             host.get_by_role('button', name='Mute game').click()
             host.get_by_role('button', name='Unmute game').click()
             host.wait_for_function('exitProof.audioSources.length>0', timeout=15000)
-            choose_section(host, 'Voice')
+            choose_audio(host, 'Voice')
             host.wait_for_function('exitProof.captures.some(stream=>stream.getTracks().some(track=>track.readyState==="live"))',
                                    timeout=15000)
 

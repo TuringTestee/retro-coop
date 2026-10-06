@@ -18,7 +18,7 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from layout_geometry import browser_zoom, verify_zoom, zoom_context, control_visibility
-from ui_helpers import choose_section, protect_lobby, rename_lobby
+from ui_helpers import choose_section, protect_lobby, rename_lobby, choose_audio
 
 
 SOURCE = Path(__file__).resolve().parents[2]
@@ -296,15 +296,15 @@ def player():
                 assert page.get_by_role('button', name='Start →').count() == 0
                 page.get_by_role('button', name='Copy invite').click()
                 invitation = page.evaluate('navigator.clipboard.readText()')
-                expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
-                page.get_by_role('button', name='Ready', exact=True).click()
+                expect(page.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
+                page.get_by_role('button', name='Prepare', exact=True).click()
                 save('host-ready.json', {'room_id': room['id'], 'invitation': invitation})
                 prepared = wait_for('guest-ready.json')
                 wait_for_page('member=>proof.room?.game?.ready?.includes(member)',
                                        arg=prepared['member_id'], timeout=30000)
-                if page.get_by_role('button', name='Ready', exact=True).count():
-                    expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
-                    page.get_by_role('button', name='Ready', exact=True).click()
+                if page.get_by_role('button', name='Prepare', exact=True).count():
+                    expect(page.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
+                    page.get_by_role('button', name='Prepare', exact=True).click()
                 expect(page.get_by_role('button', name='Start →')).to_be_enabled(timeout=30000)
                 page.get_by_role('button', name='Start →').click()
             else:
@@ -322,8 +322,8 @@ def player():
                 wait_for_page('proof.room?.role==="member"')
                 assert page.evaluate('proof.room.id') == expected['room_id']
                 rom_hash = page.evaluate('proof.room.fingerprint.romSha256')
-                expect(page.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
-                page.get_by_role('button', name='Ready', exact=True).click()
+                expect(page.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
+                page.get_by_role('button', name='Prepare', exact=True).click()
                 save('guest-ready.json', {'member_id': page.evaluate('proof.room.chatMembership')})
 
             wait_for_page('proof.room?.established && proof.room?.started==="shared" && proof.room?.game?.status==="playing"',
@@ -367,7 +367,7 @@ def player():
             routes = [reported_routes.get(peer['pairId']) for peer in page.evaluate('proof.room.peers')]
             wait_for_page('target => proof.frameCount >= target', arg=max(220, held_from + 60), timeout=30000)
             if EXPECTED_RAM is not None:
-                page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
+                page.evaluate("proof.controllerRam=undefined;(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-export',requestId:900000})")
                 wait_for_page('Array.isArray(proof.controllerRam)', timeout=10000)
                 controller_ram = page.evaluate('proof.controllerRam')
                 assert controller_ram == EXPECTED_RAM, controller_ram
@@ -492,8 +492,7 @@ def recovery():
     def mute_game(page):
         selector=page.get_by_role('combobox',name='Settings section',include_hidden=True)
         prior=selector.locator('option:checked').inner_text()
-        if selector.is_visible():selector.select_option(label='Sound')
-        else:page.get_by_role('button',name='Sound',exact=True).click()
+        choose_audio(page, 'Game sound')
         mute=page.get_by_role('button',name='Mute game',exact=True)
         if mute.is_visible():mute.click()
         expect(page.get_by_role('button',name='Unmute game',exact=True)).to_be_visible()
@@ -556,10 +555,10 @@ def recovery():
         invitation=args.url+'/#invite='+old['invite']
         guest.goto(invitation);guest.evaluate('releaseFrames()')
         guest.get_by_role('button',name='Join lobby',exact=True).click()
-        expect(guest.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        expect(guest.get_by_role('button',name='Prepare',exact=True)).to_be_enabled(timeout=30000)
         mute_game(guest)
-        guest.get_by_role('button',name='Ready',exact=True).click()
-        host.get_by_role('button',name='Ready',exact=True).click()
+        guest.get_by_role('button',name='Prepare',exact=True).click()
+        host.get_by_role('button',name='Prepare',exact=True).click()
         host.get_by_role('button',name='Start →').click()
         host.wait_for_function('proof.frameCount>120',timeout=30000)
         guest.wait_for_function('proof.frameCount>120',timeout=30000)
@@ -658,7 +657,7 @@ def recovery():
             page.get_by_role('button',name='Prepare to resume',exact=True).click()
         host.get_by_role('button',name='Resume together',exact=True).wait_for(timeout=30000)
         for page in (host,guest):
-            page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
+            page.evaluate("(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-hash',requestId:900005})")
             page.wait_for_function('frame=>proof.hashes.at(-1)?.frame===frame',arg=snapshot['frame'])
             assert page.evaluate('proof.hashes.at(-1).hash')==snapshot['hash']
         host.get_by_role('button',name='Resume together',exact=True).click()
@@ -667,11 +666,11 @@ def recovery():
         guest.locator('canvas').focus();guest.keyboard.down('c')
         for page in (host,guest):
             page.wait_for_timeout(300)
-            page.evaluate("proof.controllerRam=undefined;currentWorker.postMessage({type:'state-export',requestId:900000})")
+            page.evaluate("proof.controllerRam=undefined;(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-export',requestId:900000})")
             page.wait_for_function('proof.controllerRam?.[1]===64')
         guest.keyboard.up('c');host.get_by_role('button',name='Pause',exact=True).click()
         for page in (host,guest):page.wait_for_function('proof.room.game.status==="paused"')
-        for page in (host,guest):page.evaluate("currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        for page in (host,guest):page.evaluate("(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-hash',requestId:900005})")
         host.wait_for_timeout(100)
         hashes=[page.evaluate('proof.hashes.at(-1)') for page in (host,guest)]
         assert hashes[0]==hashes[1]
@@ -835,7 +834,7 @@ def recovery():
             host.get_by_role('button',name=re.compile(r'Load NES game')).click()
             host.get_by_role('button',name='Add game file',exact=True).click()
         chooser.value.set_files(str(args.rom.resolve()))
-        expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        expect(host.get_by_role('button',name='Prepare',exact=True)).to_be_enabled(timeout=30000)
         mute_game(host)
         host.evaluate("proof.hashes=[];currentWorker.postMessage({type:'state-hash',requestId:900005})")
         host.wait_for_function('proof.hashes.at(-1)?.frame===0 && proof.hashes.at(-1)?.fresh===true')
@@ -852,9 +851,9 @@ def recovery():
             offline.get_by_role('button',name=re.compile(r'Load NES game')).click()
             offline.get_by_role('button',name='Add game file',exact=True).click()
         chooser.value.set_files(str(args.rom.resolve()))
-        expect(offline.get_by_role('button',name='Ready',exact=True)).to_be_enabled(timeout=30000)
+        expect(offline.get_by_role('button',name='Prepare',exact=True)).to_be_enabled(timeout=30000)
         mute_game(offline)
-        offline.get_by_role('button',name='Ready',exact=True).click();offline.get_by_role('button',name='Start →').click()
+        offline.get_by_role('button',name='Prepare',exact=True).click();offline.get_by_role('button',name='Start →').click()
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
@@ -889,6 +888,7 @@ def shared_load():
       window.Worker=class extends NativeWorker {
         constructor(...args){super(...args);this.addEventListener('message',({data})=>{
           if(data.requestId===900005)proof.nativeProbe=data.type==='state-hash'?{info:data.info}:{error:data.message??data.type};
+          if(data.type==='frame'&&data.epoch===proof.room?.game.epoch)proof.acceptedLoadWorker=this;
           if(['state-captured','peer-checkpoint-imported','peer-checkpoint-rolled-back'].includes(data.type)){
             proof.saveReceipts??=[];proof.saveReceipts.push({type:data.type,info:data.info,
               frame:data.frame,hash:data.hash,identity:data.identity,bytes:data.bytes?.byteLength});
@@ -903,9 +903,9 @@ def shared_load():
       const RoomSocket=WebSocket;
       proof.readyAttempts=[];proof.commandTypes=new Map();proof.commandResults=[];proof.heldObserverCompletions=[];proof.observerSyncStops=[];
       window.WebSocket=class extends RoomSocket {
-        send(raw){const value=JSON.parse(raw);if(value.type.startsWith('game'))proof.commandTypes.set(value.requestId,value.type);if(value.type==='gameReady')proof.readyAttempts.push({requestId:value.requestId});
+        send(raw){const value=JSON.parse(raw);if(value.type==='gameLoadBoundary'&&proof.holdLoadBoundary){proof.releaseLoadBoundary=()=>{proof.holdLoadBoundary=false;super.send(raw);};return;}if(value.type.startsWith('game'))proof.commandTypes.set(value.requestId,value.type);if(value.type==='gameReady')proof.readyAttempts.push({requestId:value.requestId});
           if(value.type==='gameObserved'&&proof.holdObserverCompletion){proof.heldObserverCompletions.push({raw,epoch:value.epoch,transferId:value.transferId,frame:value.frame});return;}return super.send(raw);}
-        constructor(...args){super(...args);proof.abortObservation=()=>this.send(JSON.stringify({type:'gameAbort',requestId:crypto.randomUUID(),epoch:proof.room.game.epoch,reason:'network'}));proof.releaseObserverCompletions=()=>{const held=proof.heldObserverCompletions.splice(0);for(const row of held)super.send(row.raw);return held.map(({raw,...row})=>row);};this.addEventListener('message',({data})=>{
+        constructor(...args){super(...args);window.gameLoadSocket=this;proof.abortObservation=()=>this.send(JSON.stringify({type:'gameAbort',requestId:crypto.randomUUID(),epoch:proof.room.game.epoch,reason:'network'}));proof.releaseObserverCompletions=()=>{const held=proof.heldObserverCompletions.splice(0);for(const row of held)super.send(row.raw);return held.map(({raw,...row})=>row);};this.addEventListener('message',({data})=>{
           const value=JSON.parse(data);if(value.type==='result'&&value.ok&&value.data?.room)proof.room=value.data.room;
           if(value.type==='result'){if(proof.commandTypes.has(value.requestId))proof.commandResults.push({type:proof.commandTypes.get(value.requestId),ok:value.ok,error:value.error??value.code});const attempt=proof.readyAttempts.find(row=>row.requestId===value.requestId);if(attempt)attempt.result={ok:value.ok,error:value.error??value.code};}
           if(value.type==='gameSyncStop')proof.observerSyncStops.push({epoch:value.epoch,transferId:value.transferId});
@@ -917,7 +917,7 @@ def shared_load():
       };
     """
     def native(page):
-        page.evaluate("delete proof.nativeProbe;currentWorker.postMessage({type:'state-hash',requestId:900005})")
+        page.evaluate("delete proof.nativeProbe;(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-hash',requestId:900005})")
         page.wait_for_function('proof.nativeProbe!==undefined')
         result=page.evaluate('proof.nativeProbe')
         assert 'error' not in result,result
@@ -930,12 +930,15 @@ def shared_load():
               identity:row.identity,slot:row.slot,savedAt:row.savedAt,frame:row.frame,hash:row.hash,bytes:row.bytes.byteLength}:null);};
             tx.oncomplete=()=>db.close();};})""")
     def mute(page):
-        choose_section(page,'Sound')
+        choose_audio(page, 'Game sound')
         control=page.get_by_role('button',name='Mute game',exact=True)
         if control.is_visible():control.click()
         expect(page.get_by_role('button',name='Unmute game',exact=True)).to_be_visible()
-        choose_section(page,'Game')
+        choose_section(page, 'Controls')
     def pause(host,guest):
+        expect(host.get_by_role('button',name='Pause',exact=True)).to_be_enabled()
+        expect(host.locator('.rc-footer')).not_to_have_attribute('inert','')
+        host.locator('canvas').focus()
         host.keyboard.press('p')
         for page in (host,guest):page.wait_for_function('proof.room?.game?.status==="paused"&&!proof.room.game.load')
         snapshots=[native(page) for page in (host,guest)]
@@ -1001,7 +1004,7 @@ def shared_load():
                       return room?.matches&&room.slots.filter(slot=>slot.member&&slot.role!=='observer').every(slot=>slot.member.connected&&slot.member.acquisition==='loaded')
                         &&room.peers.filter(peer=>owners.includes(peer.member)||peer.member===room.hostMembership).every(peer=>peer.status==='connected');}''',timeout=remaining_ready())
                     if page.get_by_role('button',name='Cancel Ready',exact=True).count():continue
-                    action=page.get_by_role('button',name=re.compile(r'^(Ready|Try Ready again)$'))
+                    action=page.get_by_role('button',name=re.compile(r'^(Prepare|Retry preparation)$'))
                     if action.inner_text()=='Try Ready again':ready_recoveries.append({'visitor':label,'action':'Try Ready again'})
                     before=page.evaluate('proof.readyAttempts.length');action.click(timeout=remaining_ready())
                     outcome=page.wait_for_function('before=>proof.readyAttempts[before]?.result',arg=before,timeout=remaining_ready()).json_value()
@@ -1054,14 +1057,8 @@ def shared_load():
             guest.wait_for_function('typeof proof.releaseSaveCapture==="function"')
             held_save=guest.evaluate('proof.heldSaveCapture')
             host.keyboard.press('e')
-            expect(host.get_by_role('alertdialog')).to_be_visible()
-            screenshot(host,'shared-load-host-confirm.png')
-            host.get_by_role('button',name='Load game',exact=True).click()
-            guest.get_by_role('button',name='Load game',exact=True).wait_for()
-            boundary=[native(page) for page in pages]
-            assert boundary[0]==boundary[1],boundary
-            screenshot(guest,'shared-load-guest-consent.png')
-            guest.get_by_role('button',name='Load game',exact=True).click()
+            assert host.get_by_role('alertdialog').count()==0
+            assert guest.get_by_role('alertdialog').count()==0
             for page in pages:
                 page.wait_for_function('old=>proof.room.game.epoch!==old&&proof.room.game.status==="playing"&&!proof.room.game.load',arg=old_epoch)
                 receipt=page.evaluate('proof.saveReceipts.filter(row=>row.type==="peer-checkpoint-imported").at(-1)')
@@ -1071,7 +1068,7 @@ def shared_load():
             # A different player changed the shared timeline while this save was
             # pending. Its native result must neither write nor describe the new one.
             guest.evaluate('proof.releaseSaveCapture()')
-            expect(guest.locator('.rc-game-save-status')).to_have_count(0)
+            expect(guest.get_by_text('Saved to quick slot 1.',exact=True)).to_have_count(0)
             assert slot(guest) is None
             guest.locator('canvas').focus();guest.keyboard.press('q')
             expect(guest.locator('.rc-game-save-status')).to_have_text('Saved to quick slot 1.')
@@ -1092,41 +1089,82 @@ def shared_load():
                 guest.wait_for_function('n=>proof.frameCount>n+30',arg=frame)
                 pause(host,guest)
                 for page in pages:
-                    page.evaluate("currentWorker.postMessage({type:'state-export',requestId:900000})")
+                    page.evaluate("proof.controllerRam=undefined;(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-export',requestId:900000})")
                     page.wait_for_function('Array.isArray(proof.controllerRam)')
                     assert page.evaluate('proof.controllerRam')==EXPECTED_RAM
                 controller_ram=EXPECTED_RAM
                 guest.keyboard.up('c')
                 resume(host,guest)
-            # Decline and the real consent deadline preserve the same paused machine.
+            # Restart prepares a fresh OSS machine, then uses the same atomic
+            # replacement. Only its host confirmation needs human input.
+            observer.evaluate('proof.holdObserverCompletion=false;proof.releaseObserverCompletions()')
+            copies_before=slot(host)
+            host.locator('canvas').focus();host.keyboard.press('n')
+            restart_dialog=host.get_by_role('alertdialog',name='Restart this cartridge?')
+            expect(restart_dialog).to_be_visible()
+            host.get_by_role('button',name='Keep playing',exact=True).click()
+            expect(restart_dialog).to_have_count(0)
+            assert slot(host)==copies_before
+            old_restart_epoch=host.evaluate('proof.room.game.epoch')
+            host.keyboard.press('n');host.get_by_role('button',name='Restart cartridge',exact=True).click()
+            for page in pages:page.wait_for_function('old=>proof.room.game.epoch!==old&&proof.room.game.status==="playing"&&!proof.room.game.load',arg=old_restart_epoch)
+            fresh_restart=host.evaluate('proof.saveReceipts.filter(row=>row.type==="state-captured").at(-1)')
+            assert fresh_restart['frame']==0,fresh_restart
+            restart_imports=[page.evaluate('proof.saveReceipts.filter(row=>row.type==="peer-checkpoint-imported").at(-1)') for page in pages]
+            assert all(row['frame']==0 and row['hash']==fresh_restart['hash'] for row in restart_imports),restart_imports
+            assert slot(host)==copies_before
+            expect(host.get_by_role('alertdialog')).to_have_count(0)
+            expect(guest.get_by_role('alertdialog')).to_have_count(0)
+            if EXPECTED_RAM is not None:
+                guest.locator('canvas').focus();guest.keyboard.down('c')
+                frame=guest.evaluate('proof.frameCount');guest.wait_for_function('n=>proof.frameCount>n+30',arg=frame)
+                pause(host,guest)
+                for page in pages:
+                    page.evaluate("proof.controllerRam=undefined;(proof.acceptedLoadWorker??currentWorker).postMessage({type:'state-export',requestId:900000})")
+                    page.wait_for_function('Array.isArray(proof.controllerRam)')
+                    assert page.evaluate('proof.controllerRam')==EXPECTED_RAM
+                guest.keyboard.up('c');resume(host,guest)
+            # A successful Load of paused play stays paused without another
+            # Prepare click or an acceptance menu; Resume is still explicit.
+            pause(host,guest);paused_epoch=host.evaluate('proof.room.game.epoch')
+            host.locator('canvas').focus();host.keyboard.press('e')
+            for page in pages:page.wait_for_function('old=>proof.room.game.epoch!==old&&proof.room.game.status==="resume_ready"&&!proof.room.game.load',arg=paused_epoch)
+            paused_load=[native(page) for page in pages]
+            assert paused_load[0]==paused_load[1]
+            assert paused_load[0]['frame']==saved['frame'] and paused_load[0]['hash']==saved['hash']
+            host.get_by_role('button',name='Resume together',exact=True).click()
+            for page in pages:page.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+            observer.evaluate('proof.holdObserverCompletion=true')
+            # Automatic loading still waits for real native pause boundaries.
+            # Failure, the real barrier deadline and a replaced stored save all
+            # preserve the previous machine; no human acceptance is involved.
             if EXPECTED_RAM is None:pause(host,guest);resume(host,guest)
             denials=[];observer_overlap=[]
-            for decision in ('decline','timeout','changed-save'):
-                if decision!='decline':prior=pause(host,guest)
-                else:assert host.evaluate('proof.room.game.status==="playing"')
+            for decision in ('native-failure','timeout','changed-save'):
+                prior=pause(host,guest)
                 observer.wait_for_function('proof.heldObserverCompletions.length>0')
                 held=observer.evaluate('proof.heldObserverCompletions.map(({raw,...row})=>row)')
-                host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
-                guest.get_by_role('button',name='Load game',exact=True).wait_for()
+                guest.evaluate('proof.holdLoadBoundary=true;proof.releaseLoadBoundary=undefined')
+                host.keyboard.press('e')
+                guest.wait_for_function('typeof proof.releaseLoadBoundary==="function"')
                 observer.wait_for_function('proof.heldObserverCompletions.every(row=>proof.observerSyncStops.some(stop=>stop.transferId===row.transferId))')
                 observer_overlap.append({'action':decision,'cancelled':held})
                 observer.evaluate('proof.releaseObserverCompletions()')
-                if decision=='decline':
-                    observer.evaluate('proof.abortObservation()')
-                    observer.wait_for_function('proof.commandResults.some(row=>row.type==="gameAbort"&&row.ok)')
-                    assert host.evaluate('proof.room.game.load?.phase==="consent"')
-                    prior=native(host);assert native(guest)==prior
-                    guest.get_by_role('button',name='Keep current',exact=True).click()
+                assert host.get_by_role('alertdialog').count()==0
+                assert guest.get_by_role('alertdialog').count()==0
+                if decision=='native-failure':
+                    guest.evaluate("""()=>{const socket=window.gameLoadSocket;socket.send(JSON.stringify({type:'gameLoadFailed',requestId:crypto.randomUUID(),transactionId:proof.room.game.load.id}));}""")
                 if decision=='changed-save':
                     host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{
                       const db=request.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),rows=store.getAll();
                       rows.onsuccess=()=>{const row=rows.result.find(row=>row.slot===1);store.put({...row,savedAt:row.savedAt+1});};
                       tx.oncomplete=()=>{db.close();resolve();};};})""")
-                    guest.get_by_role('button',name='Load game',exact=True).click()
+                    guest.evaluate('proof.releaseLoadBoundary()')
                 for page in pages:page.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load',timeout=20000)
                 snapshots=[native(page) for page in pages]
                 assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
                 denials.append({'action':decision,'preserved':prior})
+                guest.evaluate('proof.holdLoadBoundary=false;proof.releaseLoadBoundary=undefined')
                 resume(host,guest)
             observed_before=observer.evaluate("proof.commandResults.length")
             observer.evaluate("proof.holdObserverCompletion=false;proof.releaseObserverCompletions()")
@@ -1135,7 +1173,7 @@ def shared_load():
             final_observer_epoch=observer.evaluate("proof.room.game.epoch")
             assert final_observer_epoch==host.evaluate("proof.room.game.epoch")
             # Every Local data confirmation shares the shell blocker and returns keyboard focus.
-            choose_section(host,'Profile');host.get_by_role('button',name='Local data',exact=True).click()
+            choose_section(host, 'Controls');host.get_by_role('button',name='Local data',exact=True).click()
             host.get_by_role('button',name='Saves',exact=True).click()
             for action in ('Delete save','Delete all local data'):
                 trigger=host.get_by_role('button',name=action,exact=True);trigger.click()
@@ -1146,7 +1184,7 @@ def shared_load():
                 assert host.locator('.rc-tool-back').evaluate('node=>!!node.closest("[inert]")')
                 host.keyboard.press('Escape');expect(dialog).to_have_count(0)
                 expect(trigger).to_be_focused()
-            host.get_by_role('button',name='Back',exact=True).click();choose_section(host,'Game')
+            host.get_by_role('button',name='Back',exact=True).click();choose_section(host, 'Controls')
             # A production-format byte-only copy remains usable after refresh in a new lobby.
             restored_epoch=host.evaluate('proof.room.game.epoch')
             host.get_by_role('button',name='Back to Main Page',exact=True).click()
@@ -1169,8 +1207,10 @@ def shared_load():
             host.wait_for_function('proof.room?.matches&&proof.room.fingerprint')
             assert not host.evaluate('proof.room.started')
             mute(host)
-            host.keyboard.press('e');host.get_by_role('button',name='Load game',exact=True).click()
-            host.wait_for_function('proof.room.started==="shared"&&proof.room.game.status==="playing"&&!proof.room.game.load&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+            host.keyboard.press('e');
+            host.wait_for_function('proof.room.started==="shared"&&proof.room.game.status==="resume_ready"&&!proof.room.game.load')
+            host.get_by_role('button',name='Resume together',exact=True).click()
+            host.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
             legacy=host.evaluate('proof.saveReceipts.filter(row=>row.type==="peer-checkpoint-imported").at(-1)')
             assert legacy['frame']==0 and legacy['hash']==saved['hash'],(legacy,saved)
             legacy_slot=slot(host);assert legacy_slot.get('frame') is None and legacy_slot.get('hash') is None
@@ -1178,12 +1218,12 @@ def shared_load():
             assert not errors,errors
             save('shared-load-result.json' ,{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
                 'download_recovery_faults':download_faults,'late_download_native':late_native,'established_during_recovery':established,'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
-                'active_play_load_boundary':boundary[0],'active_play_decline':True,'obsolete_guest_save_suppressed':held_save,'current_guest_save':current_guest_save,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
+                'direct_load':True,'paused_intent_preserved':paused_load,'restart_fresh_capture':fresh_restart,'restart_native_imports':restart_imports,'obsolete_guest_save_suppressed':held_save,'current_guest_save':current_guest_save,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
                 'command_results':[page.evaluate('proof.commandResults') for page in [*pages,observer]],'ready_recoveries':ready_recoveries,'superseded_observer_transfers':observer_overlap,'final_observer_epoch':final_observer_epoch,'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
             for index,page in enumerate([*pages,observer] if observer is not None else pages):
                 save(f'shared-load-{index}-failure.json',{'status':page.locator('.rc-status').all_inner_texts(),
-                    'game':page.evaluate('proof.room?.game'),'peers':page.evaluate('proof.room?.peers'),'command_results':page.evaluate('proof.commandResults'),'events':page.evaluate('proof.loadEvents??[]'),
+                    'visible_controls':page.locator('button:visible').all_text_contents(),'focused':page.evaluate('({tag:document.activeElement?.tagName,label:document.activeElement?.getAttribute("aria-label")})'),'game':page.evaluate('proof.room?.game'),'peers':page.evaluate('proof.room?.peers'),'command_results':page.evaluate('proof.commandResults'),'events':page.evaluate('proof.loadEvents??[]'),
                     'native':page.evaluate('proof.saveReceipts??[]'),'held_observer_completions':page.evaluate('proof.heldObserverCompletions?.map(({raw,...row})=>row)??[]'),'observer_sync_stops':page.evaluate('proof.observerSyncStops??[]'),'page_errors':errors})
             raise
         finally:

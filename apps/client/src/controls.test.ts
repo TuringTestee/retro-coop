@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {actions,defaults,conflict,inputMask,migrateDefaultKeyboard,padInputs,rapidMask,validControls} from './controls.ts';
+import {actions,defaults,conflict,inputMask,migrateDefaultKeyboard,padInputs,rapidMask,validControls,normalizeControls,bindingSummary,modifiedKey} from './controls.ts';
 import {gamepadMask} from '../../../spikes/d02/demo/runtime/input.js';
 test('all eight NES inputs and reserved talk binding share conflict detection',()=>{
  const settings=defaults();
@@ -9,7 +9,7 @@ test('all eight NES inputs and reserved talk binding share conflict detection',(
  assert.equal(conflict(settings.keyboard,'a','KeyV'),'pushToTalk');
  assert.equal(conflict(settings.gamepad,'a','button:10'),'pushToTalk');
  assert.equal(conflict(settings.keyboard,'a','KeyC'),'b');
- assert.equal(conflict(settings.keyboard,'a','KeyQ'),undefined);
+ assert.equal(conflict(settings.keyboard,'a','KeyQ'),'save');
 });
 test('public Play keys send the documented NES buttons',()=>{
  const keyboard=defaults().keyboard;
@@ -17,6 +17,12 @@ test('public Play keys send the documented NES buttons',()=>{
  assert.equal(inputMask(keyboard,new Set(['KeyC'])),2);
  assert.equal(inputMask(keyboard,new Set(['AltLeft'])),4);
  assert.equal(inputMask(keyboard,new Set(['Space'])),8);
+});
+test('compact binding names retain direction and individually mapped modifier sides',()=>{
+ assert.equal(bindingSummary(['ArrowUp','ArrowRight']),'↑ / →');
+ assert.equal(bindingSummary(['AltLeft','AltRight']),'Alt');
+ assert.equal(bindingSummary(['AltRight']),'Alt Right');
+ assert.equal(bindingSummary(['ShiftLeft','ShiftRight','KeyK']),'Shift / K');
 });
 test('gamepad axes/buttons use the demo-owned defaults and custom assignments',()=>{
  const settings=defaults();
@@ -107,4 +113,33 @@ test('a remembered pad releases held return inputs, ignores a different device a
  held.pressed=true;assert.deepEqual([...input.sample(device).pressed],['button:0']);
  input.release(device);assert.deepEqual([...input.sample(device).pressed],[]);
  assert.deepEqual(device,{index:0,id:'Saved pad'});
+});
+test('legacy personal bindings keep their keys and suppress conflicting newly editable shortcuts',()=>{
+ const current=defaults(),legacy={...current,keyboard:Object.fromEntries(actions.slice(0,9).map(action=>[action,current.keyboard[action]])),gamepad:Object.fromEntries(actions.slice(0,9).map(action=>[action,current.gamepad[action]]))};
+ legacy.keyboard.a=['KeyQ'];legacy.keyboard.b=[];
+ const upgraded=normalizeControls(legacy)!;
+ assert.deepEqual(upgraded.keyboard.a,['KeyQ']);assert.deepEqual(upgraded.keyboard.b,[]);assert.deepEqual(upgraded.keyboard.save,[]);assert.deepEqual(upgraded.keyboard.load,['KeyE']);assert.equal(validControls(upgraded),true);
+ delete legacy.keyboard.up;assert.equal(normalizeControls(legacy),undefined);
+});
+test('rapid fire follows an edited key and game actions never enter the NES mask',()=>{
+ const keyboard=defaults().keyboard;keyboard.rapidA=['KeyF'];
+ assert.equal(rapidMask(keyboard,new Map([['KeyA',0]]),0),0);assert.equal(rapidMask(keyboard,new Map([['KeyF',0]]),0),1);assert.equal(rapidMask(keyboard,new Map([['KeyF',0]]),50),0);
+ assert.equal(inputMask(keyboard,new Set(['KeyQ','KeyE','KeyN','KeyM','KeyP','KeyV'])),0);
+});
+
+test('mapped Alt alone is eligible while browser modifier combinations stay reserved',()=>{
+ const plain={altKey:false,ctrlKey:false,metaKey:false};
+ assert.equal(modifiedKey({...plain,code:'AltLeft',altKey:true}),false);
+ assert.equal(modifiedKey({...plain,code:'AltRight',altKey:true}),false);
+ assert.equal(modifiedKey({...plain,code:'KeyQ',altKey:true}),true);
+ assert.equal(modifiedKey({...plain,code:'KeyQ',ctrlKey:true}),true);
+ assert.equal(modifiedKey({...plain,code:'MetaLeft',metaKey:true}),true);
+});
+
+test('15-binding records gain real Restart without changing personal or unbound mappings',()=>{
+ const former=defaults();delete (former.keyboard as Partial<typeof former.keyboard>).restart;delete (former.gamepad as Partial<typeof former.gamepad>).restart;
+ former.keyboard.a=['KeyN'];former.keyboard.save=[];
+ const migrated=normalizeControls(former)!;assert.ok(migrated);assert.deepEqual(migrated.keyboard.a,['KeyN']);assert.deepEqual(migrated.keyboard.save,[]);assert.deepEqual(migrated.keyboard.restart,[]);
+ const plain=defaults();delete (plain.keyboard as Partial<typeof plain.keyboard>).restart;delete (plain.gamepad as Partial<typeof plain.gamepad>).restart;
+ assert.deepEqual(normalizeControls(plain)!.keyboard.restart,['KeyN']);
 });

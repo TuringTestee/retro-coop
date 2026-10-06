@@ -32,7 +32,7 @@ def wait_closed(port):
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     """Exercise the public lobby journey in the built application."""
     from playwright.sync_api import sync_playwright, expect
-    from rooms.ui_helpers import choose_panel, choose_section
+    from rooms.ui_helpers import choose_panel, choose_audio
 
     def fits(page):
         result = page.evaluate("""() => {
@@ -102,16 +102,16 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         choose_panel(host, "Game")
         host.get_by_role("button", name="Load NES game").click()
         host.get_by_role("button", name="Super Tilt Bro", exact=False).click()
-        host.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
-        guest.get_by_role("button", name="Ready", exact=True).wait_for(timeout=30000)
+        host.get_by_role("button", name="Prepare", exact=True).wait_for(timeout=30000)
+        guest.get_by_role("button", name="Prepare", exact=True).wait_for(timeout=30000)
         for page in (host, guest):
-            choose_section(page, "Sound")
+            choose_audio(page, "Game sound")
             page.get_by_role("button", name="Mute game", exact=True).click()
         choose_panel(host, "Game")
         choose_panel(guest, "Game")
-        host.get_by_role("button", name="Ready", exact=True).click()
+        host.get_by_role("button", name="Prepare", exact=True).click()
         assert host.get_by_role("button", name="Start →").count() == 0
-        guest.get_by_role("button", name="Ready", exact=True).click()
+        guest.get_by_role("button", name="Prepare", exact=True).click()
         host.get_by_role("button", name="Start →").wait_for(state="visible")
         host.get_by_role("button", name="Start →").click(timeout=15000)
         host.get_by_text("Game starts in", exact=False).wait_for(timeout=15000)
