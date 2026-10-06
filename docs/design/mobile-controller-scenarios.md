@@ -6,7 +6,7 @@ Audience: Human
 
 | Scenario / journey | Trigger → visible result | Recovery |
 |---|---|---|
-| S1/J1 empty/loading/ready | Controller region is reserved from initial desktop preparation; mappings use current preferences, Load/Ready remains primary. Controls cannot alter an unprepared game. | Current cancel/retry game selection remains in its region. |
+| S1/J1 empty/loading/ready | Controller region is reserved from initial desktop preparation; mappings use current preferences, Load/Prepare remains primary. Mapping edits are available before readiness, but gameplay input is admitted only after authoritative preparation. | Current cancel/retry game selection remains in its region. |
 | S2/J1 draft mapping | Controls → click the mapped key → screen-covering capture dialog; Save/Cancel stay in that dialog and leave the surrounding layout unchanged. | Duplicate action, Tab/Escape navigation or failed preference persistence cannot silently replace saved mappings; explain and permit correction/cancel. |
 | S3/J2 simultaneous contacts | Drag diagonally while holding A+B; each held target lights independently. Two contacts on A do not lose A when one releases. | pointerup/cancel/lostcapture clears only that contact; release all becomes neutral. |
 | S4/J2 interrupted input | Blur, hidden, orientation, pause, editing, dialog, role loss, reconnect or leave while held. | Clear virtual holds without resuming old presses. Preserve the existing game/role recovery. |
