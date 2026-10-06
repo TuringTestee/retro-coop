@@ -576,6 +576,45 @@ def controller_input(browser, url, output):
         expect(page.get_by_role('button', name='Load (E)', exact=True)).to_be_enabled()
         page.keyboard.press('q')
         page.get_by_text('Saved to quick slot 1.', exact=True).wait_for()
+        assert page.locator('.rc-session').get_attribute('data-phone-panel') == 'settings'
+        feedback = page.locator('.rc-panel-save-status')
+        expect(feedback).to_have_count(1)
+        assert feedback.evaluate('n=>!n.closest("[inert],[aria-hidden=true]")')
+        page.screenshot(path=str(output / 'save-inactive-phone-game.png'))
+        page.evaluate("""() => {window.saveStorePut=IDBObjectStore.prototype.put;window.failSaveStore=true;
+          IDBObjectStore.prototype.put=function(...args){if(this.name==='saves'&&window.failSaveStore)throw Error('Storage is full.');return window.saveStorePut.apply(this,args);};} """)
+        page.keyboard.press('q')
+        expect(feedback).to_contain_text('Save failed: Storage is full.')
+        for control in page.locator('.rc-session-settings button:visible,.rc-session-settings select:visible').all():
+            control_visibility(control)
+            assert control.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
+        page.screenshot(path=str(output / 'save-inactive-phone-retry.png'))
+        page.evaluate('window.failSaveStore=false')
+        feedback.get_by_role('button', name='Retry Save').click()
+        expect(feedback).to_have_text('Saved to quick slot 1.')
+        page.set_viewport_size({'width': 320, 'height': 568})
+        page.evaluate('window.failSaveStore=true')
+        page.get_by_role('button', name='Save (Q)', exact=True).click()
+        expect(feedback).to_contain_text('Save failed: Storage is full.')
+        for control in page.locator('.rc-session-settings button:visible,.rc-session-settings select:visible').all():
+            control_visibility(control)
+            assert control.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
+        retry=feedback.get_by_role('button',name='Retry Save',exact=True)
+        control_visibility(retry)
+        assert retry.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
+        page.screenshot(path=str(output / 'save-inactive-phone-portrait-failure.png'))
+        page.evaluate('window.failSaveStore=false')
+        for _ in range(16):
+            if retry.evaluate('n=>n===document.activeElement'):break
+            page.keyboard.press('Shift+Tab')
+        assert retry.evaluate('n=>n===document.activeElement&&n.matches(":focus-visible")')
+        page.keyboard.press('Space')
+        expect(feedback).to_have_text('Saved to quick slot 1.')
+        assert page.locator('.rc-session').get_attribute('data-phone-panel')=='settings'
+        page.evaluate('()=>{IDBObjectStore.prototype.put=window.saveStorePut;}')
+        print('controller input: portrait failure and keyboard Retry preserve Settings controls',flush=True)
+        page.screenshot(path=str(output / 'save-inactive-phone-portrait.png'))
+        page.set_viewport_size({'width': 568, 'height': 320})
         page.keyboard.press('m')
         choose_section(page, 'Sound')
         page.get_by_role('button', name='Mute game', exact=True).click()
@@ -645,6 +684,87 @@ def canceled_preference_read_restores_saved_controls(browser, url, output):
         assert editor.get_by_role('button', name='Save', exact=True).is_enabled()
         (output / 'controller-canceled-preference-read.json').write_text(json.dumps({'restored_current':'J','newer_draft':'L','save_enabled':True})+'\n')
         editor.get_by_role('button', name='Cancel', exact=True).click();close()
+    finally:
+        context.close()
+
+
+def save_feedback(browser, url, output):
+    context = browser.new_context(viewport={'width': 1440, 'height': 900})
+    context.add_init_script("""(() => {
+      const Native=Worker;window.Worker=class extends Native {
+        postMessage(message,...rest) {
+          if(message.type==='state-capture'&&window.holdSave){window.releaseSave=()=>super.postMessage(message,...rest);return;}
+          return super.postMessage(message,...rest);
+        }
+      };
+      const put=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(...args) {
+        if(this.name==='saves'&&window.failSave)throw new DOMException('Storage is full.','QuotaExceededError');
+        return put.apply(this,args);
+      };
+    })()""")
+    page = context.new_page()
+    try:
+        page.goto(url)
+        cartridge = page.locator('input[aria-label="NES cartridge file"]')
+        cartridge.set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
+        page.get_by_role('button', name='Full screen', exact=True).wait_for()
+        page.get_by_role('button', name='Resume', exact=True).click()
+        page.wait_for_function('Number(document.querySelector("canvas").dataset.frameCount)>10')
+        status = page.locator('.rc-game-save-status')
+        for width, height in ((1440, 900), (320, 568), (568, 320), (760, 520)):
+            page.set_viewport_size({'width': width, 'height': height})
+            for expanded in (False, True):
+                if expanded:
+                    page.get_by_role('button', name='Full screen', exact=True).click()
+                page.locator('canvas').focus()
+                before = page.locator('.rc-game-viewport').bounding_box()
+                page.evaluate('window.holdSave=true;window.releaseSave=undefined')
+                page.keyboard.press('q')
+                expect(status).to_have_text('Saving…')
+                page.wait_for_function('typeof window.releaseSave === "function"')
+                assert page.locator('.rc-game-viewport').bounding_box() == before
+                assert status.evaluate("""node => {
+                  const box=node.getBoundingClientRect(),game=node.closest('.rc-game-display').getBoundingClientRect();
+                  return box.x>=game.x&&box.y>=game.y&&box.right<=game.right&&box.bottom<=game.bottom
+                    &&game.right-box.right<=12
+                    &&node.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));
+                }""")
+                expansion = page.get_by_role('button', name='Return to lobby view' if expanded else 'Full screen', exact=True)
+                assert expansion.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
+                if expanded:
+                    page.screenshot(path=str(output / f'save-progress-{width}x{height}.png'))
+                page.evaluate('window.holdSave=false;window.releaseSave()')
+                expect(status).to_have_text('Saved to quick slot 1.')
+                if expanded:
+                    page.screenshot(path=str(output / f'save-success-{width}x{height}.png'))
+                    page.get_by_role('button', name='Return to lobby view', exact=True).click()
+        page.set_viewport_size({'width': 1440, 'height': 900})
+        page.get_by_role('button', name='Full screen', exact=True).click()
+        page.evaluate('window.failSave=true')
+        page.locator('canvas').focus()
+        page.keyboard.press('q')
+        expect(status).to_contain_text('Save failed: Storage is full.')
+        expect(status.get_by_role('button', name='Retry Save')).to_be_visible()
+        page.screenshot(path=str(output / 'save-failure-retry.png'))
+        page.evaluate('window.failSave=false')
+        status.get_by_role('button', name='Retry Save').click()
+        expect(status).to_have_text('Saved to quick slot 1.')
+        page.evaluate('window.holdSave=true;window.releaseSave=undefined')
+        page.locator('canvas').focus()
+        page.keyboard.press('q')
+        page.wait_for_function('typeof window.releaseSave === "function"')
+        page.get_by_role('button', name='Return to lobby view', exact=True).click()
+        cartridge.set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
+        page.get_by_role('button', name='Full screen', exact=True).wait_for()
+        page.evaluate('window.holdSave=false;window.releaseSave()')
+        expect(status).to_have_count(0)
+        page.locator('canvas').focus()
+        page.keyboard.press('q')
+        expect(status).to_have_text('Saved to quick slot 1.')
+        page.get_by_role('button', name='Back to Main Page', exact=True).click()
+        page.locator('.rc-listing').wait_for(timeout=10000)
+        expect(status).to_have_count(0)
     finally:
         context.close()
 
