@@ -599,6 +599,10 @@ def controller_input(browser, url, output):
         expect(a).to_have_attribute('aria-pressed','false')
         before_hints=page.locator('.rc-controller-band').bounding_box()
         expect(a.locator('.rc-input-hint')).to_have_text('K',timeout=6000)
+        select_hint=page.get_by_role('button',name='NES Select',exact=True).locator('.rc-input-hint')
+        expect(select_hint).to_have_text('Alt')
+        expect(select_hint).to_have_attribute('title','Alt Left / Alt Right')
+        assert select_hint.evaluate('n=>{const a=n.getBoundingClientRect(),b=n.parentElement.getBoundingClientRect();return a.top>=b.top&&a.bottom<=b.bottom&&a.left>=b.left&&a.right<=b.right}')
         assert page.locator('.rc-controller-band').bounding_box()==before_hints
         page.locator('canvas').focus();page.keyboard.press('ArrowLeft')
         expect(a.locator('.rc-input-hint')).to_have_count(0)

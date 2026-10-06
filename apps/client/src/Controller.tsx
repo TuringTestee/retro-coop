@@ -177,7 +177,7 @@ export function Controller({
         onClick={(event) => event.stopPropagation()}
       >
         <span className="rc-nes-button-art">{labels[action]}</span>
-        {idle&&<small className="rc-input-hint">{controls.keyboard[action].map(bindingLabel).join(" / ")||"Unbound"}</small>}
+        {idle&&<small className="rc-input-hint" title={fullHint(action)}>{hint(action)}</small>}
       </button>
     );
   };
@@ -239,7 +239,7 @@ export function Controller({
                       data-pressed={!!(mask & bit)}
                       aria-hidden="true"
                     >
-                      {directionGlyphs[action]}{idle&&<small className="rc-input-hint">{controls.keyboard[action].map(bindingLabel).join(" / ")||"Unbound"}</small>}
+                      {directionGlyphs[action]}{idle&&<small className="rc-input-hint" title={fullHint(action)}>{hint(action)}</small>}
                     </span>
                   );
                 })}
