@@ -135,6 +135,9 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.goto(url)
         guest.locator('.rc-lobby-card').first.click()
         guest.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
+        guest.get_by_role("button",name="Edit your name:",exact=False).click()
+        guest.get_by_label("Your name",exact=True).fill("P"*32)
+        guest.get_by_role("button",name="Save name",exact=True).click()
         spectator=browser.new_page(viewport={"width":1024,"height":600})
         spectator.goto(url)
         spectator.locator('.rc-lobby-card').first.click()
@@ -165,6 +168,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         host.get_by_role("button", name="Prepare", exact=True).click()
         expect(host.get_by_role("button", name="Start →")).to_be_disabled()
         expect(host.locator(".rc-prepare-cover")).to_contain_text("not ready")
+        assert host.locator(".rc-primary-action-reason").evaluate("node=>{const r=node.getBoundingClientRect(),p=node.closest('.rc-prepare-feedback').getBoundingClientRect();return r.left>=p.left&&r.right<=p.right&&r.top>=p.top&&r.bottom<=p.bottom&&node.scrollHeight<=node.clientHeight;}")
         assert host.locator(".rc-prepare-action-region").bounding_box()==primary_region
         start_box=host.get_by_role("button",name="Start →").bounding_box()
         for axis,length in [("x","width"),("y","height")]:
