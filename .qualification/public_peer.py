@@ -16,7 +16,7 @@ if os.environ.get('GITHUB_ACTIONS')=='true':
  assert not Path('/dev/snd').exists(),'Qualification runner must have no physical audio device'
 else:
  assert os.environ.get('PULSE_SINK')=='retro-coop-test-audio','Dedicated silent output is required'
- graph=json.loads(subprocess.check_output(['pw-dump'],text=True))
+ graph=json.loads(subprocess.check_output(['jq','-s','-f',str(ROOT/'.qualification/silent-audio.jq')],input=subprocess.check_output(['pw-dump','-N'],text=True),text=True))
  sinks=[n for n in graph if n.get('info',{}).get('props',{}).get('node.name')=='retro-coop-test-audio' and n['info']['props'].get('factory.name')=='support.null-audio-sink']
  assert len(sinks)==1,'Silent null sink is missing'
  assert not any(str(n.get('info',{}).get('props',{}).get('link.output.node'))==str(sinks[0]['id']) for n in graph if n.get('type')=='PipeWire:Interface:Link'),'Test sink routes to another audio node'
