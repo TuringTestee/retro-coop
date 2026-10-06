@@ -1,10 +1,10 @@
-The owner approved one phone panel and automatic play-entry expansion; preserve the requested return/fullscreen gesture. This is a review of the proposal, not proof of implemented touch usability.
+Historical critique of the original baseline. [Gameplay controls](gameplay-controls.md) supersedes its Settings, editing and feedback decisions. This retained record does not prescribe the replaced routes.
 
 Audience: Human
 
 # Mobile controller critique v4
 
-Sources: [current wireframe](mobile-controller-wireframe-v4.md), [direction](mobile-controller-direction.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md). v1–v3 remain historical proposals.
+Sources: [historical wireframe](mobile-controller-wireframe-v4.md), [direction](mobile-controller-direction.md), [journeys](mobile-controller-journeys.md), [scenarios](mobile-controller-scenarios.md). v1–v3 remain historical proposals.
 
 | Screen | Supports | Missing or unproven | Revision or verification |
 |---|---|---|---|

@@ -1,4 +1,4 @@
-The v6 screens keep settings open in the right column. Change game stays above the game; Copy invite sits beside the lobby name. This critique covers the menu correction against the current lobby journey.
+Historical critique of the original baseline. [Gameplay controls](gameplay-controls.md) supersedes its Settings, editing and feedback decisions. This retained record does not prescribe the replaced routes.
 
 # Unified lobbies: critique v6
 
