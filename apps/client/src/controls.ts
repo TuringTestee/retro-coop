@@ -27,12 +27,13 @@ export function rapidMask(bindings:Bindings,pressed:ReadonlyMap<string,number>,n
   return mask | (firing?1<<index:0);
  },0);
 }
-/** Replace only the former exact defaults, leaving all personal mappings alone. */
+/** Replace the former default group only when the complete result preserves binding validity. */
 export function migrateDefaultKeyboard(controls:Controls):Controls {
  const old:Partial<Bindings>={a:['KeyX'],b:['KeyZ'],select:['ShiftLeft','ShiftRight'],start:['Enter'],up:['ArrowUp'],down:['ArrowDown'],left:['ArrowLeft'],right:['ArrowRight'],pushToTalk:['KeyV']};
  if(!actions.slice(0,9).every(action=>JSON.stringify(controls.keyboard[action])===JSON.stringify(old[action])))return controls;
  const keyboard=defaults().keyboard;
- return {...controls,keyboard:{...controls.keyboard,...Object.fromEntries(actions.slice(0,9).map(action=>[action,keyboard[action]]))}};
+ const candidate={...controls,keyboard:{...controls.keyboard,...Object.fromEntries(actions.slice(0,9).map(action=>[action,keyboard[action]]))}};
+ return validControls(candidate)?candidate:controls;
 }
 /** Extend complete former mappings without taking a key already owned by a personal binding. */
 export function normalizeControls(value:unknown):Controls|undefined {

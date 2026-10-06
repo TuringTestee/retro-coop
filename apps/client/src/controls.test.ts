@@ -143,3 +143,17 @@ test('15-binding records gain real Restart without changing personal or unbound 
  const plain=defaults();delete (plain.keyboard as Partial<typeof plain.keyboard>).restart;delete (plain.gamepad as Partial<typeof plain.gamepad>).restart;
  assert.deepEqual(normalizeControls(plain)!.keyboard.restart,['KeyN']);
 });
+
+
+test('default migrations preserve personal shortcut ownership and stay valid on every reload',()=>{
+ for(const length of [15,16])for(const [action,key] of [['save','KeyC'],['load','Space'],['pause','AltLeft']] as const){
+  const prior=defaults();prior.keyboard={...prior.keyboard,a:['KeyX'],b:['KeyZ'],select:['ShiftLeft','ShiftRight'],start:['Enter'],[action]:[key]};
+  if(length===15){delete (prior.keyboard as Partial<typeof prior.keyboard>).restart;delete (prior.gamepad as Partial<typeof prior.gamepad>).restart;}
+  const migrated=normalizeControls(prior)!;assert.ok(migrated);assert.equal(validControls(migrated),true);
+  assert.deepEqual(migrated.keyboard[action],[key]);assert.deepEqual(migrated.keyboard.b,['KeyZ']);
+  assert.equal(conflict(migrated.keyboard,action,key),undefined);
+  assert.deepEqual(normalizeControls(migrated),migrated);assert.deepEqual(normalizeControls(JSON.parse(JSON.stringify(migrated))),migrated);
+  assert.equal(inputMask(migrated.keyboard,new Set([key])),0);assert.equal(inputMask(migrated.keyboard,new Set(['KeyZ'])),2);
+  migrated.keyboard.b=['KeyB'];assert.equal(validControls(migrated),true);assert.deepEqual(normalizeControls(migrated),migrated);
+ }
+});
