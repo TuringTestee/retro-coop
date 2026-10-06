@@ -266,3 +266,17 @@ test('a cartridge captured after its selection was canceled never proposes a sha
  finish({frame:0,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)});await assert.rejects(pending,/Game selection changed/);
  assert.equal(t.commands.some(command=>command.type==='gameLoadPropose'),false);t.game.dispose();
 });
+
+
+test('new cartridge controller keeps its independent old boundary through rollback',async()=>{
+ const t=setup(member),id='l'.repeat(22),observerHash='d'.repeat(64),replacement={intent:'i'.repeat(22),fingerprint,title:'Next'};
+ Object.assign(t.player,{holdForGame:async()=>({frame:23,hash:observerHash,fresh:false}),ownCartridge(){},cancelCartridge(){},rollbackCartridge:async()=>({frame:23,hash:observerHash})});
+ try{
+  const view=room();view.started='shared';view.game={...view.game,status:'paused',epoch,controllers:{owners:[host,null],revision:1},load:{id,epoch,phase:'freezing',frame:0,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],freezeRequired:[host],replacement,expiresAt:20000}};
+  t.game.enter(view);t.game.handle({type:'gameLoadHold',transactionId:id,epoch,frame:917,hash});await tick();
+  assert.equal(t.commands.some(command=>command.type==='gameLoadFailed'),false);
+  assert.deepEqual(t.commands.find(command=>command.type==='gameLoadBoundary'),{type:'gameLoadBoundary',transactionId:id,frame:23,hash:observerHash});
+  t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:23,hash:observerHash,reason:'Candidate rejected'});await tick();
+  assert.deepEqual(t.commands.find(command=>command.type==='gameLoadRolledBack'),{type:'gameLoadRolledBack',transactionId:id,frame:23,hash:observerHash});
+ }finally{t.game.dispose();}
+});

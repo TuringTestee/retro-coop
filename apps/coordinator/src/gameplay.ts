@@ -197,7 +197,7 @@ export class GameSession {
  }
  private holdLoad(){
   const load=this.loadState;if(!load)return;
-  for(const member of this.loadMembers(load))this.send(member,{type:'gameLoadHold',transactionId:load.view.id,epoch:load.oldEpoch,...(!load.initial?{frame:load.oldFrame,hash:load.oldHash}:{})});
+  for(const member of this.loadMembers(load))this.send(member,{type:'gameLoadHold',transactionId:load.view.id,epoch:load.oldEpoch,...(!load.initial&&load.freezeRequired.includes(member)?{frame:load.oldFrame,hash:load.oldHash}:{})});
  }
  private loadMembers(load:NonNullable<GameSession['loadState']>){return [...new Set([...load.freezeRequired,...load.view.required])];}
  private phaseLoad(phase:SaveLoadView['phase'],duration:number){const load=this.loadState!;load.view.phase=phase;load.view.expiresAt=this.now()+duration;}

@@ -87,7 +87,7 @@ export class GameClient {
  private async completeLoadHold(event:Extract<GameEvent,{type:'gameLoadHold'}>){
   if(!this.ownsLoad(event.transactionId)||this.loadHold!==event)return;
   this.loadHold=undefined;const info=await this.player()!.holdForGame(false);if(!this.ownsLoad(event.transactionId))return;
-  if(event.frame!==undefined&&(info.frame!==event.frame||info.hash!==event.hash))throw Error('Players could not reach the same pause boundary.');
+  if(this.room?.game.load?.freezeRequired?.includes(this.self())!==false&&event.frame!==undefined&&(info.frame!==event.frame||info.hash!==event.hash))throw Error('Players could not reach the same pause boundary.');
   this.frozen=true;this.player()!.stopGame('Preparing to load saved progress.');this.loadHold=undefined;
   await this.send({type:'gameLoadBoundary',transactionId:event.transactionId,frame:info.frame,hash:info.hash});
  }
@@ -95,7 +95,7 @@ export class GameClient {
   if(event.type==='gameLoadHold'){
    if(!this.room||!this.loaded())return;
    this.loadAttempt={id:event.transactionId,room:this.room.id,member:this.self(),replacement:this.room.game.load?.replacement,candidateRequired:this.room.game.load?.required.includes(this.self())};this.loadHold=event;if(this.loadAttempt.replacement&&this.loadAttempt.candidateRequired)this.player()?.ownCartridge(event.transactionId);this.intent=false;this.offered=undefined;this.publish({busy:true,status:'Preparing to load saved progress.'});
-   if(event.frame!==undefined&&this.scheduler&&this.scheduler.frame<event.frame){this.fence=event.frame;this.frozen=false;this.player()?.drainGame();return;}
+   if(this.room.game.load?.freezeRequired?.includes(this.self())!==false&&event.frame!==undefined&&this.scheduler&&this.scheduler.frame<event.frame){this.fence=event.frame;this.frozen=false;this.player()?.drainGame();return;}
    await this.completeLoadHold(event);return;
   }
   if(!this.ownsLoad(event.transactionId))return;
