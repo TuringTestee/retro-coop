@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {VoiceSession} from './voice.ts';
+import {defaults} from './controls.ts';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function environment(){
  const tracks:({enabled:boolean;stopped:boolean}&EventTarget)[]=[],audios:AudioMock[]=[];let captures=0;
@@ -93,5 +94,22 @@ test('missing preferred gamepad preserves keyboard and pointer push-to-talk with
   held=false;input();held=true;input();assert.equal(voice.current().microphone.transmitting,true);
   connected=false;input();assert.equal(voice.current().microphone.transmitting,false);assert.equal(voice.current().microphone.muted,false);
   voice.microphone.mode('open');input();assert.equal(voice.current().microphone.transmitting,true,'optional pad loss cannot mute open speech');
+ }finally{voice.dispose();env.restore();}
+});
+test('capture dialogs release push-to-talk and require a fresh pad press after dismissal',async()=>{
+ const env=environment();let animation!:FrameRequestCallback,dialog=false;
+ const pad={index:0,id:'Test pad',connected:true,buttons:Array.from({length:11},()=>({pressed:false})),axes:[]};
+ Object.defineProperty(globalThis,'requestAnimationFrame',{configurable:true,value:(callback:FrameRequestCallback)=>{animation=callback;return 1;}});
+ Object.defineProperty(env.doc,'activeElement',{configurable:true,get:()=>dialog?{closest:()=>({})}:null});Object.defineProperty(env.doc,'hasFocus',{configurable:true,value:()=>true});
+ navigator.getGamepads=()=>[pad as unknown as Gamepad];
+ const voice=new VoiceSession(()=>{}),sample=()=>animation(0);
+ try{
+  const peer=voice.forPeer('pair'),pc=connection();peer.prepare(pc.pc,true);peer.connected();await tick();await voice.enable();
+  voice.configureControls({...defaults(),device:{index:0,id:pad.id}});voice.microphone.mode('push');
+  sample();pad.buttons[10].pressed=true;sample();assert.equal(voice.current().microphone.transmitting,true);
+  dialog=true;sample();assert.equal(voice.current().microphone.transmitting,false);assert.equal(env.tracks[0].enabled,false);
+  dialog=false;sample();assert.equal(voice.current().microphone.transmitting,false);
+  pad.buttons[10].pressed=false;sample();pad.buttons[10].pressed=true;sample();assert.equal(voice.current().microphone.transmitting,true);
+  voice.microphone.mode('open');dialog=true;sample();assert.equal(voice.current().microphone.transmitting,true);assert.equal(env.tracks[0].enabled,true);
  }finally{voice.dispose();env.restore();}
 });

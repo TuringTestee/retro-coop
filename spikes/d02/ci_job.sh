@@ -53,15 +53,17 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       ;;
     entrypoint-controls)
       timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery & transfer_pid=$!
+      timeout --foreground 60s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --controls-only --output spikes/d02/public-entrypoint.local/controller-ui & controller_pid=$!
       mkdir -p spikes/d02/public-entrypoint.local/exit
       RETRO_EXIT_SCREENSHOT_DIR=spikes/d02/public-entrypoint.local/exit timeout --foreground 60s python3 scripts/rooms/exit_browser.py > spikes/d02/public-entrypoint.local/exit/result.json & exit_pid=$!
       wait "$transfer_pid"
       timeout --foreground 45s python3 scripts/rooms/guest_place_browser.py --output spikes/d02/public-entrypoint.local/guest-place.json
       RETRO_COOP_ACCESS_OUTPUT=spikes/d02/public-entrypoint.local/access timeout --foreground 45s python3 scripts/rooms/access_browser.py > spikes/d02/public-entrypoint.local/access.json
       wait "$exit_pid"
+      wait "$controller_pid"
       ;;
     entrypoint-ui)
-      timeout --foreground 120s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve
+      timeout --foreground 120s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --layout-only
       for voice_mode in tabs processes; do
         timeout --foreground 45s python3 scripts/voice/journey_browser.py --serve --mode "$voice_mode" --output "spikes/d02/public-entrypoint.local/voice-$voice_mode"
       done

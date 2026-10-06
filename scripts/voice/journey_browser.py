@@ -29,7 +29,7 @@ p.add_argument('--output', required=True)
 a = p.parse_args()
 root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(root / 'scripts/rooms'))
-from ui_helpers import choose_panel, choose_section
+from ui_helpers import choose_panel, choose_section, choose_audio
 out = Path(a.output)
 if (out / 'result.json').exists():
     p.error('--output needs a fresh directory')
@@ -83,8 +83,7 @@ def recovery_bounds(page):
       const settings=node.closest('section'),selector=settings?.querySelector('.rc-settings-select');
       const voice=node.closest('.rc-voice-settings');
       if(!selector||!voice)return false;
-      const compact=getComputedStyle(selector).display!=='none';
-      if(voice.classList.contains('rc-voice-compact')!==compact)return false;
+      if(!voice.classList.contains('rc-voice-compact'))return false;
       const rect = item => {const r=item.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
       const range=document.createRange();range.selectNodeContents(error);
       return {container:rect(node.closest('.rc-tool-body')),error:rect(error),button:rect(button),
@@ -100,7 +99,7 @@ def recovery_bounds(page):
 
 
 def voice(page):
-    choose_section(page, 'Voice')
+    choose_audio(page, 'Voice')
 
 def mic_control(page, on):
     voice(page)
@@ -142,7 +141,7 @@ def prepare_players(host, guest):
                 }""", timeout=remaining_ms())
                 if tab.get_by_role('button', name='Cancel Ready', exact=True).count():
                     continue
-                action = tab.get_by_role('button', name=re.compile(r'^(Ready|Try Ready again)$'))
+                action = tab.get_by_role('button', name=re.compile(r'^(Prepare|Retry preparation)$'))
                 if action.inner_text() == 'Try Ready again':
                     recoveries.append({'visitor': name, 'action': 'Try Ready again'})
                 before = tab.evaluate('readyAttempts.length')
@@ -259,7 +258,7 @@ with sync_playwright() as pw, contextlib.ExitStack() as s:
     for t in [host, guest]:
         t.wait_for_function('captures.length===1&&captures[0].getAudioTracks()[0].readyState==="live"')
         assert not t.evaluate('captures[0].getAudioTracks()[0].enabled')
-        choose_section(t, 'Sound')
+        choose_audio(t, 'Game sound')
         t.get_by_role('button', name='Mute game', exact=True).click()
         voice(t)
         # Keep incoming voice audible: zero element volume also suppresses

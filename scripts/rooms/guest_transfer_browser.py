@@ -76,12 +76,12 @@ def main():
         browse_join(guest, args.url)
         guest.get_by_role('button', name='Retry game').wait_for(timeout=30000)
         before = bounds(guest)
-        expect(guest.get_by_role('button', name='Ready', exact=True)).to_have_count(0)
+        expect(guest.get_by_role('button', name='Prepare', exact=True)).to_have_count(0)
         host.locator('[data-slot-id="slot-2"] .slot-state').get_by_text('Game failed').wait_for(timeout=15000)
         if args.output:
             guest.screenshot(path=str(args.output / 'guest-download-failed.png'))
         guest.get_by_role('button', name='Retry game').click()
-        expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
+        expect(guest.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
         same_bounds(before, bounds(guest))
         guest.set_viewport_size({'width': 390, 'height': 700})
         assert guest.evaluate('document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight')
@@ -98,7 +98,7 @@ def main():
             route.abort('failed')
         guest.route('**/rooms/*/rom', reject_cached_network)
         browse_join(guest, args.url)
-        expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
+        expect(guest.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
         assert not cache_requests, 'Rejoining downloaded instead of using verified browser bytes'
         guest.unroute('**/rooms/*/rom', reject_cached_network)
 
@@ -109,7 +109,7 @@ def main():
             status=200, content_type='application/octet-stream', body=bytes(damaged)))
         browse_join(altered, args.url)
         altered.get_by_role('button', name='Retry game').wait_for(timeout=30000)
-        expect(altered.get_by_role('button', name='Ready', exact=True)).to_have_count(0)
+        expect(altered.get_by_role('button', name='Prepare', exact=True)).to_have_count(0)
         assert 'did not match' in altered.locator('.rc-status').inner_text().lower()
         if args.output:
             altered.screenshot(path=str(args.output / 'altered-download-rejected.png'))
@@ -117,7 +117,7 @@ def main():
         altered.get_by_role('button', name='Retry game').click()
         altered.locator('.rc-preview img').wait_for(timeout=30000)
         assert altered.get_by_role('button', name='Retry game').count() == 0
-        assert altered.get_by_role('button', name='Ready', exact=True).count() == 0, \
+        assert altered.get_by_role('button', name='Prepare', exact=True).count() == 0, \
             'A third participant observes this game and does not claim a controller.'
 
         if args.rom_dir:

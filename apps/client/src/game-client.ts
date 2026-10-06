@@ -70,8 +70,6 @@ export class GameClient {
   }catch(error){if(owned&&this.manualSave===owned)this.manualSave=undefined;throw error;}
   finally{if(this.manualLoadRequest===request)this.manualLoadRequest=undefined;}
  }
- async decideLoad(accept:boolean){const load=this.room?.game.load;if(!load||load.phase!=='consent')throw Error('This Load request has ended.');await this.send({type:'gameLoadDecision',transactionId:load.id,accept});}
- async cancelLoad(){const load=this.room?.game.load;if(load&&this.authority())await this.send({type:'gameLoadCancel',transactionId:load.id});}
  // Ready revisions do not revoke the native rollback obligation of the same room transaction.
  private ownsLoad(id:string){const attempt=this.loadAttempt;return !!attempt&&attempt.id===id&&attempt.room===this.room?.id&&attempt.member===this.self()&&this.loaded();}
  private loadFailure(id:string,error:unknown){if(!this.ownsLoad(id))return;this.publish({busy:false,status:String(error)});void this.send({type:'gameLoadFailed',transactionId:id}).catch(()=>{});}
@@ -105,7 +103,7 @@ export class GameClient {
    if(info.frame!==event.frame||info.hash!==event.hash)throw Error('Previous progress could not be restored. Keep the game paused.');
    this.manualSave=undefined;await this.send({type:'gameLoadRolledBack',transactionId:event.transactionId,frame:info.frame,hash:info.hash});return;
   }
-  await this.player()!.finishSharedSave(event.transactionId);if(current()){this.manualSave=undefined;this.loadAttempt=undefined;this.loadHold=undefined;this.cancelAllTransfers();this.publish({busy:true,status:'Starting from saved progress…'});}
+  await this.player()!.finishSharedSave(event.transactionId);if(current()){this.manualSave=undefined;this.loadAttempt=undefined;this.loadHold=undefined;this.cancelAllTransfers();this.publish({busy:false,status:'Saved progress loaded.'});}
  }
  requestPause(){this.pause('user');}
  observe(){const room=this.room;if(!room||!this.loaded()||room.game.status!=='playing'||room.game.controllers.owners.includes(this.self())||this.authority()||this.links.get(room.hostMembership)?.channel.readyState!=='open'||room.peers.find(peer=>peer.member===room.hostMembership)?.status!=='connected'||room.slots.find(slot=>slot.member?.id===this.self())?.member?.acquisition!=='loaded')return;this.intent=true;const epoch=room.game.epoch!;this.observeRequested=epoch;this.publish({busy:true,synchronizing:true,intent:true,status:'Requesting the current game for observation…'});void this.send({type:'gameObserve',revision:room.game.controllers.revision}).catch(error=>{if(this.observeRequested===epoch){this.observeRequested=undefined;this.publish({busy:false,synchronizing:false,status:String(error)});}});}

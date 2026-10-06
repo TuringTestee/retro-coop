@@ -4,7 +4,7 @@ Audience: Agent
 
 # Shared Save and Load
 
-Governing behavior: [gameplay controls](../design/gameplay-controls.md), [#261](https://github.com/TuringTestee/retro-coop/issues/261), [five-slot authority](five-slot-lobby.md) and [host recovery](host-game-recovery.md). This updates the delivered #236 flow; manual saves remain separate from automatic captures. Confirmed Restart and deferred rewind have their own scope.
+Governing behavior: [gameplay controls](../design/gameplay-controls.md), [#261](https://github.com/TuringTestee/retro-coop/issues/261), [five-slot authority](five-slot-lobby.md) and [host recovery](host-game-recovery.md). This updates the delivered #236 flow; manual saves remain separate from automatic captures. Confirmed Restart uses the same replacement transaction; deferred rewind remains outside this scope.
 
 ## Direct journey
 
@@ -26,6 +26,10 @@ Q captures bytes, compatible identity, completed frame and hash atomically; exis
 4. **Finish.** Bind the fresh committed epoch and clear stale inputs, held buttons, hashes, audio queues and transfers. Resume the prior running game through the existing shared barrier; otherwise keep the restored game paused. Synchronize observers to the committed state. Discard rollback state only after committed acceptance by the machines, and ignore stale packets/callbacks.
 
 Remove superseded quick-load dialogs, consent commands/phases, callers and test expectations. Keep actual recovery/exit/Restart blockers and backup/delete confirmations. Automatic captures must not publish a provisional replacement as recovered progress; `gameRestore` remains a distinct initialization owned by host recovery.
+
+## Cartridge restart
+
+Prepare a temporary machine using the selected ROM and the existing OSS worker/core initialization, without replacing the active machine. Its fresh native capture enters the same host-authorized stage/commit/rollback transaction as Load. Cancel, failed initialization and changed game/membership preserve current progress and saved copies. Local restart imports the same validated state and restores prior running/paused intent. The actual Restart binding is configurable; migration preserves all prior personal and unbound mappings, assigning N only if free.
 
 ## Verification
 

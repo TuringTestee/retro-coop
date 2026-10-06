@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.request import urlopen
 
 from playwright.async_api import Error as PlaywrightError, async_playwright, expect
-from ui_helpers import choose_section_async
+from ui_helpers import choose_section_async, choose_audio_async, open_access_async
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,10 +33,12 @@ async def create_lobby(page, name, protected=False, fresh=False):
     await page.get_by_role('textbox', name='Lobby name').fill(name)
     await page.get_by_role('textbox', name='Lobby name').press('Enter')
     if protected:
-        await choose_section_async(page, 'Lobby')
+        await open_access_async(page)
         await page.get_by_role('button', name='Require password').click()
         await page.get_by_label('New lobby password').fill('blue-sky-room')
         await page.get_by_role('button', name='Save password').click()
+        await page.get_by_text('Password protected', exact=True).wait_for()
+        await page.get_by_role('dialog', name='Lobby access', exact=True).get_by_role('button', name='Done', exact=True).click()
     await page.get_by_role('button', name='Load NES game').wait_for(timeout=15000)
     assert await page.get_by_role('button', name='Start →').count() == 0
     assert await page.get_by_test_id('room-slot').count() == 5
@@ -161,7 +163,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                 await expect(host.get_by_role('button',name='Cancel selection')).to_be_disabled()
                 assert await host.evaluate('id=>!uploadProof.workers[id].ended',arg=candidate)
                 await host.evaluate('uploadProof.releaseConfirm()')
-                await expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled()
+                await expect(host.get_by_role('button',name='Prepare',exact=True)).to_be_enabled()
                 extraction_departures.append({'outcome':outcome,'signal_aborted':True,'same_membership_revision_preserved':True,'late_completed_preparation_isolated':True})
                 await host.get_by_role('button',name='Back to Main Page',exact=True).click()
                 await host.get_by_role('button',name='Close lobby',exact=True).click()
@@ -188,7 +190,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await expect(host.locator('.rc-game-progress strong')).to_have_text('Finishing game selection…')
             await expect(host.get_by_role('button',name='Cancel selection')).to_be_disabled()
             await host.evaluate('uploadProof.releaseConfirm()')
-            await expect(host.get_by_role('button',name='Ready',exact=True)).to_be_enabled()
+            await expect(host.get_by_role('button',name='Prepare',exact=True)).to_be_enabled()
             await host.get_by_role('button',name='Back to Main Page',exact=True).click()
             await host.get_by_role('button',name='Close lobby',exact=True).click()
             await host.get_by_role('button',name='Host a new game').click()
@@ -207,10 +209,12 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                 await host.locator('.rc-trail .rc-header-edit').click()
                 await host.get_by_role('textbox', name='Lobby name').fill('Private Upload')
                 await host.get_by_role('textbox', name='Lobby name').press('Enter')
-                await choose_section_async(host, 'Lobby')
+                await open_access_async(host)
                 await host.get_by_role('button', name='Require password').click()
                 await host.get_by_label('New lobby password').fill('blue-sky-room')
                 await host.get_by_role('button', name='Save password').click()
+                await host.get_by_text('Password protected', exact=True).wait_for()
+                await host.get_by_role('dialog', name='Lobby access', exact=True).get_by_role('button', name='Done', exact=True).click()
                 await host.get_by_role('button', name='Load NES game').click()
                 await host.evaluate('uploadProof.holdConfirm=true;uploadProof.confirmHeld=false')
                 async with host.expect_file_chooser() as chosen:
@@ -226,7 +230,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                 await expect(host.locator('.rc-status-copy')).to_have_text('Finishing game selection…')
                 await expect(host.get_by_role('button', name='Cancel selection')).to_be_disabled()
                 await host.evaluate('uploadProof.releaseConfirm()')
-                await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+                await expect(host.get_by_role('button', name='Prepare', exact=True)).to_be_enabled()
 
             # Initial confirmation leaves through a successful Close; its late failure is obsolete.
             await host.get_by_role('button', name='Load NES game').click()
@@ -297,7 +301,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await preview.wait_for(timeout=15000)
             assert (await preview.get_attribute('src')).startswith('data:image/png')
             assert await host.get_by_role('button', name='Start →').count() == 0
-            await host.get_by_role('button', name='Ready', exact=True).click()
+            await host.get_by_role('button', name='Prepare', exact=True).click()
             await host.get_by_role('button', name='Start →').wait_for(state='visible')
             assert await host.get_by_role('button', name='Start →').is_enabled()
             selected_title = await host.locator('.rc-game-heading').inner_text()
@@ -308,7 +312,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await host.get_by_role('button', name='Change game').wait_for(timeout=15000)
             assert await host.locator('.rc-game-heading').inner_text() == selected_title
             assert await host.get_by_role('button', name='Start →').count() == 0
-            await host.get_by_role('button', name='Ready', exact=True).click()
+            await host.get_by_role('button', name='Prepare', exact=True).click()
             assert await host.get_by_role('button', name='Start →').is_enabled()
 
             # Both ZIP entries use the ordinary preparation function and extracted NES identity.
@@ -330,7 +334,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
                 assert await preview.get_attribute('src') == old_preview
                 assert await host.evaluate('id=>!uploadProof.workers[id].ended', arg=old_worker)
                 assert await host.evaluate('uploadProof.room.fingerprint.romSha256') == old_sha
-                await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+                await expect(host.get_by_role('button', name='Prepare', exact=True)).to_be_enabled()
 
             # Delay A's actual XHR cancellation while B waits for its real lobby confirmation.
             # Completion must stay bound to A, even though B is now the current candidate.
@@ -397,7 +401,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             current_sha = hashlib.sha256(current_selection).hexdigest()
             await host.wait_for_function('sha=>uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.sha===sha&&uploadProof.room.fingerprint.romSha256===sha', arg=current_sha)
             await expect(host.locator('.rc-game-heading')).to_have_attribute('title', 'replacement-B')
-            await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+            await expect(host.get_by_role('button', name='Prepare', exact=True)).to_be_enabled()
             assert await host.get_by_role('button', name='Cancel selection').count() == 0
             await host.screenshot(path=str(output / 'zip-cancel-retry-installed.png'))
             assert 'selection' in pending_guidance.lower() and 'Retry game' not in pending_guidance, pending_guidance
@@ -449,7 +453,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await host.screenshot(path=str(output / 'zip-picker-preview.png'))
             assert await host.evaluate('id=>uploadProof.workers[id].ended', arg=old_worker)
 
-            await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+            await expect(host.get_by_role('button', name='Prepare', exact=True)).to_be_enabled()
             assert await host.get_by_role('button', name='Cancel selection').count() == 0
             picker_sha = hashlib.sha256(replacement).hexdigest()
             await host.wait_for_function('sha=>uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.sha===sha&&uploadProof.room.fingerprint.romSha256===sha', arg=picker_sha)
@@ -483,7 +487,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await expect(host.locator('.rc-game-heading')).to_have_attribute('title', 'ZIP Drop Game', timeout=30000)
             await host.get_by_role('button', name='Change game').wait_for()
             await preview.wait_for()
-            await expect(host.get_by_role('button', name='Ready', exact=True)).to_be_enabled()
+            await expect(host.get_by_role('button', name='Prepare', exact=True)).to_be_enabled()
             assert await host.get_by_role('button', name='Cancel selection').count() == 0
             drop_sha = hashlib.sha256(FIXTURE.read_bytes()).hexdigest()
             await host.wait_for_function('sha=>uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.sha===sha&&uploadProof.room.fingerprint.romSha256===sha', arg=drop_sha)
@@ -496,14 +500,14 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await guest.locator('.rc-lobby-card').filter(has_text='Private Upload').click()
             await guest.get_by_label('Lobby password').fill('blue-sky-room')
             await guest.get_by_role('button', name='Join lobby', exact=True).click()
-            await expect(guest.get_by_role('button', name='Ready', exact=True)).to_be_enabled(timeout=30000)
-            await guest.get_by_role('button', name='Ready', exact=True).click()
-            await host.get_by_role('button', name='Ready', exact=True).click()
+            await expect(guest.get_by_role('button', name='Prepare', exact=True)).to_be_enabled(timeout=30000)
+            await guest.get_by_role('button', name='Prepare', exact=True).click()
+            await host.get_by_role('button', name='Prepare', exact=True).click()
             await expect(host.get_by_role('button', name='Start →')).to_be_enabled(timeout=30000)
             await host.get_by_role('button', name='Start →').click()
             for page in (host, guest):
                 await page.wait_for_function('uploadProof.room?.game.status === "playing"', timeout=30000)
-                await choose_section_async(page, 'Sound')
+                await choose_audio_async(page, 'Game sound')
                 await page.get_by_role('button', name='Mute game', exact=True).click()
                 await page.wait_for_function('Number(document.querySelector("canvas").dataset.frameCount) >= 200', timeout=30000)
                 assert await page.evaluate('uploadProof.workers.filter(worker=>!worker.ended).at(-1).rom.magic') == [78, 69, 83, 26]
@@ -557,7 +561,7 @@ if(message.type==='room')uploadProof.room=message.room;else if(message.type==='r
             await expect(included.get_by_role('button',name='Cancel selection')).to_be_disabled()
             await included.evaluate('uploadProof.releaseConfirm()')
             await included.get_by_role('button', name='Change game').wait_for(timeout=30000)
-            await expect(included.get_by_role('button',name='Ready',exact=True)).to_be_enabled()
+            await expect(included.get_by_role('button',name='Prepare',exact=True)).to_be_enabled()
             await included.screenshot(path=str(output/'included-rejected-close-stay.png'))
             assert not errors, errors
             await browser.close()

@@ -1,4 +1,4 @@
-import {defaults,GamepadInput,type Controls} from './controls.ts';
+import {defaults,GamepadInput,modifiedKey,type Controls} from './controls.ts';
 import {Microphone,type MicrophoneState} from './microphone.ts';
 export type VoiceState={microphone:MicrophoneState;connected:boolean;listening:boolean;remoteMuted:boolean;volume:number;devices:{id:string;label:string}[];deviceError?:string;playbackError?:string;connectionError?:string};
 type VoicePeer={pc:RTCPeerConnection;audio:HTMLAudioElement;connected:boolean;binding?:number;playback?:number;connectionError?:string;playbackError?:string};
@@ -22,11 +22,12 @@ export class VoiceSession {
  private publish(patch:Partial<VoiceState>){if(!this.disposed){this.state={...this.state,...patch};this.update(this.state);}}
  private deviceChanged=(event:GamepadEvent)=>{if(this.controls.device?.index===event.gamepad.index&&this.controls.device.id===event.gamepad.id)this.gamepadInput.release(this.controls.device);};
  private blur=()=>{this.keys.clear();this.gamepadInput.release(this.controls.device);this.pointerHeld=false;this.microphone.blur();};
- private editable(){const element=document.activeElement;return !!element?.closest('input,textarea,select,[contenteditable="true"],dialog');}
- private down=(event:KeyboardEvent)=>{if(this.state.microphone.phase==='ready' && this.state.microphone.mode==='push' && !this.state.microphone.muted && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey && !this.editable() && this.controls.keyboard.pushToTalk.includes(event.code)){event.preventDefault();this.keys.add(event.code);}};
+ private editable(){const element=document.activeElement;return !!element?.closest('input,textarea,select,[contenteditable="true"],dialog,[role="dialog"],[role="alertdialog"]');}
+ private down=(event:KeyboardEvent)=>{if(this.state.microphone.phase==='ready' && this.state.microphone.mode==='push' && !this.state.microphone.muted && !event.repeat && !modifiedKey(event) && !this.editable() && this.controls.keyboard.pushToTalk.includes(event.code)){event.preventDefault();this.keys.add(event.code);}};
  private up=(event:KeyboardEvent)=>{this.keys.delete(event.code);};
  private input=()=>{
   this.animation=requestAnimationFrame(this.input);
+  if(this.editable()){this.keys.clear();this.gamepadInput.release(this.controls.device);this.pointerHeld=false;this.microphone.hold(false);return;}
   const {pressed}=this.gamepadInput.sample(this.controls.device);
   const held=this.controls.keyboard.pushToTalk.some(binding=>this.keys.has(binding)) || this.controls.gamepad.pushToTalk.some(binding=>pressed.has(binding));
   this.microphone.hold(document.hasFocus() && (this.pointerHeld || !this.editable() && held));

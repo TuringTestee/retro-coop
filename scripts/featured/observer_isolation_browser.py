@@ -51,7 +51,7 @@ def main():
             host.set_input_files('input[aria-label="NES cartridge file"]', {
                 'name': 'release-host.nes', 'mimeType': 'application/octet-stream',
                 'buffer': diagnostic})
-            host.get_by_role('button', name='Ready', exact=True).click(timeout=30_000)
+            host.get_by_role('button', name='Prepare', exact=True).click(timeout=30_000)
             host.get_by_role('button', name='Start →').click(timeout=30_000)
             host.evaluate('releaseFrames()')
             host.wait_for_function('proof.frameCount>=30', timeout=30_000, polling=50)
@@ -63,7 +63,7 @@ def main():
                                     timeout=30_000, polling=50)
             guest.wait_for_function("proof.room?.slots.find(s=>s.member?.id===proof.room.chatMembership)?.member.acquisition==='loaded'",
                                     timeout=30_000, polling=50)
-            assert guest.get_by_role('button', name='Ready', exact=True).count() == 0
+            assert guest.get_by_role('button', name='Prepare', exact=True).count() == 0
             assert guest.get_by_role('button', name='Pause', exact=True).count() == 0
             auth = guest.evaluate("""() => ({roomId:proof.room.id,membership:proof.room.chatMembership,
                 token:sessionStorage.getItem('retro-coop-guest')})""")
