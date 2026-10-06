@@ -29,6 +29,53 @@ def wait_closed(port):
     raise AssertionError(f"port {port} remained open after the launcher exited")
 
 
+def migrated_default_preferences(browser, url, output):
+    """Restore both supported record shapes, then edit and play with distinct Save/B keys."""
+    from playwright.sync_api import expect
+    from rooms.ui_helpers import choose_section, capture_binding
+    rows=[]
+    context=browser.new_context(viewport={'width':1280,'height':800})
+    context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"addEventListener('DOMContentLoaded',()=>releaseFrames());")
+    page=context.new_page()
+    def load_game():
+        page.get_by_role('button',name='Load NES game').click();page.get_by_role('button',name='Add game file').click();page.get_by_label('NES cartridge file').set_input_files(str(ROOT/'spikes/d02/fixture.local.nes'))
+        page.get_by_role('button',name='Prepare',exact=True).wait_for()
+    try:
+        page.goto(url);page.get_by_role('button',name='Host a new game').click();load_game()
+        editor,capture=capture_binding(page);capture.press('k')
+        editor.get_by_role('button',name='Save',exact=True).click();expect(editor).to_have_count(0)
+        page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click()
+        page.locator('.rc-listing').wait_for()
+        for count in (15,16):
+            page.evaluate("""async count=>{const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+              await new Promise((resolve,reject)=>{const tx=db.transaction('preferences','readwrite'),store=tx.objectStore('preferences'),r=store.getAll();r.onsuccess=()=>{if(r.result.length!==1){tx.abort();return;}const row=r.result[0],c=row.value.controls;c.keyboard={...c.keyboard,a:['KeyX'],b:['KeyZ'],select:['ShiftLeft','ShiftRight'],start:['Enter'],save:['KeyC']};if(count===15){delete c.keyboard.restart;delete c.gamepad.restart;}store.put(row);};tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error??Error('fixture preferences missing'));});db.close();}""",count)
+            for reload in range(2):
+                page.reload();page.get_by_role('button',name='Host a new game').click();load_game()
+                choose_section(page,'Controls')
+                expect(page.get_by_role('button',name='Map B: Z',exact=True)).to_be_visible()
+                expect(page.get_by_role('button',name='Map Save: C',exact=True)).to_be_visible()
+                assert page.get_by_text('Stored preferences are invalid.',exact=False).count()==0
+                if reload==0:
+                    page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
+            editor,capture=capture_binding(page,'B');capture.press('b');editor.get_by_role('button',name='Save',exact=True).click();expect(editor).to_have_count(0)
+            editor,capture=capture_binding(page,'B');expect(editor).to_contain_text('Current: B');capture.press('z');editor.get_by_role('button',name='Save',exact=True).click();expect(editor).to_have_count(0)
+            rows.append({'record_actions':count,'reloads':2,'b':'Z','save':'C','editable':True})
+            if count==15:
+                page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
+        page.get_by_role('button',name='Prepare',exact=True).click();page.get_by_role('button',name='Start →').click();page.wait_for_function('proof.frameCount>10')
+        def native(key,expected):
+            before=page.evaluate('proof.frameCount');page.keyboard.down(key)
+            page.wait_for_function('before=>proof.frameCount>before+proof.room.game.delay+3',arg=before)
+            page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
+            page.wait_for_function('proof.controllerRam!==undefined');ram=page.evaluate('proof.controllerRam');assert ram==[expected,0],(count,key,ram)
+            page.keyboard.up(key);return ram
+        b=native('z',64);save=native('c',0)
+        page.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
+        rows[-1].update(native_b_ram=b,native_save_ram=save,save_notice=True)
+        page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
+    finally:context.close()
+    (output/'migrated-default-preferences.json').write_text(json.dumps(rows,indent=2)+'\n')
+
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     """Exercise the public lobby journey in the built application."""
     from playwright.sync_api import sync_playwright, expect
@@ -140,10 +187,13 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
           [...canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data]
             .every(value => value === 0)"""), 'The previous game frame survived the lobby exit.'
         fits(host)
+        migration_output=screenshot_dir or ROOT / "spikes/d02/public-entrypoint.local/preferences"
+        migration_output.mkdir(parents=True,exist_ok=True)
+        migrated_default_preferences(browser,url,migration_output)
         browser.close()
     return {"empty_lobby_before_game": True, "guest_chat_and_readiness": True, "incremental_chat_and_enter": True,
             "synchronized_start": True, "mobile_shell": True, "exit_to_main": True,
-            "game_worker_and_frame_cleared": True}
+            "game_worker_and_frame_cleared": True, "migrated_preferences_reload_and_play": True}
 
 def occupied_port_check(environment):
     blockers = []
