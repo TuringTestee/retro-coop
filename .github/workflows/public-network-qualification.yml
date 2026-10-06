@@ -13,15 +13,18 @@ env:
 jobs:
   guest:
     # Ten five-member peer pairs consume the full approved relay reservation pool.
-    # Finish that cohort before opening a forced-relay pair; retain direct proof separately.
+    # Finish that cohort before opening the direct and forced-relay pairs.
     needs: five-members
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         include:
+          - mode: direct
+            play_seconds: 1800
+            timeout_minutes: 45
           - mode: relay
             play_seconds: 7200
             timeout_minutes: 135
