@@ -365,21 +365,7 @@ def expired_guest_recovers(browser, url):
         context.close()
 
 
-def controller_input(browser, url, output):
-    """Public Host/Load/Play path, real contacts and exported native controller RAM."""
-    context = browser.new_context(viewport={'width': 1280, 'height': 800}, has_touch=True)
-    context.add_init_script((ROOT / 'scripts/gameplay/fixture.js').read_text() + """
-      addEventListener('DOMContentLoaded',()=>releaseFrames());
-      const NativeWorker=Worker;window.Worker=class extends NativeWorker {
-        postMessage(message,...args) {
-          if(message.type==='frame') {proof.masks??=[];proof.masks.push([message.p1,message.p2]);
-            if(proof.masks.length>32)proof.masks.shift();}
-          return super.postMessage(message,...args);
-        }
-      };
-    """)
-    # Delay delivery of real preference transaction outcomes, including an actual abort.
-    context.add_init_script("""
+PREFERENCE_GATE_FIXTURE = """
       window.controllerPreferenceGate={hold:false,pending:[],abort:false};
       for(const event of ['oncomplete','onabort']) {
         const descriptor=Object.getOwnPropertyDescriptor(IDBTransaction.prototype,event);
@@ -399,7 +385,23 @@ def controller_input(browser, url, output):
         if(this.name==='preferences'&&gate.abort) {gate.abort=false;this.transaction.abort();}
         return request;
       };
+    """
+
+def controller_input(browser, url, output):
+    """Public Host/Load/Play path, real contacts and exported native controller RAM."""
+    context = browser.new_context(viewport={'width': 1280, 'height': 800}, has_touch=True)
+    context.add_init_script((ROOT / 'scripts/gameplay/fixture.js').read_text() + """
+      addEventListener('DOMContentLoaded',()=>releaseFrames());
+      const NativeWorker=Worker;window.Worker=class extends NativeWorker {
+        postMessage(message,...args) {
+          if(message.type==='frame') {proof.masks??=[];proof.masks.push([message.p1,message.p2]);
+            if(proof.masks.length>32)proof.masks.shift();}
+          return super.postMessage(message,...args);
+        }
+      };
     """)
+    # Delay delivery of real preference transaction outcomes, including an actual abort.
+    context.add_init_script(PREFERENCE_GATE_FIXTURE)
     page = context.new_page()
     records = []
     def observe(label, expected):
@@ -748,6 +750,58 @@ def controller_input(browser, url, output):
         (output / 'controller-native.json').write_text(json.dumps(records, indent=2)+'\n')
     finally:
         context.close()
+
+
+def pending_binding_source_save(browser, url, output):
+    """Delayed real Save outcomes keep their editor usable without Cancel/reopen."""
+    rows=[]
+    for failed in (False, True):
+        context=browser.new_context(viewport={'width':1280,'height':800})
+        context.add_init_script(PREFERENCE_GATE_FIXTURE)
+        page=context.new_page()
+        try:
+            page.goto(url);page.get_by_role('button',name='Host a new game').click()
+            page.get_by_role('button',name='Load NES game').click()
+            page.get_by_role('button',name='From Below',exact=True).click()
+            page.get_by_role('button',name='Prepare',exact=True).wait_for()
+            page.evaluate("()=>{window.mappingPad={connected:true,index:0,id:'Pending Save fixture',axes:[0,0],buttons:Array.from({length:16},()=>({pressed:false,value:0}))};navigator.getGamepads=()=>[mappingPad];}")
+            choose_section(page,'Controls');page.get_by_role('combobox',name='Input device',exact=True).select_option(label='Gamepad 1')
+            page.wait_for_function("""async()=>{const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('retro-coop-local');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});const rows=await new Promise((resolve,reject)=>{const tx=db.transaction('preferences'),r=tx.objectStore('preferences').getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});db.close();return rows.some(row=>row.value.controls.device?.id==='Pending Save fixture');}""")
+            editor,capture=capture_binding(page);capture.press('k')
+            page.evaluate('(abort)=>window.controllerPreferenceGate={hold:true,pending:[],abort}',failed)
+            editor.get_by_role('button',name='Save',exact=True).click()
+            page.wait_for_function('controllerPreferenceGate.pending.length>0')
+            source=editor.get_by_role('combobox',name='Binding device',exact=True)
+            expect(source).to_be_disabled();expect(capture).to_have_attribute('aria-disabled','true')
+            expect(capture).to_have_attribute('tabindex','-1')
+            expect(editor.get_by_role('button',name='Cancel',exact=True)).to_be_enabled()
+            capture.press('l');expect(editor.get_by_role('status')).to_contain_text('New input: K')
+            page.keyboard.press('Tab');expect(editor.get_by_role('button',name='Cancel',exact=True)).to_be_focused()
+            page.evaluate('async()=>{const gate=controllerPreferenceGate;gate.hold=false;gate.pending.splice(0).forEach(release=>release());await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);}')
+            if failed:
+                expect(editor.get_by_role('status')).to_contain_text('Could not save controls. Try again.')
+                expect(source).to_be_enabled();expect(capture).to_have_attribute('aria-disabled','false')
+                expect(editor.get_by_role('button',name='Save',exact=True)).to_be_enabled()
+            else:
+                expect(editor).to_have_count(0);editor,capture=capture_binding(page)
+                expect(editor).to_contain_text('Current: K');source=editor.get_by_role('combobox',name='Binding device',exact=True)
+            source.select_option(label='Gamepad')
+            page.evaluate('mappingPad.buttons[3]={pressed:true,value:1}')
+            expect(editor.get_by_role('button',name='Save',exact=True)).to_be_enabled()
+            editor.get_by_role('button',name='Save',exact=True).click();expect(editor).to_have_count(0)
+            editor,capture=capture_binding(page)
+            expect(editor).to_contain_text('Current: '+('Z' if failed else 'K'))
+            source=editor.get_by_role('combobox',name='Binding device',exact=True);source.select_option(label='Gamepad')
+            expect(editor).to_contain_text('Current: Button 4')
+            page.evaluate('mappingPad.buttons[3]={pressed:false,value:0};mappingPad.buttons[5]={pressed:true,value:1}')
+            expect(editor.get_by_role('status')).to_contain_text('New input: Button 6')
+            expect(editor.get_by_role('button',name='Save',exact=True)).to_be_enabled()
+            editor.get_by_role('button',name='Cancel',exact=True).click()
+            rows.append({'delayed_outcome':'failure' if failed else 'success','source_blocked_only_while_saving':True,'capture_blocked_only_while_saving':True,'cancel_available':True,'post_outcome_gamepad_saved':'Button 4','post_outcome_capture':'Button 6','keyboard_preserved':'Z' if failed else 'K'})
+            page.get_by_role('button',name='Back to Main Page',exact=True).click()
+            page.get_by_role('button',name='Close lobby',exact=True).click()
+        finally:context.close()
+    (output/'pending-binding-source-save.json').write_text(json.dumps(rows,indent=2)+'\n')
 
 
 def canceled_preference_read_restores_saved_controls(browser, url, output):
@@ -1450,6 +1504,7 @@ def main():
                 if args.controls_only:
                     controller_input(browser,url,output)
                     canceled_preference_read_restores_saved_controls(browser,url,output)
+                    pending_binding_source_save(browser,url,output)
                     print(json.dumps({'result':'pass','controller_input':True,'canceled_preference_read':True}),flush=True)
                     return
                 rows = []
@@ -1484,6 +1539,7 @@ def main():
                         print('shell check: controller_input', flush=True)
                         controller_input(browser, url, output)
                         canceled_preference_read_restores_saved_controls(browser,url,output)
+                        pending_binding_source_save(browser,url,output)
                     print('shell check: automatic_voice', flush=True)
                     automatic_voice(browser, url)
                     print('shell check: restored_battery_preview', flush=True)
