@@ -11,13 +11,13 @@ export function GameShortcuts({
 }) {
   const assigned = new Set(Object.values(controls.keyboard).flat());
   const talk =
-    controls[controls.device ? "gamepad" : "keyboard"].pushToTalk
+    controls.keyboard.pushToTalk
       .map(bindingLabel)
       .join(" / ") || "Unbound";
   return (
     <div className="rc-tool-stack" aria-label="Game shortcuts">
       <p>Talk: {talk}</p>
-      {!controls.device && (
+      {(
         <p>
           {!assigned.has("KeyA") && "A rapid A"}
           {!assigned.has("KeyD") && " · D rapid B"}

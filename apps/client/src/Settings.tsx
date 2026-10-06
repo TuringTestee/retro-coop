@@ -1,5 +1,5 @@
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
-import {actions,labels,defaults,conflict,inputMask,padInputs,bindingLabel,type Action,type Controls} from './controls.ts';
+import {actions,labels,defaults,conflict,inputMask,padInputs,availableGamepads,bindingLabel,type Action,type Controls} from './controls.ts';
 import type {VoiceSession,VoiceState} from './voice.ts';
 import type {RoomView} from '../../../packages/contracts/src/rooms.ts';
 import type {RoomClient} from './room-client.ts';
@@ -39,7 +39,7 @@ export function Settings(props:Props){
  useEffect(()=>{
   if(!props.open)return;
   let animation=0;
-  const tick=()=>{const available=[...navigator.getGamepads()].filter((pad):pad is Gamepad=>!!pad&&pad.connected),listed=available.map(({index,id})=>({index,id}));setPads(old=>JSON.stringify(old)===JSON.stringify(listed)?old:listed);
+  const tick=()=>{const available=availableGamepads(),listed=available.map(({index,id})=>({index,id}));setPads(old=>JSON.stringify(old)===JSON.stringify(listed)?old:listed);
    const pad=available.find(value=>value.index===props.controls.device?.index&&value.id===props.controls.device?.id),pressed=padInputs(pad);
    if(capture&&source==='gamepad'){const next=[...pressed].find(input=>!previousPad.current.has(input));if(next)setBinding(next);}
    previousPad.current=pressed;const mask=inputMask(props.controls[source],source==='keyboard'?held.current:pressed);setTested(old=>old===mask?old:mask);animation=requestAnimationFrame(tick);};

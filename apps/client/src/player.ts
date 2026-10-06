@@ -1,7 +1,7 @@
 import {LOCAL_SCHEMA,LOCAL_SETTINGS,type Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import type { WorkerRequest, WorkerResponse, LocalFileRequest, PeerCheckpointRequest, LocalFileInfo, StateHash, RewindInfo } from '../../../packages/contracts/src/index.ts';
 import {gameplayLimits,type GameReason } from '../../../packages/contracts/src/gameplay.ts';
-import { defaults, inputMask, padInputs, rapidKeys, rapidMask, ReleasedInputs, type Controls } from './controls.ts';
+import { defaults, inputMask, GamepadInput, rapidKeys, rapidMask, type Controls } from './controls.ts';
 import { createAudioQueue } from '../../../spikes/d02/demo/runtime/audio.js';
 import {readStored,putBattery,validSavedAt,sameRecord,type BatteryRecord} from './saves.ts';
 import { inspectCartridge, hex } from './cartridge.ts';
@@ -9,7 +9,7 @@ import {matchesFile} from '../../../packages/contracts/src/rooms.ts';
 
 type FileCommand<Request = LocalFileRequest | PeerCheckpointRequest> = Request extends LocalFileRequest | PeerCheckpointRequest ? Omit<Request,'requestId'> : never;
 type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:BatteryRecord;enabled:boolean;writing?:Promise<void>};
-const disconnectedMessage = 'Controller disconnected. Reconnect it, or use the keyboard.';
+const disconnectedMessage = 'Controller unavailable. Keyboard and on-screen controls are ready.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
@@ -47,8 +47,8 @@ export class LocalPlayer {
  }
  async stateHash():Promise<StateHash> {const reply=await this.fileRequest({type:'state-hash'});if(reply.type!=='state-hash')throw Error('Unexpected state hash response');return reply.info;}
  frameRate(){return this.fps;}
- async holdForGame(ownsInput=true) {if(ownsInput&&!this.inputDevice().available)throw Error('Reconnect your controller before shared play.');this.shared=true;this.suspend();return this.stateHash();}
- startGame(driver:GameDriver) {if(!this.active||this.state.loading||driver.ownsInput!==false&&!this.inputDevice().available)throw Error('Reconnect your controller before starting.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameProgressAt=this.gameStarted;this.gameLastPumpAt=this.gameStarted;this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});if(!document.hidden&&driver.ownsInput!==false)this.canvas.focus();this.pumpGame();}
+ async holdForGame(_ownsInput=true) {this.shared=true;this.suspend();return this.stateHash();}
+ startGame(driver:GameDriver) {if(!this.active||this.state.loading)throw Error('Wait for the game to finish loading.');clearTimeout(this.gameTimer);this.game=driver;this.gameStarted=performance.now();this.gameProgressAt=this.gameStarted;this.gameLastPumpAt=this.gameStarted;this.gameFrames=0;this.shared=true;this.last=0;this.publish({shared:true,running:true,status:'Playing together.'});if(!document.hidden&&driver.ownsInput!==false)this.canvas.focus();this.pumpGame();}
  allowLocalPlay(){this.shared=false;this.publish({shared:false});}
  stopGame(status:string,leave=false) {clearTimeout(this.gameTimer);this.game=undefined;this.expectedFrame=undefined;if(leave)this.shared=false;this.suspend();this.publish({status});}
  private async prepareBattery(worker:Worker,isCurrent:()=>boolean):Promise<{session?:BatterySession;issue?:string}> {
@@ -120,7 +120,7 @@ export class LocalPlayer {
   this.audio.flush();this.release();this.publish({rewind:undefined,status:'Save loaded. Resume whenever you’re ready.'});
  }
 
- sampleGameInput(){const {pad,available}=this.inputDevice();return available?this.controllerMask(pad):0;}
+ sampleGameInput(){return this.controllerMask(this.inputDevice().pressed);}
  async bindGameEpoch(epoch:string,frame:number,hash:string){
   if(!this.shared||this.state.running||this.busy)throw Error('Pause before preparing shared play.');
   const reply=await this.fileRequest({type:'peer-checkpoint-bind',epoch,frame,hash});if(reply.type!=='peer-checkpoint-bound')throw Error('Unexpected game epoch response');
@@ -201,6 +201,7 @@ export class LocalPlayer {
   this.canvas=canvas;this.update=update;
   this.persistenceTimer=window.setInterval(()=>{void this.persistBattery();},10000);window.addEventListener('pagehide',this.pagehide);
   window.addEventListener('keydown',this.down); window.addEventListener('keyup',this.up);
+  window.addEventListener('gamepadconnected',this.deviceChanged);window.addEventListener('gamepaddisconnected',this.deviceChanged);
   window.addEventListener('blur',this.blur);window.addEventListener('resize',this.release);document.addEventListener('visibilitychange',this.hidden);
   document.addEventListener('focusin',this.focusChanged);
   this.animation = requestAnimationFrame(this.tick);
@@ -208,23 +209,23 @@ export class LocalPlayer {
  private selectionListeners=new Set<()=>void>();
  private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state);for(const listener of this.selectionListeners)listener(); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
- private releasedPad=new ReleasedInputs();
+ private gamepadInput=new GamepadInput();
+ private deviceChanged=(event:GamepadEvent)=>{if(this.controls.device?.index===event.gamepad.index&&this.controls.device.id===event.gamepad.id)this.gamepadInput.release(this.controls.device);};
  private virtualMask=0;
  private inputBlocked=false;
  blockGameInput(blocked:boolean){this.inputBlocked=blocked;if(blocked)this.release();}
  private inputFocused(){const active=document.activeElement;return !this.inputBlocked&&(active===this.canvas || !!active?.closest('[data-game-input] button, [data-game-input] [tabindex]'));}
  setVirtualInput(mask:number){this.virtualMask=this.state.running&&!document.hidden&&this.inputFocused()&&this.game?.ownsInput!==false?mask&255:0;}
- private release = () => { this.virtualMask=0;this.keys.clear();this.rapidStarted.clear();this.releasedPad.release(padInputs(this.inputDevice().pad)); };
+ private release = () => { this.virtualMask=0;this.keys.clear();this.rapidStarted.clear();this.gamepadInput.release(this.controls.device); };
  releaseControllers(){this.release();}
  private down = (event: KeyboardEvent) => {
-  if(!event.repeat && !this.controls.device && this.inputFocused() && this.state.running && !((event.target as Element)?.closest('[data-game-input] button')&&['Enter','Space'].includes(event.code))) {
+  if(!event.repeat && this.inputFocused() && this.state.running && !((event.target as Element)?.closest('[data-game-input] button')&&['Enter','Space'].includes(event.code))) {
    const mapped=Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code));
    if(mapped || event.code in rapidKeys){event.preventDefault();this.keys.add(event.code);if(!mapped&&event.code in rapidKeys)this.rapidStarted.set(event.code,performance.now());}
   }
  };
  private up = (event: KeyboardEvent) => { this.keys.delete(event.code);this.rapidStarted.delete(event.code); };
  configureControls(controls: Controls) { this.controls = controls; this.release(); this.publish({inputIssue:undefined}); }
- useKeyboard() { this.configureControls({...this.controls,device:null}); this.publish({status:'Keyboard selected. Resume whenever you’re ready.'}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
  private focusChanged = () => {if(!this.inputFocused())this.release();};
  private blur = () => { this.release();void this.persistBattery(); };
@@ -236,31 +237,24 @@ export class LocalPlayer {
   void this.persistBattery();
  };
  private inputDevice() {
-  const selected = this.controls.device;
-  const pad = selected ? navigator.getGamepads()[selected.index] : undefined;
-  return {pad,available:!selected || !!pad && pad.id===selected.id && pad.connected};
+  const device=this.gamepadInput.sample(this.controls.device);
+  const inputIssue=device.available?undefined:disconnectedMessage;
+  if(this.state.inputIssue!==inputIssue)this.publish({inputIssue});
+  return device;
  }
- private controllerMask(pad:Gamepad|null|undefined) {
-  const selected=this.controls.device;
-  const pressed=this.inputFocused()?(selected?this.releasedPad.sample(padInputs(pad)):this.keys):new Set<string>();
-  return inputMask(selected?this.controls.gamepad:this.controls.keyboard,pressed) | (this.inputFocused()?this.virtualMask:0) | (selected?0:rapidMask(this.controls.keyboard,this.rapidStarted,performance.now()));
+ private controllerMask(pressed:ReadonlySet<string>) {
+  if(!this.inputFocused())return 0;
+  return inputMask(this.controls.keyboard,this.keys) | inputMask(this.controls.gamepad,pressed) | this.virtualMask | rapidMask(this.controls.keyboard,this.rapidStarted,performance.now());
  }
  private tick = (now: number) => {
   this.animation = requestAnimationFrame(this.tick);
   this.stepLocal(now);
  };
  private stepLocal(now:number) {
-  const {pad,available} = this.inputDevice();
-  this.releasedPad.sample(padInputs(pad));
-  if(!available && this.game?.ownsInput!==false) {
-   if(this.state.running) this.pause('device');
-   if(!this.state.inputIssue) this.publish({inputIssue:disconnectedMessage});
-   return;
-  }
-  if(this.state.inputIssue) this.publish({inputIssue:undefined,status:'Controller reconnected. Resume whenever you’re ready.'});
+  const {pressed} = this.inputDevice();
   if(this.game || !this.active || !this.state.running || this.busy || now-this.last < 1000/this.fps) return;
   this.last = now-(now-this.last)%(1000/this.fps);
-  const mask=this.controllerMask(pad);
+  const mask=this.controllerMask(pressed);
   this.busy=true;this.send(this.active,{type:'frame',p1:mask,p2:0});
  }
  // As in the qualified D02 scheduler, wall time sets an absolute target. Input
@@ -271,8 +265,7 @@ export class LocalPlayer {
   this.gameTimer=setTimeout(this.pumpGame,2);
   if(!this.active||!this.state.running)return;
   if(this.game.draining()){this.drainGame();return;}
-  const {pad,available}=this.inputDevice();
-  if(!available&&this.game.ownsInput!==false){this.pause('device');return;}
+  const {pressed}=this.inputDevice();
   const now=performance.now(),gap=now-this.gameLastPumpAt;
   this.gameLastPumpAt=now;
   // A suspended tab resumes with wall-time debt, not evidence of lost input.
@@ -282,7 +275,7 @@ export class LocalPlayer {
   if(this.busy&&now-this.gameProgressAt>gameplayLimits.stallMs){this.pause('network');return;}
   const elapsed=now-this.gameStarted;
   if(this.busy||this.gameFrames>=Math.floor(elapsed*this.fps/1000))return;
-  const next=this.game.next(this.game.ownsInput===false?0:this.controllerMask(pad));if(!next)return;
+  const next=this.game.next(this.game.ownsInput===false?0:this.controllerMask(pressed));if(!next)return;
   this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  };
 
@@ -323,8 +316,7 @@ export class LocalPlayer {
  resume():boolean {
   if(!this.active || this.state.loading) return false;
   if(this.shared) {this.publish({status:'Shared play is paused. Use the lobby’s shared controls, or leave the lobby before resuming locally.'});return false;}
-  if(!this.inputDevice().available) { this.publish({inputIssue:disconnectedMessage}); return false; }
-  this.activateAudio(); this.last = 0; this.publish({running:true,inputIssue:undefined,status:'Playing locally. The game runs in this browser.'}); this.canvas.focus();return true;
+  this.activateAudio(); this.last = 0; this.inputDevice(); this.publish({running:true,status:'Playing locally. The game runs in this browser.'}); this.canvas.focus();return true;
  }
  setMuted(value: boolean) { this.muted = value; if(this.gain) this.gain.gain.value = value ? 0 : this.volume; this.audio.flush(); if(!value) this.activateAudio(); }
  retryAudio() { this.activateAudio(); }
@@ -423,11 +415,11 @@ export class LocalPlayer {
       if(!previewImage.startsWith('data:image/png'))throw Error('The game preview could not be saved.');
      }}catch{previewImage=undefined;}
      if(!isCurrent()) {worker.terminate();return;}
-     const {available} = this.inputDevice();
+     this.inputDevice();
      const commit=()=>{
      this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
-     this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:available&&!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,inputIssue:available ? undefined : disconnectedMessage,status:startPaused ? 'Game loaded. Resume whenever you’re ready.' : available ? 'Playing locally. The game runs in this browser.' : 'Game loaded paused. Reconnect your controller or use the keyboard, then Resume.',fingerprint,previewImage});
+     this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,status:startPaused ? 'Game loaded. Resume whenever you’re ready.' : 'Playing locally. The game runs in this browser.',fingerprint,previewImage});
      committed?.(fingerprint);
      if(!startPaused)this.canvas.focus();
      };
@@ -459,6 +451,7 @@ export class LocalPlayer {
  dispose() {
   clearInterval(this.persistenceTimer);clearInterval(this.backgroundTimer);window.removeEventListener('pagehide',this.pagehide);
   this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
+  window.removeEventListener('gamepadconnected',this.deviceChanged);window.removeEventListener('gamepaddisconnected',this.deviceChanged);
   window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('resize',this.release);document.removeEventListener('visibilitychange',this.hidden); document.removeEventListener('focusin',this.focusChanged);
  }
 }

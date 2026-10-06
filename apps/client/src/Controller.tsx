@@ -19,6 +19,7 @@ const directionGlyphs = { up: "↑", left: "←", down: "↓", right: "→" } as
 
 export function Controller({
   controls,
+  inputFallback=false,
   covered,
   enabled,
   playing,
@@ -33,6 +34,7 @@ export function Controller({
   storageIssue,
 }: {
   controls: Controls;
+  inputFallback?: boolean;
   covered: boolean;
   enabled: boolean;
   playing: boolean;
@@ -252,7 +254,7 @@ export function Controller({
       </button>
     );
   };
-  const source = controls.device ? "gamepad" : "keyboard";
+  const source = controls.device && !inputFallback ? "gamepad" : "keyboard";
   const short: Record<string, string> = {
     ArrowUp: "↑",
     ArrowDown: "↓",
