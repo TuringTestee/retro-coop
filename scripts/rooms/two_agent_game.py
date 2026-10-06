@@ -913,6 +913,9 @@ def shared_load():
             url=json.loads(line)['url']
         browsers=[playwright.chromium.launch(ignore_default_args=['--mute-audio']) for _ in range(2)]
         for browser in browsers:resources.callback(browser.close)
+        from unified_shell_browser import save_feedback
+        print('shared Save/Load check: save_feedback',flush=True)
+        save_feedback(browsers[0],url,SESSION)
         contexts=[browser.new_context(viewport={'width':args.width,'height':args.height},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
         pages=[]
         for context in contexts:
