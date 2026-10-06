@@ -263,9 +263,19 @@ with sync_playwright() as pw:
     chat('GUEST RECONNECTING');marker('HOST RECONNECT READY');membership=page.evaluate('proof.room.chatMembership');epoch=page.evaluate('proof.room.peers[0].epoch')
     page.evaluate('proof.roomSocket.close()');page.get_by_role('button',name='Retry connection',exact=True).wait_for();capture('signaling-disconnected')
     page.get_by_role('button',name='Retry connection',exact=True).click();wait('proof.room.peers[0].status==="connected" && proof.room.peers[0].epoch!=='+json.dumps(epoch))
-    assert page.evaluate('proof.room.chatMembership')==membership;result['same_membership_reconnected']=True;capture('reconnected');chat('GUEST RECONNECTED')
-   else:marker('GUEST RECONNECTING');chat('HOST RECONNECT READY');marker('GUEST RECONNECTED')
-  page.get_by_role('button',name='Prepare to resume',exact=True).click()
+    assert page.evaluate('proof.room.chatMembership')==membership;result['same_membership_reconnected']=True
+    result['reconnected_paused_hash']=fresh_hash()
+    assert result['reconnected_paused_hash']==result['paused_hash']
+    capture('reconnected');chat('GUEST RECONNECTED')
+   else:
+    marker('GUEST RECONNECTING');chat('HOST RECONNECT READY');marker('GUEST RECONNECTED')
+    result['reconnected_paused_hash']=fresh_hash()
+    assert result['reconnected_paused_hash']==result['paused_hash']
+  # Reconnection can preserve preparation. Follow the available action rather
+  # than requiring another Prepare button after everyone is already ready.
+  result['prepared_before_final_resume']=page.evaluate('proof.room.game.ready.includes(proof.room.chatMembership)')
+  if not result['prepared_before_final_resume']:
+   page.get_by_role('button',name='Prepare to resume',exact=True).click()
   wait('proof.room?.game?.ready?.includes(proof.room.chatMembership)')
   if a.role=='host':wait('proof.room?.game?.status==="resume_ready"');page.get_by_role('button',name='Resume together',exact=True).click()
   wait('proof.room?.game?.status==="playing"');before=page.evaluate('proof.frameCount');page.wait_for_function('n=>proof.frameCount>n+30',arg=before)

@@ -1,4 +1,4 @@
-name: Temporary final release independent network proof
+name: Temporary final release reconnect proof
 on:
   push:
     branches: [test/public-independent-network]
@@ -6,15 +6,12 @@ permissions:
   contents: read
 env:
   # Set the frozen deployed main and a unique cohort before pushing this branch.
-  QUALIFICATION_SERIES: "Release40b1951-20261006-2117-final"
+  QUALIFICATION_SERIES: "Release40b1951-reconnect-20261006-2320"
   QUALIFICATION_PASSWORD: ${{ secrets.RELEASE_QUALIFICATION_PASSWORD }}
   PUBLIC_PRODUCT_REVISION: "40b195164cce249edfb09621abee4603e9e89170"
   PUBLIC_CORE_SHA256: "a8478f5e67edf77a1af7d43a0015b3234a1d309af269ef2e59294495ee26872b"
 jobs:
   guest:
-    # Ten five-member peer pairs consume the full approved relay reservation pool.
-    # Finish that cohort before opening the direct and forced-relay pairs.
-    needs: five-members
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ matrix.timeout_minutes }}
     strategy:
@@ -22,12 +19,9 @@ jobs:
       max-parallel: 2
       matrix:
         include:
-          - mode: direct
-            play_seconds: 1800
-            timeout_minutes: 45
           - mode: relay
-            play_seconds: 7200
-            timeout_minutes: 135
+            play_seconds: 10
+            timeout_minutes: 10
     env:
       QUALIFICATION_MODE: ${{ matrix.mode }}
       QUALIFICATION_PLAY_SECONDS: ${{ matrix.play_seconds }}
@@ -59,43 +53,10 @@ jobs:
           --lobby "$QUALIFICATION_SERIES-$QUALIFICATION_MODE" --mode "$QUALIFICATION_MODE"
           --product-revision "$PUBLIC_PRODUCT_REVISION"
           --core-sha256 "$PUBLIC_CORE_SHA256"
-          --play-seconds "$QUALIFICATION_PLAY_SECONDS" --check-enter --output proof
+          --play-seconds "$QUALIFICATION_PLAY_SECONDS" --exercise-recovery-at 2 --check-enter --output proof
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: public-guest-${{ env.QUALIFICATION_MODE }}
           path: proof
-          retention-days: 7
-
-  five-members:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          path: qualification
-      - name: Check out the frozen deployed product for maintained helpers
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          ref: ${{ env.PUBLIC_PRODUCT_REVISION }}
-          path: product
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.12'
-      - name: Install one pinned browser
-        run: |
-          python -m pip install playwright==1.58.0
-          python -m playwright install --with-deps chromium
-      - name: Verify five real members on the frozen public release
-        run: >-
-          python qualification/.qualification/five_members.py
-          --root product --source "$PUBLIC_PRODUCT_REVISION"
-          --output proof-five
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        if: always()
-        with:
-          name: public-five-members
-          path: proof-five
           retention-days: 7
