@@ -114,7 +114,7 @@ Each row follows **entry or trigger → player action → visible outcome or rec
 | E17 | Open Game help → see controls/instructions and included-game credits/license placeholder; close to the same game. | S03, S29, UJS-4 | Approved |
 | E18 | Open help for host-provided file → see matching-file/controls guidance, without invented artwork, rules, or download links. | S29 | Approved |
 | E19 | Remap keyboard/gamepad → test input, resolve conflicts, Apply or Cancel; Restore defaults names affected mappings. | S18 | Approved |
-| E20 | Selected gamepad disappears → pause, offer reconnect or keyboard fallback; no stuck inputs. | S18, S31 | Approved |
+| E20 | Selected gamepad disappears → keep playing with automatic keyboard/touch fallback; preserve device preferences and suppress held return inputs. | S18, S31 | Approved |
 | E21 | Change pixel filter or volume → see/hear local result without changing shared emulation settings. | S19 | Approved |
 | E22 | Browser refuses audio activation or fullscreen → explain denial and keep normal play usable; Exit fullscreen remains reachable. | S19 | Approved |
 | E23 | Send chat → see acknowledgement; messages are plain text, temporary, and scoped to current room. | S20 | Approved |

@@ -72,7 +72,7 @@ Local battery RAM, save slots, mappings, and preferences live in IndexedDB, keye
 
 Solo play supports a rolling 10-second rewind target, bounded by a 32 MiB memory budget. If a supported game cannot meet that target, the prototype must propose revised scope rather than silently reduce acceptance. Multiplayer rewind is a host-requested jump up to 10 seconds back, accepted by the other player; it is not independent scrubbing. Restore and reset use the same pause/propose/accept barrier. After both acknowledge the checkpoint, increment the epoch, discard future input/history, and resume; rejection or a 15-second timeout leaves the old timeline paused. Only validated compatible saves may be proposed.
 
-Provide remapping with conflict feedback and restore-default controls. Losing focus releases held inputs; gamepad disconnection pauses and offers keyboard fallback. Suppress game input while typing chat. Audio begins after a user gesture. Lobby controls are keyboard accessible, have readable focus states, and communicate status without relying on color.
+Provide remapping with conflict feedback and restore-default controls. Losing focus releases held inputs; an absent or disconnected gamepad automatically falls back to keyboard/on-screen input without pausing or a setup detour. Suppress game input while typing chat. Audio begins after a user gesture. Lobby controls are keyboard accessible, have readable focus states, and communicate status without relying on color.
 
 ## Social features and abuse controls
 

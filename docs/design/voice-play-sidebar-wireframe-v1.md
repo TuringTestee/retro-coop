@@ -75,4 +75,4 @@ Pause  Mute  Saves
 +----------------------------+
 ```
 
-The page places cards after the game without overlapping it. Keyboard order follows this visual order. Long bindings wrap rather than crop. Gamepad selection replaces keyboard labels with current pad values.
+The page places cards after the game without overlapping it. Keyboard order follows this visual order. Long bindings wrap rather than crop. A connected selected gamepad displays its current pad values; if unavailable, show usable keyboard bindings while retaining the gamepad preference.

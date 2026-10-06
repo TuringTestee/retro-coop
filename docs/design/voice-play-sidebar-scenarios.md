@@ -16,7 +16,7 @@ The later [minimal room journey](minimal-room-journey.md) supersedes the always-
 | S4 | V2 | Mute/unmute or hold/release; state text changes immediately. | Track ends or peer replaced → off/error and explicit new opt-in. |
 | S5 | V3 | Incoming audio muted or playback denied; Voice detail shows status and direct recovery. | Retry playback or unmute; no gameplay reset. |
 | S6 | C1 | Game loaded; compact card shows the accepted role and Controls action. | Controls opens Settings, where the current bindings include `Unbound` for an empty action; Back returns focus to Controls. |
-| S7 | C2 | Selected gamepad exists; Settings shows its device identity and mappings when opened. | Input fault offers existing `Use keyboard`; Settings follows the changed device. |
+| S7 | C2 | Selected gamepad exists; Settings shows its device identity and mappings when opened. | Absent/disconnected optional input automatically uses keyboard/touch without pausing; Settings preserves the preferred device. See [the controls contract](../implementation/d07-controls.md#input-and-recovery). |
 | S8 | C1,C2 | Binding changes while in Settings, including push-to-talk; reopening Settings shows the saved value. | Conflict/unusable mapping remains an existing Settings error, not a silent wrong hint. |
 | S12 | C4 | Accepted Separate P1/P2 swap or Shared P1 handoff; card derives local role from assignment, or shows Observer when no controller is owned. | Declined/cancelled proposal preserves the old role; existing Session controllers is the one path to change assignment. |
 | S9 | C3 | Narrow width/zoom; side cards follow canvas and retain readable labels, focus order and action reachability. | Wrap within viewport; no new overlay or document horizontal scroll. |
