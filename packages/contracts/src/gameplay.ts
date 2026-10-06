@@ -8,14 +8,14 @@ const validReason=(value:unknown):value is GameReason=>typeof value==='string'&&
 export type ControllerAssignment={owners:[string|null,string|null];revision:number};
 export type RoleTransaction={id:string;revision:number;roles:{slotId:SlotId;role:SlotRole}[];status:'freezing'|'synchronizing'|'failed';reason?:string};
 export type SaveLoadView={id:string;epoch:string;phase:'freezing'|'consent'|'staging'|'committing'|'rolling_back';frame:number;hash:string;identity:string;savedAt:number;required:string[];accepted:string[];expiresAt:number;priorFrame?:number;priorHash?:string;reason?:string};
-export type GameView={load?:SaveLoadView;controllers:ControllerAssignment;pending?:RoleTransaction;ready:string[];startRequested:boolean;status:'waiting'|'starting'|'countdown'|'playing'|'pausing'|'resume_ready'|'paused'|'failed';epoch?:string;delay?:number;startAt?:number;frame?:number;reason?:string};
+export type GameView={hostRecovery?:string;load?:SaveLoadView;controllers:ControllerAssignment;pending?:RoleTransaction;ready:string[];startRequested:boolean;status:'waiting'|'starting'|'countdown'|'playing'|'pausing'|'resume_ready'|'paused'|'failed';epoch?:string;delay?:number;startAt?:number;frame?:number;reason?:string};
 export type CheckpointPurpose='observer'|'controller'|'load';
 export type GameCommand=
  | {type:'gameLoadPropose';requestId:string;revision:number;roomRevision:number;frame:number;hash:string;identity:string;savedAt:number}
  | {type:'gameLoadBoundary'|'gameLoadPrepared'|'gameLoadCommitted'|'gameLoadRolledBack';requestId:string;transactionId:string;frame:number;hash:string}
  | {type:'gameLoadDecision';requestId:string;transactionId:string;accept:boolean}
  | {type:'gameLoadCancel'|'gameLoadFailed';requestId:string;transactionId:string}
- | {type:'gameRestore';requestId:string;revision:number;roomRevision:number;frame:number;hash:string}
+ | {type:'gameRestore';requestId:string;revision:number;roomRevision:number;frame:number;hash:string;previousEpoch?:string}
  | {type:'gameReady';requestId:string;revision:number;roomRevision:number;frame:number;fresh:boolean;hash:string;delay:number}
  | {type:'gameUnready'|'gameObserve';requestId:string;revision:number}
  | {type:'gameRoleCancel'|'gameRoleRetry';requestId:string;transactionId:string}
@@ -57,7 +57,7 @@ export function parseGameCommand(value:unknown):GameCommand|undefined {
  if(value.type==='gameLoadDecision'&&keys(value,[...base,'transactionId','accept'])&&token(value.transactionId)&&typeof value.accept==='boolean')return value as GameCommand;
  if((value.type==='gameLoadCancel'||value.type==='gameLoadFailed')&&keys(value,[...base,'transactionId'])&&token(value.transactionId))return value as GameCommand;
 
- if(value.type==='gameRestore'&&keys(value,[...base,'revision','roomRevision','frame','hash'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&integer(value.roomRevision,0,Number.MAX_SAFE_INTEGER)&&frame&&sha256(value.hash))return value as GameCommand;
+ if(value.type==='gameRestore'&&keys(value,[...base,'revision','roomRevision','frame','hash'],['previousEpoch'])&&(value.previousEpoch===undefined||token(value.previousEpoch))&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&integer(value.roomRevision,0,Number.MAX_SAFE_INTEGER)&&frame&&sha256(value.hash))return value as GameCommand;
  if(value.type==='gameReady'&&keys(value,[...base,'revision','roomRevision','frame','fresh','hash','delay'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&integer(value.roomRevision,0,Number.MAX_SAFE_INTEGER)&&frame&&typeof value.fresh==='boolean'&&sha256(value.hash)&&integer(value.delay,gameplayLimits.delayMin,gameplayLimits.delayMax))return value as GameCommand;
  if((value.type==='gameUnready'||value.type==='gameObserve')&&keys(value,[...base,'revision'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER))return value as GameCommand;
  if((value.type==='gameRoleCancel'||value.type==='gameRoleRetry')&&keys(value,[...base,'transactionId'])&&token(value.transactionId))return value as GameCommand;

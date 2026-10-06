@@ -34,7 +34,7 @@ test('private upload commits exact bytes before a custom room is publishable',as
   await t.command({type:'close',roomId});assert.equal(existsSync(path),false);
  }finally{await t.close();}
 });
-test('only the current guest membership can download private bytes',async()=>{
+test('only current host or guest membership can reacquire private bytes',async()=>{
  const t=await setup();try{
   const {intent,roomId,bytes}=await t.create();assert.equal((await t.upload(roomId,intent,bytes)).status,201);
   const confirmed=await t.command({type:'confirmCreate',intent});assert.equal(confirmed.ok,true);
@@ -42,6 +42,8 @@ test('only the current guest membership can download private bytes',async()=>{
   const guest=t.server.rooms.attach(undefined,()=>{},()=>{}),other=t.server.rooms.attach(undefined,()=>{},()=>{});
   const joined=t.server.rooms.handle(guest.token,{type:'join',requestId:randomUUID(),invite,intent:randomUUID()}).room!;
   const get=(auth:string,membership:string,id=roomId,headers:Record<string,string>={})=>fetch(`${t.url}/rooms/${id}/rom`,{headers:{Authorization:`Bearer ${auth}`,'X-Room-Membership':membership,...headers}});
+  const hostMembership=confirmed.ok?confirmed.data.room!.chatMembership:'';
+  const hostDownload=await get(t.token,hostMembership);assert.equal(hostDownload.status,200);assert.deepEqual(Buffer.from(await hostDownload.arrayBuffer()),bytes);
   const noOrigin=await get(guest.token,joined.chatMembership);
   assert.equal(noOrigin.status,200);assert.equal(noOrigin.headers.get('Access-Control-Allow-Origin'),null);assert.deepEqual(Buffer.from(await noOrigin.arrayBuffer()),bytes);
   const missingToken=await fetch(`${t.url}/rooms/${roomId}/rom`,{headers:{'X-Room-Membership':joined.chatMembership}});

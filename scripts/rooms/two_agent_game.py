@@ -539,7 +539,6 @@ def recovery():
                             'events':page.evaluate('window.proof?.events?.slice(-12)'),
                             'page_errors':errors,
                         })
-                        page.screenshot(path=str(SESSION/(label+'.png')),timeout=2000)
                     except Exception as error:
                         print(f'Could not retain {label}: {error}',file=sys.stderr)
         resources.callback(retain_failure)
@@ -679,6 +678,51 @@ def recovery():
         assert hashes[0]==hashes[1]
         screenshot(host,'recovery-continued-host.png');screenshot(guest,'recovery-continued-guest.png')
         restore_diagnostics=[page.evaluate('proof.recoveryDiagnostics') for page in (host,guest)]
+        # A full browser reload loses the emulator while this protected lobby survives.
+        # Reacquisition must restore its automatic timeline before either player prepares.
+        protect_lobby(host, 'live-recovery-password')
+        live_room=host.evaluate('({id:proof.room.id,invite:proof.room.invite,visibility:proof.room.visibility,slots:proof.room.slots.map(s=>({id:s.id,role:s.role,name:s.member?.nickname})),epoch:proof.room.game.epoch})')
+        deadline=time.monotonic()+15
+        while time.monotonic()<deadline:
+            live_capture=record(host)['captures'][0]
+            if live_capture['frame']==hashes[0]['frame'] and live_capture['hash']==hashes[0]['hash']:
+                break
+            host.wait_for_timeout(100)
+        else:
+            raise TimeoutError('The paused automatic capture did not complete')
+        host.reload();host.evaluate('releaseFrames()')
+        host.wait_for_function('old=>proof.room?.game.epoch!==old && proof.room?.game.status==="paused" && proof.recoveryDiagnostics.some(e=>e.type==="peer-checkpoint-imported")',arg=live_room['epoch'],timeout=30000)
+        expect(host.locator('.rc-status')).to_contain_text('Automatic progress restored from')
+        current_room=host.evaluate('({id:proof.room.id,invite:proof.room.invite,visibility:proof.room.visibility,slots:proof.room.slots.map(s=>({id:s.id,role:s.role,name:s.member?.nickname})),epoch:proof.room.game.epoch})')
+        assert {k:v for k,v in live_room.items() if k!='epoch'}=={k:v for k,v in current_room.items() if k!='epoch'}
+        imported=host.evaluate('proof.recoveryDiagnostics.filter(e=>e.type==="peer-checkpoint-imported").at(-1)')
+        assert imported['frame']==live_capture['frame'] and imported['hash']==live_capture['hash'], (imported,live_capture)
+        for page in (host,guest):
+            if not page.evaluate('proof.room.game.ready.includes(proof.room.chatMembership)'):
+                expect(page.get_by_role('button',name='Prepare to resume',exact=True)).to_be_enabled(timeout=30000)
+                page.get_by_role('button',name='Prepare to resume',exact=True).click()
+        expect(host.get_by_role('button',name='Resume together',exact=True)).to_be_enabled(timeout=30000)
+        for page in (host,guest):
+            page.evaluate('currentWorker.postMessage({type:"state-hash",requestId:900005})')
+            page.wait_for_function('capture=>proof.hashes.at(-1)?.frame===capture.frame && proof.hashes.at(-1)?.hash===capture.hash',arg=live_capture)
+        host.get_by_role('button',name='Resume together',exact=True).click()
+        for page in (host,guest):page.wait_for_function('proof.room.game.status==="playing"')
+        guest.locator('canvas').focus();guest.keyboard.down('c')
+        for page in (host,guest):
+            page.wait_for_timeout(300)
+            page.evaluate('proof.controllerRam=undefined;currentWorker.postMessage({type:"state-export",requestId:900000})')
+            page.wait_for_function('proof.controllerRam?.[1]===64')
+        guest.keyboard.up('c');host.get_by_role('button',name='Pause',exact=True).click()
+        for page in (host,guest):page.wait_for_function('proof.room.game.status==="paused"')
+        # Recovery releases the automatic capture owner for subsequent play.
+        deadline=time.monotonic()+5
+        while time.monotonic()<deadline:
+            if record(host)['captures'][0]['frame']==host.evaluate('proof.room.game.frame'):
+                break
+            host.wait_for_timeout(100)
+        else:
+            raise TimeoutError('Automatic captures did not resume after live recovery')
+        screenshot(host,'recovery-live-host-restored.png')
         host.get_by_role('button',name='Back to Main Page').click();host.get_by_role('button',name='Close lobby',exact=True).click()
         # A damaged newest state offers the older capture with its actual saved time.
         older=record(host)['captures'][1]
@@ -815,7 +859,7 @@ def recovery():
         offline.wait_for_function('proof.frameCount>10',timeout=30000)
         offline.get_by_role('button',name='Back to Main Page').click();offline.get_by_role('button',name='Close lobby',exact=True).click()
         assert not errors,errors
-        result={'result':'pass','unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restore_acknowledgment_ordering':True,'committed_reply_during_rejected_close':True,'rejected_close_stay_keeps_retry':True,'committed_reply_and_bind_failures_retry':True,'busy_dialog_narrow_keyboard':True,'restore_synchronization':restore_diagnostics,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
+        result={'result':'pass','live_host_refresh':{'capture':live_capture,'imported':imported,'same_protected_lobby':current_room,'matching_native_hash':True,'guest_real_controller_ram':[0,64]},'unavailable_storage_normal_play':True,'older_corrupt_capture_fallback':True,'incompatible_core_normal_flow':True,'incompatible_fresh_native':incompatible_fresh,'missing_rom_normal_flow':True,'start_fresh_discards_offer':True,'start_fresh_native':start_fresh_native,'late_offer_cannot_reopen_after_exit':True,'stale_start_fresh_keyboard_dismissal':True,'failed_delete_keyboard_dismissal':True,'natural_host_expiry':True,'replacement_guest_token':True,'remembered_name':'Recovery Host','fingerprint':old['fingerprint'],'original_capture':snapshot,'restore_acknowledgment_ordering':True,'committed_reply_during_rejected_close':True,'rejected_close_stay_keeps_retry':True,'committed_reply_and_bind_failures_retry':True,'busy_dialog_narrow_keyboard':True,'restore_synchronization':restore_diagnostics,'restored_matching_native_hash':True,'fresh_memberships_and_invite':True,'guest_real_controller_ram':[0,64],'continued_boundary':hashes[0],'brief_live_reconnect':True,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)}
         save('recovery-result.json',result);print(json.dumps(result,indent=2))
 
 
