@@ -184,6 +184,7 @@ export class RoomClient {
   return this.connecting;
  }
  private failure(error:unknown) {this.publish({busy:false,startingRoom:false,status:error instanceof Error ? error.message:'Unable to reach the lobby service.'});}
+ selectionPending(){return !!(this.gameSelection||this.confirmingSelection);}
  beginSelection() {if(this.confirmingSelection){this.publish({status:this.state.selectionFinishing?selectionPendingMessage:selectionConfirmationMessage});return false;}if(this.state.room?.game.load||this.state.room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}this.game.cancelIntent();this.cancelGameSelection();if(this.joining)this.cancelPending();else this.cancelCreation();this.publish({releaseNotice:undefined});return true;}
  cancelGameSelection(){if(this.confirmingSelection){this.publish({status:this.state.selectionFinishing?selectionPendingMessage:selectionConfirmationMessage});return;}const intent=this.gameSelection,room=this.state.room;this.gameSelection=undefined;this.uploadAbort?.abort();this.uploadAbort=undefined;if(intent&&room?.role==='host'){void this.request({type:'cancelGameSelection',roomId:room.id,intent}).catch(()=>{});this.publish({busy:false,uploading:false,status:'Game selection cancelled. The lobby stays open.'});}}
  private async confirmSelection(selection:{roomId:string;intent:string;expectedRevision:number}){
