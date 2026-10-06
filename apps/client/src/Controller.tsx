@@ -16,7 +16,7 @@ const directionGlyphs = { up: "↑", left: "←", down: "↓", right: "→" } as
 
 export function Controller({
   controls,
-  inputFallback=false,
+  inputFallback,
   covered,
   enabled,
   playing,
@@ -27,7 +27,7 @@ export function Controller({
   phone,
 }: {
   controls: Controls;
-  inputFallback?: boolean;
+  inputFallback: boolean;
   covered: boolean;
   enabled: boolean;
   playing: boolean;
