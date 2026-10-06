@@ -221,7 +221,7 @@ Storage denial/quota/write failure says “Couldn't save on this device” and o
 +------------------------------------------------------------+
 ```
 
-Controls cover all NES buttons, keyboard and detected gamepads, with an input-test indicator. Remapping captures one input in a labelled dialog, offers Cancel, and identifies conflicts before Apply; include the push-to-talk binding in conflict checks. Restore defaults confirms the affected mapping set. Unplugging a selected gamepad pauses and offers [Use keyboard] or reconnect instructions, then the shared resume path. The mapping is local to the current player; host slot assignment remains U3/Session settings and changes only while waiting/paused.
+Controls cover all NES buttons, keyboard and detected gamepads, with an input-test indicator. Remapping captures one input in a labelled dialog, offers Cancel, and identifies conflicts before Apply; include the push-to-talk binding in conflict checks. Restore defaults confirms the affected mapping set. An absent or disconnected selected gamepad automatically falls back to keyboard/on-screen controls without pausing. Keep its mappings for reconnection, suppress held buttons until released, and show the active keyboard bindings. The mapping is local to the current player; host slot assignment remains U3/Session settings and changes only while waiting/paused.
 
 Display & sound includes nearest-neighbor/scanlines, local volume, and audio activation state. Connection exposes the U2 privacy choice and current connection status. Local data opens U6 management. A guest nickname is editable outside active play and explains “Temporary name for this browser session”; no login/account UI is implied.
 
