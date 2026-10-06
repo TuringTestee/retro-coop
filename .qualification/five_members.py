@@ -3,7 +3,7 @@ from urllib.parse import urlsplit
 from pathlib import Path
 from playwright.sync_api import sync_playwright,expect
 parser=argparse.ArgumentParser(description='Temporary final-source public five-member qualification; not a shipped test.')
-parser.add_argument('--root',type=Path,required=True);parser.add_argument('--source',required=True);parser.add_argument('--output',type=Path,required=True)
+parser.add_argument('--url',default='https://retro-coop.atobot.cloud/');parser.add_argument('--root',type=Path,required=True);parser.add_argument('--source',required=True);parser.add_argument('--output',type=Path,required=True)
 args=parser.parse_args()
 # Keep diagnostic voice decoded in the browser, but never play it on desktop speakers.
 if os.environ.get('GITHUB_ACTIONS')=='true':
@@ -24,7 +24,7 @@ from unified_shell_browser import regions,controller_fits,game_fits,text_fits
 from layout_geometry import control_visibility
 from original_fixture import build
 OUT=args.output.resolve();OUT.mkdir(parents=True,exist_ok=False)
-URL='https://retro-coop.atobot.cloud/';NAME='Five release '+str(time.time_ns())[-6:]
+URL=args.url;NAME='Five release '+str(time.time_ns())[-6:]
 PASSWORD=os.environ.get('QUALIFICATION_PASSWORD');assert PASSWORD,'Private qualification password is required'
 result={'url':URL,'deployed_source':args.source,'observation_helper_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'audio_output':audio_output,'scope':'Live swaps/host observer, empty close/reopen, grace Retry and deliberately stalled-owner recovery; five members across four Chromium processes, with Host/P2 sharing one browser context: native input/state, all-member decoded voice/playback, chat, phone panels/Return/release, moderation, promotion and rejoin. Generated diagnostic and four process-specific fake microphone tones (shared-context pair shares one tone) prove browser transport/decoding, not physical-device or conversational quality. Production asset identity verified separately before/after.','errors':[]}
 fixture=(ROOT/'scripts/gameplay/fixture.js').read_text()+'''\n(()=>{const S=WebSocket;window.WebSocket=class extends S{constructor(...a){super(...a);this.addEventListener('message',({data})=>{try{const p=JSON.parse(data);if(p.type==='result'&&p.ok&&p.data?.room)proof.room=p.data.room;}catch{}})}}})();'''
