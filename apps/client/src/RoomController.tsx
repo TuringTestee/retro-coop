@@ -53,21 +53,21 @@ export const RoomController=forwardRef<RoomControllerHandle,{
  };
  const loadIncluded=async(id:CatalogId)=>{
   const entry=catalogEntry(id),currentRoom=room.current;
-  if(currentRoom?.established&&currentRoom.catalogId!==id||currentRoom?.role==='member'&&currentRoom.catalogId!==id){onNotice('Return to a lobby before changing the game.');return;}
+  if(currentRoom?.role==='member'&&currentRoom.catalogId!==id){onNotice('Return to a lobby before changing the game.');return;}
   if(fingerprint&&player()?.isLoaded(fingerprint)&&catalogId(fingerprint)===id&&(currentRoom?.role!=='host'||currentRoom.catalogId===id)){if(currentRoom?.role==='member')void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'loaded');onNotice('');return;}
   if(client.current?.beginSelection()===false)return;cancelIncluded();
   const operation:IncludedOperation={id,membership:currentRoom?`${currentRoom.id}:${currentRoom.role}:${currentRoom.chatMembership}`:'',target:currentRoom,controller:new AbortController(),loading:false,candidate:false};included.current=operation;
-  const current=()=>included.current===operation&&!operation.controller.signal.aborted&&(currentRoom?connected.current&&room.current?.id===currentRoom.id&&room.current.chatMembership===currentRoom.chatMembership&&room.current.role===currentRoom.role&&(currentRoom.started?acquisitionCurrent(currentRoom):!room.current.started):!room.current);
+  const current=()=>included.current===operation&&!operation.controller.signal.aborted&&(currentRoom?connected.current&&room.current?.id===currentRoom.id&&room.current.chatMembership===currentRoom.chatMembership&&room.current.role===currentRoom.role&&(currentRoom.established&&currentRoom.role==='host'?room.current.revision===currentRoom.revision:currentRoom.started?acquisitionCurrent(currentRoom):!room.current.started):!room.current);
   operation.current=current;
   const progress=(message:string)=>onGameProgress(message);
-  onNotice(`Downloading ${entry.title}…`);progress(`Downloading ${entry.title}…`);if(currentRoom)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'downloading');
+  onNotice(`Downloading ${entry.title}…`);progress(`Downloading ${entry.title}…`);if(currentRoom&&!currentRoom.established)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'downloading');
   const timeout=setTimeout(()=>operation.controller.abort(Error('The download timed out. Retry.')),15000);
   try{
    const file=await downloadCatalogEntry(entry,operation.controller.signal,()=>{if(current()){onNotice(`Downloading ${entry.title}…`);progress(`Downloading ${entry.title}…`);}});
    if(!current())return;
-   operation.candidate=true;onNotice(`Loading ${entry.title}…`);progress(`Loading ${entry.title}…`);if(currentRoom)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'loading');
+   operation.candidate=true;onNotice(`Loading ${entry.title}…`);progress(`Loading ${entry.title}…`);if(currentRoom&&!currentRoom.established)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'loading');
    if(!onAcquired(file,current))throw Error(`Could not load ${entry.title}. Retry.`);
-  }catch(error){if(included.current===operation){if(currentRoom)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'failed');onNotice(error instanceof Error?error.message:`Could not load ${entry.title}. Retry.`);progress('');included.current=undefined;}}
+  }catch(error){if(included.current===operation){if(currentRoom&&!currentRoom.established)void client.current?.memberAcquisition(currentRoom.id,currentRoom.chatMembership,'failed');onNotice(error instanceof Error?error.message:`Could not load ${entry.title}. Retry.`);progress('');included.current=undefined;}}
   finally{clearTimeout(timeout);}
  };
 

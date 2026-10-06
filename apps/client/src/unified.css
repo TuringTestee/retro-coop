@@ -784,3 +784,5 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-inline-settings .rc-binding-inventory { grid-column: 1 / -1; grid-row: 2; }
  .rc-inline-settings .rc-game-actions { grid-column: 1 / -1; grid-row: 3; }
 }
+
+.rc-expanded-change { position: absolute; top: max(8px,env(safe-area-inset-top)); left: max(8px,env(safe-area-inset-left)); z-index: 3; }

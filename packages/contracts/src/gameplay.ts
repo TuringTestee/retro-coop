@@ -1,4 +1,5 @@
 import {object,keys,token,integer,sha256} from './protocol-validation.ts';
+import type {Fingerprint} from './fingerprint.ts';
 import type {SlotId,SlotRole} from './slots.ts';
 /** Bounded member-authorized control protocol; participant identities are opaque. */
 export const gameplayLimits={delayMin:3,delayMax:8,delayDefault:6,inputWindow:120,hashInterval:120,packetBytes:512,barrierMs:10_000,stallMs:3000,historyFrames:2048,checkpointMs:30_000,catchupMs:15_000} as const;
@@ -7,11 +8,12 @@ export type GameReason=typeof reasons[number];
 const validReason=(value:unknown):value is GameReason=>typeof value==='string'&&(reasons as readonly string[]).includes(value);
 export type ControllerAssignment={owners:[string|null,string|null];revision:number};
 export type RoleTransaction={id:string;revision:number;roles:{slotId:SlotId;role:SlotRole}[];status:'freezing'|'synchronizing'|'failed';reason?:string};
-export type SaveLoadView={id:string;epoch:string;phase:'freezing'|'staging'|'committing'|'rolling_back';frame:number;hash:string;identity:string;savedAt:number;required:string[];expiresAt:number;priorFrame?:number;priorHash?:string;reason?:string};
+export type CartridgeCandidate={intent:string;fingerprint:Fingerprint;title:string};
+export type SaveLoadView={replacement?:CartridgeCandidate;freezeRequired?:string[];id:string;epoch:string;phase:'freezing'|'staging'|'committing'|'rolling_back';frame:number;hash:string;identity:string;savedAt:number;required:string[];expiresAt:number;priorFrame?:number;priorHash?:string;reason?:string};
 export type GameView={hostRecovery?:string;load?:SaveLoadView;controllers:ControllerAssignment;pending?:RoleTransaction;ready:string[];startRequested:boolean;status:'waiting'|'starting'|'countdown'|'playing'|'pausing'|'resume_ready'|'paused'|'failed';epoch?:string;delay?:number;startAt?:number;frame?:number;reason?:string};
 export type CheckpointPurpose='observer'|'controller'|'load';
 export type GameCommand=
- | {type:'gameLoadPropose';requestId:string;revision:number;roomRevision:number;frame:number;hash:string;identity:string;savedAt:number}
+ | {type:'gameLoadPropose';requestId:string;revision:number;roomRevision:number;frame:number;hash:string;identity:string;savedAt:number;selectionIntent?:string}
  | {type:'gameLoadBoundary'|'gameLoadPrepared'|'gameLoadCommitted'|'gameLoadRolledBack';requestId:string;transactionId:string;frame:number;hash:string}
  | {type:'gameLoadFailed';requestId:string;transactionId:string}
  | {type:'gameRestore';requestId:string;revision:number;roomRevision:number;frame:number;hash:string;previousEpoch?:string}
@@ -51,7 +53,7 @@ export type GamePacket=FramePacket|{kind:'input';epoch:string;frame:number;mask:
 export function parseGameCommand(value:unknown):GameCommand|undefined {
  if(!object(value)||!token(value.requestId))return;
  const base=['type','requestId'],frame=integer(value.frame,0,Number.MAX_SAFE_INTEGER);
- if(value.type==='gameLoadPropose'&&keys(value,[...base,'revision','roomRevision','frame','hash','identity','savedAt'])&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&integer(value.roomRevision,0,Number.MAX_SAFE_INTEGER)&&frame&&sha256(value.hash)&&sha256(value.identity)&&integer(value.savedAt,0,8640000000000000))return value as GameCommand;
+ if(value.type==='gameLoadPropose'&&keys(value,[...base,'revision','roomRevision','frame','hash','identity','savedAt'],['selectionIntent'])&&(value.selectionIntent===undefined||token(value.selectionIntent))&&integer(value.revision,0,Number.MAX_SAFE_INTEGER)&&integer(value.roomRevision,0,Number.MAX_SAFE_INTEGER)&&frame&&sha256(value.hash)&&sha256(value.identity)&&integer(value.savedAt,0,8640000000000000))return value as GameCommand;
  if(['gameLoadBoundary','gameLoadPrepared','gameLoadCommitted','gameLoadRolledBack'].includes(String(value.type))&&keys(value,[...base,'transactionId','frame','hash'])&&token(value.transactionId)&&frame&&sha256(value.hash))return value as GameCommand;
  if(value.type==='gameLoadFailed'&&keys(value,[...base,'transactionId'])&&token(value.transactionId))return value as GameCommand;
 

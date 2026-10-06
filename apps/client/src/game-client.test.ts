@@ -251,3 +251,18 @@ test('cancelled, timed-out and closed checkpoint transports cannot send on a lat
   }finally{t.game.dispose();context.mock.timers.reset();}
  }
 });
+
+test('leaving settles a pending cartridge replacement and fences its captured native continuation',async()=>{
+ const t=setup(host),intent='x'.repeat(22);let current=true;
+ Object.assign(t.player,{captureCartridge:async()=>({type:'state-captured',frame:0,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)})});
+ const pending=t.game.replaceCartridge(intent,()=>current);await tick();assert.equal(t.commands.at(-1)?.type,'gameLoadPropose');
+ current=false;t.game.enter(undefined);await assert.rejects(pending,/Lobby membership changed/);t.game.dispose();
+});
+
+test('a cartridge captured after its selection was canceled never proposes a shared swap',async()=>{
+ const t=setup(host);let current=true,finish!:(value:unknown)=>void;
+ Object.assign(t.player,{captureCartridge:()=>new Promise(resolve=>finish=resolve)});
+ const pending=t.game.replaceCartridge('x'.repeat(22),()=>current);current=false;
+ finish({frame:0,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)});await assert.rejects(pending,/Game selection changed/);
+ assert.equal(t.commands.some(command=>command.type==='gameLoadPropose'),false);t.game.dispose();
+});

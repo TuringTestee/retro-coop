@@ -197,3 +197,12 @@ test('asynchronous checkpoint authorization is checked again after preparation b
  await assert.rejects(player.importPeerCheckpoint('epoch',10,new ArrayBuffer(72),'identity','hash',authorized),/authorization changed/);
  assert.equal(commits,0);
 });
+
+test('leaving a provisional cartridge commit releases both machines and cannot publish late success',async context=>{
+ const t=await preparedReplacement(context),id='cartridge-transaction';
+ Object.assign(t.player,{shared:true,busy:false,canvas:{getContext(){return null;}},pause(){},persistBattery:async()=>{},fileRequest:async(command:{type:string})=>({type:command.type==='peer-checkpoint-prepare'?'peer-checkpoint-prepared':'peer-checkpoint-imported',frame:0,hash:'prepared'})});
+ t.player.ownCartridge(id);await t.player.prepareSharedSave(id,'epoch',0,new ArrayBuffer(72),'identity','prepared',()=>true);await t.player.commitSharedSave(id,()=>true);
+ assert.notEqual(t.active,t.old);assert.equal(t.oldStopped,0);assert.equal(t.remembered,0);
+ await t.player.quit();assert.equal(t.oldStopped,1);assert.equal(t.candidateStopped,1);
+ t.resolve({ok:true});await t.handled;assert.equal(t.remembered,0);assert.equal(t.active,undefined);
+});

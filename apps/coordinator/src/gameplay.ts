@@ -1,12 +1,12 @@
 import {randomBytes} from 'node:crypto';
-import {gameplayLimits,type GameCommand,type GameEvent,type GameView,type ControllerAssignment,type RoleTransaction,type CheckpointPurpose,type SaveLoadView} from '../../../packages/contracts/src/gameplay.ts';
+import {gameplayLimits,type GameCommand,type GameEvent,type GameView,type ControllerAssignment,type RoleTransaction,type CheckpointPurpose,type SaveLoadView,type CartridgeCandidate} from '../../../packages/contracts/src/gameplay.ts';
 type Offer=Extract<GameCommand,{type:'gameReady'}>;
 type Member={id:string;connected:boolean;loaded:boolean;hostTransport:boolean;allLinksReady:boolean};
 type Transfer={id:string;recipient:string;purpose:CheckpointPurpose;frame?:number;hash?:string;sending:boolean;deadline:number;catchingUp?:boolean};
 const id=()=>randomBytes(24).toString('base64url');
 /** Room-owned authority and barriers. Controller owners gate initial Start; observers do not. */
 export class GameSession {
- private loadState?:{view:SaveLoadView;oldEpoch?:string;oldFrame:number;oldHash?:string;initial:boolean;resume:boolean;revision:number;controllers:number;boundaries:Map<string,{frame:number;hash:string}>;prepared:Set<string>;committed:Set<string>;rolledBack:Set<string>};
+ private loadState?:{view:SaveLoadView;freezeRequired:string[];oldEpoch?:string;oldFrame:number;oldHash?:string;initial:boolean;resume:boolean;revision:number;controllers:number;boundaries:Map<string,{frame:number;hash:string}>;prepared:Set<string>;committed:Set<string>;rolledBack:Set<string>};
  private host='';private members=new Map<string,Member>();private offers=new Map<string,Offer>();private acks=new Set<string>();private required:string[]=[];
  private roomRevision?:number;
  private hostInterruption?:{epoch:string;controllers:number};
@@ -16,6 +16,8 @@ export class GameSession {
  constructor(now:()=>number,send:(member:string,event:GameEvent)=>void,commitRoles:(pending:RoleTransaction)=>ControllerAssignment){this.now=now;this.send=send;this.commitRoles=commitRoles;}
  private recoveryEpoch(){const lost=this.hostInterruption;return lost&&lost.epoch===this.state.epoch&&lost.controllers===this.state.controllers.revision&&this.state.status==='failed'&&!this.state.pending&&!this.loadState?lost.epoch:undefined;}
  view():GameView{return {...this.state,hostRecovery:this.recoveryEpoch(),...(this.loadState?{load:{...this.loadState.view,required:[...this.loadState.view.required]}}:{}),ready:[...this.offers.keys()],frame:this.frame};}
+ replaceCartridge(member:string,command:Extract<GameCommand,{type:'gameLoadPropose'}>,replacement:CartridgeCandidate,controllers:ControllerAssignment,commit:()=>ControllerAssignment){this.handleLoad(member,command,false,{replacement,controllers,commit});}
+ private replacementCommit?:()=>ControllerAssignment;
  resetForGameSelection(){if(this.loadState)throw Error('timeline_change_pending');if(this.state.epoch)throw Error('game_already_started');this.offers.clear();this.deadline=0;this.state={...this.state,ready:[],startRequested:false,status:'waiting',reason:undefined,startAt:undefined};}
  private all(event:GameEvent){for(const member of this.members.keys())this.send(member,event);}
  private owners(assignment=this.state.controllers){return [...new Set([this.host,...assignment.owners.filter((owner):owner is string=>!!owner)])];}
@@ -29,9 +31,9 @@ export class GameSession {
    for(const [member,offer] of this.offers)if(!this.available(member)||offer.revision!==this.state.controllers.revision||offer.roomRevision!==(revision??this.roomRevision??0))this.offers.delete(member);
   }
   if(revision!==undefined)this.roomRevision=revision;
-  const load=this.loadState;if(load&&load.view.phase!=='rolling_back'&&(load.revision!==this.roomRevision||load.controllers!==controllers.revision||load.view.required.some(member=>!this.available(member))))this.abortLoad('Players or connection changed. Previous progress is preserved.');
+  const load=this.loadState;if(load&&load.view.phase!=='rolling_back'&&(load.revision!==this.roomRevision||load.controllers!==controllers.revision||this.loadMembers(load).some(member=>!this.available(member))))this.abortLoad('Players or connection changed. Previous progress is preserved.');
   if(this.state.status==='countdown'&&!this.hasPlayed&&!this.initialReady())this.stop('Lobby roles or members changed. Prepare again before starting.');
-  if(load?.view.phase==='rolling_back')for(const member of load.view.required){const boundary=load.boundaries.get(member);if(boundary&&!load.rolledBack.has(member)&&!previous.get(member)?.connected&&this.members.get(member)?.connected)this.send(member,{type:'gameLoadRollback',transactionId:load.view.id,epoch:load.oldEpoch,frame:boundary.frame,hash:boundary.hash,reason:load.view.reason!});}
+  if(load?.view.phase==='rolling_back')for(const member of this.loadMembers(load)){const boundary=load.boundaries.get(member);if(boundary&&!load.rolledBack.has(member)&&!previous.get(member)?.connected&&this.members.get(member)?.connected)this.send(member,{type:'gameLoadRollback',transactionId:load.view.id,epoch:load.oldEpoch,frame:boundary.frame,hash:boundary.hash,reason:load.view.reason!});}
   const changed=[...previous.values()].some(old=>!this.members.has(old.id)||old.connected&&!this.members.get(old.id)!.connected||old.hostTransport&&!this.members.get(old.id)!.hostTransport);
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
   if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Players changed. Progress kept.');
@@ -195,43 +197,45 @@ export class GameSession {
  }
  private holdLoad(){
   const load=this.loadState;if(!load)return;
-  for(const member of load.view.required)this.send(member,{type:'gameLoadHold',transactionId:load.view.id,epoch:load.oldEpoch,...(!load.initial?{frame:load.oldFrame,hash:load.oldHash}:{})});
+  for(const member of this.loadMembers(load))this.send(member,{type:'gameLoadHold',transactionId:load.view.id,epoch:load.oldEpoch,...(!load.initial?{frame:load.oldFrame,hash:load.oldHash}:{})});
  }
+ private loadMembers(load:NonNullable<GameSession['loadState']>){return [...new Set([...load.freezeRequired,...load.view.required])];}
  private phaseLoad(phase:SaveLoadView['phase'],duration:number){const load=this.loadState!;load.view.phase=phase;load.view.expiresAt=this.now()+duration;}
- private handleLoad(member:string,command:GameCommand,verifiedTransfer=false){
+ private handleLoad(member:string,command:GameCommand,verifiedTransfer=false,candidate?:{replacement:CartridgeCandidate;controllers:ControllerAssignment;commit:()=>ControllerAssignment}){
   if(command.type==='gameLoadPropose'){
    if(member!==this.host)throw Error('host_only');this.checkRevision(command.revision);
    if(command.roomRevision!==this.roomRevision)throw Error('room_changed');
    if(this.loadState||this.state.pending||[...this.transfers.values()].some(transfer=>transfer.purpose!=='observer'))throw Error('timeline_change_pending');
    if(!['waiting','playing','paused','resume_ready','failed'].includes(this.state.status)||this.owners().some(owner=>!this.available(owner)))throw Error('game_prerequisites');
    for(const transfer of [...this.transfers.values()])if(transfer.purpose==='observer')this.cancelTransfer(transfer,'Waiting for the game to finish changing.');
-   const initial=!this.state.epoch,view:SaveLoadView={id:id(),epoch:id(),phase:'freezing',frame:command.frame,hash:command.hash,identity:command.identity,savedAt:command.savedAt,required:this.owners(),expiresAt:this.now()+gameplayLimits.barrierMs};
-   this.loadState={view,initial,resume:this.state.status==='playing',revision:this.roomRevision??0,controllers:this.state.controllers.revision,oldEpoch:this.state.epoch,oldFrame:this.frame,oldHash:this.hash,boundaries:new Map(),prepared:new Set(),committed:new Set(),rolledBack:new Set()};
+   const initial=!this.state.epoch,view:SaveLoadView={id:id(),epoch:id(),phase:'freezing',frame:command.frame,hash:command.hash,identity:command.identity,savedAt:command.savedAt,required:candidate?this.owners(candidate.controllers):this.owners(),...(candidate?{replacement:candidate.replacement,freezeRequired:this.owners()}:{}),expiresAt:this.now()+gameplayLimits.barrierMs};
+   this.replacementCommit=candidate?.commit;this.loadState={view,freezeRequired:this.owners(),initial,resume:this.state.status==='playing',revision:this.roomRevision??0,controllers:this.state.controllers.revision,oldEpoch:this.state.epoch,oldFrame:this.frame,oldHash:this.hash,boundaries:new Map(),prepared:new Set(),committed:new Set(),rolledBack:new Set()};
    this.offers.clear();
    if(this.state.status==='playing')this.freeze('Preparing to load saved progress.');else {if(!initial){view.priorFrame=this.frame;view.priorHash=this.hash;}this.holdLoad();}return;
   }
   if(!('transactionId' in command))throw Error('invalid_game');
   const load=this.loadState;if(!load||load.view.id!==command.transactionId)throw Error('stale_load');const {view}=load;
-  if(!view.required.includes(member))throw Error('controller_only');
+  if(!this.loadMembers(load).includes(member))throw Error('controller_only');
   if(command.type==='gameLoadFailed'){this.abortLoad('Could not load saved progress. Previous progress is preserved.');return;}
   if(command.type==='gameLoadBoundary'){
    if(view.phase!=='freezing')throw Error('stale_load');
-   if(!load.initial&&(command.frame!==load.oldFrame||command.hash!==load.oldHash)){this.abortLoad('Players could not pause together. Previous progress is preserved.');return;}
+   if(!load.initial&&load.freezeRequired.includes(member)&&(command.frame!==load.oldFrame||command.hash!==load.oldHash)){this.abortLoad('Players could not pause together. Previous progress is preserved.');return;}
    load.boundaries.set(member,{frame:command.frame,hash:command.hash});
    if(member===this.host){load.oldFrame=command.frame;load.oldHash=command.hash;view.priorFrame=command.frame;view.priorHash=command.hash;}
-   if(view.required.every(owner=>load.boundaries.has(owner))){this.state.status=load.initial?'waiting':'paused';this.stageLoad();}return;
+   if(this.loadMembers(load).every(owner=>load.boundaries.has(owner))){this.state.status=load.initial?'waiting':'paused';this.stageLoad();}return;
   }
   if(command.type==='gameLoadRolledBack'){
    if(view.phase!=='rolling_back')throw Error('stale_load');const boundary=load.boundaries.get(member);
    if(!boundary||boundary.frame!==command.frame||boundary.hash!==command.hash)throw Error('rollback_failed');load.rolledBack.add(member);this.finishLoadRollback();return;
   }
   if(command.type==='gameLoadPrepared'||command.type==='gameLoadCommitted'){
+   if(!view.required.includes(member))throw Error('controller_only');
    if(command.type==='gameLoadPrepared'&&member!==this.host&&!verifiedTransfer)throw Error('checkpoint_required');
    const phase=command.type==='gameLoadPrepared'?'staging':'committing';if(view.phase!==phase||command.frame!==view.frame||command.hash!==view.hash)throw Error('stale_load');
    const acknowledgments=phase==='staging'?load.prepared:load.committed;acknowledgments.add(member);
    if(!view.required.every(owner=>acknowledgments.has(owner)))return;
    if(phase==='staging'){this.phaseLoad('committing',gameplayLimits.barrierMs);for(const owner of view.required)this.send(owner,{type:'gameLoadCommit',transactionId:view.id,epoch:view.epoch,frame:view.frame,hash:view.hash});}
-   else {for(const owner of view.required)this.send(owner,{type:'gameLoadFinish',transactionId:view.id});this.loadState=undefined;this.hasPlayed=true;if(load.resume)this.begin(view.frame,view.hash,view.epoch);else {this.frame=view.frame;this.hash=view.hash;this.state={...this.state,epoch:view.epoch,status:'resume_ready',reason:'Saved progress loaded. The host can resume.',startRequested:false,startAt:undefined};}}return;
+   else {for(const owner of this.loadMembers(load))this.send(owner,{type:'gameLoadFinish',transactionId:view.id});this.loadState=undefined;if(view.replacement){const commit=this.replacementCommit;this.replacementCommit=undefined;const controllers=commit!();this.offers.clear();this.acks.clear();this.transfers.clear();this.hasPlayed=false;this.hostInterruption=undefined;this.frame=0;this.hash=undefined;this.deadline=0;this.state={controllers,ready:[],status:'waiting',startRequested:false};return;}this.hasPlayed=true;if(load.resume)this.begin(view.frame,view.hash,view.epoch);else {this.frame=view.frame;this.hash=view.hash;this.state={...this.state,epoch:view.epoch,status:'resume_ready',reason:'Saved progress loaded. The host can resume.',startRequested:false,startAt:undefined};}}return;
   }
   throw Error('invalid_game');
  }
@@ -257,14 +261,14 @@ export class GameSession {
  private abortLoad(reason:string){
   const load=this.loadState;if(!load||load.view.phase==='rolling_back')return;
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,reason);this.offers.clear();this.acks.clear();this.phaseLoad('rolling_back',gameplayLimits.barrierMs);load.view.reason=reason;this.state.status=load.initial?'waiting':'paused';this.state.reason=reason;
-  for(const member of load.view.required){const boundary=load.boundaries.get(member);if(boundary)this.send(member,{type:'gameLoadRollback',transactionId:load.view.id,epoch:load.oldEpoch,frame:boundary.frame,hash:boundary.hash,reason});else load.rolledBack.add(member);}
+  for(const member of this.loadMembers(load)){const boundary=load.boundaries.get(member);if(boundary)this.send(member,{type:'gameLoadRollback',transactionId:load.view.id,epoch:load.oldEpoch,frame:boundary.frame,hash:boundary.hash,reason});else load.rolledBack.add(member);}
   this.finishLoadRollback();
  }
  private finishLoadRollback(timedOut=false){
   const load=this.loadState;if(!load||load.view.phase!=='rolling_back')return;
   if(!load.rolledBack.has(this.host))return;
-  if(!timedOut&&load.view.required.some(member=>this.members.get(member)?.connected&&!load.rolledBack.has(member)))return;
-  this.frame=load.oldFrame;this.hash=load.oldHash;this.state={...this.state,epoch:load.oldEpoch,status:load.initial?'waiting':'paused',startRequested:false,startAt:undefined,reason:load.view.reason};this.loadState=undefined;
+  if(!timedOut&&this.loadMembers(load).some(member=>this.members.get(member)?.connected&&!load.rolledBack.has(member)))return;
+  this.frame=load.oldFrame;this.hash=load.oldHash;this.state={...this.state,epoch:load.oldEpoch,status:load.initial?'waiting':'paused',startRequested:false,startAt:undefined,reason:load.view.reason};this.loadState=undefined;this.replacementCommit=undefined;
   this.all({type:'gameStop',epoch:load.oldEpoch,reason:this.state.reason!});
  }
  stop(reason:string,status:GameView['status']='paused'){
