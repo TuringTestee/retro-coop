@@ -53,7 +53,7 @@ export type WorkerResponse =
   | {type:'state-inspected';requestId:number;identity:string;hash:string}
   | { type: `${LocalFileKind}-exported`; requestId: number; bytes: ArrayBuffer }
   | { type: `${LocalFileKind}-imported`; requestId: number }
-  | { type: `${LocalFileKind}-error`; requestId: number; message: string }
+  | { type: `${LocalFileKind}-error`; requestId: number; message: string; code?:'invalid_state' }
   | { type: 'error'; message: string };
 export type HealthResponse = { status: 'ok'; service: 'retro-coop-coordinator'; protocol: 1 };
 export const health: HealthResponse = { status: 'ok', service: 'retro-coop-coordinator', protocol: 1 };

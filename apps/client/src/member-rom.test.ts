@@ -21,6 +21,14 @@ test('guest download checks exact bytes, persists, reads back and rehashes on re
  const stored=await readRom(hash);const damaged=bytes.slice();damaged[20]^=1;await putRom({sha256:hash,size:damaged.length,bytes:damaged.buffer,savedAt:Date.now()},stored.generation,stored.romGeneration);
  const repaired=await acquireMemberRom(room,token,signal,()=>{},()=>true,fetcher);assert.equal(repaired.source,'download');assert.equal(calls,2);
 });
+test('the returning host uses the same verified acquisition owner and its own membership',async()=>{
+ const before=await readRom(hash);await clearLocalData(before.generation);let calls=0;
+ const host={...room,role:'host' as const,chatMembership:'h'.repeat(43)};
+ const fetcher=(async(_url:URL,init:RequestInit)=>{calls++;assert.equal((init.headers as Record<string,string>)['X-Room-Membership'],host.chatMembership);return response();}) as typeof fetch;
+ const downloaded=await acquireMemberRom(host,token,signal,()=>{},()=>true,fetcher);
+ assert.equal(downloaded.source,'download');assert.deepEqual(new Uint8Array(await downloaded.file.arrayBuffer()),bytes);
+ assert.equal((await acquireMemberRom(host,token,signal,()=>{},()=>true,fetcher)).source,'cache');assert.equal(calls,1);
+});
 test('cross-tab clear during transfer prevents the late cache write but leaves playable bytes',async()=>{
  const current=await readRom(hash);await clearLocalData(current.generation);
  let release!:(response:Response)=>void;const fetcher=(()=>new Promise<Response>(resolve=>{release=resolve;})) as typeof fetch;

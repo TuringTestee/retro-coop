@@ -26,7 +26,7 @@ const messages:Record<string,string> = {
  room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired. Reconnect to continue.',
  room_changed:'That lobby has changed. Review the current lobby before trying again.',membership_changed:'That member has left or rejoined. Review the current slot before trying again.',
  timeline_change_pending:'Finish or cancel the current game change, then try again.',slot_occupied:'Remove the member before closing this slot.',slot_empty:'That player has left. Check the slot and try again.',slot_closed:'Open the destination slot before moving someone there.',controller_occupied:'An empty slot cannot take an occupied controller role.',role_change_pending:'Finish or cancel the current player change first.',game_not_playing:'Finish initial preparation before changing roles. If preparation fails, use Retry shared play.',stale_controllers:'The players changed. Review the current slots and retry.',game_prerequisites:'Wait until every player has the game, is connected, and is Ready before starting.',unsupported_role:'This game does not support that controller role.',
- host_only:'Only the host can change this lobby.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
+ host_only:'Only the host can change this lobby.',host_recovery_required:'The host lost its game state. Recover automatic progress before preparing.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
  host_expired:'The host did not return. This lobby has closed.',host_closed:'The host closed the lobby.',removed:'The host removed you from this lobby.',left:'You left the lobby. Your local game is still available.',
  operator_removed:'An operator closed this lobby. Your local game is preserved.',admission_blocked:'Access is temporarily restricted by an operator. Retry later. Your local game is preserved.',
  service_restarted:'The service restarted. Ephemeral lobbies have closed.',creation_cancelled:'Lobby creation cancelled. Your game stays local.',creation_expired:'Upload timed out. Retry upload to create a fresh lobby.',upload_expired:'Upload timed out. Retry upload to create a fresh lobby.',cancelled:'Lobby creation cancelled.',
@@ -214,7 +214,7 @@ export class RoomClient {
   if(!isCurrent()) return false;
   const room=this.state.room;
   if(room?.game.load||room?.game.pending){this.publish({status:'Finish or cancel the current game change before selecting another NES game.'});return false;}
-  if(room?.established&&!(room.role==='member'&&room.fingerprint&&matchesFile(room.fingerprint,fingerprint)&&!this.player()?.isLoaded(fingerprint))){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
+  if(room?.established&&!(room.fingerprint&&matchesFile(room.fingerprint,fingerprint)&&!this.player()?.isLoaded(fingerprint))){this.publish({status:'Leave shared play before replacing the game. Your current game is preserved.'});return false;}
   if(room?.role==='member'&&room.fingerprint&&!matchesFile(room.fingerprint,fingerprint)){this.publish({status:'Choose the lobby game before getting ready.'});return false;}
   return true;
  }
@@ -298,9 +298,11 @@ export class RoomClient {
  async restoreGame(frame:number,hash:string,current:()=>boolean){
   let room=this.state.room;const player=this.player();
   if(!room||room.role!=='host'||!room.fingerprint||!player?.isLoaded(room.fingerprint)||!current())throw Error('The lobby changed. Return to the main page.');
-  if(!room.started){
+  const native=await player.stateHash();
+  if(!current()||native.frame!==frame||native.hash!==hash)throw Error('Recovered native progress changed. Retry host recovery.');
+  if(!room.started||room.game.hostRecovery){
    try{
-    const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash});
+    const data=await this.request({type:'gameRestore',revision:room.game.controllers.revision,roomRevision:room.revision,frame,hash,...(room.started?{previousEpoch:room.game.hostRecovery}: {})});
     if(!current()||data.room?.id!==room.id||!data.room.game.epoch)throw Error('Restoration cancelled.');
     this.restoredBinding={roomId:room.id,membership:room.chatMembership,epoch:data.room.game.epoch,frame,hash,fingerprint:room.fingerprint};
     this.apply(data);
