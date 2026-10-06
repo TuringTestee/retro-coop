@@ -893,6 +893,11 @@ def shared_load():
             proof.saveReceipts??=[];proof.saveReceipts.push({type:data.type,info:data.info,
               frame:data.frame,hash:data.hash,identity:data.identity,bytes:data.bytes?.byteLength});
           }
+        });this.addEventListener('message',event=>{
+          if(event.data.type!=='state-captured'||!proof.holdSaveCapture)return;
+          const data=event.data;proof.heldSaveCapture={frame:data.frame,hash:data.hash};
+          proof.releaseSaveCapture=()=>{proof.holdSaveCapture=false;this.dispatchEvent(new MessageEvent('message',{data}));};
+          event.stopImmediatePropagation();
         });}
       };
       const RoomSocket=WebSocket;
@@ -952,6 +957,9 @@ def shared_load():
             url=json.loads(line)['url']
         browsers=[playwright.chromium.launch(ignore_default_args=['--mute-audio']) for _ in range(2)]
         for browser in browsers:resources.callback(browser.close)
+        from unified_shell_browser import save_feedback
+        print('shared Save/Load check: save_feedback',flush=True)
+        save_feedback(browsers[0],url,SESSION)
         contexts=[browser.new_context(viewport={'width':args.width,'height':args.height},permissions=['clipboard-read','clipboard-write']) for browser in browsers]
         pages=[]
         for context in contexts:
@@ -1040,6 +1048,10 @@ def shared_load():
             before=native(host)
             old_epoch=host.evaluate('proof.room.game.epoch')
             shell=shell_bounds(host)
+            guest.evaluate('proof.holdSaveCapture=true')
+            guest.locator('canvas').focus();guest.keyboard.press('q')
+            guest.wait_for_function('typeof proof.releaseSaveCapture==="function"')
+            held_save=guest.evaluate('proof.heldSaveCapture')
             host.keyboard.press('e')
             expect(host.get_by_role('alertdialog')).to_be_visible()
             screenshot(host,'shared-load-host-confirm.png')
@@ -1055,6 +1067,15 @@ def shared_load():
                 info=receipt.get('info') or receipt
                 assert info['frame']==saved['frame'] and info['hash']==saved['hash'],(receipt,saved)
             check_shell(host,shell)
+            # A different player changed the shared timeline while this save was
+            # pending. Its native result must neither write nor describe the new one.
+            guest.evaluate('proof.releaseSaveCapture()')
+            expect(guest.locator('.rc-game-save-status')).to_have_count(0)
+            assert slot(guest) is None
+            guest.locator('canvas').focus();guest.keyboard.press('q')
+            expect(guest.locator('.rc-game-save-status')).to_have_text('Saved to quick slot 1.')
+            current_guest_save=slot(guest)
+            assert current_guest_save and current_guest_save['bytes']>72
             screenshot(host,'shared-load-restored-host.png');screenshot(guest,'shared-load-restored-guest.png')
             observer.wait_for_function('old=>proof.room.game.epoch!==old&&proof.frames.at(-1)?.epoch===proof.room.game.epoch',arg=old_epoch)
             observer_epoch=observer.evaluate('proof.room.game.epoch')
@@ -1156,7 +1177,7 @@ def shared_load():
             assert not errors,errors
             save('shared-load-result.json' ,{'result':'pass','rom_sha256':hashlib.sha256(args.rom.read_bytes()).hexdigest(),
                 'download_recovery_faults':download_faults,'late_download_native':late_native,'established_during_recovery':established,'saved':saved,'advanced_native':before,'old_epoch':old_epoch,'new_epoch':restored_epoch,'observer_epoch':observer_epoch,'later_byte_only_native':legacy,
-                'active_play_load_boundary':boundary[0],'active_play_decline':True,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
+                'active_play_load_boundary':boundary[0],'active_play_decline':True,'obsolete_guest_save_suppressed':held_save,'current_guest_save':current_guest_save,'native_commit_receipts':[page.evaluate('proof.saveReceipts') for page in pages],
                 'command_results':[page.evaluate('proof.commandResults') for page in [*pages,observer]],'ready_recoveries':ready_recoveries,'superseded_observer_transfers':observer_overlap,'final_observer_epoch':final_observer_epoch,'cancelled_loads':denials,'controller_ram':controller_ram,'page_errors':errors,'elapsed_seconds':round(time.monotonic()-started,2)})
         except Exception:
             for index,page in enumerate([*pages,observer] if observer is not None else pages):
