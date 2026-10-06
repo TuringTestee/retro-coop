@@ -2,6 +2,8 @@ Audience: Agent
 
 # Manual local save slots
 
+This records the original slot implementation. Current quick-load interaction and timeline replacement follow [the shared Save/Load plan](shared-timeline-controls.md); its direct action supersedes the original load-confirmation requirement below. Backup overwrite/deletion confirmations remain applicable.
+
 Players can keep three manual save slots for the current compatible game, restore one after confirmation, and import or export ROM-free backups. Saving and importing into storage do not replace the running game. This is another bounded D06 slice: [battery/preferences and Local data](d06-persistence.md) follow in a separate slice; [measured local rewind](d06-rewind.md) follows separately and remaining mapper qualification stays open in issue #10.
 
 ## Ownership and safety
