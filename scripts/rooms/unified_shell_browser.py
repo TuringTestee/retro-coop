@@ -601,7 +601,7 @@ def controller_input(browser, url, output):
         band = page.locator('.rc-controller-band').bounding_box()
         cdp.send('Input.dispatchTouchEvent', {'type':'touchStart','touchPoints':[{'id':8,'x':band['x']+band['width']/2,'y':band['y']+band['height']/4}]})
         observe('center upper area sends no input', 0)
-        cdp.send('Input.dispatchTouchEvent', {'type':'touchEnd','touchPoints':[]})
+        cdp.send('Input.dispatchTouchEvent', {'type':'touchCancel','touchPoints':[]})
         assert page.locator('.rc-game-fullscreen').count() == 1
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
             {'id': 4, 'x': ab['x']+ab['width']/2, 'y': ab['y']+ab['height']/2}]})

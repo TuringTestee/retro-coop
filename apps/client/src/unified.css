@@ -676,20 +676,20 @@ button:disabled { cursor: default; opacity: .52; }
  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
  grid-template-rows: 44px minmax(0,1fr) var(--phone-controller-height);
 }
-.rc-game-fullscreen .rc-phone-controller { height: var(--phone-controller-height); padding: 0; }
+.rc-game-fullscreen .rc-phone-controller { height: var(--phone-controller-height); padding: 0; pointer-events: none; }
 .rc-game-fullscreen .rc-phone-controller .rc-nes-controller {
  display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
  gap: 0; width: 100%; height: 100%; margin: 0;
 }
 .rc-game-fullscreen .rc-phone-controller .rc-thumb-pad { width: 100%; height: 100%; min-width: 0; }
-.rc-game-fullscreen .rc-phone-controller .rc-pad-drag { width: 100%; height: 100%; }
+.rc-game-fullscreen .rc-phone-controller .rc-pad-drag { width: 100%; height: 100%; pointer-events: auto; }
 .rc-game-fullscreen .rc-phone-controller .rc-pad-art { inset: auto; left: 50%; top: 50%; width: min(96px,100%); aspect-ratio: 1; transform: translate(-50%,-50%); }
 .rc-game-fullscreen .rc-phone-controller .rc-thumb-dot { left: calc(50% - 22px); top: calc(50% - 22px); }
 .rc-game-fullscreen .rc-phone-controller .rc-direction-up, .rc-game-fullscreen .rc-phone-controller .rc-direction-down { left: calc(50% - 22px); }
 .rc-game-fullscreen .rc-phone-controller .rc-direction-left, .rc-game-fullscreen .rc-phone-controller .rc-direction-right { top: calc(50% - 16px); }
 .rc-game-fullscreen .rc-phone-controller .rc-nes-system { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-self: end; height: 50%; gap: 0; }
 .rc-game-fullscreen .rc-phone-controller .rc-nes-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); height: 100%; gap: 0; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-button { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.rc-game-fullscreen .rc-phone-controller .rc-nes-button { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; pointer-events: auto; }
 .rc-game-fullscreen .rc-phone-controller button:focus-visible { outline-offset: -3px; }
 .rc-game-fullscreen .rc-phone-controller .rc-nes-button-art { display: grid; place-items: center; width: min(48px,100%); height: 32px; border: 2px solid currentColor; border-radius: 16px; background: #242a31; pointer-events: none; }
 .rc-game-fullscreen .rc-phone-controller .rc-nes-actions .rc-nes-button-art { height: auto; aspect-ratio: 1; border-radius: 50%; font-size: 22px; }
