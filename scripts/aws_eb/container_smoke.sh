@@ -9,10 +9,20 @@ turn_image=${4:-retro-coop-eb-turn:candidate}
 temporary=$(mktemp -d)
 project="retroeb$$"
 cleanup() {
+  result=$?
+  if [ "$result" -ne 0 ]; then
+    # This isolated stack contains synthetic test data only. Preserve failure
+    # diagnostics before deleting the services; production logging is unchanged.
+    docker compose -p "$project" -f "$temporary/docker-compose.yml" -f "$temporary/local.yml" logs --tail 100 >&2 || true
+  fi
   docker compose -p "$project" -f "$temporary/docker-compose.yml" -f "$temporary/local.yml" down --remove-orphans --volumes >/dev/null 2>&1 || true
   rm -rf -- "$temporary"
+  exit "$result"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 python3 - "$edge_image" "$coordinator_image" "$caddy_image" "$turn_image" "$temporary/docker-compose.yml" <<'PY'
 import sys
@@ -20,6 +30,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path.cwd() / 'scripts/aws_eb'))
 from package import render
 Path(sys.argv[5]).write_text(render(*sys.argv[1:5], local=True))
+Path(sys.argv[5]).with_name('nginx.conf').write_text(
+    Path('deploy/aws-eb/nginx.conf').read_text().replace(
+        'error_log /dev/stderr crit;', 'error_log /dev/stderr error;'))
 PY
 cat > "$temporary/Caddyfile" <<'EOF_CADDY'
 {
@@ -34,6 +47,9 @@ cat > "$temporary/Caddyfile" <<'EOF_CADDY'
 EOF_CADDY
 cat > "$temporary/local.yml" <<'EOF_LOCAL'
 services:
+  edge:
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
   caddy:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
