@@ -688,8 +688,11 @@ def save_feedback(browser, url, output):
                 assert status.evaluate("""node => {
                   const box=node.getBoundingClientRect(),game=node.closest('.rc-game-display').getBoundingClientRect();
                   return box.x>=game.x&&box.y>=game.y&&box.right<=game.right&&box.bottom<=game.bottom
+                    &&game.right-box.right<=12
                     &&node.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));
                 }""")
+                expansion = page.get_by_role('button', name='Return to lobby view' if expanded else 'Full screen', exact=True)
+                assert expansion.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
                 if expanded:
                     page.screenshot(path=str(output / f'save-progress-{width}x{height}.png'))
                 page.evaluate('window.holdSave=false;window.releaseSave()')
