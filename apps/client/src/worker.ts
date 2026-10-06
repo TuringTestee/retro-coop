@@ -28,8 +28,12 @@ let rollback: {operationId:string;frame:number;epoch?:string;fresh:boolean;bytes
 async function snapshot(assertOwner:()=>void){check(await core!.local_state_export());assertOwner();const bytes=copy(0);check(await core!.local_state_hash());assertOwner();return {bytes,hash:hex(copy(0))};}
 async function importState(bytes:ArrayBuffer){const ptr=core!.local_state_alloc(bytes.byteLength);if(!ptr)throw Error('Checkpoint allocation failed');new Uint8Array(core!.memory.buffer,ptr,bytes.byteLength).set(new Uint8Array(bytes));check(await core!.local_state_import(ptr,bytes.byteLength));}
 async function inspectState(bytes:ArrayBuffer){
- if(bytes.byteLength<72||bytes.byteLength>core!.local_state_limit())throw Error('Checkpoint exceeds codec limit');
- const ptr=core!.local_state_alloc(bytes.byteLength);if(!ptr)throw Error('Checkpoint allocation failed');new Uint8Array(core!.memory.buffer,ptr,bytes.byteLength).set(new Uint8Array(bytes));check(await core!.local_state_validate(ptr,bytes.byteLength));
+ // Establish a usable codec first: only its completed file rejection is permanent.
+ check(await core!.local_state_info());
+ if(bytes.byteLength<72||bytes.byteLength>core!.local_state_limit())throw Object.assign(Error('Checkpoint exceeds codec limit'),{code:'invalid_state'});
+ const ptr=core!.local_state_alloc(bytes.byteLength);if(!ptr)throw Error('Checkpoint allocation failed');new Uint8Array(core!.memory.buffer,ptr,bytes.byteLength).set(new Uint8Array(bytes));
+ const valid=await core!.local_state_validate(ptr,bytes.byteLength);
+ if(!valid)throw Object.assign(Error(new TextDecoder().decode(copy(0))),{code:'invalid_state'});
  const state=new Uint8Array(bytes),identity=hex(state.slice(8,40).buffer);const canonical=new Uint8Array(32+state.byteLength-72);canonical.set(state.subarray(8,40));canonical.set(state.subarray(72),32);
  return {identity,hash:hex(await crypto.subtle.digest('SHA-256',canonical))};
 }
@@ -197,7 +201,8 @@ async function handle({data}: {data:unknown}) {
   }
  } catch (error) {
   const message=error instanceof Error ? error.message : 'Emulator failed';
-  send(isPeerCheckpointOperation(data) ? {type:'peer-checkpoint-error',requestId:data.requestId,message} : isLocalFileOperation(data) ? {type:`${localFileKind(data.type)}-error`,requestId:data.requestId,message} : {type:'error',message});
+  const invalid=error instanceof Error&&'code' in error&&error.code==='invalid_state';
+  send(isPeerCheckpointOperation(data) ? {type:'peer-checkpoint-error',requestId:data.requestId,message} : isLocalFileOperation(data) ? {type:`${localFileKind(data.type)}-error`,requestId:data.requestId,message,...(invalid?{code:'invalid_state' as const}:{})} : {type:'error',message});
  }
 }
 let processing:Promise<void>|undefined;

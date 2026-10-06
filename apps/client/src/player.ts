@@ -132,16 +132,16 @@ export class LocalPlayer {
  }
  private checkpointOperation?:string;
  cancelPeerCheckpoint(){const operationId=this.checkpointOperation;this.checkpointOperation=undefined;if(operationId)void this.fileRequest({type:'peer-checkpoint-cancel',operationId}).catch(()=>{});}
- async importPeerCheckpoint(epoch:string,frame:number,bytes:ArrayBuffer,identity:string,hash:string,isCurrent:()=>boolean){
-  if(!this.shared||this.state.running||this.busy||!isCurrent())throw Error('Synchronization authorization changed.');
+ async importPeerCheckpoint(epoch:string,frame:number,bytes:ArrayBuffer,identity:string,hash:string,isCurrent:()=>boolean|Promise<boolean>){
+  if(!this.shared||this.state.running||this.busy||!await isCurrent())throw Error('Synchronization authorization changed.');
   this.cancelPeerCheckpoint();const operationId=crypto.randomUUID();this.checkpointOperation=operationId;
   try{
    const prepared=await this.fileRequest({type:'peer-checkpoint-prepare',operationId,epoch,frame,bytes,identity,hash});
-   if(prepared.type!=='peer-checkpoint-prepared'||!isCurrent()||this.checkpointOperation!==operationId)throw Error('Synchronization authorization changed.');
+   if(prepared.type!=='peer-checkpoint-prepared'||!await isCurrent()||this.checkpointOperation!==operationId)throw Error('Synchronization authorization changed.');
    const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId});
    if(reply.type!=='peer-checkpoint-imported')throw Error('Unexpected checkpoint import');
    // An authorized native commit is atomic; late delivery must not affect a newer UI/input owner.
-   if(!isCurrent()||this.checkpointOperation!==operationId)return reply;
+   if(!await isCurrent()||this.checkpointOperation!==operationId)return reply;
    this.audio.flush();this.release();this.expectedFrame=undefined;
    this.publish({frames:frame,rewind:undefined,status:'Paused game synchronized. Waiting for shared resume.'});return reply;
   }finally{if(this.checkpointOperation===operationId)this.cancelPeerCheckpoint();}
@@ -370,7 +370,7 @@ export class LocalPlayer {
     if(this.disposed) return;
     if('requestId' in data) {
      const pending=this.pending.get(data.requestId);
-     if(pending?.worker===worker) {clearTimeout(pending.timer);this.pending.delete(data.requestId);if(data.type.endsWith('-error'))pending.reject(Error('message' in data ? data.message : 'Save failed'));else pending.resolve(data);}
+     if(pending?.worker===worker) {clearTimeout(pending.timer);this.pending.delete(data.requestId);if(data.type.endsWith('-error'))pending.reject(Object.assign(Error('message' in data ? data.message : 'Save failed'),{code:'code' in data?data.code:undefined}));else pending.resolve(data);}
      return;
     }
     if(data.type === 'error') { fail(data.message); return; }

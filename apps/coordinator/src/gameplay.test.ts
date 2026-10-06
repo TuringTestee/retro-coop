@@ -248,6 +248,39 @@ test('a new controller in a restored lobby cannot bypass explicit preparation an
  t.act(0,{type:'gameResume',epoch});assert.equal(t.view().game.status,'starting');
 });
 
+test('only the interrupted host can replace a failed timeline, once, under current authority',()=>{
+ const t=setup(2),epoch=t.begin();
+ t.rooms.detach(t.sessions[0].token,t.senders[0]);
+ const disconnected=t.events[1].filter(event=>event.type==='room').at(-1)!;
+ assert.equal(disconnected.type==='room'&&disconnected.room.game.status,'pausing');assert.equal(t.view().game.hostRecovery,undefined);
+ const restore=()=>({type:'gameRestore',previousEpoch:epoch,revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:917,hash});
+ assert.throws(()=>t.act(0,restore()),/game_prerequisites/);
+ t.advance(10000);t.rooms.attach(t.sessions[0].token,t.senders[0],()=>{});
+ assert.equal(t.view().game.hostRecovery,epoch);
+ assert.throws(()=>t.act(1,restore()),/game_prerequisites/);
+ assert.throws(()=>t.act(0,{...restore(),roomRevision:999}),/game_prerequisites/);
+ assert.throws(()=>t.act(0,{...restore(),previousEpoch:'x'.repeat(22)}),/game_prerequisites/);
+ assert.throws(()=>t.ready(0),/host_recovery_required/);
+ t.act(0,restore());const recovered=t.view().game.epoch!;
+ assert.notEqual(recovered,epoch);assert.equal(t.view().game.hostRecovery,undefined);assert.equal(t.view().game.status,'paused');assert.equal(t.view().game.frame,917);
+ assert.throws(()=>t.act(0,restore()),/game_prerequisites/);assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash}),/stale_game/);
+ reconnectPlayers(t);t.ready(0,{frame:917,fresh:false});t.ready(1,{frame:917,fresh:false});assert.equal(t.view().game.status,'resume_ready');
+ t.act(0,{type:'gameResume',epoch:recovered});assert.equal(t.view().game.status,'starting');
+});
+test('a guest interruption cannot authorize host replacement, while a retained host can resume normally',()=>{
+ const t=setup(2),epoch=t.begin();t.rooms.detach(t.sessions[1].token,t.senders[1]);t.advance(10000);
+ assert.equal(t.view().game.hostRecovery,undefined);
+ assert.throws(()=>t.act(0,{type:'gameRestore',previousEpoch:epoch,revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:0,hash}),/game_prerequisites/);
+ const u=setup(2),old=u.begin();u.rooms.detach(u.sessions[0].token,u.senders[0]);u.advance(10000);u.rooms.attach(u.sessions[0].token,u.senders[0],()=>{});
+ reconnectPlayers(u);u.ready(0,{frame:917,fresh:false});u.ready(1,{frame:917,fresh:false});u.act(0,{type:'gameResume',epoch:old});const next=u.view().game.epoch!;
+ assert.equal(u.view().game.hostRecovery,undefined);assert.notEqual(next,old);
+});
+
+function reconnectPlayers(t:ReturnType<typeof setup>){
+ const peer=t.view().peers[0];
+ for(const type of ['peerAck','peerConnected'])for(const who of [0,1])t.act(who,{type,pairId:peer.pairId,epoch:peer.epoch});
+}
+
 function requestLoad(t:ReturnType<typeof setup>,frame=20){
  const epoch=t.begin();t.act(0,{type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});
  const load=t.view().game.load!;assert.equal(load.phase,'freezing');

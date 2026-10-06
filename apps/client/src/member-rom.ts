@@ -8,7 +8,7 @@ export class MemberReservationExpiredError extends Error {}
 
 /** RT4 supplies current() from its room and operation generation before loading or preparing. */
 export async function acquireMemberRom(room:RoomView,token:string,signal:AbortSignal,progress:(bytes:number)=>void,current:()=>boolean,fetcher:typeof fetch=fetch):Promise<MemberRomResult> {
- if(room.role!=='member' || room.catalogId)throw Error('This lobby does not have a host-shared game.');
+ if(room.catalogId)throw Error('This lobby does not have a host-shared game.');
  const membership=room.chatMembership,expected=room.fingerprint;
  if(!expected)throw Error('Waiting for the host to choose a game.');
  const check=()=>{signal.throwIfAborted();if(!current())throw Error('The lobby changed. Return to lobbies and join again.');};

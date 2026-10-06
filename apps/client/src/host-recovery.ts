@@ -1,5 +1,5 @@
 import {readRecovery,changeRecovery,validSavedAt,type RecoveryCapture,type RecoveryRecord} from './saves.ts';
-import {validFingerprint,type Fingerprint} from '../../../packages/contracts/src/fingerprint.ts';
+import {validFingerprint,matchesFile,type Fingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 import {CHECKPOINT_MAX_BYTES} from '../../../packages/contracts/src/checkpoint.ts';
 import {sha256,text,integer} from '../../../packages/contracts/src/protocol-validation.ts';
 import type {LocalPlayer} from './player.ts';
@@ -44,4 +44,32 @@ export async function recoveryOffer():Promise<RecoveryOffer|undefined>{
  if(!record)return;
  if(!Number.isSafeInteger(record.revision)||!Array.isArray(record.captures)||!record.captures.length||record.captures.length>2)throw Error('Saved recovery data is damaged. Load a game normally.');
  return {generation,record};
+}
+
+/** Only completed validation can establish that no stored timeline is usable. */
+export type LiveHostCapture={frame:number;hash:string;savedAt:number;older:boolean};
+export async function recoverLiveHost(player:LocalPlayer,fingerprint:Fingerprint,current:()=>boolean,progress:(stage:string)=>void,committed?:(capture:LiveHostCapture)=>void){
+ const check=()=>{if(!current())throw new DOMException('Host recovery cancelled.','AbortError');};
+ progress('Checking automatic host progress…');
+ const stored=await readRecovery();check();
+ const captures=stored.record&&Array.isArray(stored.record.captures)?stored.record.captures:[];
+ if(!captures.length)return;
+ const info=await player.saveInfo();check();
+ for(const [index,capture] of captures.slice(0,2).entries()){
+  if(!validRecovery(capture)||!matchesFile(capture.fingerprint,fingerprint)||capture.identity!==info.identity)continue;
+  progress('Validating automatic host progress…');
+  let inspected:Awaited<ReturnType<LocalPlayer['inspectSave']>>;
+  try{inspected=await player.inspectSave(capture.bytes);check();}
+  catch(error){check();if(error instanceof Error&&'code' in error&&error.code==='invalid_state')continue;throw error;}
+  if(inspected.identity!==capture.identity||inspected.hash!==capture.hash)continue;
+  const storedCurrent=async()=>{const latest=await readRecovery();if(latest.generation!==stored.generation||latest.record?.revision!==stored.record?.revision)throw Error('Automatic progress changed or was cleared. Retry recovery.');};
+  const authorized=async()=>{check();await storedCurrent();check();return true;};
+  await authorized();
+  progress('Restoring automatic host progress…');
+  await player.importPeerCheckpoint(crypto.randomUUID().replaceAll('-',''),capture.frame,capture.bytes,capture.identity,capture.hash,authorized);
+  const result={frame:capture.frame,hash:capture.hash,savedAt:capture.savedAt,older:index>0};
+  // Retain an atomic native import receipt for an explicit retry even if its
+  // asynchronous completion arrived after cancellation. It grants no room authority.
+  await storedCurrent();committed?.(result);check();return result;
+ }
 }

@@ -54,7 +54,7 @@ export class GameClient {
  playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});if(this.room?.started&&!this.authority()&&this.observerSlot())this.observe();else void this.offer();}
  retry(){this.playIntent();}
  retryConnection(){}
- async resumeReady(){this.intent=true;this.offered=undefined;await this.offer();}
+ async resumeReady(){this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});await this.offer();}
  async resumeTogether(){const epoch=this.room?.game.epoch;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){this.publish({status:String(error),busy:false});}}
  async loadSaved(record:SaveSlot,current:()=>Promise<boolean>){
   const room=this.room,player=this.player();if(!room||!player||!this.authority()||!this.loaded())throw Error('Only the host can load saved progress after the matching game is loaded.');
@@ -111,8 +111,9 @@ export class GameClient {
  observe(){const room=this.room;if(!room||!this.loaded()||room.game.status!=='playing'||room.game.controllers.owners.includes(this.self())||this.authority()||this.links.get(room.hostMembership)?.channel.readyState!=='open'||room.peers.find(peer=>peer.member===room.hostMembership)?.status!=='connected'||room.slots.find(slot=>slot.member?.id===this.self())?.member?.acquisition!=='loaded')return;this.intent=true;const epoch=room.game.epoch!;this.observeRequested=epoch;this.publish({busy:true,synchronizing:true,intent:true,status:'Requesting the current game for observation…'});void this.send({type:'gameObserve',revision:room.game.controllers.revision}).catch(error=>{if(this.observeRequested===epoch){this.observeRequested=undefined;this.publish({busy:false,synchronizing:false,status:String(error)});}});}
  cancelIntent(){const room=this.room;if(!room){this.intent=false;this.offered=undefined;this.publish({intent:false});return;}this.clear('Synchronization cancelled. Game progress is preserved.');void this.send({type:'gameUnready',revision:room.game.controllers.revision}).catch(()=>{});}
  private async offer(){
-  const room=this.room;if(!room||!this.intent||!this.loaded()||this.offering||this.incoming||room.game.pending||room.game.load||(['playing','starting','countdown','pausing'].includes(room.game.status)&&room.game.controllers.owners.includes(this.self())))return;
-  if(!this.authority()&&this.links.get(room.hostMembership)?.channel.readyState!=='open')return;
+  const room=this.room;if(!room||!this.intent||this.offering||this.incoming||room.game.pending||room.game.load||(['playing','starting','countdown','pausing'].includes(room.game.status)&&room.game.controllers.owners.includes(this.self())))return;
+  if(!this.loaded()){this.publish({busy:false,status:'Waiting for the matching lobby game to finish loading…'});return;}
+  if(!this.authority()&&this.links.get(room.hostMembership)?.channel.readyState!=='open'){this.publish({busy:false,status:'Waiting for the host connection. Retry connection if it fails.'});return;}
   const key=room.id+room.revision+room.game.controllers.revision+(room.game.epoch??'initial');if(this.offered===key)return;
   const serial=this.serial;this.offering=true;this.offered=key;this.publish({busy:true,preparationError:undefined,status:'Checking the completed machine state…'});
   try{const info=await this.player()!.holdForGame(room.game.controllers.owners.includes(this.self()));if(serial!==this.serial)return;
