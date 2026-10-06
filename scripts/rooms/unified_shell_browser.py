@@ -612,7 +612,7 @@ def controller_input(browser, url, output):
         page.keyboard.down('k');observe('lost pad keeps mapped keyboard usable',1);page.keyboard.up('k')
         page.evaluate('mappingPad.connected=true')
         expect(a.locator('.rc-input-hint')).to_have_text('1',timeout=6000)
-        page.evaluate("navigator.getGamepads=()=>{throw Error('Deliberate gamepad API denial');}")
+        page.evaluate("()=>{navigator.getGamepads=()=>{throw Error('Deliberate gamepad API denial');};}")
         expect(a.locator('.rc-input-hint')).to_have_text('K')
         page.evaluate('navigator.getGamepads=()=>[mappingPad]')
         expect(a.locator('.rc-input-hint')).to_have_text('1')
