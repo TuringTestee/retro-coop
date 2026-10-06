@@ -885,8 +885,23 @@ def shared_load():
         return requests
     fixture = (ROOT / 'scripts/gameplay/fixture.js').read_text() + """
       const NativeWorker=Worker;
+      proof.nativeLoadRequests=[];proof.nativeLoadReplies=[];
       window.Worker=class extends NativeWorker {
+        postMessage(data,...options){
+          if(this===proof.acceptedLoadWorker&&['peer-checkpoint-prepare','peer-checkpoint-commit','peer-checkpoint-rollback'].includes(data.type)){
+            const fields=value=>({type:value.type,requestId:value.requestId,operationId:value.operationId,transactionId:value.transactionId,epoch:value.epoch,frame:value.frame,identity:value.identity,hash:value.hash,bytes:value.bytes?.byteLength,header:value.bytes?Array.from(new Uint8Array(value.bytes,0,Math.min(8,value.bytes.byteLength))):undefined});
+            const request={original:fields(data),type:data.type,requestId:data.requestId,operationId:data.operationId,phase:proof.room?.game?.load?.phase,transactionId:proof.room?.game?.load?.id,event:proof.loadEvents?.at(-1)?.type,acceptedOwner:true};
+            if(proof.rejectNativeLoad==='prepare'&&data.type==='peer-checkpoint-prepare'&&data.transactionId){
+              proof.rejectNativeLoad=undefined;request.fault='corrupt-checkpoint';new Uint8Array(data.bytes)[0]^=255;
+            }else if(proof.rejectNativeLoad==='commit'&&data.type==='peer-checkpoint-commit'){
+              proof.rejectNativeLoad=undefined;request.fault='stale-native-operation';data={...data,operationId:data.operationId+'-invalid'};
+            }
+            request.sent=fields(data);proof.nativeLoadRequests.push(request);
+          }
+          return super.postMessage(data,...options);
+        }
         constructor(...args){super(...args);this.addEventListener('message',({data})=>{
+          if(['peer-checkpoint-prepared','peer-checkpoint-imported','peer-checkpoint-rolled-back','peer-checkpoint-error'].includes(data.type))proof.nativeLoadReplies.push({type:data.type,requestId:data.requestId,operationId:data.operationId,frame:data.frame,hash:data.hash,message:data.message,acceptedOwner:this===proof.acceptedLoadWorker});
           if(data.requestId===900005)proof.nativeProbe=data.type==='state-hash'?{info:data.info}:{error:data.message??data.type};
           if(data.type==='frame'&&data.epoch===proof.room?.game.epoch)proof.acceptedLoadWorker=this;
           if(['state-captured','peer-checkpoint-imported','peer-checkpoint-rolled-back'].includes(data.type)){
@@ -1059,7 +1074,15 @@ def shared_load():
             guest.locator('canvas').focus();guest.keyboard.press('q')
             guest.wait_for_function('typeof proof.releaseSaveCapture==="function"')
             held_save=guest.evaluate('proof.heldSaveCapture')
+            host.get_by_role('button',name='Full screen',exact=True).click();host.locator('canvas').focus()
             host.keyboard.press('e')
+            notice=host.locator('.rc-game-save-status').get_by_text('Saved progress loaded.',exact=True)
+            expect(notice).to_be_visible(timeout=15000)
+            expect(host.locator('.rc-game-progress')).to_be_visible()
+            control_visibility(notice)
+            assert notice.evaluate('n=>{const b=n.getBoundingClientRect(),hit=document.elementFromPoint(b.x+b.width/2,b.y+b.height/2);return n.contains(hit)||n.parentElement.contains(hit);}')
+            screenshot(host,'fullscreen-load-visible-during-start.png')
+            host.get_by_role('button',name='Return to lobby view',exact=True).click()
             assert host.get_by_role('alertdialog').count()==0
             assert guest.get_by_role('alertdialog').count()==0
             for page in pages:
@@ -1143,22 +1166,23 @@ def shared_load():
             # preserve the previous machine; no human acceptance is involved.
             if EXPECTED_RAM is None:pause(host,guest);resume(host,guest)
             denials=[];observer_overlap=[]
-            for decision in ('native-failure','restart-failure','timeout','changed-save'):
+            for decision in ('native-prepare-rejection','restart-commit-rejection','timeout','changed-save'):
                 prior=pause(host,guest)
                 observer.wait_for_function('proof.heldObserverCompletions.length>0')
                 held=observer.evaluate('proof.heldObserverCompletions.map(({raw,...row})=>row)')
-                guest.evaluate('proof.holdLoadBoundary=true;proof.releaseLoadBoundary=undefined')
-                if decision=='restart-failure':
+                native_fault=decision in ('native-prepare-rejection','restart-commit-rejection')
+                guest.evaluate('(fault)=>{proof.holdLoadBoundary=!fault;proof.releaseLoadBoundary=undefined;proof.rejectNativeLoad=fault;proof.nativeLoadRequests=[];proof.nativeLoadReplies=[];}', 'prepare' if decision=='native-prepare-rejection' else 'commit' if decision=='restart-commit-rejection' else None)
+                if decision=='restart-commit-rejection':
                     host.keyboard.press('n');host.get_by_role('button',name='Restart cartridge',exact=True).click()
                 else:host.keyboard.press('e')
-                guest.wait_for_function('typeof proof.releaseLoadBoundary==="function"')
+                if not native_fault:guest.wait_for_function('typeof proof.releaseLoadBoundary==="function"')
                 observer.wait_for_function('proof.heldObserverCompletions.every(row=>proof.observerSyncStops.some(stop=>stop.transferId===row.transferId))')
                 observer_overlap.append({'action':decision,'cancelled':held})
                 observer.evaluate('proof.releaseObserverCompletions()')
                 assert host.get_by_role('alertdialog').count()==0
                 assert guest.get_by_role('alertdialog').count()==0
-                if decision in ('native-failure','restart-failure'):
-                    guest.evaluate("""()=>{const socket=window.gameLoadSocket;socket.send(JSON.stringify({type:'gameLoadFailed',requestId:crypto.randomUUID(),transactionId:proof.room.game.load.id}));}""")
+                if native_fault:
+                    guest.wait_for_function('proof.nativeLoadRequests.some(row=>row.fault)&&proof.nativeLoadReplies.some(row=>row.type==="peer-checkpoint-error")')
                 if decision=='changed-save':
                     host.evaluate("""()=>new Promise(resolve=>{const request=indexedDB.open('retro-coop-local');request.onsuccess=()=>{
                       const db=request.result,tx=db.transaction('saves','readwrite'),store=tx.objectStore('saves'),rows=store.getAll();
@@ -1168,12 +1192,26 @@ def shared_load():
                 for page in pages:page.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load',timeout=20000)
                 snapshots=[native(page) for page in pages]
                 assert snapshots[0]==snapshots[1]==prior,(decision,prior,snapshots)
-                retry=host.get_by_role('button',name='Retry Restart' if decision=='restart-failure' else 'Retry Load',exact=True)
+                retry=host.get_by_role('button',name='Retry Restart' if decision=='restart-commit-rejection' else 'Retry Load',exact=True)
                 expect(retry).to_be_visible()
-                if decision=='restart-failure':
+                if decision=='restart-commit-rejection':
                     retry.click();expect(host.get_by_role('alertdialog',name='Restart this cartridge?')).to_be_visible()
                     host.get_by_role('button',name='Keep playing',exact=True).click()
-                denials.append({'action':decision,'preserved':prior,'matching_retry':True})
+                native_receipts=None
+                if native_fault:
+                    native_receipts=guest.evaluate('({requests:proof.nativeLoadRequests,replies:proof.nativeLoadReplies})')
+                    fault=next(row for row in native_receipts['requests'] if row.get('fault'))
+                    assert fault['acceptedOwner'] and fault['operationId']==fault['transactionId']
+                    assert (fault['phase']=='staging' if decision=='native-prepare-rejection' else fault['event']=='gameLoadCommit'),native_receipts
+                    rejection=next(row for row in native_receipts['replies'] if row['type']=='peer-checkpoint-error' and row['requestId']==fault['requestId'])
+                    assert rejection['acceptedOwner'] and rejection['message'],native_receipts
+                    assert fault['sent']['requestId']==rejection['requestId']
+                    if decision=='native-prepare-rejection':assert fault['original']['header']!=fault['sent']['header'],native_receipts
+                    else:assert fault['original']['operationId']!=fault['sent']['operationId'],native_receipts
+                    if decision=='restart-commit-rejection':
+                        assert any(row['type']=='peer-checkpoint-prepared' and row['operationId']==fault['operationId'] for row in native_receipts['replies']),native_receipts
+                    assert any(row['type']=='peer-checkpoint-rolled-back' and row['frame']==prior['frame'] and row['hash']==prior['hash'] for row in native_receipts['replies']),native_receipts
+                denials.append({'action':decision,'preserved':prior,'matching_retry':True,'native_receipts':native_receipts})
                 guest.evaluate('proof.holdLoadBoundary=false;proof.releaseLoadBoundary=undefined')
                 resume(host,guest)
             observed_before=observer.evaluate("proof.commandResults.length")
