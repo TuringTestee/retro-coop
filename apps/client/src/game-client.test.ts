@@ -251,3 +251,32 @@ test('cancelled, timed-out and closed checkpoint transports cannot send on a lat
   }finally{t.game.dispose();context.mock.timers.reset();}
  }
 });
+
+test('leaving settles a pending cartridge replacement and fences its captured native continuation',async()=>{
+ const t=setup(host),intent='x'.repeat(22);let current=true;
+ Object.assign(t.player,{captureCartridge:async()=>({type:'state-captured',frame:0,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)})});
+ const pending=t.game.replaceCartridge(intent,()=>current);await tick();assert.equal(t.commands.at(-1)?.type,'gameLoadPropose');
+ current=false;t.game.enter(undefined);await assert.rejects(pending,/Lobby membership changed/);t.game.dispose();
+});
+
+test('a cartridge captured after its selection was canceled never proposes a shared swap',async()=>{
+ const t=setup(host);let current=true,finish!:(value:unknown)=>void;
+ Object.assign(t.player,{captureCartridge:()=>new Promise(resolve=>finish=resolve)});
+ const pending=t.game.replaceCartridge('x'.repeat(22),()=>current);current=false;
+ finish({frame:0,hash,identity:'a'.repeat(64),bytes:new ArrayBuffer(82)});await assert.rejects(pending,/Game selection changed/);
+ assert.equal(t.commands.some(command=>command.type==='gameLoadPropose'),false);t.game.dispose();
+});
+
+
+test('new cartridge controller keeps its independent old boundary through rollback',async()=>{
+ const t=setup(member),id='l'.repeat(22),observerHash='d'.repeat(64),replacement={intent:'i'.repeat(22),fingerprint,title:'Next'};
+ Object.assign(t.player,{holdForGame:async()=>({frame:23,hash:observerHash,fresh:false}),ownCartridge(){},cancelCartridge(){},rollbackCartridge:async()=>({frame:23,hash:observerHash})});
+ try{
+  const view=room();view.started='shared';view.game={...view.game,status:'paused',epoch,controllers:{owners:[host,null],revision:1},load:{id,epoch,phase:'freezing',frame:0,hash,identity:'a'.repeat(64),savedAt:1000,required:[host,member],freezeRequired:[host],replacement,expiresAt:20000}};
+  t.game.enter(view);t.game.handle({type:'gameLoadHold',transactionId:id,epoch,frame:917,hash});await tick();
+  assert.equal(t.commands.some(command=>command.type==='gameLoadFailed'),false);
+  assert.deepEqual(t.commands.find(command=>command.type==='gameLoadBoundary'),{type:'gameLoadBoundary',transactionId:id,frame:23,hash:observerHash});
+  t.game.handle({type:'gameLoadRollback',transactionId:id,epoch,frame:23,hash:observerHash,reason:'Candidate rejected'});await tick();
+  assert.deepEqual(t.commands.find(command=>command.type==='gameLoadRolledBack'),{type:'gameLoadRolledBack',transactionId:id,frame:23,hash:observerHash});
+ }finally{t.game.dispose();}
+});

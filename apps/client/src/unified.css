@@ -358,7 +358,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-local-session { grid-template-columns: 0px minmax(0,1fr) 0px; grid-template-rows: 42px minmax(0,1fr) 0px; }
 .rc-local-session.rc-has-side { grid-template-columns: 0px minmax(0,1fr) clamp(250px,30vw,360px); }
 .rc-game-links { flex-wrap: wrap; justify-content: flex-end; }
-.rc-game-links .rc-direct-action { min-height: 30px; padding: 3px 10px; border: 1px solid var(--orange-dark); border-radius: 4px; background: var(--orange); color: #1b2022; font-weight: 800; }
+.rc-game-links .rc-direct-action,.rc-expanded-change { min-height: 30px; padding: 3px 10px; border: 1px solid var(--orange-dark); border-radius: 4px; background: var(--orange); color: #1b2022; font-weight: 800; }
 .rc-side-panel { padding: 8px; border-left: 1px solid var(--orange); background: var(--menu); }
 .rc-side-panel .rc-side-content { height: 100%; padding: 0; }
 .rc-playing-menu { display: block; padding: 8px; }
@@ -784,3 +784,12 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-inline-settings .rc-binding-inventory { grid-column: 1 / -1; grid-row: 2; }
  .rc-inline-settings .rc-game-actions { grid-column: 1 / -1; grid-row: 3; }
 }
+
+.rc-expanded-change { min-height: 44px; }
+
+/* One reserved row keeps expanded actions distinct when text needs to wrap. */
+.rc-game-stage-actions { display: contents; }
+.rc-expanded-actions { position: absolute; top: max(8px,env(safe-area-inset-top)); left: max(8px,env(safe-area-inset-left)); right: max(8px,env(safe-area-inset-right)); z-index: 3; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.rc-expanded-actions > button { position: static; min-width: 0; flex: 0 1 auto; white-space: normal; pointer-events: auto; }
+
+.rc-expanded-actions > .rc-expansion-action { margin-left: auto; }

@@ -67,7 +67,7 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
     const membership=request.headers['x-room-membership'];
     if(!authorization || typeof membership!=='string' || !validToken(membership)){response.writeHead(403).end(JSON.stringify({error:'session_expired'}));return;}
     let download:ReturnType<typeof rooms.beginDownload>;
-    try{download=rooms.beginDownload(authorization[1],upload[1],membership);}
+    try{download=rooms.beginDownload(authorization[1],upload[1],membership,typeof request.headers['x-room-intent']==='string'?request.headers['x-room-intent']:undefined);}
     catch(error){const code=error instanceof RoomError?error.code:'server_error';response.writeHead(code==='rate_limited'||code==='download_busy'?429:code==='server_error'?500:403).end(JSON.stringify({error:code}));return;}
     const file=createReadStream(download.path,{highWaterMark:64*1024});
     response.setHeader('Content-Type','application/octet-stream');response.setHeader('Content-Length',download.bytes);

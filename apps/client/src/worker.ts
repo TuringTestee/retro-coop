@@ -21,7 +21,7 @@ function check(ok: number) { if (!ok) throw Error(new TextDecoder().decode(copy(
 let loading = false, frame=0, fresh=true;
 let rewindIssue:string|undefined,sharedEpoch:string|undefined;
 let checkpointGeneration=0, preparing=false;
-let candidate: {operationId:string;generation:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;deadline:number;transactionId?:string}|undefined;
+let candidate: {operationId:string;generation:number;epoch:string;frame:number;bytes:ArrayBuffer;identity:string;hash:string;deadline:number;transactionId?:string;initial?:boolean}|undefined;
 let candidateTimer:ReturnType<typeof setTimeout>|undefined;
 function clearCandidate(preserveStage=false){if(!preserveStage){core?.cancelStage?.();if(rollback&&!rollback.committed&&rollback.operationId===candidate?.transactionId)rollback=undefined;}checkpointGeneration++;candidate=undefined;clearTimeout(candidateTimer);candidateTimer=undefined;}
 let rollback: {operationId:string;frame:number;epoch?:string;fresh:boolean;bytes:ArrayBuffer;hash:string;committed:boolean}|undefined;
@@ -107,8 +107,9 @@ async function handle({data}: {data:unknown}) {
     if(rollback&&(rollback.operationId!==data.operationId||rollback.committed))throw Error('Another shared load is pending');
     if(data.transactionId!==undefined&&data.transactionId!==data.operationId)throw Error('Checkpoint transaction ownership mismatch');
     clearCandidate();const generation=checkpointGeneration;
+    if(data.initial&&(!fresh||frame!==0||sharedEpoch||data.frame!==0))throw Error('Initial checkpoint requires a fresh cartridge candidate');
     const duration=data.transactionId?45_000:15_000;
-    candidate={operationId:data.operationId,generation,epoch:data.epoch,frame:data.frame,bytes:data.bytes,identity:data.identity,hash:data.hash,transactionId:data.transactionId,deadline:performance.now()+duration};
+    candidate={operationId:data.operationId,generation,epoch:data.epoch,frame:data.frame,bytes:data.bytes,identity:data.identity,hash:data.hash,transactionId:data.transactionId,initial:data.initial,deadline:performance.now()+duration};
     candidateTimer=setTimeout(()=>{if(candidate?.generation===generation)clearCandidate();},duration);
     const assertOwner=()=>{if(candidate?.generation!==generation||performance.now()>=candidate.deadline)throw Error('Checkpoint preparation cancelled or expired');};
     preparing=true;
@@ -140,7 +141,7 @@ async function handle({data}: {data:unknown}) {
     check(await core.local_state_import(ptr,prepared.bytes.byteLength));
     if(prepared.transactionId)rollback!.committed=true;
     check(await core.local_state_hash());const importedHash=hex(copy(0));if(importedHash!==prepared.hash)throw Error('Imported checkpoint hash mismatch');
-    core.local_rewind_clear();rewindIssue=undefined;frame=prepared.frame;core.setFrame?.(frame);sharedEpoch=prepared.epoch;fresh=false;
+    core.local_rewind_clear();rewindIssue=undefined;frame=prepared.frame;core.setFrame?.(frame);sharedEpoch=prepared.initial?undefined:prepared.epoch;fresh=!!prepared.initial;
     send({type:'peer-checkpoint-imported',requestId:data.requestId,operationId:data.operationId,epoch:prepared.epoch,frame,hash:importedHash});
    }
   }

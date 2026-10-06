@@ -76,6 +76,147 @@ def migrated_default_preferences(browser, url, output):
     finally:context.close()
     (output/'migrated-default-preferences.json').write_text(json.dumps(rows,indent=2)+'\n')
 
+def cartridge_replacement(browser,url,output):
+    """Replace through public controls; reject a real staged native commit and restore the old game."""
+    from playwright.sync_api import expect
+    start=time.monotonic();pages=[];contexts=[];page_errors=[]
+    native_hook="const NativeCartridgeWorker=Worker;proof.native=[];window.Worker=class extends NativeCartridgeWorker{postMessage(data,...rest){if(data.type==='frame'&&data.epoch){(proof.cartridgeInputs??=[]).push({epoch:data.epoch,frame:data.frame,p1:data.p1,p2:data.p2});if(proof.cartridgeInputs.length>32)proof.cartridgeInputs.shift();}if(data.type==='peer-checkpoint-prepare'&&data.initial)this.cartridgeOperation=data.operationId;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,initial:data.initial});if(data.type==='peer-checkpoint-prepare'&&data.initial&&proof.rejectCandidatePrepare){proof.rejectCandidatePrepare=false;const bytes=data.bytes.slice(0),original=new Uint8Array(bytes)[0];new Uint8Array(bytes)[0]^=255;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,fault:'native candidate bytes corrupted',originalHeader:original,sentHeader:new Uint8Array(bytes)[0],bytes:bytes.byteLength});data={...data,bytes};}if(data.type==='peer-checkpoint-commit'&&proof.rejectCandidateCommit&&data.operationId===this.cartridgeOperation){proof.rejectCandidateCommit=false;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,fault:'actual stale operation sent after preparation'});data={...data,operationId:data.operationId+'_stale'};}return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='frame'&&data.epoch)proof.acceptedCartridgeWorker=this;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'response',type:data.type,requestId:data.requestId,frame:data.frame,hash:data.hash,message:data.message});});}};"
+    observer_hook="const ObserverPeer=RTCPeerConnection;window.RTCPeerConnection=class extends ObserverPeer{constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>{channel.addEventListener('message',event=>{if(!proof.holdObserverFrames||typeof event.data!=='string')return;let packet;try{packet=JSON.parse(event.data)}catch{return}if(packet.kind==='frame'){proof.heldObserverFrames=(proof.heldObserverFrames??0)+1;event.stopImmediatePropagation();}},true);});}};"
+    boundary_hook="const boundarySend=WebSocket.prototype.send;WebSocket.prototype.send=function(raw){let value;try{value=JSON.parse(raw)}catch{}if(value?.type==='gameLoadBoundary'||value?.type==='gameLoadRolledBack')(proof.loadBoundaries??=[]).push({type:value.type,transactionId:value.transactionId,frame:value.frame,hash:value.hash});return boundarySend.call(this,raw);};"
+    try:
+        for i in range(3):
+         ctx=browser.new_context(viewport={'width':1280,'height':800},permissions=['clipboard-read','clipboard-write']);contexts.append(ctx);ctx.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text());ctx.add_init_script(native_hook);ctx.add_init_script(observer_hook);ctx.add_init_script(boundary_hook);p=ctx.new_page();p.set_default_timeout(15000);p.on('pageerror',lambda e:page_errors.append(str(e)));p.goto(url);p.evaluate('releaseFrames()');pages.append(p)
+        h,g,o=pages
+        h.get_by_role('button',name='Host a new game',exact=True).click();h.get_by_role('button',name='Load NES game').click();h.get_by_role('button',name='Super Tilt Bro',exact=True).click();h.get_by_role('button',name='Prepare',exact=True).wait_for()
+        invite=h.evaluate('proof.room.invite')
+        for p in (g,o):
+         p.goto(url+'/#invite='+invite);p.evaluate('releaseFrames()');p.get_by_role('button',name='Join lobby',exact=True).click();p.wait_for_function('proof.room?.matches')
+        for p in (h,g):p.get_by_role('button',name='Prepare',exact=True).click()
+        h.get_by_role('button',name='Start →',exact=True).click()
+        for p in (h,g):p.wait_for_function('proof.room?.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        roster=h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))');invite=h.evaluate('proof.room.invite')
+        h.set_viewport_size({'width':320,'height':700});h.get_by_role('button',name='Full screen',exact=True).click()
+        assert h.get_by_role('button',name='Change game',exact=True).count()==1
+        expanded=h.locator('.rc-game-fullscreen').evaluate('node=>({width:innerWidth,buttons:[...node.querySelectorAll(".rc-expanded-change,.rc-expansion-action")].map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent,x:r.x,y:r.y,width:r.width,height:r.height,hit:n.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),fits:n.scrollWidth<=n.clientWidth};})})')
+        print(json.dumps({'expanded_controls':expanded}),flush=True)
+        assert all(row['hit'] and row['fits'] and row['x']>=0 and row['x']+row['width']<=expanded['width'] for row in expanded['buttons']),expanded
+        assert expanded['buttons'][0]['x']+expanded['buttons'][0]['width']<=expanded['buttons'][1]['x'],expanded
+        h.screenshot(path=str(output/'replacement-expanded-action-phone.png'))
+        h.get_by_role('button',name='Change game',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Cancel',exact=True).focus();h.keyboard.press('Enter')
+        h.get_by_role('button',name='Full screen',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Return to lobby view',exact=True).focus();h.keyboard.press('Enter')
+        h.get_by_label('NES game screen',exact=True).focus();expect(h.get_by_label('NES game screen',exact=True)).to_be_focused()
+        h.set_viewport_size({'width':390,'height':700})
+        assert h.evaluate('proof.room.catalogId')=='super-tilt-bro-pal'
+        h.evaluate('proof.rejectCandidatePrepare=true')
+        h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='From Below',exact=True).click()
+        h.wait_for_function('proof.native.some(x=>x.type==="peer-checkpoint-error")')
+        for page in (h,g):page.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load')
+        prepare_fault=h.evaluate('proof.native.filter(x=>x.fault||x.type==="peer-checkpoint-error")')
+        injected_prepare=next(row for row in prepare_fault if row.get('fault'))
+        assert injected_prepare['originalHeader']!=injected_prepare['sentHeader']
+        assert any(row['type']=='peer-checkpoint-error' and row['requestId']==injected_prepare['requestId'] and 'State belongs' in row['message'] for row in prepare_fault),prepare_fault
+        assert h.evaluate('proof.room.catalogId')=='super-tilt-bro-pal'
+        for page in (h,g):page.get_by_role('button',name='Prepare to resume',exact=True).click()
+        h.get_by_role('button',name='Resume together',exact=True).click()
+        h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        print(json.dumps({'actual_native_preparation_rejection':prepare_fault}),flush=True)
+        h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='From Below',exact=True).click()
+        h.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&!proof.room.started',timeout=35000)
+        for p in pages:p.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&proof.room.matches',timeout=15000)
+        assert h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))')==roster
+        assert h.get_by_text('Saved progress loaded.',exact=True).count()==0
+        h.screenshot(path=str(output/'replacement-one-controller-prepare.png'))
+        h.get_by_role('button',name='Prepare',exact=True).click();h.get_by_role('button',name='Start →',exact=True).click();h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=3')
+        observer_frame=g.evaluate('proof.frames.at(-1).frame');g.evaluate('proof.holdObserverFrames=true')
+        h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=observer_frame)
+        native_boundary="()=>new Promise(resolve=>{const worker=currentWorker;const done=({data})=>{if(data.type==='state-hash'&&data.requestId===900009){worker.removeEventListener('message',done);resolve(data.info);}};worker.addEventListener('message',done);worker.postMessage({type:'state-hash',requestId:900009});})"
+        observer_before=g.evaluate(native_boundary)
+        assert observer_before['frame']!=h.evaluate('proof.frames.at(-1).frame'),observer_before
+        print(json.dumps({'independent_observer_before':observer_before}),flush=True)
+        g.evaluate('proof.rejectCandidateCommit=true')
+        h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Super Tilt Bro',exact=True).click()
+        for p in (h,g):p.wait_for_function('proof.native.some(x=>x.type==="peer-checkpoint-error"&&x.message==="Checkpoint commit is stale")||proof.room.game.load?.phase==="rolling_back"',timeout=15000) if p==g else None
+        for p in (h,g):p.wait_for_function('proof.room.game.status==="paused"&&!proof.room.game.load',timeout=15000)
+        observer_after=g.evaluate(native_boundary)
+        assert g.evaluate('proof.heldObserverFrames>0')
+        g.evaluate('proof.holdObserverFrames=false')
+        assert observer_after==observer_before,{'before':observer_before,'after':observer_after}
+        boundaries=g.evaluate('proof.loadBoundaries')
+        assert any(row['type']=='gameLoadBoundary' and row['frame']==observer_before['frame'] and row['hash']==observer_before['hash'] for row in boundaries),boundaries
+        assert any(row['type']=='gameLoadRolledBack' and row['frame']==observer_before['frame'] and row['hash']==observer_before['hash'] for row in boundaries),boundaries
+        print(json.dumps({'independent_observer_rollback':observer_after,'actual_boundary_receipts':boundaries}),flush=True)
+        assert h.evaluate('proof.room.catalogId')=='from-below-1.0'
+        assert h.evaluate('proof.room.slots[1].role')=='observer'
+        native_fault=g.evaluate('proof.native.filter(x=>x.fault||x.type==="peer-checkpoint-error"||x.type==="peer-checkpoint-prepared")')
+        injected=next(row for row in native_fault if row.get('fault'))
+        assert any(row['type']=='peer-checkpoint-error' and row['requestId']==injected['requestId'] and row['message']=='Checkpoint commit is stale' for row in native_fault),native_fault
+        print(json.dumps({'actual_native_commit_rejection_rollback':native_fault}),flush=True)
+        assert h.get_by_role('button',name='Retry Load',exact=True).count()==0
+        assert 'Game change failed. Progress kept.' in h.locator('.rc-status').inner_text()
+        assert h.locator('.rc-status-copy').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight')
+        h.screenshot(path=str(output/'replacement-rollback-prepare-resume.png'))
+        h.get_by_role('button',name='Prepare to resume',exact=True).click();h.get_by_role('button',name='Resume together',exact=True).click()
+        h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        retry_frame=g.evaluate('proof.frames.at(-1).frame');g.evaluate('proof.holdObserverFrames=true')
+        h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=retry_frame)
+        observer_retry=g.evaluate(native_boundary)
+        assert observer_retry['frame']!=h.evaluate('proof.frames.at(-1).frame'),observer_retry
+        print(json.dumps({'independent_observer_retry':observer_retry}),flush=True)
+        h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Super Tilt Bro',exact=True).click()
+        h.wait_for_function('proof.room?.catalogId==="super-tilt-bro-pal"&&!proof.room.started',timeout=35000)
+        for p in pages:p.wait_for_function('proof.room?.catalogId==="super-tilt-bro-pal"&&proof.room.matches',timeout=15000)
+        g.evaluate('proof.holdObserverFrames=false')
+        for p in (h,g):p.get_by_role('button',name='Prepare',exact=True).click()
+        h.get_by_role('button',name='Start →',exact=True).click()
+        for p in (h,g):p.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        assert h.evaluate('proof.room.slots[1].role')=='player2'
+        h.get_by_label('NES game screen',exact=True).focus();h.keyboard.press('p');h.wait_for_function('proof.room.game.status==="paused"')
+        import zipfile
+        archive=output/'replacement.zip'
+        with zipfile.ZipFile(archive,'w') as zipped:zipped.write(ROOT/'spikes/d02/fixture.local.nes','game.nes')
+        h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Add game file',exact=True).click();h.get_by_label('NES cartridge file').set_input_files(str(archive))
+        for p in pages:p.wait_for_function('!proof.room?.catalogId&&proof.room.matches&&!proof.room.started',timeout=35000)
+        for p in (h,g):p.get_by_role('button',name='Prepare',exact=True).click()
+        h.get_by_role('button',name='Start →',exact=True).click()
+        for p in (h,g):p.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+        print('custom_cartridge_all_members_matched',flush=True)
+        h.screenshot(path=str(output/'replacement-playing-phone.png'))
+        assert h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))')==roster
+        assert h.evaluate('proof.room.invite')==invite
+        input_receipts=[]
+        def completed_input(page,mask):
+            epoch=page.evaluate('proof.room.game.epoch')
+            page.wait_for_function('wanted=>proof.cartridgeInputs?.some(row=>row.epoch===wanted.epoch&&row.p1===wanted.mask[0]&&row.p2===wanted.mask[1])',arg={'epoch':epoch,'mask':mask})
+            frame=page.evaluate('wanted=>proof.cartridgeInputs.find(row=>row.epoch===wanted.epoch&&row.p1===wanted.mask[0]&&row.p2===wanted.mask[1]).frame',{'epoch':epoch,'mask':mask})
+            page.wait_for_function('wanted=>proof.frames.at(-1)?.epoch===wanted.epoch&&proof.frames.at(-1).frame>=wanted.frame',arg={'epoch':epoch,'frame':frame})
+            return {'epoch':epoch,'input_frame':frame,'completed_frame':page.evaluate('proof.frames.at(-1).frame')}
+        for page,key,mask,native_mask in ((h,'z',[128,0],[1,0]),(g,'c',[0,64],[0,2])):
+            page.get_by_label('NES game screen',exact=True).focus();expect(page.get_by_label('NES game screen',exact=True)).to_be_focused()
+            page.evaluate('proof.cartridgeInputs=[]');page.keyboard.down(key)
+            receipt=completed_input(page,native_mask)
+            page.evaluate("delete proof.controllerRam;proof.acceptedCartridgeWorker.postMessage({type:'state-export',requestId:900000})")
+            page.wait_for_function('proof.controllerRam!==undefined');actual=page.evaluate('proof.controllerRam')
+            receipt.update(key=key,native_mask=native_mask,expected_ram=mask,actual_ram=actual);print(json.dumps({'cartridge_native_input':receipt}),flush=True)
+            assert actual==mask,receipt;input_receipts.append(receipt)
+            page.evaluate('proof.cartridgeInputs=[]');page.keyboard.up(key);completed_input(page,[0,0])
+        h.get_by_label('NES game screen',exact=True).focus();h.keyboard.press('q');h.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
+        epoch=h.evaluate('proof.room.game.epoch');h.keyboard.press('e')
+        for page in (h,g):page.wait_for_function('epoch=>proof.room.game.status==="playing"&&proof.room.game.epoch!==epoch&&proof.frames.at(-1)?.epoch===proof.room.game.epoch',arg=epoch)
+        h.get_by_label('NES game screen',exact=True).focus();epoch=h.evaluate('proof.room.game.epoch');h.keyboard.press('n');h.get_by_role('button',name='Restart cartridge',exact=True).click()
+        for page in (h,g):page.wait_for_function('epoch=>proof.room.game.status==="playing"&&proof.room.game.epoch!==epoch&&proof.frames.at(-1)?.epoch===proof.room.game.epoch',arg=epoch)
+        assert not page_errors,page_errors
+        result={'result':'pass','seconds':round(time.monotonic()-start,3),'two_one_two_roles':True,'independent_observer_exact_rollback_retry':True,'minimum_width_keyboard_picker':expanded,'same_group_slots_invite':True,'native_prepare_rejection':True,'native_commit_rejection_rollback_retry':True,'phone_expanded_picker_cancel':True,'uploaded_candidate_all_members':True,'native_p1_p2_input':True,'same_cartridge_direct_load_restart':True,'input_receipts':input_receipts}
+        (output/'cartridge-replacement.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({'cartridge_replacement':result}),flush=True)
+    except Exception:
+        for index,page in enumerate(pages):
+            print(json.dumps({'cartridge_failure_member':index,'state':page.evaluate("({status:document.querySelector('.rc-status')?.textContent,catalog:proof.room?.catalogId,matches:proof.room?.matches,game:proof.room?.game,native:proof.native,inputs:proof.cartridgeInputs,actualRam:proof.controllerRam,events:proof.events})")}),flush=True)
+        raise
+    finally:
+        for context in contexts:context.close()
+
+
 def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
     """Exercise the public lobby journey in the built application."""
     from playwright.sync_api import sync_playwright, expect
@@ -283,10 +424,11 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         migration_output=screenshot_dir or ROOT / "spikes/d02/public-entrypoint.local/preferences"
         migration_output.mkdir(parents=True,exist_ok=True)
         migrated_default_preferences(browser,url,migration_output)
+        cartridge_replacement(browser,url,migration_output)
         browser.close()
     return {"empty_lobby_before_game": True, "guest_chat_and_readiness": True, "incremental_chat_and_enter": True,
             "synchronized_start": True, "centered_start_same_region": True, "spectator_nonblocking": True, "mobile_shell": True, "exit_to_main": True,
-            "game_worker_and_frame_cleared": True, "migrated_preferences_reload_and_play": True}
+            "game_worker_and_frame_cleared": True, "migrated_preferences_reload_and_play": True, "same_lobby_cartridge_replacement": True}
 
 def occupied_port_check(environment):
     blockers = []

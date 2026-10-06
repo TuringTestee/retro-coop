@@ -14,13 +14,14 @@ const disconnectedMessage = 'Controller unavailable. Keyboard and on-screen cont
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
 export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
 export type GameSelectionResult={ok:boolean;uncertain?:boolean;message?:string};
-type PreparedSelection={current:()=>boolean;commit:()=>void;fail:(message:string)=>void};
-export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionPhase?:'loading'|'uncertain'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
+type PreparedSelection={worker:Worker;current:()=>boolean;commit:()=>void;publishCommit:()=>void;fail:(message:string)=>void};
+export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionVersion?:number; selectionPhase?:'loading'|'uncertain'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
 /** Owns browser-local resources. A candidate replaces the active worker only after initialization succeeds. */
 export class LocalPlayer {
- isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && !this.state.loading && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
+ isLoaded(fingerprint?:LocalFingerprint):boolean {return !!this.active && this.state.loaded && (!this.state.loading||this.shared) && (!fingerprint || !!this.state.fingerprint && matchesFile(this.state.fingerprint,fingerprint));}
  selectionVersion(){return this.generation;}
  private active?: Worker;
+ private cartridgeTransaction?:{id:string;worker:Worker;prepared:PreparedSelection;previous?:{worker:Worker;rom?:ArrayBuffer;battery?:BatterySession;state:PlayerState;fps:number};complete?:(result:GameSelectionResult)=>void};
  private selectedRom?:ArrayBuffer;
  private game?:GameDriver;
  private gameTimer?:ReturnType<typeof setTimeout>;
@@ -38,7 +39,7 @@ export class LocalPlayer {
  private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(new DOMException(message,'AbortError'));}this.pending.clear();}
  private fileRequest(message:FileCommand,target?:Worker):Promise<WorkerResponse> {
   const worker=target ?? this.active;
-  if(!worker || this.disposed || !target && this.state.loading || worker!==this.active && worker!==this.candidate)return Promise.reject(Error('Wait for a game to finish loading.'));
+  if(!worker || this.disposed || !target && this.state.loading && !this.shared || worker!==this.active && worker!==this.candidate && worker!==this.cartridgeTransaction?.previous?.worker)return Promise.reject(Error('Wait for a game to finish loading.'));
   const requestId=++this.nextRequest;
   return new Promise((resolve,reject)=>{
    const timer=setTimeout(()=>{this.pending.delete(requestId);reject(Error('The save operation timed out. Try again.'));},10000);
@@ -70,7 +71,7 @@ export class LocalPlayer {
  }
  persistBattery(session=this.batterySession):Promise<void> {
   if(session?.writing)return session.writing;
-  if(!session?.enabled || session.worker!==this.active || this.disposed)return Promise.resolve();
+  if(!session?.enabled || session.worker!==this.active || this.disposed || this.cartridgeTransaction?.worker===session.worker)return Promise.resolve();
   session.writing=this.captureBattery(session).finally(()=>{session.writing=undefined;});
   return session.writing;
  }
@@ -166,17 +167,46 @@ export class LocalPlayer {
   }finally{if(this.checkpointOperation===operationId)this.cancelPeerCheckpoint();}
  }
  async inspectSave(bytes:ArrayBuffer){const reply=await this.fileRequest({type:'state-inspect',bytes});if(reply.type!=='state-inspected')throw Error('Unexpected save validation response');return reply;}
+ async captureCartridge(){const worker=this.preparedSelection?.worker;if(!worker)throw Error('Wait for the cartridge candidate.');const capture=await this.fileRequest({type:'state-capture'},worker);if(capture.type!=='state-captured')throw Error('No cartridge capture.');const info=await this.fileRequest({type:'state-hash'},worker);if(info.type!=='state-hash'||!info.info.fresh||info.info.frame!==0||info.info.hash!==capture.hash)throw Error('The candidate cartridge is not fresh.');return capture;}
+ async prepareCartridge(file:File,current:()=>boolean){
+  return new Promise<void>((resolve,reject)=>{
+   const end=(error?:Error)=>{clearTimeout(timer);this.selectionListeners.delete(check);error?reject(error):resolve();};
+   const check=()=>{if(!current())end(Error('Game selection changed.'));else if(this.state.selectionPhase==='failed')end(Error(this.state.status));};
+   const timer=setTimeout(()=>end(Error('The candidate cartridge timed out. Retry.')),10000);this.selectionListeners.add(check);
+   void this.load(file,async()=>current(),true,current,async()=>{end();return new Promise<GameSelectionResult>(complete=>{this.cartridgeCompletion=complete;});},undefined,this.cartridgeOwner).catch(error=>end(error instanceof Error?error:Error(String(error))));
+  });
+ }
+ private cartridgeOwner?:string;
+ ownCartridge(id:string){if(this.cartridgeOwner&&this.cartridgeOwner!==id)throw Error('Another cartridge change owns the candidate.');this.cartridgeOwner=id;}
+ cancelCartridge(id:string,terminal=false){if(this.cartridgeOwner!==id)return;this.abandonCandidate(terminal);this.publish({loading:false,selectionPhase:'cancelled',...(terminal?{loaded:false,running:false}:{}),status:'Game change cancelled. Previous progress is preserved.'});}
+ private cartridgeCompletion?:(result:GameSelectionResult)=>void;
  async prepareSharedSave(transactionId:string,epoch:string,frame:number,bytes:ArrayBuffer,identity:string,hash:string,current:()=>boolean){
   if(!this.shared||this.state.running||this.busy||!current())throw Error('Save load authorization changed');
-  const reply=await this.fileRequest({type:'peer-checkpoint-prepare',operationId:transactionId,transactionId,epoch,frame,bytes,identity,hash});
+  const candidate=this.preparedSelection;if(candidate){this.cartridgeTransaction={id:transactionId,worker:candidate.worker,prepared:candidate,complete:this.cartridgeCompletion};}
+  const reply=await this.fileRequest({type:'peer-checkpoint-prepare',operationId:transactionId,transactionId,epoch,frame,bytes,identity,hash,...(candidate?{initial:true}:{})},candidate?.worker);
   if(reply.type!=='peer-checkpoint-prepared'||!current())throw Error('Save load authorization changed');return reply;
  }
  async commitSharedSave(transactionId:string,current:()=>boolean){
-  if(!current())throw Error('Save load authorization changed');const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId:transactionId});
-  if(reply.type!=='peer-checkpoint-imported'||!current())throw Error('Save load authorization changed');this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Saved game loaded. Waiting for everyone.'});return reply;
+  if(!current())throw Error('Save load authorization changed');const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;const reply=await this.fileRequest({type:'peer-checkpoint-commit',operationId:transactionId},cartridge?.worker);
+  if(reply.type!=='peer-checkpoint-imported'||!current())throw Error('Save load authorization changed');if(cartridge){cartridge.prepared.commit();return reply;}this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Saved game loaded. Waiting for everyone.'});return reply;
  }
- async rollbackSharedSave(transactionId:string,current:()=>boolean=()=>true){const reply=await this.fileRequest({type:'peer-checkpoint-rollback',operationId:transactionId});if(reply.type!=='peer-checkpoint-rolled-back')throw Error('Unexpected rollback response');if(!current())return reply;this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Previous progress preserved. Prepare to resume.'});return reply;}
- async finishSharedSave(transactionId:string){const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');}
+ async rollbackCartridge(transactionId:string,staged:boolean,current:()=>boolean){if(this.cartridgeTransaction?.id===transactionId)return this.rollbackSharedSave(transactionId,current);if(staged){const complete=this.cartridgeCompletion;this.cartridgeCompletion=undefined;this.rejectSelection('Game change failed. Previous progress is preserved.');complete?.({ok:false,message:'Game change failed.'});}return this.stateHash();}
+ async rollbackSharedSave(transactionId:string,current:()=>boolean=()=>true){
+  const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;
+  if(cartridge){
+   if(!current()||this.cartridgeOwner!==transactionId)return this.stateHash();
+   const old=cartridge.previous;if(old){this.active=old.worker;this.selectedRom=old.rom;this.batterySession=old.battery;this.fps=old.fps;this.state=old.state;}
+   cartridge.worker.terminate();this.candidate=undefined;
+   // Keep the selection lease until the retained machine proves its boundary.
+   // Revoking it sooner lets the UI cancel this very rollback hash request.
+   const info=await this.stateHash();if(!current()||this.cartridgeTransaction!==cartridge)return info;
+   this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;this.preparedSelection=undefined;this.selectionLock=false;this.cartridgeCompletion=undefined;
+   cartridge.complete?.({ok:false,message:'Game change failed. Previous progress is preserved.'});
+   this.publish({loading:false,selectionPhase:'failed',running:false,status:'Previous progress preserved. Prepare to resume.'});return {type:'peer-checkpoint-rolled-back' as const,frame:info.frame,hash:info.hash};
+  }
+  const reply=await this.fileRequest({type:'peer-checkpoint-rollback',operationId:transactionId});if(reply.type!=='peer-checkpoint-rolled-back')throw Error('Unexpected rollback response');if(!current())return reply;this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Previous progress preserved. Prepare to resume.'});return reply;
+ }
+ async finishSharedSave(transactionId:string,current:()=>boolean=()=>true){const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');if(cartridge){if(!current()||this.cartridgeTransaction!==cartridge||this.cartridgeOwner!==transactionId)return;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;cartridge.previous?.worker.terminate();this.preparedSelection=undefined;this.selectionLock=false;this.cartridgeCompletion=undefined;cartridge.prepared.publishCommit();cartridge.complete?.({ok:true});}}
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
   if(this.shared)throw Error('Shared rewind is not available yet. Leave the lobby before rewinding locally.');
@@ -226,7 +256,7 @@ export class LocalPlayer {
   this.animation = requestAnimationFrame(this.tick);
  }
  private selectionListeners=new Set<()=>void>();
- private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch}; this.update(this.state);for(const listener of this.selectionListeners)listener(); }
+ private publish(patch: Partial<PlayerState>) { if(this.disposed) return; this.state = {...this.state,...patch,selectionVersion:this.generation}; this.update(this.state);for(const listener of this.selectionListeners)listener(); }
  private send(worker: Worker, message: WorkerRequest, transfer: Transferable[] = []) { worker.postMessage(message,transfer); }
  private gamepadInput=new GamepadInput();
  private deviceChanged=(event:GamepadEvent)=>{if(this.controls.device?.index===event.gamepad.index&&this.controls.device.id===event.gamepad.id)this.gamepadInput.release(this.controls.device);};
@@ -305,7 +335,11 @@ export class LocalPlayer {
   if(!this.game?.draining()||!this.active||this.busy)return;
   const next=this.game.next(0);if(!next)return;this.busy=true;this.expectedFrame={epoch:this.game.epoch,frame:next.frame};this.send(this.active,{type:'frame',...next,epoch:this.game.epoch});
  }
- private abandonCandidate() {this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
+ private abandonCandidate(terminal=false) {
+  const cartridge=this.cartridgeTransaction,complete=this.cartridgeCompletion;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;this.cartridgeCompletion=undefined;
+  if(cartridge){const previous=cartridge.previous;if(previous&&!terminal&&this.active===cartridge.worker){this.active=previous.worker;this.selectedRom=previous.rom;this.batterySession=previous.battery;this.state=previous.state;this.fps=previous.fps;}else previous?.worker.terminate();if(this.active===cartridge.worker){cartridge.worker.terminate();this.active=undefined;}else cartridge.worker.terminate();}
+  complete?.({ok:false,message:'Game selection cancelled.'});
+  this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
  rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,selectionPhase:'failed',status:message}); }
  cancel() {
   if(this.selectionLock)return;
@@ -315,7 +349,7 @@ export class LocalPlayer {
  /** End the local session after a successful room exit or before opening the directory. */
  async quit() {
   this.pause();
-  this.abandonCandidate();
+  this.abandonCandidate(true);
   await this.persistBattery();
   this.rejectPending('Game closed.');
   this.active?.terminate();this.active=undefined;this.selectedRom=undefined;this.batterySession=undefined;
@@ -333,7 +367,7 @@ export class LocalPlayer {
   if(this.active) { this.send(this.active,{type:'pause'}); this.publish({running:false,status:'Paused. Resume whenever you’re ready.'}); }
  }
  resume():boolean {
-  if(!this.active || this.state.loading) return false;
+  if(!this.active || this.state.loading&&!this.shared) return false;
   if(this.shared) {this.publish({status:'Shared play is paused. Use the lobby’s shared controls, or leave the lobby before resuming locally.'});return false;}
   this.activateAudio(); this.last = 0; this.inputDevice(); this.publish({running:true,status:'Playing locally. The game runs in this browser.'}); this.canvas.focus();return true;
  }
@@ -366,9 +400,9 @@ export class LocalPlayer {
    reader.readAsArrayBuffer(file);
   });
  }
- async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false,selectionCurrent:()=>boolean=()=>true,prepare?:(fingerprint:LocalFingerprint,current:()=>boolean)=>Promise<GameSelectionResult>,committed?:(fingerprint:LocalFingerprint)=>void) {
+ async load(file?: File, approve?: (fingerprint:LocalFingerprint,isCurrent:()=>boolean)=>Promise<boolean>,startPaused=false,selectionCurrent:()=>boolean=()=>true,prepare?:(fingerprint:LocalFingerprint,current:()=>boolean)=>Promise<GameSelectionResult>,committed?:(fingerprint:LocalFingerprint)=>void,cartridgeOwner?:string) {
   if(!file || this.disposed || this.selectionLock || !selectionCurrent()) return; // A chooser cancellation does not replace the valid selection.
-  this.abandonCandidate(); const request = this.generation;
+  this.abandonCandidate();this.cartridgeOwner=cartridgeOwner; const request = this.generation;
   this.activateAudio(); this.publish({loading:true,selectionPhase:'loading',status:'Reading your file locally…'});
   try {
    const rom = await this.read(file);
@@ -396,7 +430,7 @@ export class LocalPlayer {
     if(data.type === 'ready') {
      if(request !== this.generation || this.candidate !== worker || !selectionCurrent()) { worker.terminate(); return; }
      const fingerprint:LocalFingerprint = {romSha256,coreSha256:data.coreSha256,localSchema:LOCAL_SCHEMA,settings:LOCAL_SETTINGS,cartridge};
-     const isCurrent=()=>request===this.generation && this.candidate===worker && !this.disposed && selectionCurrent();
+     const isCurrent=()=>request===this.generation && (this.candidate===worker||this.cartridgeTransaction?.worker===worker) && !this.disposed && selectionCurrent();
      try {
       if(approve && !await approve(fingerprint,isCurrent)) {if(isCurrent()) this.cancel();return;}
      }catch {if(isCurrent()) fail('Unable to confirm the lobby change.');return;}
@@ -435,15 +469,16 @@ export class LocalPlayer {
      }}catch{previewImage=undefined;}
      if(!isCurrent()) {worker.terminate();return;}
      this.inputDevice();
-     const commit=()=>{
-     this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
+     let committedWorker=false;
+     const publishCommit=()=>{this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,status:startPaused?'Game loaded. Resume whenever you’re ready.':'Playing locally. The game runs in this browser.',fingerprint,previewImage});committed?.(fingerprint);if(!startPaused)this.canvas.focus();};
+     const commit=()=>{if(committedWorker)return;committedWorker=true;
+     const cartridge=this.cartridgeTransaction?.worker===worker?this.cartridgeTransaction:undefined;
+     if(cartridge&&this.active)cartridge.previous={worker:this.active,rom:this.selectedRom,battery:this.batterySession,state:{...this.state},fps:this.fps};else this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
-     this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,status:startPaused ? 'Game loaded. Resume whenever you’re ready.' : 'Playing locally. The game runs in this browser.',fingerprint,previewImage});
-     committed?.(fingerprint);
-     if(!startPaused)this.canvas.focus();
+     if(!cartridge)publishCommit();
      };
      if(prepare){
-      const prepared={current:isCurrent,commit,fail};this.preparedSelection=prepared;
+      const prepared={worker,current:isCurrent,commit,publishCommit,fail};this.preparedSelection=prepared;
       try{this.finishSelection(await prepare(fingerprint,isCurrent),prepared);}catch(error){this.finishSelection({ok:false,message:error instanceof Error?error.message:'Could not prepare the lobby game.'},prepared);}
      }else commit();
      return;
@@ -469,7 +504,7 @@ export class LocalPlayer {
  }
  dispose() {
   clearInterval(this.persistenceTimer);clearInterval(this.backgroundTimer);window.removeEventListener('pagehide',this.pagehide);
-  this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
+  this.disposed = true; clearTimeout(this.gameTimer); this.backgroundClock?.disconnect();this.backgroundClock?.port.close();this.abandonCandidate(true); this.active?.terminate(); cancelAnimationFrame(this.animation); this.audio.flush(); void this.context?.close();
   window.removeEventListener('gamepadconnected',this.deviceChanged);window.removeEventListener('gamepaddisconnected',this.deviceChanged);
   window.removeEventListener('keydown',this.down); window.removeEventListener('keyup',this.up); window.removeEventListener('blur',this.blur);window.removeEventListener('resize',this.release);document.removeEventListener('visibilitychange',this.hidden); document.removeEventListener('focusin',this.focusChanged);
  }

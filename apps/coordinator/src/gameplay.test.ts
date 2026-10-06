@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {catalogEntry} from '../../../packages/contracts/src/catalog.ts';
 import {Rooms} from './rooms.ts';
 import {parseRoomCommand,type RoomEvent,type RoomView,type Fingerprint} from '../../../packages/contracts/src/rooms.ts';
 const hash='c'.repeat(64),otherHash='d'.repeat(64);
@@ -406,4 +407,41 @@ test('automatic Load preserves a previously paused game and permits explicit Res
  for(const who of [0,1])t.act(who,{type:'gameLoadCommitted',transactionId:load.id,frame:20,hash:otherHash});
  assert.equal(t.view().game.status,'resume_ready');assert.equal(t.view().game.frame,20);assert.equal(t.view().game.epoch,load.epoch);t.advance(3000);assert.equal(t.view().game.status,'resume_ready');
  t.act(0,{type:'gameResume',epoch:load.epoch});const resumed=t.view().game.epoch!;for(const who of [0,1])t.act(who,{type:'gameAck',epoch:resumed,hash:otherHash});t.advance(3000);assert.equal(t.view().game.status,'playing');
+});
+
+
+test('cartridge replacement freezes old controllers, commits new capability atomically and retains the group',()=>{
+ const t=setup(3),oldEpoch=t.begin(),old=t.view();
+ const entry=catalogEntry('from-below-1.0'),one:Fingerprint={...fingerprint,romSha256:entry.sha256,cartridge:{format:entry.format,mapper:entry.mapper,submapper:entry.submapper,region:entry.region,bytes:entry.bytes}};
+ const intent=randomUUID();t.act(0,{type:'beginGameSelection',roomId:old.id,intent,expectedRevision:old.revision,fingerprint:one,title:entry.title});
+ assert.deepEqual(t.view().fingerprint,old.fingerprint,'validation changed active cartridge');
+ t.act(0,{type:'gameLoadPropose',selectionIntent:intent,revision:old.game.controllers.revision,roomRevision:old.revision,frame:0,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});
+ const load=t.view().game.load!;assert.deepEqual(load.freezeRequired,[t.members[0],t.members[1]]);assert.deepEqual(load.required,[t.members[0]]);
+ t.act(0,{type:'gameFrozen',epoch:oldEpoch,frame:917,hash});
+ for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
+ assert.equal(t.view().game.load!.phase,'staging');assert.equal(t.view().slots[1].role,'player2');
+ t.act(0,{type:'gameLoadPrepared',transactionId:load.id,frame:0,hash:otherHash});
+ assert.throws(()=>t.act(1,{type:'gameLoadCommitted',transactionId:load.id,frame:0,hash:otherHash}),/controller_only/);
+ t.act(0,{type:'gameLoadCommitted',transactionId:load.id,frame:0,hash:otherHash});
+ const selected=t.view();assert.deepEqual(selected.fingerprint,one);assert.equal(selected.game.status,'waiting');assert.equal(selected.game.epoch,undefined);assert.equal(selected.started,undefined);assert.equal(selected.established,false);assert.deepEqual(selected.game.ready,[]);
+ assert.deepEqual(selected.slots.map(slot=>({id:slot.id,open:slot.open,member:slot.member?.id})),old.slots.map(slot=>({id:slot.id,open:slot.open,member:slot.member?.id})));
+ assert.equal(selected.slots[1].role,'observer');assert.equal(selected.slots[2].role,'observer');assert.equal(selected.invite,old.invite);assert.equal(selected.accessRevision,old.accessRevision);assert.equal(selected.occupancy,3);
+ assert.throws(()=>t.act(0,{type:'startRoom',roomId:selected.id,membership:t.members[0],fingerprint:one}),/game_prerequisites/);
+ assert.equal(t.events[2].some(event=>event.type==='gameLoadHold'||event.type==='gameLoadCommit'),false);
+});
+
+test('failed cartridge staging restores the old cartridge, roles and native boundary before retry',()=>{
+ const t=setup(3),epoch=t.begin(),old=t.view(),entry=catalogEntry('from-below-1.0');
+ const candidate:Fingerprint={...fingerprint,romSha256:entry.sha256,cartridge:{format:entry.format,mapper:entry.mapper,submapper:entry.submapper,region:entry.region,bytes:entry.bytes}};
+ const intent=randomUUID();t.act(0,{type:'beginGameSelection',roomId:old.id,intent,expectedRevision:old.revision,fingerprint:candidate,title:entry.title});
+ assert.throws(()=>t.act(1,{type:'gameLoadPropose',selectionIntent:intent,revision:old.game.controllers.revision,roomRevision:old.revision,frame:0,hash:otherHash,identity:'e'.repeat(64),savedAt:1000}),/game_selection_changed/);
+ assert.throws(()=>t.rooms.beginDownload(t.sessions[2].token,old.id,t.members[2],intent),/game_selection_changed/);
+ t.act(0,{type:'gameLoadPropose',selectionIntent:intent,revision:old.game.controllers.revision,roomRevision:old.revision,frame:0,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});
+ const id=t.view().game.load!.id;t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
+ for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:id,frame:917,hash});
+ t.act(0,{type:'gameLoadFailed',transactionId:id});assert.equal(t.view().game.load!.phase,'rolling_back');
+ for(const who of [0,1])t.act(who,{type:'gameLoadRolledBack',transactionId:id,frame:917,hash});
+ const restored=t.view();assert.equal(restored.game.status,'paused');assert.equal(restored.game.frame,917);assert.equal(restored.game.load,undefined);assert.deepEqual(restored.fingerprint,old.fingerprint);assert.deepEqual(restored.slots,old.slots);
+ t.act(0,{type:'cancelGameSelection',roomId:old.id,intent});assert.deepEqual(t.view().slots,old.slots);
+ t.act(0,{type:'beginGameSelection',roomId:old.id,intent:randomUUID(),expectedRevision:restored.revision,fingerprint:candidate,title:entry.title});
 });
