@@ -75,3 +75,23 @@ test('a late device-list failure cannot replace a newer successful refresh',asyn
   assert.equal(voice.current().deviceError,undefined);
  }finally{voice.dispose();env.restore();}
 });
+
+test('missing preferred gamepad preserves keyboard and pointer push-to-talk without muting open voice',async()=>{
+ const {defaults}=await import('./controls.ts'),env=environment(),voice=new VoiceSession(()=>{});
+ let connected=false,held=false;
+ Object.defineProperty(navigator,'getGamepads',{configurable:true,value:()=>[connected?{index:0,id:'Preferred pad',connected:true,buttons:Array.from({length:11},(_,i)=>({pressed:i===10&&held})),axes:[]}:null]});
+ Object.defineProperty(env.doc,'hasFocus',{value:()=>true});
+ try{
+  const peer=voice.forPeer('p2'),channel=connection();peer.prepare(channel.pc,true);peer.connected();await tick();
+  await voice.enable();voice.microphone.mode('push');const controls=defaults();controls.device={index:0,id:'Preferred pad'};voice.configureControls(controls);
+  const input=(voice as unknown as {input:()=>void}).input;
+  const key=(type:string)=>env.win.dispatchEvent(Object.assign(new Event(type),{code:'KeyV',repeat:false}));
+  key('keydown');input();assert.equal(voice.current().microphone.transmitting,true);
+  key('keyup');input();assert.equal(voice.current().microphone.transmitting,false);
+  voice.hold(true);input();assert.equal(voice.current().microphone.transmitting,true);voice.hold(false);
+  connected=true;held=true;input();assert.equal(voice.current().microphone.transmitting,false,'return hold must not start speaking');
+  held=false;input();held=true;input();assert.equal(voice.current().microphone.transmitting,true);
+  connected=false;input();assert.equal(voice.current().microphone.transmitting,false);assert.equal(voice.current().microphone.muted,false);
+  voice.microphone.mode('open');input();assert.equal(voice.current().microphone.transmitting,true,'optional pad loss cannot mute open speech');
+ }finally{voice.dispose();env.restore();}
+});

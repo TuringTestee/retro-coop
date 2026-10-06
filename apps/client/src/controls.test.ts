@@ -78,3 +78,33 @@ test('virtual pad covers eight directions, deadzone and bounded touchdown origin
  [[30,0,128],[30,30,128|32],[0,30,32],[-30,30,32|64],[-30,0,64],[-30,-30,64|16],[0,-30,16],[30,-30,16|128]].forEach(([x,y,mask])=>assert.equal(directionMask(x,y),mask));
  assert.equal(boundedOrigin(90,48),64);assert.equal(directionMask(90-boundedOrigin(90,48),0),128);
 });
+
+
+test('missing or restricted Gamepad API leaves keyboard and touch available',async context=>{
+ const {GamepadInput,availableGamepads}=await import('./controls.ts');
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ context.after(()=>{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else Reflect.deleteProperty(globalThis,'navigator');});
+ for(const value of [{},{getGamepads(){throw new DOMException('Restricted','SecurityError');}},{getGamepads:()=>[null]}]){
+  Object.defineProperty(globalThis,'navigator',{configurable:true,value});
+  assert.deepEqual(availableGamepads(),[]);
+  assert.equal(new GamepadInput().sample({index:0,id:'Saved pad'}).available,false);
+  assert.equal(inputMask(defaults().keyboard,new Set(['KeyZ'])),1);
+ }
+});
+test('a remembered pad releases held return inputs, ignores a different device and preserves preferences',async context=>{
+ const {GamepadInput}=await import('./controls.ts'),device={index:0,id:'Saved pad'},held={pressed:true};
+ let pad:unknown={index:0,id:device.id,connected:true,buttons:[held],axes:[1]};
+ const descriptor=Object.getOwnPropertyDescriptor(globalThis,'navigator');
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{getGamepads:()=>[pad]}});
+ context.after(()=>{if(descriptor)Object.defineProperty(globalThis,'navigator',descriptor);else Reflect.deleteProperty(globalThis,'navigator');});
+ const input=new GamepadInput();assert.deepEqual([...input.sample(device).pressed],[]);
+ held.pressed=false;(pad as {axes:number[]}).axes=[0];input.sample(device);
+ held.pressed=true;assert.deepEqual([...input.sample(device).pressed],['button:0']);
+ pad=null;assert.equal(input.sample(device).available,false);
+ pad={index:0,id:'Other pad',connected:true,buttons:[held],axes:[0]};assert.equal(input.sample(device).available,false);
+ pad={index:0,id:device.id,connected:true,buttons:[held],axes:[1]};assert.deepEqual([...input.sample(device).pressed],[]);
+ held.pressed=false;(pad as {axes:number[]}).axes=[0];input.sample(device);
+ held.pressed=true;assert.deepEqual([...input.sample(device).pressed],['button:0']);
+ input.release(device);assert.deepEqual([...input.sample(device).pressed],[]);
+ assert.deepEqual(device,{index:0,id:'Saved pad'});
+});

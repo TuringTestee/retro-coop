@@ -165,3 +165,29 @@ test('authorization loss force-abandons a locked candidate without disturbing it
  assert.equal(t.player.selectionLocked(),true);assert.equal(t.active,t.old);
  next.resolve({ok:true});await next.handled;assert.equal(t.active,next.worker);assert.equal(t.player.selectionLocked(),false);
 });
+
+
+test('optional pad loss keeps local/shared keyboard and touch available without changing ownership',async context=>{
+ const {defaults}=await import('./controls.ts');let connected=false,held=false;
+ const win=Object.assign(new EventTarget(),{setInterval,clearInterval,closest:()=>null}),canvas=Object.assign(new EventTarget(),{focus(){doc.activeElement=canvas;},getContext:()=>null});
+ const doc=Object.assign(new EventTarget(),{hidden:false,activeElement:canvas});
+ const globals={window:win,document:doc,navigator:{getGamepads:()=>[connected?{index:0,id:'Preferred pad',connected:true,buttons:[{pressed:held}],axes:[]}:null]},requestAnimationFrame:()=>1,cancelAnimationFrame:()=>{}};
+ let player:LocalPlayer;const saved=new Map<string,PropertyDescriptor|undefined>();
+ for(const [key,value] of Object.entries(globals)){saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,value});}
+ context.after(()=>{player?.dispose();for(const [key,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else Reflect.deleteProperty(globalThis,key);}});
+ player=new LocalPlayer(canvas as unknown as HTMLCanvasElement,()=>{});const controls=defaults();controls.device={index:0,id:'Preferred pad'};player.configureControls(controls);
+ const owned=player as unknown as {active:unknown;state:{loaded:boolean;running:boolean;loading:boolean};shared:boolean;game?:{ownsInput:boolean};stateHash:()=>Promise<unknown>};
+ owned.active={postMessage(){},terminate(){}};owned.state.loaded=true;owned.stateHash=async()=>({frame:0,hash:'same'});
+ assert.equal(player.resume(),true,'local Resume cannot require an absent optional pad');
+ const key=(type:string,code:string)=>win.dispatchEvent(Object.assign(new Event(type),{code,repeat:false}));
+ key('keydown','KeyZ');assert.equal(player.sampleGameInput(),1);key('keyup','KeyZ');
+ player.setVirtualInput(2);assert.equal(player.sampleGameInput(),2);player.setVirtualInput(0);
+ await player.holdForGame();assert.equal(owned.shared,true);
+ player.startGame({epoch:'owned-epoch',next:()=>undefined,committed(){},pause(){throw Error('An optional pad cannot pause authority');},draining:()=>false,ownsInput:true});
+ connected=true;held=true;assert.equal(player.sampleGameInput(),0,'return hold must be neutral');
+ held=false;player.sampleGameInput();held=true;assert.equal(player.sampleGameInput(),1);
+ connected=false;assert.equal(player.sampleGameInput(),0);assert.equal(owned.state.running,true);
+ key('keydown','KeyC');assert.equal(player.sampleGameInput(),2);connected=true;assert.equal(player.sampleGameInput(),2,'return hold cannot override working keyboard');
+ player.releaseControllers();assert.equal(player.sampleGameInput(),0);
+ player.stopGame('Paused together.');assert.equal(player.resume(),false,'shared authority cannot silently become local play');
+});

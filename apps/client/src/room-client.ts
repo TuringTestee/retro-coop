@@ -74,7 +74,7 @@ export class RoomClient {
  private state:RoomState = {status:'No lobby selected.',busy:false,connected:false};
  private update:(state:RoomState)=>void;
  private player:()=>LocalPlayer|null;
- constructor(update:(state:RoomState)=>void,player:()=>LocalPlayer|null=()=>null) {this.update=update;this.player=player;try {this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
+ constructor(update:(state:RoomState)=>void,player:()=>LocalPlayer|null=()=>null) {this.update=update;this.player=player;try {if(navigator.locks)this.token = sessionStorage.getItem('retro-coop-guest') ?? undefined;}catch{}this.publish({voice:this.voice.current()});}
  private publish(patch:Partial<RoomState>) {if(this.disposed) return;this.state = {...this.state,...patch};this.update(this.state);}
  private setRoom(room?:RoomView){
   // Selection work belongs to this lobby membership, not a later admission.
@@ -93,7 +93,7 @@ export class RoomClient {
   if(!room)this.closePeers('Lobby closed.',true);else for(const [id,peer] of this.peers)if(!room.peers.some(view=>view.pairId===id)){peer.close('Member left.');this.peers.delete(id);this.peerStates.delete(id);}
  }
  private apply(data:RoomData) {
-  if(data.session) {this.token = data.session.token;try {sessionStorage.setItem('retro-coop-guest',this.token);}catch{}this.publish({session:data.session});}
+  if(data.session) {this.token = data.session.token;try {if(this.tabSession.mayPersist())sessionStorage.setItem('retro-coop-guest',this.token);else sessionStorage.removeItem('retro-coop-guest');}catch{}this.publish({session:data.session});}
   if(data.directory) this.publish({directory:data.directory,directoryStatus:'live',directoryError:undefined});
   if(data.preview) this.publish({preview:data.preview});
   if(data.room) this.setRoom(data.room);
@@ -168,7 +168,7 @@ export class RoomClient {
      }else this.publish({busy:false,status:voluntaryExit&&event.reason==='host_closed'?'Lobby closed.':status,releaseNotice:voluntaryExit||event.reason==='left'||event.reason==='host_closed'&&priorRoom?.role==='host'?undefined:status});}
    };
    socket.onopen = () => {void this.request({type:'hello',...(this.token ? {token:this.token}:{})}).then(async data=>{
-    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token))throw Error('This browser cannot reserve a separate lobby session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.closePeers('No peer connection.');this.setRoom(data.room);this.apply(data);await this.restoreName();this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a lobby.'}:{})});
+    clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token,!this.token))throw Error('This browser cannot reserve a separate lobby session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.closePeers('No peer connection.');this.setRoom(data.room);this.apply(data);await this.restoreName();this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a lobby.'}:{})});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();
    }).catch(error=>{clearTimeout(deadline);socket.close();reject(error);});};
