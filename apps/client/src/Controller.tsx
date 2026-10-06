@@ -176,7 +176,7 @@ export function Controller({
         onKeyUp={(event) => key(event, bit, false)}
         onClick={(event) => event.stopPropagation()}
       >
-        {labels[action]}
+        <span className="rc-nes-button-art">{labels[action]}</span>
         {idle&&<small className="rc-input-hint">{controls.keyboard[action].map(bindingLabel).join(" / ")||"Unbound"}</small>}
       </button>
     );
@@ -224,24 +224,26 @@ export function Controller({
               role="group"
               aria-label="Direction pad"
             >
-              <span
-                className="rc-thumb-dot"
-                aria-hidden="true"
-                style={{ transform: `translate(${dot.x}px,${dot.y}px)` }}
-              />
-              {(["up", "left", "down", "right"] as const).map((action) => {
-                const bit = 1 << actions.indexOf(action);
-                return (
-                  <span
-                    key={action}
-                    className={`rc-direction rc-direction-${action}`}
-                    data-pressed={!!(mask & bit)}
-                    aria-hidden="true"
-                  >
-                    {directionGlyphs[action]}{idle&&<small className="rc-input-hint">{controls.keyboard[action].map(bindingLabel).join(" / ")||"Unbound"}</small>}
-                  </span>
-                );
-              })}
+              <div className="rc-pad-art" aria-hidden="true">
+                <span
+                  className="rc-thumb-dot"
+                  aria-hidden="true"
+                  style={{ transform: `translate(${dot.x}px,${dot.y}px)` }}
+                />
+                {(["up", "left", "down", "right"] as const).map((action) => {
+                  const bit = 1 << actions.indexOf(action);
+                  return (
+                    <span
+                      key={action}
+                      className={`rc-direction rc-direction-${action}`}
+                      data-pressed={!!(mask & bit)}
+                      aria-hidden="true"
+                    >
+                      {directionGlyphs[action]}{idle&&<small className="rc-input-hint">{controls.keyboard[action].map(bindingLabel).join(" / ")||"Unbound"}</small>}
+                    </span>
+                  );
+                })}
+              </div>
               <button
                 className="rc-pad-drag"
                 type="button"
