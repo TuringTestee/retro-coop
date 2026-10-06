@@ -111,7 +111,6 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-footer-actions button + button:not(:disabled) { background: var(--orange); }
 .rc-action-slot { display: grid; align-items: center; min-height: 54px; }
 .rc-ready-slot { width: 132px; }
-.rc-start-slot { width: 104px; }
 .rc-action-slot button { width: 100%; padding-right: 3px; padding-left: 3px; }
 .rc-footer-back button:hover, .rc-footer-actions button:hover:not(:disabled) { box-shadow: inset 0 0 0 1px currentColor; }
 .rc-shell input:not([type=radio]):not([type=range]), .rc-shell select { min-width: 0; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--field-bg); color: var(--ink); }
@@ -227,6 +226,7 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-game-picker .rc-quiet { justify-self: start; border: 0; color: #ffc097; }
 .rc-prepare-cover { position: absolute; inset: 0; z-index: 2; display: grid; grid-template-rows: clamp(44px,40%,56px) minmax(0,1fr); background: #06101766; backdrop-filter: brightness(.65); }
 .rc-prepare-feedback { display: flex; align-items: end; justify-content: flex-end; padding-inline: 8px; min-width: 0; }
+.rc-primary-action-reason { width: 100%; text-align: center; color: #fff; overflow-wrap: anywhere; font-size: 14px; }
 .rc-prepare-feedback .rc-game-save-status { position: static; max-width: 100%; height: 44px; padding-block: 0; flex-wrap: nowrap; font-size: 12px; line-height: 16px; }
 .rc-prepare-feedback .rc-game-save-status span { flex: 1 1 0; min-width: 0; }
 .rc-prepare-feedback .rc-game-save-status button { flex: none; }
@@ -543,7 +543,6 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-footer-back button { width: 100%; white-space: normal; line-height: 1.25; padding: 3px 6px; }
  .rc-footer-actions { gap: 4px; }
  .rc-ready-slot { width: 82px; }
- .rc-start-slot { width: 62px; }
  .rc-action-slot { min-height: 44px; }
  .rc-footer-actions button { padding: 3px 6px; white-space: normal; line-height: 1.25; }
 }

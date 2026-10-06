@@ -135,6 +135,10 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest.goto(url)
         guest.locator('.rc-lobby-card').first.click()
         guest.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
+        spectator=browser.new_page(viewport={"width":1024,"height":600})
+        spectator.goto(url)
+        spectator.locator('.rc-lobby-card').first.click()
+        spectator.get_by_text("Waiting for the host to load a NES game").wait_for(timeout=15000)
         for sender, receiver, text in ((guest, host, "Ready when you are"),
                                        (host, guest, "Hosting and chatting")):
             choose_panel(sender, "Chat")
@@ -156,10 +160,33 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             page.get_by_role("button", name="Mute game", exact=True).click()
         choose_panel(host, "Game")
         choose_panel(guest, "Game")
+        primary_region=host.locator(".rc-prepare-action-region").bounding_box()
+        prepare_box=host.get_by_role("button",name="Prepare",exact=True).bounding_box()
         host.get_by_role("button", name="Prepare", exact=True).click()
-        assert host.get_by_role("button", name="Start →").count() == 0
+        expect(host.get_by_role("button", name="Start →")).to_be_disabled()
+        expect(host.locator(".rc-prepare-cover")).to_contain_text("not ready")
+        assert host.locator(".rc-prepare-action-region").bounding_box()==primary_region
+        start_box=host.get_by_role("button",name="Start →").bounding_box()
+        for axis,length in [("x","width"),("y","height")]:
+            assert abs((start_box[axis]+start_box[length]/2)-(prepare_box[axis]+prepare_box[length]/2))<1
+        assert host.locator(".rc-footer").get_by_role("button",name="Start →").count()==0
+        assert guest.get_by_role("button",name="Start →").count()==0
+        if screenshot_dir:
+            host.screenshot(path=str(screenshot_dir / "centered-start-waiting.png"))
         guest.get_by_role("button", name="Prepare", exact=True).click()
-        host.get_by_role("button", name="Start →").wait_for(state="visible")
+        expect(host.locator(".rc-prepare-cover").get_by_role("button",name="Start →")).to_be_enabled()
+        assert host.locator(".rc-prepare-action-region").bounding_box()==primary_region
+        assert spectator.get_by_role("button",name="Prepare",exact=True).count()==0
+        assert spectator.get_by_role("button",name="Start →").count()==0
+        for size in sizes:
+            host.set_viewport_size(size)
+            choose_panel(host, "Game")
+            fits(host)
+            assert host.get_by_role("button",name="Start →").count()==1
+            assert host.locator(".rc-footer").get_by_role("button",name="Start →").count()==0
+            assert host.locator(".rc-prepare-cover").get_by_role("button",name="Start →").evaluate("node => {const r=node.getBoundingClientRect(), p=node.closest('.rc-game-viewport').getBoundingClientRect();return r.left>=p.left&&r.right<=p.right&&r.top>=p.top&&r.bottom<=p.bottom;}")
+        if screenshot_dir:
+            host.screenshot(path=str(screenshot_dir / "centered-start-ready-phone.png"))
         host.get_by_role("button", name="Start →").click(timeout=15000)
         host.get_by_text("Game starts in", exact=False).wait_for(timeout=15000)
         host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
@@ -192,7 +219,7 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         migrated_default_preferences(browser,url,migration_output)
         browser.close()
     return {"empty_lobby_before_game": True, "guest_chat_and_readiness": True, "incremental_chat_and_enter": True,
-            "synchronized_start": True, "mobile_shell": True, "exit_to_main": True,
+            "synchronized_start": True, "centered_start_same_region": True, "spectator_nonblocking": True, "mobile_shell": True, "exit_to_main": True,
             "game_worker_and_frame_cleared": True, "migrated_preferences_reload_and_play": True}
 
 def occupied_port_check(environment):
