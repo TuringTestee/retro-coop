@@ -370,7 +370,7 @@ export class LocalPlayer {
     if(this.disposed) return;
     if('requestId' in data) {
      const pending=this.pending.get(data.requestId);
-     if(pending?.worker===worker) {clearTimeout(pending.timer);this.pending.delete(data.requestId);if(data.type.endsWith('-error'))pending.reject(Error('message' in data ? data.message : 'Save failed'));else pending.resolve(data);}
+     if(pending?.worker===worker) {clearTimeout(pending.timer);this.pending.delete(data.requestId);if(data.type.endsWith('-error'))pending.reject(Object.assign(Error('message' in data ? data.message : 'Save failed'),{code:'code' in data?data.code:undefined}));else pending.resolve(data);}
      return;
     }
     if(data.type === 'error') { fail(data.message); return; }

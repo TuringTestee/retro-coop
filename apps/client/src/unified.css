@@ -225,7 +225,10 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-game-picker > div:not(.rc-saved-list):not(.rc-saved-pages) { display: flex; flex-wrap: wrap; gap: 5px; }
 .rc-game-picker button, .rc-side-content button { min-height: 31px; padding: 4px 7px; border: 1px solid var(--menu-border); border-radius: 4px; background: var(--menu-control); color: var(--menu-text); font-size: 14px; }
 .rc-game-picker .rc-quiet { justify-self: start; border: 0; color: #ffc097; }
-.rc-game-progress { display: grid; align-content: center; justify-items: start; gap: 8px; height: 100%; padding: 12px; overflow: hidden; }
+.rc-game-progress { position: absolute; inset: 0; z-index: 3; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 16px; overflow: auto; text-align: center; background: #10211eef; }
+.rc-preparation-spinner { width: 64px; height: 64px; border: 6px solid #d3deda40; border-top-color: #ffc097; border-radius: 50%; animation: rc-preparation-spin 1s linear infinite; }
+@keyframes rc-preparation-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rc-preparation-spinner { animation-duration: 3s; } }
 .rc-game-progress strong { max-width: 100%; overflow-wrap: anywhere; white-space: normal; font-size: 18px; }
 .rc-game-progress small { color: #d3deda; font-size: 14px; }
 .rc-game-progress .rc-quiet { color: #ffc097; }

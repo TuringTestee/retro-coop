@@ -9,16 +9,20 @@ export class GameSession {
  private loadState?:{view:SaveLoadView;oldEpoch?:string;oldFrame:number;oldHash?:string;initial:boolean;revision:number;controllers:number;boundaries:Map<string,{frame:number;hash:string}>;prepared:Set<string>;committed:Set<string>;rolledBack:Set<string>};
  private host='';private members=new Map<string,Member>();private offers=new Map<string,Offer>();private acks=new Set<string>();private required:string[]=[];
  private roomRevision?:number;
+ private hostInterruption?:{epoch:string;controllers:number};
  private restoredAwaitingResume=false;private hasPlayed=false;private transfers=new Map<string,Transfer>();private deadline=0;private hash?:string;private frame=0;private proposed?:ControllerAssignment;
  private state:GameView={controllers:{owners:[null,null],revision:0},ready:[],startRequested:false,status:'waiting'};
  private now:()=>number;private send:(member:string,event:GameEvent)=>void;private commitRoles:(pending:RoleTransaction)=>ControllerAssignment;
  constructor(now:()=>number,send:(member:string,event:GameEvent)=>void,commitRoles:(pending:RoleTransaction)=>ControllerAssignment){this.now=now;this.send=send;this.commitRoles=commitRoles;}
- view():GameView{return {...this.state,...(this.loadState?{load:{...this.loadState.view,required:[...this.loadState.view.required],accepted:[...this.loadState.view.accepted]}}:{}),ready:[...this.offers.keys()],frame:this.frame};}
+ private recoveryEpoch(){const lost=this.hostInterruption;return lost&&lost.epoch===this.state.epoch&&lost.controllers===this.state.controllers.revision&&this.state.status==='failed'&&!this.state.pending&&!this.loadState?lost.epoch:undefined;}
+ view():GameView{return {...this.state,hostRecovery:this.recoveryEpoch(),...(this.loadState?{load:{...this.loadState.view,required:[...this.loadState.view.required],accepted:[...this.loadState.view.accepted]}}:{}),ready:[...this.offers.keys()],frame:this.frame};}
  resetForGameSelection(){if(this.loadState)throw Error('timeline_change_pending');if(this.state.epoch)throw Error('game_already_started');this.offers.clear();this.deadline=0;this.state={...this.state,ready:[],startRequested:false,status:'waiting',reason:undefined,startAt:undefined};}
  private all(event:GameEvent){for(const member of this.members.keys())this.send(member,event);}
  private owners(assignment=this.state.controllers){return [...new Set([this.host,...assignment.owners.filter((owner):owner is string=>!!owner)])];}
  configure(host:string,members:Member[],controllers:ControllerAssignment,revision?:number){
   const previous=this.members;this.host=host;this.members=new Map(members.map(member=>[member.id,member]));
+  const hostLost=this.hasPlayed&&this.state.epoch&&previous.get(host)?.connected&&!this.members.get(host)?.connected;
+  if(hostLost)this.hostInterruption={epoch:this.state.epoch!,controllers:this.state.controllers.revision};
   if(!this.state.pending)this.state.controllers=controllers;
   if(!this.state.epoch){
    if(this.roomRevision!==undefined&&revision!==undefined&&revision!==this.roomRevision)this.offers.clear();
@@ -32,7 +36,8 @@ export class GameSession {
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
   if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Players changed. Progress kept.');
   if(['starting','countdown'].includes(this.state.status)&&this.required.some(owner=>!this.available(owner)))this.stop('A prepared player disconnected. Previous progress is preserved; prepare again when everyone is connected.');
-  if(this.state.status==='playing'&&this.owners().some(owner=>!this.available(owner)))this.freeze('A controller owner disconnected. Game progress is preserved.');
+  if(this.state.status==='playing'&&this.owners().some(owner=>!this.available(owner)))this.freeze(!this.members.get(this.host)?.connected?'The host disconnected. Reconnect to recover the shared game.':'A controller owner disconnected. Prepare again when connected.');
+  else if(hostLost&&!this.loadState&&!this.state.pending&&['paused','failed','resume_ready'].includes(this.state.status))this.freeze('The host disconnected. Reconnect to recover the shared game.');
  }
  private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(this.hasPlayed?member===this.host||value.hostTransport:value.allLinksReady);}
  private checkRevision(revision:number){if(revision!==this.state.controllers.revision)throw Error('stale_controllers');}
@@ -117,12 +122,17 @@ export class GameSession {
 
   if(command.type==='gameRestore'){
    this.checkRevision(command.revision);
-   if(member!==this.host||command.roomRevision!==(this.roomRevision??0)||this.state.epoch||this.hasPlayed||this.state.startRequested||!this.members.get(member)?.connected||!this.members.get(member)?.loaded)throw Error('game_prerequisites');
+   const initial=!this.state.epoch&&!this.hasPlayed&&!this.state.startRequested&&!command.previousEpoch;
+   const recovery=!!command.previousEpoch&&command.previousEpoch===this.recoveryEpoch();
+   if(member!==this.host||command.roomRevision!==(this.roomRevision??0)||!(initial||recovery)||this.state.pending||this.loadState||!this.members.get(member)?.connected||!this.members.get(member)?.loaded)throw Error('game_prerequisites');
+   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Host recovery replaced the interrupted timeline. Synchronize again.');
+   this.hostInterruption=undefined;this.acks.clear();this.required=[];this.deadline=0;
    this.frame=command.frame;this.hash=command.hash;this.hasPlayed=true;this.restoredAwaitingResume=true;this.offers.clear();
-   this.state={...this.state,epoch:id(),status:'paused',reason:'Game restored. Prepare to resume together.',delay:gameplayLimits.delayDefault};return;
+   this.state={...this.state,epoch:id(),status:'paused',startRequested:false,startAt:undefined,reason:recovery&&command.frame===0?'Previous host progress could not be recovered. Game restarted from the beginning. Prepare to resume together.':'Game restored. Prepare to resume together.',delay:gameplayLimits.delayDefault};return;
   }
   if(command.type==='gameReady'){
    this.checkRevision(command.revision);if(command.roomRevision!==(this.roomRevision??0))throw Error('room_changed');if(this.state.pending||['playing','starting','countdown','pausing'].includes(this.state.status)||!this.available(member))throw Error('game_prerequisites');
+   if(member===this.host&&this.hasPlayed&&command.fresh&&!this.restoredAwaitingResume)throw Error('host_recovery_required');
    this.offers.set(member,command);this.prepareIfReady();return;
   }
   if(command.type==='gameObserve'){
@@ -267,6 +277,6 @@ export class GameSession {
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,reason);this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,startRequested:false,startAt:undefined};this.all({type:'gameStop',epoch:this.state.epoch,reason});
  }
  sweep(){let changed=false;const load=this.loadState;if(load&&this.now()>=load.view.expiresAt){if(load.view.phase==='rolling_back'){this.finishLoadRollback(true);}else this.abortLoad(load.view.phase==='consent'?'Load request timed out. Previous progress is preserved.':'Game loading timed out. Previous progress is preserved.');changed=true;}for(const transfer of [...this.transfers.values()])if(this.now()>=transfer.deadline){this.cancelTransfer(transfer,'Synchronization timed out. Retry without leaving the room.');if(transfer.purpose==='load')this.abortLoad('Game synchronization timed out. Previous progress is preserved.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Game sync timed out. Progress kept.');else this.stop('Synchronization timed out. Prepare again.','failed');}changed=true;}
-  if(this.state.status==='countdown'&&this.state.startAt!==undefined&&this.now()>=this.state.startAt){this.hasPlayed=true;this.restoredAwaitingResume=false;this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;this.state.startAt=undefined;for(const owner of this.required)this.send(owner,{type:'gameStart',epoch:this.state.epoch!,authority:this.host,frame:this.frame,hash:this.hash!,delay:this.state.delay!,controllers:this.state.controllers});changed=true;}
-  if((this.state.startRequested||['starting','countdown','pausing'].includes(this.state.status))&&this.now()>=this.deadline){if(this.state.pending)this.failTransaction('Pause failed. Progress kept.');else this.stop('Preparation timed out. Retry; progress is preserved.','failed');changed=true;}return changed;}
+  if(this.state.status==='countdown'&&this.state.startAt!==undefined&&this.now()>=this.state.startAt){this.hasPlayed=true;this.hostInterruption=undefined;this.restoredAwaitingResume=false;this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;this.state.startAt=undefined;for(const owner of this.required)this.send(owner,{type:'gameStart',epoch:this.state.epoch!,authority:this.host,frame:this.frame,hash:this.hash!,delay:this.state.delay!,controllers:this.state.controllers});changed=true;}
+  if((this.state.startRequested||['starting','countdown','pausing'].includes(this.state.status))&&this.now()>=this.deadline){if(this.state.pending)this.failTransaction('Pause failed. Progress kept.');else {const missing=this.state.status==='pausing'?'The host did not provide a completed game state.':this.required.filter(member=>!this.acks.has(member)).length?'Waiting for player acknowledgements.':'Waiting for players to prepare.';this.stop(`Preparation timed out. ${missing} Retry preparation; saved progress is kept.`,'failed');}changed=true;}return changed;}
 }
