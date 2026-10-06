@@ -98,7 +98,7 @@ Pause  Mute game  Saves  Game help
 +----------------------------------------+
 ```
 
-Cards follow the game in reading and keyboard order. Controls opens Settings where long or unbound mappings have readable labels. A disconnected device triggers the existing Use keyboard action; Settings then shows keyboard as the selected device. No horizontal page overflow or overlay is permitted.
+Cards follow the game in reading and keyboard order. Controls opens Settings where long or unbound mappings have readable labels. An absent or disconnected optional device automatically falls back to keyboard/touch; Settings retains its preferred identity and mappings. [The controls contract](../implementation/d07-controls.md#input-and-recovery) governs usable hints and released return holds. No horizontal page overflow or overlay is permitted.
 
 ## Final design check
 
