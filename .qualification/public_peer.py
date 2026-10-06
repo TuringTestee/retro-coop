@@ -271,7 +271,7 @@ with sync_playwright() as pw:
   assert not result['page_errors'],result['page_errors']
   result['result']='pass'
  except Exception as e:
-  result['result']='fail';result['error']=str(e);diagnostic('failure-before-cleanup');result['body']=page.locator('body').inner_text();result['ready_results']=page.evaluate('window.readyResults');result['capture_failures']=page.evaluate('window.captureFailures');result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');capture('failure');raise
+  result['result']='fail';result['error']=str(e);diagnostic('failure-before-cleanup');result['body']=page.locator('body').inner_text();result['ready_results']=page.evaluate('window.readyResults');result['capture_failures']=page.evaluate('window.captureFailures');result['observed_room']=page.evaluate('window.proof?.room');result['events']=page.evaluate('window.proof?.events');raise
  finally:
   try:
    page.set_default_timeout(3000)
