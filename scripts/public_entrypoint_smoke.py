@@ -113,6 +113,23 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
         guest_context = browser.new_context(viewport={"width": 1024, "height": 600})
         host = host_context.new_page()
         host.add_init_script("""(() => {
+          window.__startProof={hold:true,pending:null,replies:[],sent:[]};
+          const send=WebSocket.prototype.send;
+          WebSocket.prototype.send=function(payload){
+            let command;try{command=JSON.parse(payload);}catch{}
+            if(command?.type==='prepareHost'&&__startProof.hold){
+              __startProof.pending={socket:this,command};
+              this.addEventListener('message',event=>{let response;try{response=JSON.parse(event.data);}catch{}if(response?.requestId===command.requestId)__startProof.replies.push(response);});
+              return;
+            }
+            return send.call(this,payload);
+          };
+          window.__releaseStart=reject=>{
+            const {socket,command}=__startProof.pending;
+            const sent={...command,...(reject?{membership:command.membership+'_stale'}:{})};
+            __startProof.sent.push({original:command,sent});__startProof.pending=null;__startProof.hold=false;
+            send.call(socket,JSON.stringify(sent));
+          };
           window.__terminatedWorkers = 0;
           const terminate = Worker.prototype.terminate;
           Worker.prototype.terminate = function() {
@@ -191,10 +208,55 @@ def browser_check(screenshot_dir=None, url="http://127.0.0.1:8765/"):
             assert host.locator(".rc-prepare-cover").get_by_role("button",name="Start →").evaluate("node => {const r=node.getBoundingClientRect(), p=node.closest('.rc-game-viewport').getBoundingClientRect();return r.left>=p.left&&r.right<=p.right&&r.top>=p.top&&r.bottom<=p.bottom;}")
         if screenshot_dir:
             host.screenshot(path=str(screenshot_dir / "centered-start-ready-phone.png"))
-        host.get_by_role("button", name="Start →").click(timeout=15000)
+        start_button=host.get_by_role("button",name="Start →")
+        roster=host.locator(".rc-players").inner_text()
+        lobby_name=host.locator(".rc-lobby-heading").inner_text()
+        start_button.focus();expect(start_button).to_be_focused();start_button.press("Enter")
+        host.wait_for_function("__startProof.pending!==null")
+        expect(start_button).to_be_disabled()
+        pending={"header":host.locator('.rc-status-copy').inner_text(),"overlay":host.locator('.rc-primary-action-reason').inner_text()}
+        if screenshot_dir:host.screenshot(path=str(screenshot_dir/"centered-start-pending.png"))
+        host.evaluate("__releaseStart(true)")
+        host.wait_for_function("__startProof.replies.some(reply=>reply.ok===false)")
+        expect(start_button).to_be_enabled()
+        assert host.locator("main").get_attribute("data-page")=="lobby"
+        assert host.locator(".rc-players").inner_text()==roster
+        assert host.locator(".rc-lobby-heading").inner_text()==lobby_name
+        rejected={"header":host.locator('.rc-status-copy').inner_text(),"overlay":host.locator('.rc-prepare-cover').inner_text(),"reply":host.evaluate("__startProof.replies.at(-1)")}
+        if screenshot_dir:host.screenshot(path=str(screenshot_dir/"centered-start-rejected.png"))
+        host.evaluate("__startProof.hold=true")
+        start_button.focus();expect(start_button).to_be_focused();start_button.press("Enter")
+        host.wait_for_function("__startProof.pending!==null")
+        choose_panel(host,"Players")
+        host.locator('[data-slot-id="slot-5"] .slot-row').click()
+        host.get_by_role('menuitem',name='Close slot',exact=True).click()
+        expect(host.locator('[data-slot-id="slot-5"] .slot-row')).to_contain_text('Closed')
+        host.evaluate("__releaseStart(true)")
+        host.wait_for_function("__startProof.replies.filter(reply=>reply.ok===false).length===2")
+        choose_panel(host,"Game")
+        context_state={"header":host.locator('.rc-status-copy').inner_text(),"host_prepare":host.get_by_role('button',name='Prepare',exact=True).count(),"guest_prepare":guest.get_by_role('button',name='Prepare',exact=True).count()}
+        print(json.dumps({"start_context_after_rejection":context_state}),flush=True)
+        expect(host.get_by_role('button',name='Prepare',exact=True)).to_be_enabled()
+        host.get_by_role('button',name='Prepare',exact=True).click()
+        expect(guest.get_by_role('button',name='Prepare',exact=True)).to_be_enabled()
+        guest.get_by_role('button',name='Prepare',exact=True).click()
+        expect(start_button).to_be_enabled()
+        assert 'Could not start' not in host.locator('.rc-status-copy').inner_text()
+        context_rejection={"revision_changed_through_public_slot_action":True,"fresh_preparation_required":True,"old_failure_not_shown_after_preparing":True}
+        host.evaluate("__startProof.hold=true")
+        start_button.focus();expect(start_button).to_be_focused();start_button.press("Enter")
+        host.wait_for_function("__startProof.pending!==null")
+        expect(start_button).to_be_disabled()
+        host.evaluate("__releaseStart(false)")
         host.get_by_text("Game starts in", exact=False).wait_for(timeout=15000)
         host.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
         guest.wait_for_function("Number(document.querySelector('canvas')?.dataset.frameCount) > 5", timeout=30000)
+        expect(host.get_by_label("NES game screen",exact=True)).to_be_focused()
+        start_proof={"pending":pending,"rejected":rejected,"requests":host.evaluate("__startProof.sent.map(row=>({type:row.sent.type,requestId:row.sent.requestId,staleMembershipInjected:row.sent.membership!==row.original.membership}))"),"keyboard_retry_native_play":True,"canvas_focused":True,"same_lobby_roster_after_rejection":True,"context_rejection":context_rejection}
+        print(json.dumps({"start_transition":start_proof}),flush=True)
+        if screenshot_dir:(screenshot_dir/'start-transition.json').write_text(json.dumps(start_proof,indent=2)+'\n')
+        assert pending['header']=='Starting lobby…' and pending['overlay']=='Starting lobby…',pending
+        assert 'Could not start' in rejected['header'] and 'Retry' in rejected['header'],rejected
         choose_panel(host, "Chat")
         choose_panel(guest, "Chat")
         field = guest.get_by_label("Message everyone")

@@ -276,6 +276,9 @@ function App(){
    : undefined;
  const lobbyGuidance=()=>{
   if(!roomState.connected)return 'Connection lost. Retry connection.';
+  if(roomState.startingRoom)return 'Starting lobby…';
+  const startFailure=roomState.startFailure;
+  if(canStart&&startFailure&&startFailure.roomId===room?.id&&startFailure.membership===room.chatMembership&&startFailure.revision===room.revision)return 'Could not start. Retry Start.';
   if(room?.role==='host'&&roomState.selectionFinishing)return roomState.status;
   if(room?.role==='host'&&playerState.selectionPhase==='uncertain')return playerState.status;
   if(!room?.fingerprint)return room?.role==='host'?'Load a NES game while players join.':'';
