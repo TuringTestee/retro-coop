@@ -8,7 +8,7 @@ This bounded revision implements the owner's [#261 request](https://github.com/T
 
 ## Direction
 
-- Once a game is loaded and the local player needs preparation, place one large **Prepare** button at the center of its preview, above the controller visuals. Use a semi-transparent background and a dim/filter layer over the preview; this replaces the bottom-right preparation button. Preserve authoritative eligibility, progress, cancellation and failed-preparation recovery in that region. Prepared players and spectators have no preparation overlay; Start remains the host's subsequent action.
+- Once a game is loaded and the local player needs preparation, place one large **Prepare** button at the center of its preview, above the controller visuals. Use a semi-transparent background and a dim/filter layer over the preview; this replaces the bottom-right preparation button. Preserve authoritative eligibility, progress, cancellation and failed-preparation recovery in that region. Prepared members wait for the host. Under [#282](https://github.com/TuringTestee/retro-coop/issues/282), the host's single subsequent **Start** action uses the same centered overlay and reserved region; remove footer Start. Keep its readiness reason there when unavailable. Spectators do not block Start.
 - Keep the recognizable controller and its reserved region. Accepted keyboard, gamepad and pointer inputs use the same pressed styling. Derive highlights from the gameplay input owner, not a second keyboard handler. Editing, typing, lost focus and lost controller authority release feedback with actual input.
 - After five seconds without action, display each visible action button's current keyboard binding. Holds count as activity; interaction hides hints. Hints occupy reserved space or a noninteractive overlay and never change target geometry. Unbound or suppressed shortcuts are identified truthfully. Remapping immediately changes hints.
 - Show Save and Load progress and success/failure at the game's top right in both lobby and expanded views, with accessible status text and room for the Return action. When a phone shows another panel, keep the same single notification at the active container’s top right without changing panels. A late result cannot describe a replacement game or timeline. Recovery and other actual blockers still cover the expanded game.
@@ -26,18 +26,18 @@ This bounded revision implements the owner's [#261 request](https://github.com/T
 [RETRO COOP] [Lobby name: … ✎] [Set Password] [Copy invite] [Your name: … ✎] [Theme]
 | Players          | ROM name                              | Controls | Audio |
 | P1 / P2 / watchers| [Saving… / Saved / Save failed: Retry] | Current bindings |
-| fixed slots      | [preview + centered Prepare if needed]| A [Z] / B [C]    |
+| fixed slots      | [preview + centered Prepare or Start] | A [Z] / B [C]    |
 |                  |          NES controller              | All key mappings |
 |                  | [idle: current keys by each button]   | Save/Load/Restart|
 |---------------------------- Chat -----------------------------------------|
-[Back to Main Page]                                         [current action]
+[Back to Main Page]
 ```
 
 This shows Controls selected; selecting Audio replaces its contents in the same fixed right region. Bracketed keys are editable buttons showing actual committed mappings, not fixed defaults. The complete inventory includes directions, rapid buttons and every implemented game/voice action; selecting a key opens the capture dialog. Muting remains one action in Audio, with its shortcut listed in Controls. Phone Game/Players/Settings/Chat still share one reserved panel. Expanded Game reserves top-right feedback and the existing Return action; a blocking dialog covers and dims it. Readable control/binding groups adapt inside the fixed panel; no page or settings scrolling.
 
 | Journey/scenario | Observable outcome and recovery |
 |---|---|
-| Load → Prepare → prepared | One conspicuous centered preview action, no footer duplicate; preparation shows progress/cancellation and failure recovery. Once prepared, reveal the preview without its filter. Only occupied controllers prepare; Start still waits for all required owners. |
+| Load → Prepare → prepared | One conspicuous centered preview action, no footer duplicate; preparation shows progress/cancellation and failure recovery. Once prepared, reveal the preview without its filter. Only occupied controllers prepare; The host's Start replaces Prepare in the same center region and waits for all required owners; no footer duplicate. |
 | Start → keyboard or remapped key → release | Matching button highlights while actual input is accepted; release, blur, typing, editing and reassignment clear it. Spectators cannot send input. |
 | Play → no action for 5s → interact | Current hints appear without moving targets, then disappear. A held direction/rapid button prevents false idle. Pointer/touch actions use the same inactivity policy. |
 | Play/fullscreen → Save | Visible saving/result feedback; storage failure offers the existing remedy. Replacement/navigation invalidates pending feedback. |
@@ -48,6 +48,24 @@ This shows Controls selected; selecting Audio replaces its contents in the same 
 | Load game → Saved games → choose/cancel/retry | Full list or grouped overflow pages; complete names and usable selection. Empty/corrupt entry and delayed-read cancellation preserve the current lobby/game. |
 | Audio → permission/device/connection failure | Game and chat continue; one relevant retry stays visible. Existing sound/voice settings survive switching sections. |
 | Header → Set Password/name edit | Host can change access without leaving; guests retain correct admission behavior. Full names remain readable and dialogs do not resize unrelated controls. |
+
+## Change the cartridge for the same group
+
+[#282](https://github.com/TuringTestee/retro-coop/issues/282) adds the repeat-game journey. The lobby belongs to its group, so choosing a different cartridge must not close it or remove its members.
+
+- Keep one host **Change game** action reachable before play, during play and while paused. Retain the existing picker, file/catalog/saved choices and supported ZIP input. Phone and expanded views must expose that same action through their reserved controls; no new page or duplicate task button.
+- Choosing/canceling the picker does not change the current game. Validate a candidate before replacing it; show progress and Cancel in the current game region. Guests cannot independently replace the shared cartridge.
+- A committed replacement retains lobby ID, invite/access, names, player/spectator roles, slot openness, roster and chat. Show the new cartridge preview and fresh preparation state. Each occupied controller explicitly prepares again; then the host starts from the centered overlay. Spectators do not gate Start.
+- Invalid/unsupported files, canceled selection, failed upload/download, changed authority and failed native staging/commit keep the old game and group. If coordination already paused play, preserve the old completed state and offer the existing preparation/resume route and a usable replacement retry. Do not show success or resume a partially replaced group.
+- Old readiness, held input, editing drafts, delayed saves, previews and recovery results cannot apply to the replacement. Existing saved copies remain associated with their original game.
+
+| Journey | Required observation |
+|---|---|
+| Prepare → waiting → Start | One centered host Start, correct readiness reason, no footer Start; non-hosts have no Start authority. |
+| Host/P2/spectator play → Change game → new Prepare/Start | Same identities, roster, roles, invite/access and chat; new matching native cartridge identity and actual P2 input after Start. |
+| Playing or paused → cancel/invalid candidate | Old playable state and group retained; picker can be used again. |
+| Coordinating replacement → failure/disconnect/cancel | Old completed state restored on reachable controllers; no partial play, bounded actionable recovery and no stale success. |
+| Phone or expanded game → Change game | Existing selection flow is discoverable and returns to the same lobby; primary action and feedback remain inside fixed regions. |
 
 ## Review and implementation gate
 
