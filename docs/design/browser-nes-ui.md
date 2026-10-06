@@ -4,6 +4,8 @@ Audience: Human
 
 # Retro Coop UI design
 
+The current [gameplay-controls direction](gameplay-controls.md) governs direct quick-save loading and top-right Save/Load feedback. It supersedes older quick-load confirmation and participant-acceptance instructions here; native validation, shared acknowledgement, rollback and other supported confirmations remain required.
+
 The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes Unlisted/invitation-only and Standard/Relay-only choices below. It adds protected-room password entry before Join; unrelated play, accessibility and recovery stories remain where consistent.
 
 The [minimal room journey](minimal-room-journey.md) governs the next ordinary directory, creation, waiting, play and exit path. Conflicting two-person Start, routine metric and background-room passages below are historical; existing connection privacy controls and unaffected task-specific and recovery journeys remain.

@@ -4,6 +4,8 @@ Audience: Human
 
 # Browser NES lobby platform
 
+The current [gameplay-controls direction](gameplay-controls.md) governs direct quick-save loading and top-right Save/Load feedback. It supersedes older quick-load confirmation and participant-acceptance instructions here; native validation, shared acknowledgement, rollback and other supported confirmations remain required.
+
 The later [room access and automatic connection amendment](room-access-and-routing.md) supersedes Public/Unlisted admission, password deferral, user-selected Standard/Relay-only routing and the inline route choice below. Public and password-protected rooms are both discoverable; protected admission requires a password. Historical acceptance text remains evidence of the earlier design, not a second current access rule.
 
 The [minimal room journey](minimal-room-journey.md) governs the next directory, waiting, initial Start, ordinary play content and exit flow. Conflicting passages below are historical after that amendment merges; unaffected platform and release requirements remain. Existing connection privacy controls and enforcement remain current until a separate reviewed amendment resolves automatic routing.
