@@ -162,7 +162,7 @@ Voice is optional and never blocks play. Enable voice requests microphone permis
 
 U4 appears only after a game has loaded. The canvas expands into the primary content area and the controls below it become visible at that point. Before load, Pause, Save, Rewind, Fullscreen, sound and controller controls are absent rather than disabled clutter. **All lobbies** returns to the complete directory while preserving the current loaded game. **Game help** replaces a pre-play About tab and contains controls/instructions, credits and the requested license placeholder for an included game.
 
-Both players can request Pause; it pauses the shared timeline and identifies the requester. Resume requires both players to be present and acknowledge readiness, then the host selects [Resume together]. While awaiting the other player, show “Waiting for Jo to resume” instead of an apparently broken button. System pauses (connection, focus, disconnected controller, slow device) use U8 and cannot be bypassed while their prerequisite is unresolved.
+Both players can request Pause; it pauses the shared timeline and identifies the requester. Resume requires both players to be present and acknowledge readiness, then the host selects [Resume together]. While awaiting the other player, show “Waiting for Jo to resume” instead of an apparently broken button. System pauses for connection, focus or slow-device failures use U8 and cannot be bypassed while their required prerequisite is unresolved. Optional gamepad loss instead uses keyboard/touch automatically under [the controls contract](../implementation/d07-controls.md#input-and-recovery).
 
 Save is local and non-disruptive at a committed frame. It opens U6 and reports success only after persistence succeeds. Rewind is host-only in multiplayer; guests see “Host controls shared rewind” as explanatory text in More, not an actionable button. More exposes [Saves], [Request restart] for the host, [Session settings], and [Leave session]/[Close session] appropriate to role. Solo practice permits immediate local rewind/restore/reset with the same confirmation for replacing progress, without a nonexistent peer approval.
 
@@ -223,7 +223,7 @@ Storage denial/quota/write failure says “Couldn't save on this device” and o
 +------------------------------------------------------------+
 ```
 
-Controls cover all NES buttons, keyboard and detected gamepads, with an input-test indicator. Remapping captures one input in a labelled dialog, offers Cancel, and identifies conflicts before Apply; include the push-to-talk binding in conflict checks. Restore defaults confirms the affected mapping set. Unplugging a selected gamepad pauses and offers [Use keyboard] or reconnect instructions, then the shared resume path. The mapping is local to the current player; host slot assignment remains U3/Session settings and changes only while waiting/paused.
+Controls cover all NES buttons, keyboard and detected gamepads, with an input-test indicator. Remapping captures one input in a labelled dialog, offers Cancel, and identifies conflicts before Apply; include the push-to-talk binding in conflict checks. Restore defaults confirms the affected mapping set. An absent or disconnected selected gamepad automatically falls back to keyboard/on-screen controls without pausing. Keep its mappings for reconnection, suppress held buttons until released, and show the active keyboard bindings. The mapping is local to the current player; host slot assignment remains U3/Session settings and changes only while waiting/paused.
 
 Display & sound includes nearest-neighbor/scanlines, local volume, and audio activation state. Connection exposes the U2 privacy choice and current connection status. Local data opens U6 management. A guest nickname is editable outside active play and explains “Temporary name for this browser session”; no login/account UI is implied.
 
@@ -307,7 +307,7 @@ Each row names a first-release story, its visible path, and the edge case that c
 | S28 | Players understand service restart, capacity, and degraded network — U8/U1 | Loaded game retained; honest retry; no direct privacy fallback | AC-09, AC-11–12 |
 | S29 | Visitor understands catalog versus user-file content — U1/U9 | Unverified host label, no supplier links, missing title gate | AC-02, AC-04, AC-10 |
 | S30 | Keyboard/screen-reader user completes the core journey — U1–U9 | Focus restore, announced status, picker alternative, no traps | AC-08, AC-12 |
-| S31 | Player loses focus without stuck input; device loss stops unavailable capture — U4/U7/U8 | Chat/game focus distinct; shared pause/resume | AC-05, AC-08 |
+| S31 | Player loses focus without stuck input; optional pad loss falls back automatically; unavailable microphone stops capture — U4/U7/U8 | Chat/game focus distinct; required authority/sync failures retain shared recovery | AC-05, AC-08 |
 | S32 | Reviewer/operator verifies the complete release journey — U1–U9 | Actual browser/demo evidence and operational recovery checks | AC-01–16 |
 | S33 | Visitor finds a friend by room/host/code — U1/U9 | Duplicate names, no match, expired code, unlisted non-resolution | AC-14 |
 | S34 | Guest enables conversational voice and manages devices — U3/U4/U7 | Echo, unavailable mic, background open mic and explicit mute, remote mute, independent retry | AC-16 |
