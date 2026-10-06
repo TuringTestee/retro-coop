@@ -37,7 +37,7 @@ This shows Controls selected; selecting Audio replaces its contents in the same 
 
 | Journey/scenario | Observable outcome and recovery |
 |---|---|
-| Load → Prepare → prepared | One conspicuous centered preview action, no footer duplicate; preparation shows progress/cancellation and failure recovery. Once prepared, reveal the preview without its filter. Only occupied controllers prepare; The host's Start replaces Prepare in the same center region and waits for all required owners; no footer duplicate. |
+| Load → Prepare → prepared | One conspicuous centered preview action, no footer duplicate; preparation shows progress/cancellation and failure recovery. Prepared ordinary members see the preview without the preparation filter; the host uses the centered Start overlay. Only occupied controllers prepare. The host's Start replaces Prepare in the same center region and waits for all required owners; no footer duplicate. |
 | Start → keyboard or remapped key → release | Matching button highlights while actual input is accepted; release, blur, typing, editing and reassignment clear it. Spectators cannot send input. |
 | Play → no action for 5s → interact | Current hints appear without moving targets, then disappear. A held direction/rapid button prevents false idle. Pointer/touch actions use the same inactivity policy. |
 | Play/fullscreen → Save | Visible saving/result feedback; storage failure offers the existing remedy. Replacement/navigation invalidates pending feedback. |
