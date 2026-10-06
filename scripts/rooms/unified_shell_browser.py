@@ -553,7 +553,7 @@ def controller_input(browser, url, output):
         choose_panel(page,'Game')
         prepare = page.get_by_role('button', name='Prepare', exact=True)
         assert page.locator('.rc-footer').get_by_role('button', name='Prepare', exact=True).count() == 0
-        assert prepare.evaluate('node=>{const b=node.getBoundingClientRect(),p=node.closest(".rc-game-viewport").getBoundingClientRect();return Math.abs(b.x+b.width/2-p.x-p.width/2)<1&&Math.abs(b.y+b.height/2-p.y-p.height/2)<1;}')
+        assert prepare.evaluate('node=>{const b=node.getBoundingClientRect(),p=node.closest(".rc-prepare-action-region").getBoundingClientRect();return Math.abs(b.x+b.width/2-p.x-p.width/2)<1&&Math.abs(b.y+b.height/2-p.y-p.height/2)<1;}')
         control_hit_target(prepare)
         prepare.click()
         page.get_by_role('button', name='Start →').click()

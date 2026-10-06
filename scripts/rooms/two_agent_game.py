@@ -946,7 +946,10 @@ def shared_load():
         return snapshots[0]
     def resume(host,guest):
         for page in (host,guest):
-            page.get_by_role('button',name='Prepare to resume',exact=True).click()
+            prepare=page.get_by_role('button',name='Prepare to resume',exact=True)
+            geometry=prepare.evaluate('node=>{const b=node.getBoundingClientRect(),notice=node.closest(".rc-game-display").querySelector(".rc-game-save-status")?.getBoundingClientRect();return {button:b.toJSON(),notice:notice?.toJSON(),overlap:!!notice&&Math.min(b.right,notice.right)>Math.max(b.left,notice.left)&&Math.min(b.bottom,notice.bottom)>Math.max(b.top,notice.top)};}')
+            assert not geometry['overlap'],geometry
+            prepare.click()
             page.wait_for_function('proof.room.game.ready.includes(proof.room.chatMembership)')
         host.get_by_role('button',name='Resume together',exact=True).click()
         for page in (host,guest):page.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
