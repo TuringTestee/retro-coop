@@ -1385,11 +1385,11 @@ def host_input():
             # Missing remote hashes cannot hold native host or guest advancement.
             guest.evaluate("window.gameFault='drop-hash'");before=host.evaluate('proof.frameCount');healthy=guest.evaluate('proof.frameCount');host.wait_for_function('before=>proof.frameCount>before+125',arg=before);assert guest.evaluate('before=>proof.frameCount>before+100',healthy);guest.evaluate('window.gameFault=undefined')
             # Native worker failure is local to P2 and has an enabled public retry.
-            previous=len(guest.evaluate('proof.liveEvents'));guest.evaluate('delete proof.workerDelay;window.workerFloorMs=4000');guest.wait_for_function('proof.workerDelay!==undefined');held_worker=guest.evaluate('proof.workerDelay')
+            previous=len(guest.evaluate('proof.liveEvents'));guest.evaluate('delete proof.workerDelay;window.workerFloorMs=4000');guest.wait_for_function('proof.workerDelay!==undefined')
             # Retry only after this held native reply reached the frame owner;
             # ordinary progress before fault installation cannot prove readiness.
             before=host.evaluate('proof.frameCount');guest.get_by_role('button',name='Prepare to play',exact=True).wait_for(timeout=7000);assert host.evaluate('before=>proof.frameCount>before+150',before)
-            guest.evaluate('window.workerFloorMs=0');guest.wait_for_function('target=>proof.workerDelay?.epoch===target.epoch&&proof.workerDelay.frame===target.frame&&proof.workerDelay.deliveredAt!==undefined&&proof.frames.some(frame=>frame.epoch===target.epoch&&frame.frame===target.frame)',arg=held_worker,timeout=7000)
+            held_worker=guest.evaluate('()=>{window.workerFloorMs=0;return proof.workerDelay}');guest.wait_for_function('target=>proof.workerDelay?.epoch===target.epoch&&proof.workerDelay.frame===target.frame&&proof.workerDelay.deliveredAt!==undefined&&proof.frames.some(frame=>frame.epoch===target.epoch&&frame.frame===target.frame)',arg=held_worker,timeout=7000)
             held_worker=guest.evaluate('proof.workerDelay');retry_ready=guest.evaluate('performance.now()');guest.get_by_role('button',name='Prepare to play',exact=True).click();guest.wait_for_function('count=>proof.liveEvents.length>count',arg=previous,timeout=20000)
             worker_recovery={'held_reply':held_worker,'retry_ready_at':retry_ready,'live':guest.evaluate('proof.liveEvents.at(-1)'),'native_import':guest.evaluate('proof.nativeReplies.at(-1)'),'press_ram':p2_native(),'release_ram':p2_neutral_native()}
             print(json.dumps({'worker_failure_recovery':worker_recovery}),flush=True)
