@@ -145,7 +145,7 @@ export function createCoordinator(options: {origins?:string[]; trustedProxies?:s
     let data;
     if(command.type === 'hello') {
      if(token) throw new RoomError('already_authenticated');
-     const attached = rooms.attach(command.token,send,()=>ws.close(1000,'Session replaced or expired'));
+     const attached = rooms.attach(command.token,send,()=>ws.close(1000,'Session replaced or expired'),command.gameplayProtocol??0);
      token = attached.token;data = attached.data;clearTimeout(authDeadline);
     } else {if(!token) throw new RoomError('authenticate_first');data = await rooms.authorize(token,command,address,send);}
     send({type:'result',requestId:command.requestId,ok:true,data});

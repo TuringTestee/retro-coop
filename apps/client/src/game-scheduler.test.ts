@@ -1,86 +1,103 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {GameScheduler,proposeInputDelay} from './game-scheduler.ts';
-import {gameplayLimits,parseGamePacket,type GamePacket} from '../../../packages/contracts/src/gameplay.ts';
-const epoch='e'.repeat(32),host='host-member',guest='guest-member',observer='observer-member',hash='a'.repeat(64);
-const input=(frame:number,mask=2):GamePacket=>({kind:'input',epoch,frame,mask});
-const committed=(frame:number,p1=1,p2=2):GamePacket=>({kind:'frame',epoch,frame,p1,p2});
-const state=(frame:number,value=hash):GamePacket=>({kind:'hash',epoch,frame,hash:value});
-function timeline(local=host,controllers:readonly[string|undefined,string|undefined]=[host,guest],start=0){const sent:GamePacket[]=[];const scheduler=new GameScheduler(epoch,6,{local,authority:host,controllers},p=>sent.push(p),start);return {scheduler,sent};}
+import {GameScheduler} from './game-scheduler.ts';
+import {gameplayLimits,parseGamePacket,type GamePacket,type InputPacket,type LeasePacket} from '../../../packages/contracts/src/gameplay.ts';
+const epoch='e'.repeat(32),host='h'.repeat(22),guest='g'.repeat(22),observer='o'.repeat(22),generation='c'.repeat(32),hash='a'.repeat(64);
+function timeline(local=host,controllers:readonly[string|undefined,string|undefined]=[host,guest],start=0){let now=1000;const sent:GamePacket[]=[];const scheduler=new GameScheduler(epoch,{local,authority:host,controllers,revision:1},p=>sent.push(p),start,()=>now);return {scheduler,sent,time(value:number){now=value;}};}
+function update(lease:LeasePacket,sequence:number,mask:number,release=false):InputPacket{return {kind:'input',epoch,revision:lease.revision,generation:lease.generation,lease:lease.lease,sequence,mask,release};}
+const committed=(frame:number,p1=1,p2=0,revision=1)=>({kind:'frame' as const,epoch,stream:epoch,revision,frame,p1,p2});
+function complete(q:GameScheduler,mask=0){q.sample(mask);const value=q.next()!;q.commit();return value;}
 
-test('authority broadcasts only completed frames; replicas cannot advance on raw input or local sampling',()=>{
- const a=timeline(),b=timeline(guest);a.scheduler.sample(255);b.scheduler.sample(31);
- assert.equal(a.scheduler.next(),undefined);assert.equal(b.scheduler.next(),undefined);assert.deepEqual(a.sent,[]);
- for(const packet of b.sent.splice(0))a.scheduler.receive(packet,guest);
- assert.deepEqual(a.scheduler.next(),[0,0]);assert.deepEqual(a.sent,[]);
- assert.throws(()=>b.scheduler.receive(input(0),host),/authority/);assert.throws(()=>b.scheduler.commit(),/missing/);
- a.scheduler.commit();assert.deepEqual(a.sent,[committed(0,0,0)]);assert.equal(b.scheduler.next(),undefined);
- b.scheduler.receive(a.sent[0],host);assert.deepEqual(b.scheduler.next(),[0,0]);b.scheduler.commit();assert.equal(b.scheduler.frame,1);
+test('host press and release use the next native dispatch with remote input absent',()=>{
+ const {scheduler:q,sent}=timeline();q.sample(1);assert.deepEqual(q.next(),[1,0]);assert.deepEqual(sent,[]);
+ q.commit();q.sample(0);assert.deepEqual(q.next(),[0,0]);q.commit();assert.deepEqual(sent,[committed(0),committed(1,0)]);
+});
+test('published command is immutable when input or assignment changes during worker execution',()=>{
+ const {scheduler:q,sent}=timeline();const lease=q.grant(guest,generation,'l'.repeat(32))!;q.receive(update(lease,1,2),guest);q.sample(1);assert.deepEqual(q.next(),[1,2]);
+ q.sample(4);q.receive(update(lease,2,8),guest);q.configure([guest,host],2);q.commit();assert.deepEqual(sent,[committed(0,1,2)]);
+ assert.deepEqual(q.next(),[0,0]);q.commit();assert.equal((sent[1] as {revision:number}).revision,2);
+});
+test('whole-mask pending presses preserve taps, held controls and real chords without invented combinations',()=>{
+ const {scheduler:q}=timeline();q.sample(1);q.sample(0);assert.deepEqual(q.next(),[1,0]);q.commit();assert.deepEqual(complete(q),[0,0]);
+ q.sample(1);q.sample(0);q.sample(2);q.sample(0);assert.deepEqual(q.next(),[2,0]);q.commit();
+ q.sample(64);q.sample(0);q.sample(128);assert.deepEqual(q.next(),[128,0]);q.commit();
+ q.sample(128);q.sample(129);q.sample(128);assert.deepEqual(q.next(),[129,0]);q.commit();assert.deepEqual(complete(q,128),[128,0]);
+ q.sample(3);assert.deepEqual(q.next(),[3,0]);q.commit();q.sample(0);q.sample(1);q.releaseLocal();assert.deepEqual(q.next(),[0,0]);
+});
+test('remote leases expire on the host clock even while increasing old heartbeats arrive',()=>{
+ const t=timeline(),q=t.scheduler,lease=q.grant(guest,generation,'l'.repeat(32))!;
+ q.receive(update(lease,1,2),guest);assert.deepEqual(complete(q),[0,2]);t.time(lease.expiresAt+1);
+ assert.equal(q.receive(update(lease,2,2),guest),false);assert.deepEqual(complete(q),[0,0]);
+ const next=q.grant(guest,generation,'n'.repeat(32))!;q.receive(update(next,3,2),guest);t.time(lease.expiresAt+20);assert.deepEqual(complete(q),[0,2]);
+ assert.equal(q.receive(update(lease,4,255),guest),false);assert.deepEqual(complete(q),[0,2]);q.revoke(guest);assert.deepEqual(complete(q),[0,0]);
+});
+test('renewed neutral samples cannot extend a queued tap from the prior lease',()=>{
+ const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+ q.receive(update(old,1,1),guest);q.receive(update(old,2,0),guest);
+ t.time(2000);const renewed=q.grant(guest,generation,'n'.repeat(32))!;q.receive(update(renewed,3,0),guest);
+ t.time(old.expiresAt+1);assert.deepEqual(complete(q),[0,0]);
+});
+test('lease expiry does not reset the connection input sequence',()=>{
+ const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+ q.receive(update(old,10,1),guest);t.time(old.expiresAt+1);assert.deepEqual(complete(q),[0,0]);
+ const renewed=q.grant(guest,generation,'n'.repeat(32))!;
+ assert.equal(q.receive(update(renewed,9,2),guest),false);assert.equal(q.receive(update(renewed,10,2),guest),false);
+ assert.equal(q.receive(update(renewed,11,2),guest),true);assert.deepEqual(complete(q),[0,2]);
+});
+test('input authority rejects stale generations, assignments, sequences and senders; release cancels pending taps',()=>{
+ const {scheduler:q}=timeline(),lease=q.grant(guest,generation,'l'.repeat(32))!;
+ assert.throws(()=>q.receive(update(lease,1,2),observer),/authority/);
+ for(const packet of [{...update(lease,1,2),generation:'x'.repeat(32)},{...update(lease,1,2),revision:0},{...update(lease,1,2),epoch:'old'}])assert.equal(q.receive(packet,guest),false);
+ assert.equal(q.receive(update(lease,1,2),guest),true);assert.equal(q.receive(update(lease,1,255),guest),false);
+ q.receive(update(lease,2,0,true),guest);assert.deepEqual(complete(q),[0,0]);
+});
+test('guest executes every contiguous completed frame once, including older assignment history',()=>{
+ const h=timeline(),g=timeline(guest);h.scheduler.sample(1);assert.equal(g.scheduler.next(),undefined);
+ for(let frame=0;frame<300;frame++){if(frame===20)h.scheduler.configure([host,undefined],2);complete(h.scheduler,frame&255);}
+ g.scheduler.configure([host,undefined],2);
+ for(const packet of h.sent)g.scheduler.receive(packet,host);
+ for(let frame=0;frame<300;frame++){const expected=h.scheduler.historyFrame(frame)!;assert.deepEqual(g.scheduler.next(),[expected.p1,expected.p2]);g.scheduler.commit();}
+ assert.equal(g.scheduler.frame,300);assert.equal(g.scheduler.next(),undefined);assert.throws(()=>g.scheduler.commit(),/undispatched/);
+ assert.throws(()=>g.scheduler.receive(committed(301),host),/Invalid/);assert.throws(()=>g.scheduler.receive(committed(300),observer),/host/);
+});
+test('missing peer hashes never block host advancement; mismatches identify only that guest',()=>{
+ const {scheduler:q}=timeline();for(let frame=0;frame<gameplayLimits.historyFrames*2;frame++){complete(q);if(q.frame%120===0)q.hash(hash);}
+ assert.equal(q.frame,gameplayLimits.historyFrames*2);assert.equal(q.historySince(q.frame-gameplayLimits.historyFrames)!.length,gameplayLimits.historyFrames);assert.equal(q.historySince(q.frame-gameplayLimits.historyFrames-1),undefined);
+ const frame=Math.floor(q.frame/120)*120;q.receive({kind:'hash',epoch,stream:epoch,frame,hash:'b'.repeat(64)},guest);assert.deepEqual(q.takeFaults(),[guest]);assert.deepEqual(complete(q),[0,0]);
+ assert.equal(q.receive({kind:'hash',epoch,stream:epoch,frame:120,hash},guest),false);
+});
+test('host authority is independent of controller position',()=>{
+ const swapped=timeline(host,[guest,host]);swapped.scheduler.sample(3);assert.deepEqual(swapped.scheduler.next(),[0,3]);
+ const watching=timeline(host,[guest,observer]);watching.scheduler.sample(255);assert.deepEqual(watching.scheduler.next(),[0,0]);
+});
+test('packet parser admits bounded new protocol fields and rejects released future-input packets',()=>{
+ const lease:LeasePacket={kind:'lease',epoch,revision:1,generation,lease:'l'.repeat(32),expiresAt:3000};
+ for(const packet of [lease,update(lease,1,3),committed(0)])assert.deepEqual(parseGamePacket(JSON.stringify(packet)),packet);
+ for(const packet of [{kind:'input',epoch,frame:6,mask:1},{...update(lease,1,2),release:true},{...update(lease,0,2)},{...committed(0),p1:256},{...committed(0),rom:'secret'}])assert.equal(parseGamePacket(JSON.stringify(packet)),undefined);
 });
 
-test('delayed host and replica produce identical committed vectors despite transport stalls',()=>{
- const a=timeline(),b=timeline(guest),left:number[][]=[],right:number[][]=[];
- for(let clock=0;clock<2000&&right.length<240;clock++){
-  a.scheduler.sample((a.scheduler.frame*13)&255);b.scheduler.sample((b.scheduler.frame*29)&255);
-  if(clock%11!==0){for(const p of b.sent.splice(0))a.scheduler.receive(p,guest);for(const p of a.sent.splice(0))b.scheduler.receive(p,host);}
-  if(left.length<240&&a.scheduler.next()){left.push(a.scheduler.next()!);a.scheduler.commit();}
-  if(b.scheduler.next()){right.push(b.scheduler.next()!);b.scheduler.commit();}
- }
- assert.equal(left.length,240);assert.deepEqual(left,right);assert.deepEqual(left.slice(0,6),Array.from({length:6},()=>[0,0]));assert.notDeepEqual(left[8],[0,0]);
+test('renewal admits every unexpired issued lease without extending its sampled expiry',()=>{
+ const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+ t.time(1000+gameplayLimits.leaseRenewMs);const renewed=q.grant(guest,generation,'n'.repeat(32))!;
+ assert.notEqual(renewed.lease,old.lease);assert.equal(q.receive(update(old,1,2),guest),true,'old response is fresh after renewal');assert.deepEqual(complete(q),[0,2]);
+ q.receive(update(old,2,0),guest);assert.deepEqual(complete(q),[0,0]);
+ q.receive(update(old,3,2),guest);t.time(old.expiresAt);assert.deepEqual(complete(q),[0,0],'renewal cannot extend the old sample');assert.equal(q.receive(update(old,4,2),guest),false);
+ assert.equal(q.receive(update(renewed,5,2),guest),true);assert.deepEqual(complete(q),[0,2]);q.revoke(guest);assert.equal(q.receive(update(renewed,6,2),guest),false);
 });
 
-test('member mapping supports host observer, remote controllers, swapped ports and one-owner shared mode',()=>{
- const remote='third-member',a=timeline(host,[guest,remote]);a.scheduler.sample(255);assert.deepEqual(a.sent,[]);assert.equal(a.scheduler.next(),undefined);
- a.scheduler.receive(input(0,3),guest);assert.equal(a.scheduler.next(),undefined);a.scheduler.receive(input(0,9),remote);assert.deepEqual(a.scheduler.next(),[3,9]);a.scheduler.commit();
- const swapped=timeline(host,[guest,host]);swapped.scheduler.sample(255);swapped.scheduler.receive(input(0,19),guest);assert.deepEqual(swapped.scheduler.next(),[19,0]);
- const shared=timeline(host,[guest,undefined]);shared.scheduler.receive(input(0,77),guest);assert.deepEqual(shared.scheduler.next(),[77,0]);
- const passive=timeline(observer);passive.scheduler.sample(255);assert.deepEqual(passive.sent,[]);assert.equal(passive.scheduler.next(),undefined);passive.scheduler.receive(committed(0,3,9),host);assert.deepEqual(passive.scheduler.next(),[3,9]);
- assert.throws(()=>a.scheduler.receive(input(1),observer),/authority/);
+test('issued-lease overlap is rate bounded and preserves connection sequencing and generation cutoff',()=>{
+ const t=timeline(),q=t.scheduler,first=q.grant(guest,generation,'l'.repeat(32))!;
+ for(let i=0;i<100;i++)assert.equal(q.grant(guest,generation,String(i)),first,'early renewal reuses the issued token');
+ t.time(2000);const second=q.grant(guest,generation,'n'.repeat(32))!;t.time(3000);const third=q.grant(guest,generation,'m'.repeat(32))!;
+ assert.equal(q.receive(update(first,5,2),guest),true);assert.equal(q.receive(update(second,4,1),guest),false);assert.equal(q.receive(update(third,6,0,true),guest),true);assert.deepEqual(complete(q),[0,0]);
+ const fresh=q.grant(guest,'z'.repeat(32),'p'.repeat(32))!;assert.equal(q.receive(update(third,7,2),guest),false);assert.equal(q.receive(update(fresh,1,2),guest),true);assert.deepEqual(complete(q),[0,2]);
+ q.configure([host,guest],2);assert.equal(q.receive(update(fresh,2,2),guest),false);
 });
 
-test('stalled authority exposes only completed history at its current absolute boundary',()=>{
- const {scheduler:q,sent}=timeline(host,[host,guest],917);q.sample(1);
- assert.equal(q.next(),undefined);assert.equal(q.frame,917);assert.deepEqual(q.historySince(917),[]);assert.equal(q.historySince(916),undefined);
- q.receive(input(917,9),guest);assert.deepEqual(q.historySince(917),[]);q.commit();assert.equal(q.frame,918);
- assert.deepEqual(q.historySince(917),[committed(917,0,9)]);assert.deepEqual(q.historySince(918),[]);assert.equal(q.next(),undefined);assert.equal(q.historySince(919),undefined);assert.deepEqual(sent,[committed(917,0,9)]);
-});
-
-test('history keeps exactly its bounded rolling window with canonical masks',()=>{
- const {scheduler:q}=timeline(host,[guest,undefined],31),count=gameplayLimits.historyFrames+17;
- for(let i=0;i<count;i++){q.receive(input(q.frame,i&255),guest);q.commit();}
- const oldest=q.frame-gameplayLimits.historyFrames,history=q.historySince(oldest)!;
- assert.equal(history.length,gameplayLimits.historyFrames);assert.equal(q.historySince(oldest-1),undefined);
- assert.deepEqual(history[0],committed(oldest,17,0));assert.deepEqual(history.at(-1),committed(q.frame-1,(count-1)&255,0));assert.equal(timeline(guest).scheduler.historySince(0),undefined);
-});
-
-test('epoch, ownership, duplicate and bounded-window checks reject invalid timeline feeds',()=>{
- const {scheduler:a}=timeline(),{scheduler:b}=timeline(guest);a.sample(1);
- assert.equal(a.receive({...input(0),epoch:'old'},guest),false);assert.equal(a.next(),undefined);
- assert.throws(()=>a.receive(input(0),host),/authority/);assert.throws(()=>a.receive(input(gameplayLimits.inputWindow+1),guest),/Invalid/);
- a.receive(input(0),guest);assert.throws(()=>a.receive(input(0),guest),/duplicate/);a.commit();assert.throws(()=>a.receive(input(0),guest),/Invalid/);
- assert.throws(()=>a.receive(committed(1),host),/host/);assert.throws(()=>b.receive(committed(0),observer),/host/);assert.throws(()=>b.receive(committed(1),host),/Invalid/);
- b.receive(committed(0),host);assert.throws(()=>b.receive(committed(0),host),/duplicate/);
- for(let frame=1;frame<gameplayLimits.inputWindow;frame++)b.receive(committed(frame),host);
- assert.throws(()=>b.receive(committed(gameplayLimits.inputWindow),host),/Invalid/);
- assert.equal(parseGamePacket(JSON.stringify({...input(1),mask:256})),undefined);assert.equal(parseGamePacket(JSON.stringify({...committed(1),rom:'secret'})),undefined);
-});
-
-function advance(q:GameScheduler,to:number){while(q.frame<to){q.sample(1);q.receive(input(q.frame),guest);q.commit();}}
-test('active owner hashes enforce ordered comparison and mismatch while observer reports do not gate authority',()=>{
- const {scheduler:q}=timeline();advance(q,120);assert.equal(q.receive(state(120),observer),false);
- assert.throws(()=>q.receive(state(240),guest),/hash/);q.receive(state(120),guest);q.hash(hash);assert.throws(()=>q.receive(state(120),guest),/hash/);
- advance(q,240);q.receive(state(240),guest);assert.throws(()=>q.hash('b'.repeat(64)),/mismatch/);
- const resumed=timeline(host,[host,guest],917);advance(resumed.scheduler,960);resumed.scheduler.receive(state(960),guest);resumed.scheduler.hash(hash);assert.throws(()=>resumed.scheduler.receive(state(960),guest),/hash/);
- const {scheduler:stalled}=timeline();advance(stalled,120);stalled.hash(hash);advance(stalled,240);stalled.hash(hash);advance(stalled,360);assert.throws(()=>stalled.hash(hash),/stopped arriving/);
-});
-
-test('passive observers compare host hashes locally without sending reports or blocking host',()=>{
- const {scheduler:q,sent}=timeline(observer);
- for(let frame=0;frame<120;frame++){q.receive(committed(frame),host);q.commit();}
- assert.equal(q.receive(state(120),guest),false);q.receive(state(120),host);q.hash(hash);assert.deepEqual(sent,[]);
- const authority=timeline(host,[undefined,undefined]);for(let i=0;i<120;i++)authority.scheduler.commit();authority.scheduler.hash(hash);assert.equal(authority.scheduler.frame,120);
-});
-
-test('input delay uses observed round trip and worker pacing within approved bounds',()=>{
- assert.equal(proposeInputDelay(5,60),6);assert.equal(proposeInputDelay(80,60),7);assert.equal(proposeInputDelay(80,50),6);assert.equal(proposeInputDelay(117,60),8);assert.equal(proposeInputDelay(5000,60),8);assert.equal(proposeInputDelay(Number.NaN,60),6);
-});
+ test('renewal preserves a queued whole-mask tap only through its original sampled expiry',()=>{
+  const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+  q.receive(update(old,1,1),guest);t.time(2000);const renewed=q.grant(guest,generation,'n'.repeat(32))!;
+  q.receive(update(renewed,2,1),guest);q.receive(update(renewed,3,0),guest);assert.deepEqual(complete(q),[0,1]);assert.deepEqual(complete(q),[0,0]);
+  q.receive(update(old,4,2),guest);q.receive(update(renewed,5,2),guest);q.receive(update(renewed,6,0),guest);t.time(old.expiresAt);assert.deepEqual(complete(q),[0,0]);
+  q.receive(update(renewed,7,3),guest);q.receive(update(renewed,8,0,true),guest);assert.deepEqual(complete(q),[0,0]);
+ });

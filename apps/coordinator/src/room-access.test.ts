@@ -91,7 +91,7 @@ test('WebSocket admission rejects wrong password before room, ROM or peer author
  const connect=async()=>{const socket=new WebSocket(url,{origin});sockets.push(socket);await once(socket,'open');return socket;};
  const request=async(socket:WebSocket,input:Record<string,unknown>)=>{const requestId=randomUUID();const result=new Promise<Extract<RoomEvent,{type:'result'}>>(resolve=>{const onMessage=(raw:Buffer)=>{const event=JSON.parse(raw.toString()) as RoomEvent;if(event.type==='result'&&event.requestId===requestId){socket.off('message',onMessage);resolve(event);}};socket.on('message',onMessage);});socket.send(JSON.stringify({...input,requestId}));return result;};
  try{
-  const host=await connect(),guest=await connect();for(const socket of [host,guest])assert.equal((await request(socket,{type:'hello'})).ok,true);
+  const host=await connect(),guest=await connect();for(const socket of [host,guest])assert.equal((await request(socket,{type:'hello',gameplayProtocol:2})).ok,true);
   const intent=randomUUID(),created=await request(host,{type:'create',intent,visibility:'protected',password,fingerprint});assert.equal(created.ok,true);if(!created.ok)return;
   const room=created.data.room!;assert.equal((await request(host,{type:'confirmCreate',intent})).ok,true);
   const received:RoomEvent[]=[];guest.on('message',raw=>received.push(JSON.parse(raw.toString())));

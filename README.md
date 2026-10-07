@@ -1,6 +1,6 @@
 # Retro Coop
 
-Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound and saves. Public and password-protected lobbies have five slots. Create or join a lobby first, then choose a NES game while friends arrive. The host can assign Player 1 and Player 2 and close empty slots. Other visitors can watch. Only occupied controller players must be Ready before Start.
+Retro Coop plays NES games in your browser, with keyboard/gamepad controls, sound and saves. Public and password-protected lobbies have five slots. Create or join a lobby first, then choose a NES game while friends arrive. The host can assign Player 1 and Player 2 and close empty slots. Other visitors can watch. Only occupied controller players must be Ready before Start. The host's controls affect the next native frame; a slow guest recovers separately while the host keeps playing.
 
 ## Play
 
@@ -23,7 +23,8 @@ The [AWS website operations guide](docs/implementation/d24-aws-eb-operations.md)
 1. In tab A, choose **Host a new game** from the first row of the lobby list. Choose **Copy invite** beside the lobby name to share the link. Friends can join before a NES game is selected.
 2. Open the invitation in four more tabs, or click the lobby row on the list in each tab. For a protected lobby, enter its password. Five slot rows remain visible while waiting and playing; the host clicks a row to move a visitor to Player 1, Player 2, or another slot, kick a visitor, or close an empty slot.
 3. The host chooses **Load NES game** and selects an included game or **Add game file**. Occupied controller players choose the centered **Prepare** button over the game preview. The host chooses **Start →** when they are ready; other visitors can watch and join after play begins. Focus a player's game screen to use that player's controls.
-4. To change controller owners during play, the host clicks a slot row. The game pauses while the new owners prepare. If preparation fails, use **Retry player change** or **Cancel player change** in that row's menu. Cancellation preserves the previous owners and progress.
+4. If your playing replica stops, choose **Prepare to play** to synchronize again; observers use **Observe game**. The host keeps playing while remote controls are neutral.
+5. To change controller owners during play, the host clicks a slot row. The game pauses while the new owners prepare. If preparation fails, use **Retry player change** or **Cancel player change** in that row's menu. Cancellation preserves the previous owners and progress.
 
 A sixth visitor cannot join until a slot is free and open. Choose a `.nes` file or a ZIP under 2 MB, or drop it onto the game area. The server extracts the first NES game in alphabetic path order; failed replacements keep the previous game. For a custom game, wait for the verified upload before asking players to get ready. A joining visitor downloads the host's game or uses a verified local copy; **Retry game** recovers a failed download. The host leaving closes the lobby; another visitor leaving preserves it. Voice controls live under Settings → Audio → Voice; independent network play and voice checks remain part of the [release gate](https://github.com/TuringTestee/retro-coop/issues/2).
 ## Application

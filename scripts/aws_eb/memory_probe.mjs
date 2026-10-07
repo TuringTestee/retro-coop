@@ -3,6 +3,7 @@ import WebSocket from 'ws';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import http from 'node:http';
+import {gameplayProtocol} from '@retro-coop/contracts/src/gameplay.ts';
 
 const origin = 'https://retro-coop.atobot.cloud';
 const rom = Buffer.alloc(16 + 16384);
@@ -56,7 +57,7 @@ try {
     const ip = `127.0.10.${index}`;
     const socket = await connect(ip);
     sockets.push(socket);
-    const token = (await command(socket, {type: 'hello'})).session.token;
+    const token = (await command(socket, {type: 'hello', gameplayProtocol})).session.token;
     const intent = randomUUID();
     const room = (await command(socket, {type: 'create', intent, visibility: 'public', fingerprint})).room;
     await upload(room.id, intent, token, ip);
