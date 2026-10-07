@@ -391,6 +391,41 @@ PREFERENCE_GATE_FIXTURE = """
       };
     """
 
+def controller_drag(context, url, output, zoom=None):
+    """Native direction remains unrestricted; the thumb stays inside its artwork."""
+    context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"addEventListener('DOMContentLoaded',()=>releaseFrames());")
+    page=context.new_page();page.goto(url)
+    page.get_by_role('button',name='Host a new game',exact=True).click()
+    page.get_by_role('button',name='Load NES game').click()
+    page.get_by_role('button',name='Add game file',exact=True).click()
+    page.get_by_label('NES cartridge file').set_input_files(str(ROOT/'spikes/d02/fixture.local.nes'))
+    page.get_by_role('button',name='Prepare',exact=True).click()
+    page.get_by_role('button',name='Start →',exact=True).click()
+    page.wait_for_function('proof.frameCount>10')
+    records=[]
+    def native(expected):
+        before=page.evaluate('proof.frameCount')
+        page.wait_for_function('before=>proof.frameCount>before+4',arg=before)
+        page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
+        page.wait_for_function('proof.controllerRam!==undefined')
+        assert page.evaluate('proof.controllerRam')==[expected,0]
+    for expanded in (False,True):
+        if expanded:page.get_by_role('button',name='Expand game to full screen',exact=True).click()
+        geometry=controller_geometry(page)
+        pad=page.get_by_role('button',name='Direction pad: use arrow keys or drag',exact=True).bounding_box()
+        page.mouse.move(pad['x']+pad['width']/2,pad['y']+pad['height']/2);page.mouse.down();native(0)
+        for x,y,ram in ((pad['x']+pad['width']/2+min(pad['width'],pad['height'])/2-3,pad['y']+pad['height']/2-min(pad['width'],pad['height'])/2+3,9),(pad['x']+pad['width']+250,pad['y']+pad['height']/2,1)):
+            page.mouse.move(x,y);native(ram)
+            bounds=page.locator('.rc-pad-art').evaluate("""art=>{const a=art.getBoundingClientRect(),d=art.querySelector('.rc-thumb-dot').getBoundingClientRect();return{art:a.toJSON(),dot:d.toJSON(),contained:d.left>=a.left-1&&d.right<=a.right+1&&d.top>=a.top-1&&d.bottom<=a.bottom+1};}""")
+            assert bounds['contained'],bounds
+            assert page.locator('.rc-game-fullscreen').count()==int(expanded)
+            records.append({'expanded':expanded,'zoom':zoom,'native_ram':ram,'bounds':bounds,'geometry':geometry})
+        page.mouse.up();native(0)
+        assert page.locator('.rc-thumb-dot').evaluate("node=>node.style.transform==='translate(0px, 0px)'")
+    page.close()
+    return records
+
+
 def controller_input(browser, url, output):
     """Public Host/Load/Play path, real contacts and exported native controller RAM."""
     context = browser.new_context(viewport={'width': 1280, 'height': 800}, has_touch=True)
@@ -1535,10 +1570,11 @@ def main():
     mode=parser.add_mutually_exclusive_group()
     mode.add_argument('--zoom', action='store_true')
     mode.add_argument('--controls-only', action='store_true')
+    mode.add_argument('--drag-only', action='store_true')
     mode.add_argument('--layout-only', action='store_true')
     parser.add_argument('--local-fast-exit', action='store_true')
     args = parser.parse_args()
-    if args.zoom and args.browser != 'chromium':
+    if (args.zoom or args.drag_only) and args.browser != 'chromium':
         parser.error('--zoom needs Chromium')
     output = args.output or ROOT / 'spikes/d02/public-entrypoint.local/unified-shell'
     output.mkdir(parents=True, exist_ok=True)
@@ -1549,6 +1585,19 @@ def main():
         url = json.loads(service.stdout.readline())['url']
         with sync_playwright() as playwright:
             errors = []
+            if args.drag_only:
+                browser=playwright.chromium.launch(headless=True,ignore_default_args=['--mute-audio'])
+                try:
+                    with browser.new_context(viewport={'width':1280,'height':800}) as context:
+                        records=controller_drag(context,url,output)
+                finally:browser.close()
+                with zoom_context(playwright,{'width':2560,'height':1600}) as (context,worker):
+                    page=context.new_page();page.goto(url);zoom=browser_zoom(page,worker,2)
+                    records+=controller_drag(context,url,output,zoom=2)
+                    verify_zoom(worker,zoom);page.close()
+                (output/'controller-drag.json').write_text(json.dumps(records,indent=2)+'\n')
+                print(json.dumps({'result':'pass','controller_drag':True,'normal_and_200_percent':True}),flush=True)
+                return
             if args.zoom:
                 rows,zooms=[],[]
                 for backing in ({'width':640,'height':1136},{'width':1520,'height':1040}):

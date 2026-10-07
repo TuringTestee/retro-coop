@@ -112,9 +112,12 @@ export function Controller({
       held.generation,
       directionMask(x, y),
     );
+    const artwork = event.currentTarget.parentElement?.querySelector<HTMLElement>(".rc-pad-art"),
+      thumb = artwork?.querySelector<HTMLElement>(".rc-thumb-dot");
+    // Visual motion belongs to the NES artwork, not its larger input target.
     const radius = Math.max(
         0,
-        (event.currentTarget.getBoundingClientRect().width - 44) / 2,
+        ((artwork?.offsetWidth ?? 0) - (thumb?.offsetWidth ?? 0)) / 2,
       ),
       length = Math.max(1, Math.hypot(x, y) / Math.max(1, radius));
     setDot({ x: x / length, y: y / length });
