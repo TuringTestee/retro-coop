@@ -49,7 +49,8 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       ;;
     entrypoint-controls)
       timeout --foreground 60s python3 scripts/rooms/integrated_transfer_browser.py --output spikes/d02/public-entrypoint.local/transfer-recovery & transfer_pid=$!
-      timeout --foreground 60s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --controls-only --output spikes/d02/public-entrypoint.local/controller-ui & controller_pid=$!
+      # Native edges and the real preparation deadline take 65.58s locally; the shared workflow deadline remains unchanged.
+      timeout --foreground 90s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --controls-only --output spikes/d02/public-entrypoint.local/controller-ui & controller_pid=$!
       mkdir -p spikes/d02/public-entrypoint.local/exit
       RETRO_EXIT_SCREENSHOT_DIR=spikes/d02/public-entrypoint.local/exit timeout --foreground 60s python3 scripts/rooms/exit_browser.py > spikes/d02/public-entrypoint.local/exit/result.json & exit_pid=$!
       wait "$transfer_pid"
@@ -57,6 +58,8 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       RETRO_COOP_ACCESS_OUTPUT=spikes/d02/public-entrypoint.local/access timeout --foreground 45s python3 scripts/rooms/access_browser.py > spikes/d02/public-entrypoint.local/access.json
       wait "$exit_pid"
       wait "$controller_pid"
+      timeout --foreground 30s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --drag-only --output spikes/d02/public-entrypoint.local/controller-drag
+      timeout --foreground 30s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --picker-only --output spikes/d02/public-entrypoint.local/expanded-picker
       ;;
     entrypoint-ui)
       timeout --foreground 120s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --layout-only

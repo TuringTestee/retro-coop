@@ -1070,7 +1070,7 @@ def shared_load():
             host.wait_for_function('frame=>proof.frames.at(-1)?.frame>frame+2080',arg=held_save['frame'],timeout=45000)
             history_gap={'host':native(host),'guest':native(guest),'blocked_frames':guest.evaluate('proof.blockedHistoryFrames')}
             assert history_gap['host']['frame']-history_gap['guest']['frame']>2048,history_gap
-            host.get_by_role('button',name='Full screen',exact=True).click();host.locator('canvas').focus()
+            host.get_by_role('button',name='Expand game to full screen',exact=True).click();host.locator('canvas').focus()
             host.keyboard.press('e')
             notice=host.locator('.rc-game-save-status').get_by_text('Saved progress loaded.',exact=True)
             expect(notice).to_be_visible(timeout=15000)
