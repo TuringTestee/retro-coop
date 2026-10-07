@@ -1285,12 +1285,12 @@ def shared_load():
 
 
 HOST_INPUT_FIXTURE = r"""(()=>{
- proof.nativeCommands=[];proof.nativeReplies=[];proof.liveEvents=[];proof.heldObserved=[];proof.channels=[];
+ proof.nativeCommands=[];proof.nativeReplies=[];proof.liveEvents=[];proof.heldObserved=[];proof.channels=[];proof.sentLeases=[];proof.delayedInputs=[];proof.heldCheckpointAcks=[];proof.pauseReceipts=[];proof.observedEvents=[];
  const Native=Worker;window.Worker=class extends Native{postMessage(data,...rest){if(data.type==='frame'&&data.epoch){proof.nativeCommands.push({at:performance.now(),...data});if(proof.nativeCommands.length>4096)proof.nativeCommands.shift();}return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='peer-checkpoint-imported')proof.nativeReplies.push({type:data.type,frame:data.frame,hash:data.hash});});}};
- const watch=channel=>{proof.channels.push(channel);channel.addEventListener('message',event=>{try{const packet=JSON.parse(event.data);if(packet.kind==='input')proof.remoteInputChannel=channel;if(packet.kind==='lease'&&proof.ignoreLeases){event.stopImmediatePropagation();proof.ignoredLeases=(proof.ignoredLeases??0)+1;}}catch{}});};
+ const watch=channel=>{proof.channels.push(channel);channel.addEventListener('message',event=>{try{const packet=JSON.parse(event.data);if(packet.kind==='input'){proof.remoteInputChannel=channel;proof.lastReceivedInput={packet,latestLease:proof.sentLeases.at(-1)?.lease};}if(packet.kind==='lease'&&proof.ignoreLeases){event.stopImmediatePropagation();proof.ignoredLeases=(proof.ignoredLeases??0)+1;}}catch{}});};
  const Peer=RTCPeerConnection;window.RTCPeerConnection=class extends Peer{constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>watch(channel));}createDataChannel(...args){const channel=super.createDataChannel(...args);watch(channel);return channel;}};
- const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){try{const packet=JSON.parse(data);if(packet.kind==='input'){proof.lastInput=packet;proof.inputChannel=this;}}catch{}return send.call(this,data);};
- const Socket=WebSocket;window.WebSocket=class extends Socket{send(raw){const command=JSON.parse(raw);if(command.type==='memberRemove')proof.compactionDispatch={command,dispatched:proof.nativeCommands.at(-1),completed:proof.frames.at(-1)};if(command.type==='gameObserved'&&proof.holdObserved){proof.heldObserved.push(command);return;}return super.send(raw);}constructor(...args){super(...args);proof.releaseObserved=()=>{const command=proof.heldObserved.shift();if(command)super.send(JSON.stringify(command));return command;};this.addEventListener('message',({data})=>{const event=JSON.parse(data);if(event.type==='gameLive')proof.liveEvents.push(event);});}};
+ const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){try{const packet=JSON.parse(data);if(packet.kind==='lease'){proof.sentLeases.push(packet);if(proof.sentLeases.length>32)proof.sentLeases.shift();}if(packet.kind==='input'){proof.lastInput=packet;proof.inputChannel=this;if(proof.inputDelayMs){const row={packet,sampled:performance.now()};proof.delayedInputs.push(row);if(proof.delayedInputs.length>32)proof.delayedInputs.shift();setTimeout(()=>{if(this.readyState==='open'){row.delivered=performance.now();send.call(this,data);}},proof.inputDelayMs);return;}}}catch{}return send.call(this,data);};
+ const Socket=WebSocket;window.WebSocket=class extends Socket{send(raw){const command=JSON.parse(raw);if(command.type==='memberRemove')proof.compactionDispatch={command,dispatched:proof.nativeCommands.at(-1),completed:proof.frames.at(-1)};if(['gameFrozen','gamePaused'].includes(command.type))proof.pauseReceipts.push(command);if(command.type==='gameObserved')proof.observedEvents.push(command);if(command.type==='gameCheckpointAck'&&proof.holdCheckpointAck){proof.heldCheckpointAcks.push(command);return;}if(command.type==='gameObserved'&&proof.holdObserved){proof.heldObserved.push(command);return;}return super.send(raw);}constructor(...args){super(...args);proof.releaseCheckpointAck=()=>{const command=proof.heldCheckpointAcks.shift();if(command)super.send(JSON.stringify(command));return command;};proof.releaseObserved=()=>{const command=proof.heldObserved.shift();if(command)super.send(JSON.stringify(command));return command;};this.addEventListener('message',({data})=>{const event=JSON.parse(data);if(event.type==='gameLive')proof.liveEvents.push(event);});}};
 })();
 """
 
@@ -1336,6 +1336,41 @@ def host_input():
             for page in spectators:
                 page.goto(args.url+'/#invite='+invite);page.evaluate('releaseFrames()');page.get_by_role('button',name='Join lobby',exact=True).click();page.wait_for_function('proof.liveEvents.length>0&&proof.frameCount>0')
             host.wait_for_function('proof.room.occupancy===5');screenshot(host,'host-input-five-slots.png')
+            limits=json.loads(subprocess.check_output(['node','--input-type=module','-e',"import {gameplayLimits} from './packages/contracts/src/gameplay.ts';console.log(JSON.stringify(gameplayLimits))"],cwd=ROOT,text=True))
+            def p2_neutral_native():
+                host.wait_for_function('proof.nativeCommands.slice(-3).length===3&&proof.nativeCommands.slice(-3).every(c=>c.p2===0)&&proof.frames.at(-1)?.frame>=proof.nativeCommands.at(-1).frame')
+                host.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})");host.wait_for_function('proof.controllerRam!==undefined');ram=host.evaluate('proof.controllerRam');assert ram==[0,0],ram;return ram
+            # Delay genuine input beyond one renewal interval while the old lease
+            # is still fresh. Both the press and release must reach native P2.
+            guest.evaluate('delay=>proof.inputDelayMs=delay',limits['leaseRenewMs']+200)
+            renewed_press=p2_native();press_receipt=host.evaluate('proof.lastReceivedInput');assert press_receipt['packet']['mask']==2 and press_receipt['packet']['lease']!=press_receipt['latestLease'],press_receipt
+            renewed_release=p2_neutral_native();release_receipt=host.evaluate('proof.lastReceivedInput');assert release_receipt['packet']['mask']==0 and release_receipt['packet']['lease']!=release_receipt['latestLease'],release_receipt
+            renewal={'delay_ms':limits['leaseRenewMs']+200,'press_ram':renewed_press,'release_ram':renewed_release,'press_receipt':press_receipt,'release_receipt':release_receipt}
+            guest.evaluate('proof.inputDelayMs=0')
+            # A real native checkpoint acknowledgment is held while the host
+            # advances multiple batches and then pauses through its public control.
+            previous=len(guest.evaluate('proof.liveEvents'));guest.evaluate("proof.holdCheckpointAck=true;window.gameFault='bad-hash'")
+            guest.wait_for_function('proof.heldCheckpointAcks.length>0',timeout=15000);checkpoint=guest.evaluate('proof.heldCheckpointAcks[0]')
+            host.wait_for_function('wanted=>proof.frames.at(-1).frame>=wanted.frame+wanted.gap',arg={'frame':checkpoint['frame'],'gap':limits['catchupBatch']*2+8})
+            pause_before=len(host.evaluate('proof.pauseReceipts'));host.locator('canvas').focus();host.keyboard.press('p')
+            host.wait_for_function('count=>proof.pauseReceipts.slice(count).some(row=>row.type==="gamePaused")',arg=pause_before)
+            frozen=host.evaluate('proof.pauseReceipts.findLast(row=>row.type==="gamePaused")');host_frozen=host.evaluate('proof.frames.at(-1)')
+            assert frozen['frame']-checkpoint['frame']>limits['catchupBatch']*2,(checkpoint,frozen)
+            guest.evaluate('proof.holdCheckpointAck=false;proof.releaseCheckpointAck()')
+            guest.wait_for_function('count=>proof.liveEvents.length>count',arg=previous,timeout=15000)
+            for page in (host,guest):page.wait_for_function('proof.room.game.status==="paused"')
+            live=guest.evaluate('proof.liveEvents.at(-1)');observed=guest.evaluate('proof.observedEvents.at(-1)')
+            assert live['frame']==frozen['frame'] and live['hash']==frozen['hash'],(live,frozen)
+            assert observed['transferId']==live['transferId'] and observed['frame']==live['frame'] and observed['hash']==live['hash'],(observed,live)
+            assert host.evaluate('proof.frames.at(-1)')==host_frozen,'recovery depended on host native advancement'
+            screenshot(guest,'host-input-paused-recovered-p2.png')
+            for page in (host,guest):page.get_by_role('button',name='Prepare to resume',exact=True).click()
+            host.get_by_role('button',name='Resume together',exact=True).click()
+            for page in (host,guest):page.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
+            epoch=host.evaluate('proof.room.game.epoch');paused_press=p2_native();paused_release=p2_neutral_native()
+            paused_recovery={'checkpoint':checkpoint,'frozen':frozen,'live':live,'observed':observed,'host_native_stayed':host_frozen,'press_ram':paused_press,'release_ram':paused_release}
+            print(json.dumps({'lease_renewal':renewal,'paused_multibatch_recovery':paused_recovery}),flush=True)
+
             guest.locator('canvas').focus();guest.keyboard.down('c');host.wait_for_function('proof.nativeCommands.slice(-3).length===3&&proof.nativeCommands.slice(-3).every(c=>c.p2===2)&&proof.frames.at(-1)?.frame>=proof.nativeCommands.at(-1).frame')
             host.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})");host.wait_for_function('proof.controllerRam!==undefined');assert host.evaluate('proof.controllerRam[1]')==64
             # Increasing old lease updates are rejected even on the unchanged channel.
@@ -1391,7 +1426,7 @@ def host_input():
             compaction['owners']=host.evaluate('proof.room.game.controllers.owners');compaction['rows']=host.locator('.rc-players .slot-row strong').all_text_contents();compaction['lagging_frame']=lagged
             assert compaction['rows'][1].startswith('P2 · '),compaction
             screenshot(host,'host-input-compacted-p2.png')
-            save('host-input-result.json',{'result':'pass','five_slots':True,'automatic_compaction':compaction,'old_lease_neutral':True,'fixed_boundary':boundary,'recovered_p2_native_mask':2,'recovered_p2_native_ram':recovered_ram,'reconnected_p2_native_ram':reconnected_ram,'slow_observer_manual_retry':True,'host_epoch':epoch,'missing_hashes_isolated':True,'p2_worker_failure_recovered':True,'p2_delivery_backpressure_recovered':True,'slow_observer_isolated':True,'disconnected_p2_host_continues':True,'seconds':round(time.monotonic()-started,3)})
+            save('host-input-result.json',{'result':'pass','five_slots':True,'automatic_compaction':compaction,'old_lease_neutral':True,'lease_renewal':renewal,'paused_multibatch_recovery':paused_recovery,'fixed_boundary':boundary,'recovered_p2_native_mask':2,'recovered_p2_native_ram':recovered_ram,'reconnected_p2_native_ram':reconnected_ram,'slow_observer_manual_retry':True,'host_epoch':epoch,'missing_hashes_isolated':True,'p2_worker_failure_recovered':True,'p2_delivery_backpressure_recovered':True,'slow_observer_isolated':True,'disconnected_p2_host_continues':True,'seconds':round(time.monotonic()-started,3)})
         except Exception:
             for i,page in enumerate(pages):
                 save(f'host-input-{i}-failure.json',{'buttons':page.locator('button:visible').all_text_contents(),'status':page.locator('.rc-status').all_inner_texts(),'room':page.evaluate('proof.room'),'native':page.evaluate('proof.nativeCommands.slice(-8)'),'live':page.evaluate('proof.liveEvents'),'held':page.evaluate('proof.heldObserved'),'native_replies':page.evaluate('proof.nativeReplies')})

@@ -4,7 +4,7 @@ import {setImmediate,setTimeout as delay} from 'node:timers/promises';
 import {GameClient,type GameplayState} from './game-client.ts';
 import type {GameDriver,LocalPlayer} from './player.ts';
 import type {RoomView,Fingerprint} from '../../../packages/contracts/src/rooms.ts';
-import type {GameCommand,GameEvent} from '../../../packages/contracts/src/gameplay.ts';
+import {gameplayLimits,type GameCommand,type GameEvent} from '../../../packages/contracts/src/gameplay.ts';
 import {checkpointDigest} from './checkpoint.ts';
 import {encodeCheckpointChunk,type CheckpointMetadata} from '../../../packages/contracts/src/checkpoint.ts';
 const epoch='e'.repeat(32),peerEpoch='p'.repeat(32),host='h'.repeat(22),member='m'.repeat(22),observer='o'.repeat(22),transferId='t'.repeat(22),hash='c'.repeat(64),identity='d'.repeat(64);
@@ -190,4 +190,41 @@ test('Pause transfers periodic native hash ownership while active failures still
    if(paused)assert.equal(h.stats().wakes,wakes,'closed periodic work cannot wake the paused emulator');
   }finally{h.game.dispose();}
  }
+});
+
+test('paused recovery continues every bounded batch without new native commits and cancels queued work',async()=>{
+ for(const cancelled of [false,true]){
+  const h=await setup('host',0);
+  try{h.game.handle({type:'gameCapture',epoch,transferId,recipient:member,purpose:'live'});h.driver.next(0);h.complete(0);await until(()=>h.commands.some(c=>c.type==='gameCaptured'));
+   for(let f=1;f<72;f++){h.driver.next(0);h.complete(f);}
+   h.game.handle({type:'gamePauseAt',epoch,frame:72,hash,reason:'Pause'});await flush();
+   if(cancelled){const send=h.data.rtc.send.bind(h.data.rtc);Object.assign(h.data.rtc,{send(raw:string){send(raw);const packet=JSON.parse(raw);if(packet.kind==='frame'&&packet.frame===31)queueMicrotask(()=>h.game.handle({type:'gameSyncStop',epoch,transferId,reason:'Cancelled transfer.'}));}});}
+   h.game.handle({type:'gameCatchup',epoch,transferId,recipient:member,frame:0});await flush();
+   await delay(20);
+   const frames=h.data.sent.map(raw=>JSON.parse(raw as string)).filter(packet=>packet.kind==='frame');
+   assert.equal(frames.length,cancelled?32:72,'paused transfer must continue independently of native advancement');
+   assert.equal(h.data.sent.some(raw=>JSON.parse(raw as string).kind==='live'),!cancelled);
+  }finally{h.game.dispose();}
+ }
+});
+
+test('a paused live cursor drains multiple batches after backpressure clears without native advancement',async()=>{
+ const h=await setup('host',0);
+ try{h.game.handle({type:'gameCapture',epoch,transferId,recipient:member,purpose:'live'});h.driver.next(0);h.complete(0);await until(()=>h.commands.some(c=>c.type==='gameCaptured'));
+  h.game.handle({type:'gameCatchup',epoch,transferId,recipient:member,frame:0});await until(()=>h.data.sent.some(raw=>JSON.parse(raw as string).kind==='live'));
+  h.game.handle({type:'gameLive',epoch,transferId,recipient:member,frame:1,hash});
+  Object.assign(h.data.rtc,{bufferedAmount:40*1024});for(let f=1;f<72;f++){h.driver.next(0);h.complete(f);}
+  h.game.handle({type:'gamePauseAt',epoch,frame:72,hash,reason:'Pause'});await flush();Object.assign(h.data.rtc,{bufferedAmount:0});h.data.rtc.onbufferedamountlow!.call(h.data.rtc,new Event('bufferedamountlow'));await delay(20);
+  assert.equal(h.data.sent.filter(raw=>JSON.parse(raw as string).kind==='frame').length,72,'live delivery must continue while native play is paused');
+  assert.ok(h.data.sent.every(raw=>{const packet=JSON.parse(raw as string);return packet.kind!=='hash'||packet.frame%gameplayLimits.hashInterval===0;}),'a cached frozen hash must not become a non-interval live hash packet');
+ }finally{h.game.dispose();}
+});
+
+test('Pause wakes recovery waiting on a superseded periodic hash using its own native boundary',async()=>{
+ const h=await setup('host',119);
+ try{h.setHash(()=>new Promise(()=>{}));h.game.handle({type:'gameCapture',epoch,transferId,recipient:member,purpose:'live'});h.driver.next(0);h.complete(119);await until(()=>h.commands.some(c=>c.type==='gameCaptured'));
+  h.game.handle({type:'gameCatchup',epoch,transferId,recipient:member,frame:119});assert.equal(h.data.sent.length,0);
+  h.game.handle({type:'gamePauseAt',epoch,frame:120,hash,reason:'Pause'});await flush();
+  assert.ok(h.data.sent.some(raw=>JSON.parse(raw as string).kind==='live'),'the frozen boundary must release paused recovery');
+ }finally{h.game.dispose();}
 });

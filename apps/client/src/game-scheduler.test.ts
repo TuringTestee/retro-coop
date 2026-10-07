@@ -75,3 +75,29 @@ test('packet parser admits bounded new protocol fields and rejects released futu
  for(const packet of [lease,update(lease,1,3),committed(0)])assert.deepEqual(parseGamePacket(JSON.stringify(packet)),packet);
  for(const packet of [{kind:'input',epoch,frame:6,mask:1},{...update(lease,1,2),release:true},{...update(lease,0,2)},{...committed(0),p1:256},{...committed(0),rom:'secret'}])assert.equal(parseGamePacket(JSON.stringify(packet)),undefined);
 });
+
+test('renewal admits every unexpired issued lease without extending its sampled expiry',()=>{
+ const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+ t.time(1000+gameplayLimits.leaseRenewMs);const renewed=q.grant(guest,generation,'n'.repeat(32))!;
+ assert.notEqual(renewed.lease,old.lease);assert.equal(q.receive(update(old,1,2),guest),true,'old response is fresh after renewal');assert.deepEqual(complete(q),[0,2]);
+ q.receive(update(old,2,0),guest);assert.deepEqual(complete(q),[0,0]);
+ q.receive(update(old,3,2),guest);t.time(old.expiresAt);assert.deepEqual(complete(q),[0,0],'renewal cannot extend the old sample');assert.equal(q.receive(update(old,4,2),guest),false);
+ assert.equal(q.receive(update(renewed,5,2),guest),true);assert.deepEqual(complete(q),[0,2]);q.revoke(guest);assert.equal(q.receive(update(renewed,6,2),guest),false);
+});
+
+test('issued-lease overlap is rate bounded and preserves connection sequencing and generation cutoff',()=>{
+ const t=timeline(),q=t.scheduler,first=q.grant(guest,generation,'l'.repeat(32))!;
+ for(let i=0;i<100;i++)assert.equal(q.grant(guest,generation,String(i)),first,'early renewal reuses the issued token');
+ t.time(2000);const second=q.grant(guest,generation,'n'.repeat(32))!;t.time(3000);const third=q.grant(guest,generation,'m'.repeat(32))!;
+ assert.equal(q.receive(update(first,5,2),guest),true);assert.equal(q.receive(update(second,4,1),guest),false);assert.equal(q.receive(update(third,6,0,true),guest),true);assert.deepEqual(complete(q),[0,0]);
+ const fresh=q.grant(guest,'z'.repeat(32),'p'.repeat(32))!;assert.equal(q.receive(update(third,7,2),guest),false);assert.equal(q.receive(update(fresh,1,2),guest),true);assert.deepEqual(complete(q),[0,2]);
+ q.configure([host,guest],2);assert.equal(q.receive(update(fresh,2,2),guest),false);
+});
+
+ test('renewal preserves a queued whole-mask tap only through its original sampled expiry',()=>{
+  const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+  q.receive(update(old,1,1),guest);t.time(2000);const renewed=q.grant(guest,generation,'n'.repeat(32))!;
+  q.receive(update(renewed,2,1),guest);q.receive(update(renewed,3,0),guest);assert.deepEqual(complete(q),[0,1]);assert.deepEqual(complete(q),[0,0]);
+  q.receive(update(old,4,2),guest);q.receive(update(renewed,5,2),guest);q.receive(update(renewed,6,0),guest);t.time(old.expiresAt);assert.deepEqual(complete(q),[0,0]);
+  q.receive(update(renewed,7,3),guest);q.receive(update(renewed,8,0,true),guest);assert.deepEqual(complete(q),[0,0]);
+ });

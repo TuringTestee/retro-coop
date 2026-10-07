@@ -1,6 +1,6 @@
 import {gameplayLimits,type GamePacket,type FramePacket,type LeasePacket,type InputPacket} from '../../../packages/contracts/src/gameplay.ts';
 export type TimelineMembers={local:string;authority:string;controllers:readonly [string|undefined,string|undefined];revision:number;observer?:boolean};
-type Control={held:number;press?:number;expiresAt:number;lease:string};
+type Control={held:number;press?:{mask:number;expiresAt:number};expiresAt:number};
 /** The host chooses immutable native commands. Peer input and hashes never gate dispatch. */
 export class GameScheduler {
  readonly epoch:string;readonly authority:boolean;
@@ -8,7 +8,7 @@ export class GameScheduler {
  private head:number;private start:number;private historyStart:number;
  private members:TimelineMembers;private assignment?:{controllers:TimelineMembers['controllers'];revision:number};
  private local={held:0,press:undefined as number|undefined};
- private leases=new Map<string,LeasePacket>();private controls=new Map<string,Control>();private sequences=new Map<string,{generation:string;sequence:number}>();
+ private leases=new Map<string,LeasePacket[]>();private controls=new Map<string,Control>();private sequences=new Map<string,{generation:string;sequence:number}>();
  private frames=new Map<number,FramePacket>();private dispatched?:FramePacket;
  private hashes=new Map<number,string>();private peerHashes=new Map<string,Map<number,string>>();private receivedHashes=new Map<string,number>();private faults=new Set<string>();
  private historyFrames=new Float64Array(gameplayLimits.historyFrames);private historyRevisions=new Float64Array(gameplayLimits.historyFrames);
@@ -40,17 +40,23 @@ export class GameScheduler {
  revoke(member:string){this.controls.delete(member);this.leases.delete(member);this.sequences.delete(member);this.peerHashes.delete(member);this.receivedHashes.delete(member);}
  grant(member:string,generation:string,lease:string):LeasePacket|undefined {
   if(!this.authority||!this.members.controllers.includes(member)||member===this.members.local)return;
-  const packet:LeasePacket={kind:'lease',epoch:this.epoch,revision:this.revision,generation,lease,expiresAt:this.now()+gameplayLimits.leaseMs};
-  this.leases.set(member,packet);return packet;
+  const now=this.now(),prior=this.leases.get(member),previousGeneration=this.sequences.get(member)?.generation??prior?.at(-1)?.generation;
+  if(previousGeneration&&previousGeneration!==generation)this.revoke(member);
+  const leases=(this.leases.get(member)??[]).filter(packet=>packet.expiresAt>now),latest=leases.at(-1);
+  // Issue at most one token per renewal interval. Every still-valid issued token
+  // remains admissible at its original expiry, even across round-trip delivery.
+  if(latest&&now-(latest.expiresAt-gameplayLimits.leaseMs)<gameplayLimits.leaseRenewMs)return latest;
+  const packet:LeasePacket={kind:'lease',epoch:this.epoch,revision:this.revision,generation,lease,expiresAt:now+gameplayLimits.leaseMs};
+  leases.push(packet);this.leases.set(member,leases);return packet;
  }
- lease(member:string){return this.leases.get(member);}
+ lease(member:string){return this.leases.get(member)?.at(-1);}
  private acceptInput(packet:InputPacket,member:string){
   if(!this.authority||!this.members.controllers.includes(member)||member===this.members.local)throw Error('Input sender has no controller authority');
-  const grant=this.leases.get(member),previous=this.controls.get(member),accepted=this.sequences.get(member);
+  const grant=this.leases.get(member)?.find(value=>value.lease===packet.lease&&value.generation===packet.generation),previous=this.controls.get(member),accepted=this.sequences.get(member);
   if(!grant||packet.revision!==this.revision||packet.generation!==grant.generation||packet.lease!==grant.lease||this.now()>=grant.expiresAt||accepted?.generation===packet.generation&&packet.sequence<=accepted.sequence)return false;
   const held=previous&&previous.expiresAt>this.now()?previous.held:0;
-  const press=packet.release?undefined:(packet.mask&~held)?packet.mask:previous&&previous.lease===packet.lease&&previous.expiresAt>this.now()?previous.press:undefined;
-  this.sequences.set(member,{generation:packet.generation,sequence:packet.sequence});this.controls.set(member,{held:packet.mask,press,expiresAt:grant.expiresAt,lease:packet.lease});return true;
+  const press=packet.release?undefined:(packet.mask&~held)?{mask:packet.mask,expiresAt:grant.expiresAt}:previous?.press&&previous.press.expiresAt>this.now()?previous.press:undefined;
+  this.sequences.set(member,{generation:packet.generation,sequence:packet.sequence});this.controls.set(member,{held:packet.mask,press,expiresAt:grant.expiresAt});return true;
  }
  receive(packet:GamePacket,member:string){
   if(packet.epoch!==this.epoch)return false;
@@ -75,8 +81,9 @@ export class GameScheduler {
   this.applyAssignment();const masks=this.members.controllers.map(owner=>{
    if(!owner)return 0;
    if(owner===this.members.local){const mask=this.local.press??this.local.held;this.local.press=undefined;return mask;}
-   const control=this.controls.get(owner);if(!control||control.expiresAt<=this.now()){this.controls.delete(owner);return 0;}
-   const mask=control.press??control.held;control.press=undefined;return mask;
+   const control=this.controls.get(owner);if(!control)return 0;
+   const now=this.now(),press=control.press&&control.press.expiresAt>now?control.press.mask:undefined,held=control.expiresAt>now?control.held:0;
+   control.press=undefined;if(control.expiresAt<=now)this.controls.delete(owner);return press??held;
   });
   this.dispatched=Object.freeze({kind:'frame',epoch:this.epoch,stream:this.epoch,revision:this.revision,frame:this.frame,p1:masks[0],p2:masks[1]});
   return [masks[0],masks[1]];
