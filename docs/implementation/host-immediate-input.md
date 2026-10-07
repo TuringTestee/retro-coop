@@ -4,7 +4,7 @@ Audience: Agent
 
 # Host input without network waiting
 
-Governing journey: [immediate host input](../design/host-immediate-input.md). Baseline inspected: [`40b195164cce249edfb09621abee4603e9e89170`](https://github.com/TuringTestee/retro-coop/tree/40b195164cce249edfb09621abee4603e9e89170). This amends the platform's delayed-input gameplay design when implemented; it does not change the released runtime yet.
+Governing journey: [immediate host input](../design/host-immediate-input.md). Baseline inspected: [`40b195164cce249edfb09621abee4603e9e89170`](https://github.com/TuringTestee/retro-coop/tree/40b195164cce249edfb09621abee4603e9e89170). This governs the host-owned native dispatch and independent guest recovery implementation, replacing the platform's delayed-input gameplay design. Release requires the integrated gates below.
 
 ## Current causes and owners
 

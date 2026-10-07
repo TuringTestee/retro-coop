@@ -1,4 +1,4 @@
-import {gameplayProtocol,parseGameCommand,type GameCommand,type GameEvent,type GameView} from './gameplay.ts';
+import {parseGameCommand,type GameCommand,type GameEvent,type GameView} from './gameplay.ts';
 import {validChatText,type ChatCommand,type ChatEvent,type ChatAck} from './chat.ts';
 import {SLOT_IDS,validSlotId,validSlotRole,type SlotId,type SlotRole,type RoomSlot,type PlayerRole} from './slots.ts';
 import {object,keys,text,token} from './protocol-validation.ts';

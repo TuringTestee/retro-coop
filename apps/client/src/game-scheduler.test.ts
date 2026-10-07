@@ -37,6 +37,13 @@ test('renewed neutral samples cannot extend a queued tap from the prior lease',(
  t.time(2000);const renewed=q.grant(guest,generation,'n'.repeat(32))!;q.receive(update(renewed,3,0),guest);
  t.time(old.expiresAt+1);assert.deepEqual(complete(q),[0,0]);
 });
+test('lease expiry does not reset the connection input sequence',()=>{
+ const t=timeline(),q=t.scheduler,old=q.grant(guest,generation,'l'.repeat(32))!;
+ q.receive(update(old,10,1),guest);t.time(old.expiresAt+1);assert.deepEqual(complete(q),[0,0]);
+ const renewed=q.grant(guest,generation,'n'.repeat(32))!;
+ assert.equal(q.receive(update(renewed,9,2),guest),false);assert.equal(q.receive(update(renewed,10,2),guest),false);
+ assert.equal(q.receive(update(renewed,11,2),guest),true);assert.deepEqual(complete(q),[0,2]);
+});
 test('input authority rejects stale generations, assignments, sequences and senders; release cancels pending taps',()=>{
  const {scheduler:q}=timeline(),lease=q.grant(guest,generation,'l'.repeat(32))!;
  assert.throws(()=>q.receive(update(lease,1,2),observer),/authority/);

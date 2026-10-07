@@ -496,7 +496,7 @@ test('unsupported reconnect is rejected before replacing a valid room transport 
  const before=events.length;
  for(const protocol of [0,1,3])assert.throws(()=>rooms.attach(supported.token,event=>rejected.push(event),()=>{},protocol),/gameplay_update_required/);
  assert.equal(disconnected,0);assert.equal(events.length,before);assert.deepEqual(rejected,[]);
- assert.equal(rooms.handle(supported.token,{type:'heartbeat',requestId:randomUUID()}).room?.id,room.id);
+ rooms.handle(supported.token,{type:'heartbeat',requestId:randomUUID()});assert.equal(rooms.attach(supported.token,()=>{},()=>{},2).data.room?.id,room.id);
 });
 
 test('legacy hello receives a normal rejection without a session or room event on the real wire',async()=>{

@@ -26,6 +26,14 @@ async function setup(role:'host'|'member'|'observer',start=917){
  return {game,room,commands,updates,data,checkpoint,bytes,spec,get driver(){return driver;},stats:()=>({drains,cancels,exports,imports,stops,wakes}),complete:(f:number)=>{frame=f+1;driver.committed(f);},setImport:(hook:typeof importHook)=>{importHook=hook;},setSend:(hook:typeof sendHook)=>{sendHook=hook;},setHash:(hook:typeof hashHook)=>{hashHook=hook;}};
 }
 const flush=async()=>{for(let i=0;i<4;i++)await setImmediate();};
+test('native guest failure remains a manual retry across ordinary room publications',async()=>{
+ const h=await setup('observer');try{h.game.handle(h.spec);await deliver(h);h.data.receive(JSON.stringify({kind:'live',epoch,transferId,frame:917,hash}));await flush();
+  h.game.handle({type:'gameLive',epoch,transferId,recipient:observer,frame:917,hash});h.driver.pause('network');await flush();
+  const before=h.commands.filter(command=>command.type==='gameObserve').length;
+  h.game.enter({...h.room,revision:2});h.game.enter({...h.room,revision:3});await flush();assert.equal(h.commands.filter(command=>command.type==='gameObserve').length,before);
+  h.game.retry();await flush();assert.equal(h.commands.filter(command=>command.type==='gameObserve').length,before+1);
+ }finally{h.game.dispose();}
+});
 async function until(done:()=>boolean){const deadline=Date.now()+1000;while(!done()){if(Date.now()>=deadline)assert.fail('Asynchronous checkpoint did not settle');await delay(1);}}
 async function deliver(h:Awaited<ReturnType<typeof setup>>,overrides:Partial<CheckpointMetadata>={},wait=true){
  const metadata:CheckpointMetadata={transferId,sender:host,recipient:h.spec.recipient,epoch,frame:917,identity,hash,digest:await checkpointDigest(h.bytes),byteLength:h.bytes.byteLength,...overrides};
@@ -140,4 +148,32 @@ test('cancelled observer completion cannot abort a newer Load after its acknowle
   const latest=h.updates.at(-1),stops=h.stats().stops;reject(Error('timeline_change_pending'));await flush();
   assert.equal(h.commands.some(command=>command.type==='gameAbort'),false);assert.equal(h.stats().stops,stops);assert.deepEqual(h.updates.at(-1),latest);
  }finally{h.game.dispose();}}
+});
+
+test('recovering P2 remains neutral until exact live acknowledgment then samples fresh assigned input',async()=>{
+ const h=await setup('member');try{
+  const spec={...h.spec,purpose:'live' as const};h.game.handle(spec);await deliver(h);assert.equal(h.driver.ownsInput,false);
+  h.data.receive(JSON.stringify({kind:'live',epoch,transferId,frame:917,hash}));await flush();assert.ok(h.commands.some(command=>command.type==='gameObserved'&&command.hash===hash));assert.equal(h.driver.ownsInput,false);
+  h.game.handle({type:'gameLive',epoch,transferId:'x'.repeat(22),recipient:member,frame:917,hash});assert.equal(h.driver.ownsInput,false);
+  h.game.handle({type:'gameLive',epoch,transferId,recipient:member,frame:917,hash});assert.equal(h.driver.ownsInput,true);
+  const lease={kind:'lease',epoch,revision:1,generation:peerEpoch,lease:'l'.repeat(32),expiresAt:3000};h.data.receive(JSON.stringify(lease));h.driver.sample?.(2);
+  assert.ok(h.data.sent.map(raw=>JSON.parse(raw as string)).some(packet=>packet.kind==='input'&&packet.mask===2&&packet.lease===lease.lease));
+ }finally{h.game.dispose();}
+});
+
+test('remote control sampling continues while replica has no confirmed frame to replay',async()=>{
+ const h=await setup('member');try{
+  const lease={kind:'lease',epoch,revision:1,generation:peerEpoch,lease:'l'.repeat(32),expiresAt:3000};h.data.receive(JSON.stringify(lease));h.driver.sample?.(1);h.driver.sample?.(0);assert.equal(h.driver.next(0),undefined);
+  const input=h.data.sent.map(raw=>JSON.parse(raw as string)).filter(packet=>packet.kind==='input');assert.deepEqual(input.slice(-2).map(packet=>packet.mask),[1,0]);assert.ok(input.at(-1).sequence>input.at(-2).sequence);
+ }finally{h.game.dispose();}
+});
+
+test('an old hash stream after successful live retry cannot disturb current host delivery',async()=>{
+ const h=await setup('host',119);try{h.game.enter({...h.room,game:{...h.room.game,status:'playing'}});
+  h.game.handle({type:'gameCapture',epoch,transferId,recipient:member,purpose:'live'});h.driver.next(0);h.complete(119);await flush();
+  h.game.handle({type:'gameCatchup',epoch,transferId,recipient:member,frame:120});await flush();
+  h.game.handle({type:'gameLive',epoch,transferId,recipient:member,frame:120,hash});const before=h.commands.filter(command=>command.type==='gameResynchronize').length;
+  h.data.receive(JSON.stringify({kind:'hash',epoch,stream:epoch,frame:120,hash:'0'.repeat(64)}));await flush();assert.equal(h.commands.filter(command=>command.type==='gameResynchronize').length,before);assert.equal(h.driver.next(0)?.frame,120);
+  h.data.receive(JSON.stringify({kind:'hash',epoch,stream:transferId,frame:120,hash:'0'.repeat(64)}));await flush();assert.equal(h.commands.filter(command=>command.type==='gameResynchronize').length,before+1);
+ }finally{h.game.dispose();}
 });

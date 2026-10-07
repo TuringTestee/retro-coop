@@ -458,3 +458,13 @@ test('live recovery fixes one acknowledged native boundary while host play conti
  assert.throws(()=>t.act(1,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:947,hash}),/stale_checkpoint/);
  t.act(0,{type:'gameResynchronize',epoch,revision,recipient:t.members[1]});assert.notEqual(t.captures().at(-1)!.transferId,transfer.transferId);
 });
+
+test('Load admits a frozen exact-boundary checkpoint for a guest beyond replay history before staging',()=>{
+ const t=setup(2),epoch=t.begin();
+ t.act(0,{type:'gameLoadPropose',revision:t.view().game.controllers.revision,roomRevision:t.view().revision,frame:20,hash:otherHash,identity:'e'.repeat(64),savedAt:1000});const load=t.view().game.load!;
+ t.act(0,{type:'gameFrozen',epoch,frame:4096,hash});t.act(0,{type:'gameLoadBoundary',transactionId:load.id,frame:4096,hash});
+ t.act(1,{type:'gameObserve',revision:t.view().game.controllers.revision});const checkpoint=t.captures().at(-1)!;assert.equal(checkpoint.purpose,'controller');
+ t.ack(checkpoint,t.authorize(checkpoint,4096),4096);assert.equal(t.view().game.load!.phase,'freezing');assert.ok(t.events[1].some(event=>event.type==='gameLoadHold'&&event.frame===4096&&event.hash===hash));
+ t.act(1,{type:'gameLoadBoundary',transactionId:load.id,frame:4096,hash});assert.equal(t.view().game.load!.phase,'staging');
+ assert.equal(t.captures().at(-1)!.purpose,'load');
+});

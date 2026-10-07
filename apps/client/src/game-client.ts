@@ -10,7 +10,7 @@ type Spec=Extract<GameEvent,{type:'gameCheckpoint'}>;
 type Capture=Awaited<ReturnType<LocalPlayer['exportPeerCheckpoint']>>;
 type Outgoing={request:Extract<GameEvent,{type:'gameCapture'}>;capture?:Capture;digest?:string;spec?:Spec;timer:ReturnType<typeof setTimeout>;cursor?:number;sending?:boolean;exporting?:boolean;sendRequested?:boolean;checkpointStarted?:boolean;boundary?:{frame:number;hash:string};boundaryPending?:boolean;markerSent?:boolean};
 type ManualSave={record?:SaveSlot;capture:Capture;current:()=>Promise<boolean>;serial:number};
-type Link={epoch:string;channel:RTCDataChannel;roundTripMs:number;checkpoint?:RTCDataChannel;live:boolean;stream:string;inputReady:boolean;recovering:boolean;leaseAt:number;cursor?:number};
+type Link={epoch:string;channel:RTCDataChannel;checkpoint?:RTCDataChannel;live:boolean;stream:string;inputReady:boolean;recovering:boolean;leaseAt:number;cursor?:number};
 export type GameplayState={status:string;frame:number;hash?:string;busy:boolean;synchronizing?:boolean;intent?:boolean;observing?:boolean;preparationError?:string};
 /** One local emulator; the authority owns at most four independently bounded replica links. */
 export class GameClient {
@@ -46,7 +46,7 @@ export class GameClient {
    this.publish({intent:false,busy:false,preparationError:undefined,status:'Lobby changed. Choose Ready again.'});
   }
   for(const member of this.links.keys())if(!room.slots.some(slot=>slot.member?.id===member))this.closed(member);
-  if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;this.inputLease=undefined;this.controllers=room.game.controllers;this.scheduler?.configure(room.game.controllers.owners.map(owner=>owner??undefined) as [string|undefined,string|undefined],room.game.controllers.revision);this.player()?.setGameInputOwner(!this.incoming&&this.ownsInput());if(this.scheduler?.authority)for(const [member,link] of this.links){link.inputReady=false;link.leaseAt=0;if(room.game.status==='playing'&&room.game.controllers.owners.includes(member)&&!prior?.game.controllers.owners.includes(member))this.isolate(member,'Player assignment changed.');else link.inputReady=true;}}
+  if(prior?.game.controllers.revision!==room.game.controllers.revision){this.offered=undefined;this.observeRequested=undefined;this.inputLease=undefined;this.controllers=room.game.controllers;this.scheduler?.configure(room.game.controllers.owners.map(owner=>owner??undefined) as [string|undefined,string|undefined],room.game.controllers.revision);this.player()?.setGameInputOwner(!this.incoming&&this.ownsInput());if(this.scheduler?.authority)for(const [member,link] of this.links){link.leaseAt=0;if(room.game.status==='playing'&&room.game.controllers.owners.includes(member)&&!prior?.game.controllers.owners.includes(member))this.isolate(member,'Player assignment changed.');else link.inputReady=link.inputReady&&!link.recovering;}}
   if(room.game.status==='resume_ready'&&(this.incoming?.purpose==='controller'||[...this.outgoing.values()].some(value=>value.request.purpose==='controller'))){if(this.incoming?.purpose==='controller')this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])if(outgoing.request.purpose==='controller')this.cancelOutgoing(outgoing);this.publish({busy:false,synchronizing:false,status:'Paused game synchronized. The host can resume.'});}
   if(prior&&!this.loadAttempt?.replacement&&prior.game.epoch!==room.game.epoch&&!this.authority()&&!room.game.controllers.owners.includes(this.self()))this.clear('Game roles changed. Synchronizing the current game.');
   if(room.game.status==='playing'&&!this.authority()&&this.loaded()&&!this.scheduler&&!this.incoming&&!this.observeRequested)this.observe();
@@ -57,7 +57,7 @@ export class GameClient {
  playIntent(){this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});if(this.room?.game.status==='playing'&&!this.authority())this.observe();else void this.offer();}
  retry(){if(this.room?.game.status==='playing'&&!this.authority())this.observe();else this.playIntent();}
  retryConnection(){if(this.room?.game.status==='playing'&&!this.authority())this.observe();}
- async resumeReady(){this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});await this.offer();}
+ async resumeReady(){if(this.room?.game.status==='playing'&&!this.authority()){this.observe();return;}this.intent=true;this.offered=undefined;this.publish({intent:true,preparationError:undefined});await this.offer();}
  async resumeTogether(){const epoch=this.room?.game.epoch;if(epoch)try{await this.send({type:'gameResume',epoch});}catch(error){this.publish({status:String(error),busy:false});}}
  async loadSaved(record:SaveSlot,current:()=>Promise<boolean>){
   const room=this.room,player=this.player();if(!room||!player||!this.authority()||!this.loaded())throw Error('Only the host can load saved progress after the matching game is loaded.');
@@ -88,8 +88,9 @@ export class GameClient {
  private async completeLoadHold(event:Extract<GameEvent,{type:'gameLoadHold'}>){
   if(!this.ownsLoad(event.transactionId)||this.loadHold!==event)return;
   this.loadHold=undefined;const info=await this.player()!.holdForGame(false);if(!this.ownsLoad(event.transactionId))return;
+  if(this.room?.game.load?.freezeRequired?.includes(this.self())!==false&&event.frame!==undefined&&info.frame<event.frame){this.loadHold=event;this.frozenRecovery=true;await this.send({type:'gameObserve',revision:this.controllers.revision});return;}
   if(this.room?.game.load?.freezeRequired?.includes(this.self())!==false&&event.frame!==undefined&&(info.frame!==event.frame||info.hash!==event.hash))throw Error('Players could not reach the same pause boundary.');
-  this.frozen=true;this.player()!.stopGame('Preparing to load saved progress.');this.loadHold=undefined;
+  this.frozen=true;this.cancelIncoming();this.player()!.stopGame('Preparing to load saved progress.');this.loadHold=undefined;
   await this.send({type:'gameLoadBoundary',transactionId:event.transactionId,frame:info.frame,hash:info.hash});
  }
  private async handleLoad(event:Extract<GameEvent,{type:'gameLoadHold'|'gameLoadStage'|'gameLoadCommit'|'gameLoadRollback'|'gameLoadFinish'}>){
@@ -102,7 +103,7 @@ export class GameClient {
   if(!this.ownsLoad(event.transactionId))return;
   const current=()=>this.ownsLoad(event.transactionId);
   if(event.type==='gameLoadStage'){
-   const save=this.manualSave;if(!this.authority()||!save||save.serial!==this.serial||!await save.current()||!current())throw Error('Saved progress changed. Load again.');
+   for(const outgoing of [...this.outgoing.values()])if(outgoing.request.purpose==='controller')this.cancelOutgoing(outgoing);if(this.incoming?.purpose==='controller')this.cancelIncoming();const save=this.manualSave;if(!this.authority()||!save||save.serial!==this.serial||!await save.current()||!current())throw Error('Saved progress changed. Load again.');
    const prepared=await this.player()!.prepareSharedSave(event.transactionId,event.epoch,event.frame,save.capture.bytes,save.capture.identity,event.hash,current);if(current())await this.send({type:'gameLoadPrepared',transactionId:event.transactionId,frame:prepared.frame,hash:prepared.hash});return;
   }
   if(event.type==='gameLoadCommit'){
@@ -138,8 +139,8 @@ export class GameClient {
    const display=code==='room_changed'?'Lobby changed. Try again.':message.startsWith('The lobby service did not respond.')?'Lobby service did not respond. Try again.':message;
    this.offered=undefined;this.intent=false;this.publish({busy:false,intent:false,preparationError:display,status:message});}}finally{if(serial===this.serial)this.offering=false;}
  }
- ready(member:string,channel:RTCDataChannel,epoch:string,roundTripMs=0){
-  const checkpoint=this.checkpointLinks.get(member);this.links.set(member,{epoch,channel,roundTripMs,checkpoint:checkpoint?.epoch===epoch?checkpoint.channel:undefined,live:false,stream:this.scheduler?.epoch??epoch,inputReady:true,recovering:false,leaseAt:0});channel.bufferedAmountLowThreshold=16*1024;
+ ready(member:string,channel:RTCDataChannel,epoch:string){
+  const checkpoint=this.checkpointLinks.get(member);this.links.set(member,{epoch,channel,checkpoint:checkpoint?.epoch===epoch?checkpoint.channel:undefined,live:false,stream:this.scheduler?.epoch??epoch,inputReady:true,recovering:false,leaseAt:0});channel.bufferedAmountLowThreshold=16*1024;
   channel.onmessage=({data})=>{if(this.links.get(member)?.channel===channel)this.receive(member,data);};channel.onbufferedamountlow=()=>{const link=this.links.get(member);if(link?.channel===channel&&link.live)this.pumpLink(member,link);for(const outgoing of this.outgoing.values())if(outgoing.request.recipient===member)this.catchup(outgoing);};
   if(this.intent)void this.offer();if(this.room?.game.status==='playing'&&!this.scheduler&&!this.authority())this.observe();
  }
@@ -166,10 +167,10 @@ export class GameClient {
    const outgoing=this.outgoing.get(event.transferId);if(outgoing)this.cancelOutgoing(outgoing);
    if(this.incoming?.transferId===event.transferId||!this.incoming&&this.observeRequested===event.epoch&&!this.scheduler){this.cancelIncoming();this.scheduler=undefined;this.player()?.stopGame(event.reason);this.publish({busy:false,synchronizing:false,observing:false,status:event.reason});}return;
   }
-  if(event.type==='gameLive'){if(this.authority()){const outgoing=this.outgoing.get(event.transferId),link=this.links.get(event.recipient);if(outgoing&&link&&outgoing.boundary?.frame===event.frame&&outgoing.boundary.hash===event.hash){this.cancelOutgoing(outgoing);link.inputReady=true;link.recovering=false;link.leaseAt=0;this.renewInputs();}}else if(event.recipient===this.self()&&this.incoming?.transferId===event.transferId){this.cancelIncoming();this.player()?.setGameInputOwner(this.ownsInput());this.observeRequested=undefined;this.publish({busy:false,synchronizing:false,observing:this.observerSlot(),status:this.ownsInput()?'Playing together.':'Observing the current game.'});}return;}
+  if(event.type==='gameLive'){if(this.authority()){const outgoing=this.outgoing.get(event.transferId),link=this.links.get(event.recipient);if(outgoing&&link&&outgoing.boundary?.frame===event.frame&&outgoing.boundary.hash===event.hash){this.cancelOutgoing(outgoing);link.inputReady=true;link.recovering=false;link.leaseAt=0;this.renewInputs();}}else if(event.recipient===this.self()&&this.incoming?.transferId===event.transferId&&event.frame===this.catchupTarget&&event.hash===this.catchupHash){this.cancelIncoming();this.player()?.setGameInputOwner(this.ownsInput());this.observeRequested=undefined;this.publish({busy:false,synchronizing:false,observing:this.observerSlot(),status:this.ownsInput()?'Playing together.':'Observing the current game.'});}return;}
   if(event.type==='gameStop'){this.clear(event.reason);return;}
   if(event.type==='gameFreeze'){
-   if(!this.authority()||event.epoch!==this.room?.game.epoch)return;this.cancelAllTransfers();this.frozen=true;const serial=this.serial;this.publish({busy:true,status:event.reason});
+   if(!this.authority()||event.epoch!==this.room?.game.epoch)return;if(this.room.game.pending||this.room.game.load)this.cancelAllTransfers();this.frozen=true;const serial=this.serial;this.publish({busy:true,status:event.reason});
    void this.player()!.holdForGame(false).then(info=>{if(serial!==this.serial)return;this.player()?.releaseControllers();return this.send({type:'gameFrozen',epoch:event.epoch,frame:info.frame,hash:info.hash});}).catch(error=>{if(serial===this.serial)this.fail(String(error),'network');});return;
   }
   if(event.type==='gamePauseAt'){
@@ -189,7 +190,7 @@ export class GameClient {
  private makeScheduler(epoch:string,frame:number,controllers:ControllerAssignment,observer:boolean){return new GameScheduler(epoch,{local:this.self(),authority:this.room!.hostMembership,revision:controllers.revision,controllers:controllers.owners.map(owner=>owner??undefined) as [string|undefined,string|undefined],observer},packet=>this.sendPacket(packet),frame);}
  private install(epoch:string,frame:number,controllers:ControllerAssignment,observer:boolean){
   this.controllers=controllers;if(observer||this.scheduler?.epoch!==epoch)this.scheduler=this.makeScheduler(epoch,frame,controllers,observer);
-  this.receiveStream=this.incoming?.transferId??epoch;this.inputLease=undefined;this.inputSequence=0;this.frozen=false;if(!observer)this.fence=undefined;this.hashing=false;this.pausedSent=false;this.missingSince=0;
+  this.receiveStream=this.incoming?.transferId??epoch;this.inputLease=undefined;this.frozen=false;if(!observer)this.fence=undefined;this.hashing=false;this.pausedSent=false;this.missingSince=0;
   this.player()!.startGame({epoch,next:mask=>this.next(mask),committed:frame=>this.committed(frame),pause:reason=>this.pause(reason),draining:()=>this.catchingUp||this.fence!==undefined,silent:()=>this.catchingUp,sample:(mask,release)=>this.sampleControls(mask,release),ownsInput:!observer&&this.ownsInput()});
   this.publish({status:observer?'Catching up with the current game…':'Playing together.',busy:observer,synchronizing:observer,observing:observer,frame});
  }
@@ -221,14 +222,14 @@ export class GameClient {
    if(packet.kind==='hash'){this.historyHashes.set(packet.frame,packet.hash);for(const frame of this.historyHashes.keys())if(frame<packet.frame-gameplayLimits.historyFrames)this.historyHashes.delete(frame);}
    // Drain healthy replicas independently. A slow replica owns its cursor and recovery.
    for(const [member,link] of [...this.links].sort((a,b)=>a[1].channel.bufferedAmount-b[1].channel.bufferedAmount))if(link.live){this.pumpLink(member,link);if(packet.kind==='hash'&&link.live&&link.cursor===packet.frame)try{link.channel.send(JSON.stringify({...packet,stream:link.stream}));}catch{this.isolate(member,'Guest connection changed.');}}
-  }else {const channel=this.links.get(this.room!.hostMembership)?.channel;if(channel?.readyState!=='open'||channel.bufferedAmount>64*1024){this.inputLease=undefined;return;}try{channel.send(JSON.stringify(packet));}catch{this.inputLease=undefined;}}
+  }else {const channel=this.links.get(this.room!.hostMembership)?.channel;if(channel?.readyState!=='open'||channel.bufferedAmount>64*1024){this.inputLease=undefined;return;}try{channel.send(JSON.stringify(packet.kind==='hash'?{...packet,stream:this.receiveStream}:packet));}catch{this.inputLease=undefined;}}
  }
  private receive(member:string,raw:unknown){
   if(typeof raw==='string'&&raw.length<gameplayLimits.packetBytes){try{const marker=JSON.parse(raw);if(marker.kind==='live'&&member===this.room?.hostMembership&&this.incoming?.transferId===marker.transferId&&marker.epoch===this.scheduler?.epoch&&Number.isSafeInteger(marker.frame)&&typeof marker.hash==='string'&&/^[a-f0-9]{64}$/.test(marker.hash)){this.catchupTarget=marker.frame;this.catchupHash=marker.hash;this.finishCatchup();return;}}catch{}}
   const packet=parseGamePacket(raw);if(!packet){if(this.authority())this.isolate(member,'Invalid guest gameplay packet.');else if(member===this.room?.hostMembership)this.fail('Invalid authoritative gameplay packet.','network');return;}
   const scheduler=this.scheduler;if(!scheduler||packet.epoch!==scheduler.epoch)return;
   if(packet.kind==='lease'){const link=this.links.get(member);if(this.authority()||member!==this.room?.hostMembership||packet.generation!==link?.epoch||packet.revision!==this.controllers.revision||this.catchingUp)return;this.inputLease=packet;this.inputSentAt=0;this.sampleControls(this.player()?.sampleGameInput()??0);return;}
-  if(!this.authority()&&'stream' in packet&&packet.stream!==this.receiveStream)return;
+  if(!this.authority()&&'stream' in packet&&packet.stream!==this.receiveStream)return;if(this.authority()&&packet.kind==='hash'&&packet.stream!==this.links.get(member)?.stream)return;
   try{scheduler.receive(packet,member);for(const peer of scheduler.takeFaults())this.isolate(peer,'Guest state needs synchronization.');this.player()?.wakeGame(packet.epoch);}catch(error){if(this.authority())this.isolate(member,String(error));else this.fail(String(error),'mismatch');}
  }
  private next(mask:number){const scheduler=this.scheduler;if(!scheduler||this.frozen||this.hashing||this.pausedSent)return;if(this.fence!==undefined&&scheduler.frame>=this.fence){void this.finishPause();return;}
@@ -293,6 +294,6 @@ export class GameClient {
  private failIncoming(spec:Spec,status:string){if(this.incoming!==spec)return;this.cancelIncoming();this.scheduler=undefined;this.player()?.stopGame(status);this.publish({busy:false,synchronizing:false,observing:false,status});void this.send({type:'gameCheckpointFailed',epoch:spec.epoch,transferId:spec.transferId}).catch(()=>{});}
  private cancelAllTransfers(){this.cancelIncoming();for(const outgoing of [...this.outgoing.values()])this.cancelOutgoing(outgoing);}
  private clear(status:string,leave=false){this.inputLease=undefined;this.receiveStream=undefined;this.frozenRecovery=false;const attempt=this.loadAttempt;this.candidateAcquisition?.abort();this.candidateAcquisition=undefined;this.replacementCompletion?.reject(Error(status));this.replacementCompletion=undefined;this.loadAttempt=undefined;this.loadHold=undefined;this.announcedLoad=undefined;this.manualLoadRequest=undefined;this.manualSave=undefined;if(attempt?.replacement)this.player()?.cancelCartridge(attempt.id,leave);else if(attempt)void this.player()?.rollbackSharedSave(attempt.id,()=>false).catch(()=>{});this.cancelAllTransfers();++this.serial;this.intent=false;this.offered=undefined;this.offering=false;this.prepared=undefined;this.scheduler=undefined;this.frozen=false;this.fence=undefined;this.hashing=false;this.observeRequested=undefined;this.player()?.stopGame(status,leave);if(leave)this.player()?.allowLocalPlay();this.publish({status,busy:false,synchronizing:false,intent:false,observing:false,preparationError:undefined});}
- private fail(status:string,reason:GameReason){const epoch=this.scheduler?.epoch??this.room?.game.epoch,spec=this.incoming;if(spec){this.failIncoming(spec,status);return;}this.clear(status);if(epoch)void this.send({type:'gameAbort',epoch,reason}).catch(()=>{});}
+ private fail(status:string,reason:GameReason){const epoch=this.scheduler?.epoch??this.room?.game.epoch,spec=this.incoming;if(spec){this.failIncoming(spec,status);return;}this.clear(status);if(epoch&&!this.authority()&&this.room?.game.status==='playing')this.observeRequested=epoch;if(epoch)void this.send({type:'gameAbort',epoch,reason}).catch(()=>{});}
  dispose(){this.clear('Shared game closed.',true);this.links.clear();this.checkpointLinks.clear();}
 }
