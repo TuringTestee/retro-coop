@@ -135,7 +135,9 @@ def cartridge_replacement(browser,url,output):
         assert expanded['buttons'][0]['x']+expanded['buttons'][0]['width']<=expanded['buttons'][1]['x'],expanded
         h.screenshot(path=str(output/'replacement-expanded-action-phone.png'))
         h.get_by_role('button',name='Change game',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Cancel',exact=True).focus();h.keyboard.press('Enter')
-        h.get_by_role('button',name='Expand game to full screen',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Return to lobby view',exact=True).focus();h.keyboard.press('Enter')
+        assert h.locator('.rc-game-fullscreen').count()==1
+        expect(h.get_by_label('NES game screen',exact=True)).to_be_focused()
+        h.get_by_role('button',name='Return to lobby view',exact=True).focus();h.keyboard.press('Enter')
         h.get_by_label('NES game screen',exact=True).focus();expect(h.get_by_label('NES game screen',exact=True)).to_be_focused()
         h.set_viewport_size({'width':390,'height':700})
         assert h.evaluate('proof.room.catalogId')=='super-tilt-bro-pal'
@@ -207,7 +209,12 @@ def cartridge_replacement(browser,url,output):
         assert 'Game change failed. Progress kept.' in h.locator('.rc-status').inner_text()
         assert h.locator('.rc-status-copy').evaluate('node=>node.scrollWidth<=node.clientWidth&&node.scrollHeight<=node.clientHeight')
         h.screenshot(path=str(output/'replacement-rollback-prepare-resume.png'))
-        h.get_by_role('button',name='Prepare to resume',exact=True).click();h.get_by_role('button',name='Resume together',exact=True).click()
+        h.get_by_role('button',name='Prepare to resume',exact=True).click()
+        resume=h.get_by_role('button',name='Resume together',exact=True)
+        print(json.dumps({'expanded_recovery_action':resume.evaluate("node=>{const r=node.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return{room:{role:proof.room.role,status:proof.room.game.status,pending:proof.room.game.pending,load:proof.room.game.load},page:document.querySelector('main').dataset.page,expanded:!!document.querySelector('.rc-game-fullscreen'),ancestor:node.parentElement.className,box:r.toJSON(),hit:hit?.outerHTML,button:node.outerHTML};}")}),flush=True)
+        assert resume.evaluate('node=>!!node.closest(".rc-game-fullscreen .rc-prepare-action-region")')
+        assert resume.evaluate('node=>{const r=node.getBoundingClientRect();return node.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}')
+        resume.click()
         h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         admitted=hold_observer()

@@ -482,7 +482,7 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-game-links { grid-row: 2; justify-content: flex-end; }
  .rc-game-heading { overflow-wrap: anywhere; white-space: normal; line-height: 1.4; font-size: 14px; }
  .rc-game-display { grid-column: 1; grid-row: 2; margin: 4px 8px; }
- .rc-has-picker .rc-game-display { position: static; overflow: visible; }
+ .rc-has-picker .rc-game-display:not(.rc-game-fullscreen) { position: static; overflow: visible; }
  .rc-session[data-phone-panel]:not([data-phone-panel=players]) > .rc-players,
  .rc-session[data-phone-panel]:not([data-phone-panel=settings]) > .rc-session-settings,
  .rc-session[data-phone-panel]:not([data-phone-panel=chat]) > .rc-chat-panel { visibility: hidden; pointer-events: none; }

@@ -43,7 +43,7 @@ export function SessionStage({saveFeedback,onRetry,loadedGameIdentity,preparatio
  useEffect(()=>{const changed=()=>setPhone(compactLayout());window.addEventListener('resize',changed);changed();return()=>window.removeEventListener('resize',changed);},[]);
  const [picker,setPicker]=React.useState(false);
  const [gameExpanded,setGameExpanded]=React.useState(false);
- const display=useRef<HTMLDivElement>(null),lastPresentation=useRef(false);
+ const display=useRef<HTMLDivElement>(null),lastPresentation=useRef({expanded:false,picker:false});
  const [pickerPage,setPickerPage]=React.useState<'choices'|'saved'>('choices'),[saved,setSaved]=React.useState<LibraryEntry[]>([]),[savedIndex,setSavedIndex]=React.useState(0),[savedStatus,setSavedStatus]=React.useState(''),[savedBusy,setSavedBusy]=React.useState(false);
  const savedRequest=useRef(0),pickerOpen=useRef(false);
  const savedList=useRef<HTMLDivElement>(null),[savedRanges,setSavedRanges]=useState<[number,number][]>([[0,1]]);
@@ -68,12 +68,12 @@ export function SessionStage({saveFeedback,onRetry,loadedGameIdentity,preparatio
  const liveContext=useRef(contextKey);
  liveContext.current=contextKey;
  const closePicker=()=>{++savedRequest.current;pickerOpen.current=false;setPicker(false);setSavedBusy(false);setSavedStatus('');};
- const showPicker=()=>{setGameExpanded(false);++savedRequest.current;pickerOpen.current=true;setPickerPage('choices');setSavedBusy(false);setSavedStatus('');setPicker(true);};
+ const showPicker=()=>{++savedRequest.current;pickerOpen.current=true;setPickerPage('choices');setSavedBusy(false);setSavedStatus('');setPicker(true);};
  useEffect(()=>{closePicker();setPickerPage('choices');},[contextKey]);
  useEffect(()=>()=>{++savedRequest.current;pickerOpen.current=false;},[]);
  useEffect(()=>{enteredPlay.current=false;setGameExpanded(false);setPhonePanel('game');},[room?.id,room?.fingerprint?.romSha256,local]);
  useEffect(()=>{if(!playReady||!canvasLoaded||enteredPlay.current)return;enteredPlay.current=true;if(phone)setGameExpanded(true);},[playReady,canvasLoaded,phone]);
- useEffect(()=>{if(!gameExpanded)return;const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();setGameExpanded(false);}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[gameExpanded]);
+ useEffect(()=>{if(!gameExpanded||picker)return;const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();setGameExpanded(false);}};window.addEventListener('keydown',escape);return()=>window.removeEventListener('keydown',escape);},[gameExpanded,picker]);
  useEffect(()=>{if(side)closePicker();},[side]);
  const openSaved=()=>{const request=++savedRequest.current,context=contextKey;setPickerPage('saved');setSavedIndex(0);setSavedStatus('Checking saved games…');void libraryEntries().then(rows=>{if(request!==savedRequest.current||!pickerOpen.current||context!==liveContext.current)return;const stored=rows.filter(row=>!catalog.some(entry=>entry.sha256===row.sha256));setSaved(stored);setSavedStatus(stored.length?'':'No saved games yet. Add a NES file instead.');}).catch(()=>{if(request===savedRequest.current&&pickerOpen.current&&context===liveContext.current)setSavedStatus('Saved games are unavailable. Add a NES file instead.');});};
  const chooseSaved=async(item:LibraryEntry)=>{const request=++savedRequest.current,context=contextKey;setSavedBusy(true);setSavedStatus(`Checking ${item.label}…`);const current=()=>request===savedRequest.current&&pickerOpen.current&&context===liveContext.current;try{const file=await verifiedSavedFile(item.sha256);if(!current())return;if(onSaved(file)){closePicker();}else setSavedStatus('Could not load the saved game. Try again.');}catch(error){if(current())setSavedStatus(error instanceof Error?error.message:'Could not load the saved game.');}finally{if(current())setSavedBusy(false);}};
@@ -81,7 +81,7 @@ export function SessionStage({saveFeedback,onRetry,loadedGameIdentity,preparatio
  const saveOutsideGame=phone&&phonePanel!=='game'&&!gameExpanded;
  const showPreparation=!!preparationAction&&canvasLoaded&&!loadingLabel&&!picker;
  const canExpand=playing&&presentationAvailable&&canvasLoaded&&!loadingLabel&&!showPreparation&&!picker;
- useLayoutEffect(()=>{if(lastPresentation.current===gameExpanded)return;lastPresentation.current=gameExpanded;onPresentationChange();if(playing&&canvasLoaded&&!picker)display.current?.querySelector("canvas")?.focus();},[gameExpanded,playing,canvasLoaded,picker,onPresentationChange]);
+ useLayoutEffect(()=>{if(lastPresentation.current.expanded===gameExpanded&&lastPresentation.current.picker===picker)return;lastPresentation.current={expanded:gameExpanded,picker};onPresentationChange();if(playing&&canvasLoaded&&!picker)display.current?.querySelector("canvas")?.focus();},[gameExpanded,playing,canvasLoaded,picker,onPresentationChange]);
  const expandFromContainer=(event:React.MouseEvent<HTMLDivElement>)=>{if(!gameExpanded&&canExpand&&!(event.target as Element).closest(".rc-controller-band,.rc-game-stage-actions,.rc-game-save-status,.rc-game-picker,.rc-game-progress,.rc-prepare-cover,button,input,select,textarea,a"))setGameExpanded(true);};
  const saveStatus=(compact=false)=>saveFeedback?<div className={`rc-game-save-status${saveOutsideGame?' rc-panel-save-status':''}`} role="status" aria-live="polite"><span title={saveFeedback.message}>{compact&&saveFeedback.failed?`${saveFeedback.retry==='load'?'Load':saveFeedback.retry==='restart'?'Restart':'Save'} failed.`:saveFeedback.message}</span>{saveFeedback.failed&&<button onClick={event=>{event.stopPropagation();onRetry(saveFeedback.retry??'save');}}>Retry {saveFeedback.retry==='load'?'Load':saveFeedback.retry==='restart'?'Restart':'Save'}</button>}</div>:null;
  const gameName=room?.gameTitle??gameTitle;

@@ -59,6 +59,7 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       wait "$exit_pid"
       wait "$controller_pid"
       timeout --foreground 30s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --drag-only --output spikes/d02/public-entrypoint.local/controller-drag
+      timeout --foreground 30s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --picker-only --output spikes/d02/public-entrypoint.local/expanded-picker
       ;;
     entrypoint-ui)
       timeout --foreground 120s python3 scripts/rooms/unified_shell_browser.py --browser chromium --serve --layout-only

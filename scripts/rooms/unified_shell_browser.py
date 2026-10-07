@@ -391,7 +391,7 @@ PREFERENCE_GATE_FIXTURE = """
       };
     """
 
-def controller_drag(context, url, output, zoom=None):
+def controller_drag(context, url, output, zoom=None, picker_only=False):
     """Native direction remains unrestricted; the thumb stays inside its artwork."""
     context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"addEventListener('DOMContentLoaded',()=>releaseFrames());")
     page=context.new_page();page.goto(url)
@@ -409,6 +409,34 @@ def controller_drag(context, url, output, zoom=None):
         page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
         page.wait_for_function('proof.controllerRam!==undefined')
         assert page.evaluate('proof.controllerRam')==[expected,0]
+    if picker_only:
+        identity=page.evaluate('({rom:proof.room.fingerprint.romSha256,epoch:proof.room.game.epoch})')
+        for size in ((1280,800),(320,700)):
+            page.set_viewport_size({'width':size[0],'height':size[1]})
+            if not page.locator('.rc-game-fullscreen').count():page.get_by_role('button',name='Expand game to full screen',exact=True).click()
+            for keyboard in (False,True):
+                presentation=page.locator('.rc-game-fullscreen').bounding_box()
+                assert presentation['x']==0 and presentation['y']==0 and presentation['width']==size[0] and presentation['height']==size[1],presentation
+                change=page.get_by_role('button',name='Change game',exact=True)
+                if keyboard:change.focus();page.keyboard.press('Enter')
+                else:change.click()
+                expect(page.locator('.rc-game-picker')).to_be_visible()
+                assert page.locator('.rc-game-fullscreen').bounding_box()==presentation
+                assert page.locator('.rc-game-fullscreen').count()==1
+                page.keyboard.press('Escape')
+                assert page.locator('.rc-game-fullscreen').count()==1
+                page.screenshot(path=str(output/f'expanded-picker-{size[0]}.png'))
+                cancel=page.get_by_role('button',name='Cancel',exact=True)
+                if keyboard:cancel.focus();page.keyboard.press('Enter')
+                else:cancel.click()
+                expect(page.locator('.rc-game-picker')).to_have_count(0)
+                assert page.locator('.rc-game-fullscreen').bounding_box()==presentation
+                assert page.locator('.rc-game-fullscreen').count()==1
+                expect(page.get_by_label('NES game screen',exact=True)).to_be_focused()
+                assert page.evaluate('({rom:proof.room.fingerprint.romSha256,epoch:proof.room.game.epoch})')==identity
+                page.keyboard.down('ArrowRight');native(1);page.keyboard.up('ArrowRight');native(0)
+                records.append({'size':size,'keyboard':keyboard,'expanded_retained':True,'identity':identity,'native_right':1,'release':0,'canvas_focused':True})
+        page.close();return records
     for expanded in (False,True):
         if expanded:page.get_by_role('button',name='Expand game to full screen',exact=True).click()
         geometry=controller_geometry(page)
@@ -1571,10 +1599,11 @@ def main():
     mode.add_argument('--zoom', action='store_true')
     mode.add_argument('--controls-only', action='store_true')
     mode.add_argument('--drag-only', action='store_true')
+    mode.add_argument('--picker-only', action='store_true')
     mode.add_argument('--layout-only', action='store_true')
     parser.add_argument('--local-fast-exit', action='store_true')
     args = parser.parse_args()
-    if (args.zoom or args.drag_only) and args.browser != 'chromium':
+    if (args.zoom or args.drag_only or args.picker_only) and args.browser != 'chromium':
         parser.error('--zoom needs Chromium')
     output = args.output or ROOT / 'spikes/d02/public-entrypoint.local/unified-shell'
     output.mkdir(parents=True, exist_ok=True)
@@ -1585,6 +1614,13 @@ def main():
         url = json.loads(service.stdout.readline())['url']
         with sync_playwright() as playwright:
             errors = []
+            if args.picker_only:
+                browser=playwright.chromium.launch(headless=True,ignore_default_args=['--mute-audio'])
+                try:
+                    with browser.new_context(viewport={'width':1280,'height':800}) as context:records=controller_drag(context,url,output,picker_only=True)
+                finally:browser.close()
+                (output/'expanded-picker.json').write_text(json.dumps(records,indent=2)+'\n')
+                print(json.dumps({'result':'pass','expanded_picker':records}),flush=True);return
             if args.drag_only:
                 browser=playwright.chromium.launch(headless=True,ignore_default_args=['--mute-audio'])
                 try:
