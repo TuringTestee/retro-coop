@@ -35,7 +35,19 @@ def migrated_default_preferences(browser, url, output):
     from rooms.ui_helpers import choose_section, capture_binding
     rows=[]
     context=browser.new_context(viewport={'width':1280,'height':800})
-    context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"addEventListener('DOMContentLoaded',()=>releaseFrames());")
+    context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"""
+      const PreferenceWorker=Worker;proof.preferenceInputs=[];
+      window.Worker=class extends PreferenceWorker{
+        postMessage(data,...rest){
+          if(data.type==='frame'&&data.epoch){
+            proof.preferenceInputs.push({epoch:data.epoch,frame:data.frame,p1:data.p1});
+            if(proof.preferenceInputs.length>32)proof.preferenceInputs.shift();
+          }
+          return super.postMessage(data,...rest);
+        }
+      };
+      addEventListener('DOMContentLoaded',()=>releaseFrames());
+    """)
     page=context.new_page()
     def load_game():
         page.get_by_role('button',name='Load NES game').click();page.get_by_role('button',name='Add game file').click();page.get_by_label('NES cartridge file').set_input_files(str(ROOT/'spikes/d02/fixture.local.nes'))
@@ -63,13 +75,15 @@ def migrated_default_preferences(browser, url, output):
             if count==15:
                 page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
         page.get_by_role('button',name='Prepare',exact=True).click();page.get_by_role('button',name='Start →').click();page.wait_for_function('proof.frameCount>10')
-        def native(key,expected):
-            before=page.evaluate('proof.frameCount');page.keyboard.down(key)
-            page.wait_for_function('before=>proof.frameCount>before+proof.room.game.delay+3',arg=before)
+        def native(key,expected,mask):
+            page.evaluate('proof.preferenceInputs=[]');page.keyboard.down(key)
+            page.wait_for_function('mask=>proof.preferenceInputs.some(row=>row.epoch===proof.room.game.epoch&&row.p1===mask)',arg=mask)
+            command=page.evaluate('mask=>proof.preferenceInputs.find(row=>row.epoch===proof.room.game.epoch&&row.p1===mask)',mask)
+            page.wait_for_function('command=>proof.frames.at(-1)?.epoch===command.epoch&&proof.frames.at(-1).frame>=command.frame',arg=command)
             page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
             page.wait_for_function('proof.controllerRam!==undefined');ram=page.evaluate('proof.controllerRam');assert ram==[expected,0],(count,key,ram)
             page.keyboard.up(key);return ram
-        b=native('z',64);save=native('c',0)
+        b=native('z',64,2);save=native('c',0,0)
         page.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
         rows[-1].update(native_b_ram=b,native_save_ram=save,save_notice=True)
         page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
