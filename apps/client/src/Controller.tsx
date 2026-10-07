@@ -19,7 +19,6 @@ export function Controller({
   inputFallback,
   covered,
   enabled,
-  playing,
   sampledMask,
   idle,
   resetKey,
@@ -30,7 +29,6 @@ export function Controller({
   inputFallback: boolean;
   covered: boolean;
   enabled: boolean;
-  playing: boolean;
   sampledMask: number;
   idle: boolean;
   resetKey: string;
@@ -200,8 +198,6 @@ export function Controller({
       return String(Number(primary.split(":")[1]) + 1);
     return short[primary] ?? bindingLabel(primary);
   };
-  const directionHint = (["up", "left", "down", "right"] as const)
-    .map(action => `${labels[action]}: ${fullHint(action)}`).join("; ");
   return (
     <div
       ref={root}
@@ -265,37 +261,7 @@ export function Controller({
               {button("a")}
             </div>
           </div>
-          {!playing && (
-            <div
-              className="rc-controller-mappings"
-              style={{visibility:idle?'visible':'hidden'}}
-              aria-hidden={!idle}
-              aria-label={`${source === "keyboard" ? "Keyboard" : "Gamepad"} controls`}
-            >
-              <div className="rc-connected-hints">
-                <span className="rc-connected-move" aria-label={directionHint} title={directionHint}>
-                  {source === "gamepad" ? "Gamepad buttons" : "Move"} <i aria-hidden="true" />{" "}
-                  {(["up", "left", "down", "right"] as const)
-                    .map(action => {const glyph = directionGlyphs[action];const binding = hint(action);return glyph === binding ? glyph : `${glyph}${binding}`;})
-                    .join(" ")}
-                </span>
-                <div>
-                  {(["select", "start"] as const).map((action) => (
-                    <span key={action} className={`rc-connected-${action}`} aria-label={`${labels[action]}: ${fullHint(action)}`} title={`${labels[action]}: ${fullHint(action)}`}>
-                      {labels[action]} <i aria-hidden="true" /> {hint(action)}
-                    </span>
-                  ))}
-                </div>
-                <div>
-                  {(["b", "a"] as const).map((action) => (
-                    <span key={action} className={`rc-connected-${action}`} aria-label={`${labels[action]}: ${fullHint(action)}`} title={`${labels[action]}: ${fullHint(action)}`}>
-                      {labels[action]} <i aria-hidden="true" /> {hint(action)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+
       </>
     </div>
   );

@@ -110,7 +110,7 @@ def cartridge_replacement(browser,url,output):
         h.get_by_role('button',name='Start →',exact=True).click()
         for p in (h,g):p.wait_for_function('proof.room?.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         roster=h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))');invite=h.evaluate('proof.room.invite')
-        h.set_viewport_size({'width':320,'height':700});h.get_by_role('button',name='Full screen',exact=True).click()
+        h.set_viewport_size({'width':320,'height':700});h.get_by_role('button',name='Expand game to full screen',exact=True).click()
         assert h.get_by_role('button',name='Change game',exact=True).count()==1
         expanded=h.locator('.rc-game-fullscreen').evaluate('node=>({width:innerWidth,buttons:[...node.querySelectorAll(".rc-expanded-change,.rc-expansion-action")].map(n=>{const r=n.getBoundingClientRect();return {text:n.textContent,x:r.x,y:r.y,width:r.width,height:r.height,hit:n.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)),fits:n.scrollWidth<=n.clientWidth};})})')
         print(json.dumps({'expanded_controls':expanded}),flush=True)
@@ -118,7 +118,7 @@ def cartridge_replacement(browser,url,output):
         assert expanded['buttons'][0]['x']+expanded['buttons'][0]['width']<=expanded['buttons'][1]['x'],expanded
         h.screenshot(path=str(output/'replacement-expanded-action-phone.png'))
         h.get_by_role('button',name='Change game',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Cancel',exact=True).focus();h.keyboard.press('Enter')
-        h.get_by_role('button',name='Full screen',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Return to lobby view',exact=True).focus();h.keyboard.press('Enter')
+        h.get_by_role('button',name='Expand game to full screen',exact=True).focus();h.keyboard.press('Enter');h.get_by_role('button',name='Return to lobby view',exact=True).focus();h.keyboard.press('Enter')
         h.get_by_label('NES game screen',exact=True).focus();expect(h.get_by_label('NES game screen',exact=True)).to_be_focused()
         h.set_viewport_size({'width':390,'height':700})
         assert h.evaluate('proof.room.catalogId')=='super-tilt-bro-pal'

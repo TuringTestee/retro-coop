@@ -162,10 +162,10 @@ def controller_fits(page):
     targets = band.locator('[data-game-input] button')
     assert targets.count() == 5
     for target in targets.all():
-        assert text_fits(target), target.get_attribute('aria-label')
+        assert text_fits(target), (page.viewport_size, target.get_attribute('aria-label'), target.bounding_box())
         control_visibility(target)
         box = target.bounding_box()
-        assert min(box['width'], box['height']) >= 44, box
+        assert min(box['width'], box['height']) >= (44 if 'rc-phone-controller' in band.get_attribute('class') else 24), box
         if target.get_attribute('aria-disabled') != 'true':
             assert target.evaluate('node=>{const r=node.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit===node||node.contains(hit);}'), target.get_attribute('aria-label')
     for action in band.get_by_role('button').all():
@@ -175,11 +175,13 @@ def controller_fits(page):
     assert band.evaluate('node=>node.scrollHeight<=node.clientHeight+1'), band.evaluate('node=>({viewport:[innerWidth,innerHeight],height:node.clientHeight,scroll:node.scrollHeight,text:node.innerText})')
 
 
-def phone_controller_geometry(page):
-    """Measure real phone targets against the whole controller band (#272)."""
-    band = page.locator('.rc-controller-band').bounding_box()
-    viewport = page.evaluate('({width:innerWidth,height:visualViewport.height})')
-    assert viewport['height']/4-1 <= band['height'] <= viewport['height']/2+1, (viewport, band)
+def controller_geometry(page, phone=False):
+    """Measure shared desktop/phone targets against the whole controller band."""
+    page.wait_for_function("![...document.querySelectorAll('.rc-session, .rc-game-display')].some(node=>node.getAnimations().some(animation=>animation.playState==='running'))")
+    snapshot=page.locator('.rc-controller-band').evaluate("""band=>{const box=node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};};return{band:box(band),viewport:{width:innerWidth,height:visualViewport.height},targets:Object.fromEntries([...band.querySelectorAll('button')].map(node=>[node.getAttribute('aria-label'),box(node)])),artwork:box(band.querySelector('.rc-pad-art'))};}""")
+    band,viewport=snapshot['band'],snapshot['viewport']
+    if phone:
+        assert viewport['height']/4-1 <= band['height'] <= viewport['height']/2+1, (viewport, band)
     targets = {
         'Direction pad: use arrow keys or drag': (0, 0, 1/3, 1),
         'NES B': (2/3, 0, 1/6, 1), 'NES A': (5/6, 0, 1/6, 1),
@@ -189,15 +191,17 @@ def phone_controller_geometry(page):
     for name, (x, y, width, height) in targets.items():
         node = page.get_by_role('button', name=name, exact=True)
         assert node.count() == 1, page.locator('.rc-controller-band').evaluate("n=>({viewport:[innerWidth,innerHeight],ancestors:[...function*(p){while(p){yield [p.className,p.getAttribute('aria-hidden'),p.inert,getComputedStyle(p).visibility];p=p.parentElement;}}(n)]})")
-        box = node.bounding_box()
+        box = snapshot['targets'][name]
         expected = {'x':band['x']+x*band['width'], 'y':band['y']+y*band['height'],
                     'width':width*band['width'], 'height':height*band['height']}
         assert all(abs(box[k]-expected[k]) <= 1 for k in expected), (name, expected, box)
         actual[name] = box
         # Artwork does not intercept the outer part of the target.
         assert node.evaluate("node=>{const r=node.getBoundingClientRect();return [[r.left+2,r.top+2],[r.right-2,r.bottom-2]].every(([x,y])=>node.contains(document.elementFromPoint(x,y)));}"), name
-    result = {'viewport':viewport,'band':band,'targets':actual}
-    print('phone controller geometry: '+json.dumps(result), flush=True)
+    artwork=snapshot['artwork']
+    assert abs(artwork['width']-artwork['height'])<=1, artwork
+    result = {'viewport':viewport,'band':band,'targets':actual,'pad_artwork':artwork}
+    print('controller geometry: '+json.dumps(result), flush=True)
     return result
 
 
@@ -394,6 +398,7 @@ def controller_input(browser, url, output):
       addEventListener('DOMContentLoaded',()=>releaseFrames());
       const NativeWorker=Worker;window.Worker=class extends NativeWorker {
         postMessage(message,...args) {
+          if(message.type==='state-hash'&&proof.holdPreparationHash){proof.heldPreparationHashes??=[];proof.heldPreparationHashes.push(()=>super.postMessage(message,...args));return;}
           if(message.type==='frame') {proof.masks??=[];proof.masks.push([message.p1,message.p2]);
             if(proof.masks.length>32)proof.masks.shift();}
           return super.postMessage(message,...args);
@@ -557,9 +562,71 @@ def controller_input(browser, url, output):
         assert page.locator('.rc-footer').get_by_role('button', name='Prepare', exact=True).count() == 0
         assert prepare.evaluate('node=>{const b=node.getBoundingClientRect(),p=node.closest(".rc-prepare-action-region").getBoundingClientRect();return Math.abs(b.x+b.width/2-p.x-p.width/2)<1&&Math.abs(b.y+b.height/2-p.y-p.height/2)<1;}')
         control_hit_target(prepare)
+        page.evaluate('proof.holdPreparationHash=true')
         prepare.click()
+        progress=page.locator('.rc-game-progress')
+        expect(progress).to_contain_text('Checking the completed machine state')
+        assert not page.evaluate('!!proof.room.started'), 'This must exercise preparation before Start'
+        expect(progress.locator('.rc-preparation-spinner')).to_be_visible()
+        expect(progress).to_have_attribute('aria-busy','true')
+        expect(progress.get_by_role('button',name='Cancel selection',exact=True)).to_have_count(0)
+        expect(page.get_by_role('button',name='Cancel preparation',exact=True)).to_have_count(0)
+        assert page.get_by_role('button',name='Expand game to full screen',exact=True).count()==0
+        retry_preparation=page.get_by_role('button',name='Retry preparation',exact=True)
+        expect(retry_preparation).to_be_enabled(timeout=15000)
+        expect(page.locator('.rc-status')).to_contain_text('timed out')
+        page.evaluate('proof.holdPreparationHash=false;proof.heldPreparationHashes.forEach(release=>release())')
+        retry_preparation.click()
         page.get_by_role('button', name='Start →').click()
         page.wait_for_function('proof.frameCount>10')
+        records.append({'action':'pre-start preparation timeout/retry', 'cancel_visible':False, 'resumed_frames':page.evaluate('proof.frameCount')})
+        desktop_band = controller_geometry(page)
+        assert desktop_band['band']['height'] == 152, desktop_band
+        assert page.get_by_role('button',name='Full screen',exact=True).count() == 0
+        desktop_geometries=[]
+        for expanded,size in ((False,(1280,800)),(False,(900,700)),(True,(1280,800))):
+            page.set_viewport_size({'width':size[0],'height':size[1]})
+            if expanded:
+                entry=page.get_by_role('button',name='Expand game to full screen',exact=True)
+                entry.focus();page.keyboard.press('Enter')
+                assert page.locator('.rc-game-fullscreen').count()==1
+                expect(page.get_by_label('NES game screen',exact=True)).to_be_focused()
+                page.keyboard.down('ArrowUp');observe('keyboard input immediately after expansion',16);page.keyboard.up('ArrowUp');observe('keyboard release after expansion',0)
+            desktop_geometries.append(controller_geometry(page))
+            controller_fits(page)
+            for name,mask in (('NES A',1),('NES B',2),('NES Select',4),('NES Start',8),('Direction pad: use arrow keys or drag',16)):
+                box=page.get_by_role('button',name=name,exact=True).bounding_box()
+                page.mouse.move(box['x']+box['width']/2 if mask==16 else box['x']+2,box['y']+2);page.mouse.down()
+                observe(('expanded ' if expanded else 'lobby ')+name+' outer mouse area',mask)
+                page.mouse.move(box['x']-3,box['y']-3);page.mouse.up()
+                observe(name+' release outside',0)
+                assert page.locator('.rc-game-fullscreen').count()==int(expanded)
+            band=page.locator('.rc-controller-band').bounding_box()
+            page.mouse.click(band['x']+band['width']/2,band['y']+band['height']/4)
+            observe('desktop controller gap is inert',0)
+            assert page.locator('.rc-game-fullscreen').count()==int(expanded)
+            if expanded:
+                viewport=page.locator('.rc-game-viewport').bounding_box()
+                page.mouse.click(viewport['x']+viewport['width']/2,viewport['y']+viewport['height']/2)
+                page.mouse.click(viewport['x']+2,viewport['y']+viewport['height']-2)
+                assert page.locator('.rc-game-fullscreen').count()==1
+                top=page.locator('.rc-expanded-actions').bounding_box()
+                assert top['height']==44 and top['y']==0,top
+                page.mouse.click(top['x']+top['width']/2,top['y']+20)
+                assert page.locator('.rc-game-fullscreen').count()==0
+        (output/'desktop-controller-geometry.json').write_text(json.dumps(desktop_geometries,indent=2)+'\n')
+        entry=page.get_by_role('button',name='Expand game to full screen',exact=True)
+        entry.focus();page.keyboard.press('Space')
+        page.get_by_role('button',name='Return to lobby view',exact=True).focus();page.keyboard.press('Enter')
+        assert page.locator('.rc-game-fullscreen').count()==0
+        expect(page.get_by_label('NES game screen',exact=True)).to_be_focused()
+        page.keyboard.down('ArrowDown');observe('keyboard input immediately after Return',32);page.keyboard.up('ArrowDown');observe('keyboard release after Return',0)
+        # The container edge outside the viewport is also the same entry route.
+        display=page.locator('.rc-game-display').bounding_box()
+        page.mouse.click(display['x']+2,display['y']+2)
+        assert page.locator('.rc-game-fullscreen').count()==1
+        page.get_by_role('button',name='Return to lobby view',exact=True).focus();page.keyboard.press('Space')
+        assert page.locator('.rc-game-fullscreen').count()==0
         choose_audio(page, 'Game sound')
         page.get_by_role('button', name='Mute game', exact=True).click()
         choose_panel(page, 'Game')
@@ -633,10 +700,10 @@ def controller_input(browser, url, output):
         page.wait_for_function('Number(getComputedStyle(document.querySelector(".rc-expansion-action")).opacity)>.95')
         assert expansion.bounding_box() == expansion_box
         page.locator('canvas').focus()
-        geometries = [phone_controller_geometry(page)]
+        geometries = [controller_geometry(page, phone=True)]
         for width, height in ((320,650),(390,844),(320,1000)):
             page.set_viewport_size({'width':width,'height':height})
-            geometries.append(phone_controller_geometry(page))
+            geometries.append(controller_geometry(page, phone=True))
             assert page.evaluate('document.documentElement.scrollHeight<=innerHeight+1')
             game_fits(page)
         page.set_viewport_size({'width':320,'height':568})
@@ -678,7 +745,7 @@ def controller_input(browser, url, output):
         observe('rotation releases held A', 0)
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
         controller_fits(page)
-        phone_controller_geometry(page)
+        controller_geometry(page, phone=True)
         page.screenshot(path=str(output / 'controller-landscape.png'))
         box = a.bounding_box()
         cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [
@@ -880,7 +947,7 @@ def save_feedback(browser, url, output):
         page.goto(url)
         cartridge = page.locator('input[aria-label="NES cartridge file"]')
         cartridge.set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
-        page.get_by_role('button', name='Full screen', exact=True).wait_for()
+        page.get_by_role('button', name='Expand game to full screen', exact=True).wait_for()
         page.get_by_role('button', name='Resume', exact=True).click()
         page.wait_for_function('Number(document.querySelector("canvas").dataset.frameCount)>10')
         status = page.locator('.rc-game-save-status')
@@ -888,7 +955,7 @@ def save_feedback(browser, url, output):
             page.set_viewport_size({'width': width, 'height': height})
             for expanded in (False, True):
                 if expanded:
-                    page.get_by_role('button', name='Full screen', exact=True).click()
+                    page.get_by_role('button', name='Expand game to full screen', exact=True).click()
                 page.locator('canvas').focus()
                 before = page.locator('.rc-game-viewport').bounding_box()
                 page.evaluate('window.holdSave=true;window.releaseSave=undefined')
@@ -902,7 +969,7 @@ def save_feedback(browser, url, output):
                     &&game.right-box.right<=12
                     &&node.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2));
                 }""")
-                expansion = page.get_by_role('button', name='Return to lobby view' if expanded else 'Full screen', exact=True)
+                expansion = page.get_by_role('button', name='Return to lobby view' if expanded else 'Expand game to full screen', exact=True)
                 assert expansion.evaluate('n=>{const b=n.getBoundingClientRect();return n.contains(document.elementFromPoint(b.x+b.width/2,b.y+b.height/2));}')
                 if expanded:
                     page.screenshot(path=str(output / f'save-progress-{width}x{height}.png'))
@@ -912,7 +979,7 @@ def save_feedback(browser, url, output):
                     page.screenshot(path=str(output / f'save-success-{width}x{height}.png'))
                     page.get_by_role('button', name='Return to lobby view', exact=True).click()
         page.set_viewport_size({'width': 1440, 'height': 900})
-        page.get_by_role('button', name='Full screen', exact=True).click()
+        page.get_by_role('button', name='Expand game to full screen', exact=True).click()
         page.evaluate('window.failSave=true')
         page.locator('canvas').focus()
         page.keyboard.press('q')
@@ -928,7 +995,7 @@ def save_feedback(browser, url, output):
         page.wait_for_function('typeof window.releaseSave === "function"')
         page.get_by_role('button', name='Return to lobby view', exact=True).click()
         cartridge.set_input_files(str(ROOT / 'spikes/d02/fixture.local.nes'))
-        page.get_by_role('button', name='Full screen', exact=True).wait_for()
+        page.get_by_role('button', name='Expand game to full screen', exact=True).wait_for()
         page.evaluate('window.holdSave=false;window.releaseSave()')
         expect(status).to_have_count(0)
         page.locator('canvas').focus()
@@ -984,7 +1051,7 @@ def local_shortcuts(browser, url, output):
         expect(page.get_by_role('button',name='Resume',exact=True)).to_be_visible()
         page.keyboard.press('p')
         page.get_by_role('button',name='Pause',exact=True).wait_for()
-        page.get_by_role('button',name='Full screen',exact=True).click()
+        page.get_by_role('button',name='Expand game to full screen',exact=True).click()
         page.locator('canvas').focus();page.keyboard.press('e')
         page.locator('.rc-game-save-status').get_by_text('Saved progress loaded.',exact=True).wait_for()
         expect(page.get_by_role('button',name='Return to lobby view',exact=True)).to_be_visible()
@@ -1427,7 +1494,7 @@ def exercise(page, size, output, play=False, invitation_recovery=False, uploaded
         page.get_by_role('button', name='Expand game to full screen', exact=True).click()
         expanded = page.locator('.rc-game-fullscreen').bounding_box()
         assert expanded['width'] == size[0] and expanded['height'] == size[1]
-        page.get_by_role('button', name='Return game to lobby').click()
+        page.get_by_role('button', name='Return to lobby view').click()
         assert page.locator('.rc-game-fullscreen').count() == 0
     if invitation_recovery:
         page.evaluate("""() => {

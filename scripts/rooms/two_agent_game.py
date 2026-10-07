@@ -1074,7 +1074,7 @@ def shared_load():
             guest.locator('canvas').focus();guest.keyboard.press('q')
             guest.wait_for_function('typeof proof.releaseSaveCapture==="function"')
             held_save=guest.evaluate('proof.heldSaveCapture')
-            host.get_by_role('button',name='Full screen',exact=True).click();host.locator('canvas').focus()
+            host.get_by_role('button',name='Expand game to full screen',exact=True).click();host.locator('canvas').focus()
             host.keyboard.press('e')
             notice=host.locator('.rc-game-save-status').get_by_text('Saved progress loaded.',exact=True)
             expect(notice).to_be_visible(timeout=15000)

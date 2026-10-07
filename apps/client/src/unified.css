@@ -348,8 +348,8 @@ button:disabled { cursor: default; opacity: .52; }
 .rc-game-zone, .rc-game-main { display: contents; }
 .rc-game-toolbar { grid-column: 2 / 4; grid-row: 1; display: flex; flex-wrap: nowrap; min-width: 0; padding: 4px 12px; border-bottom: 1px solid var(--rule); }
 .rc-game-display { grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; margin: 8px 12px; }
-.rc-game-display[role=button] { cursor: zoom-in; }
-.rc-game-display.rc-game-fullscreen { position: fixed; inset: 0; z-index: 90; width: 100vw; height: 100dvh; margin: 0; display: grid; place-items: center; cursor: zoom-out; background: #061017; }
+.rc-game-viewport[role=button] { cursor: zoom-in; }
+.rc-game-display.rc-game-fullscreen { position: fixed; inset: 0; z-index: 90; width: 100vw; height: 100dvh; margin: 0; display: grid; place-items: center; cursor: default; background: #061017; }
 .rc-game-fullscreen .rc-canvas-host { width: 100%; height: 100%; }
 .rc-side-panel { grid-column: 3; grid-row: 2 / 4; }
 .rc-shared-playing .rc-side-panel { display: none; }
@@ -579,32 +579,30 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-title-track > [aria-hidden=true] { display: none; }
 }
 
-/* One controller band owns physical targets and its inline keyboard editor. */
+/* One controller band owns proportional targets and separate NES artwork. */
 .rc-game-display { display: grid; grid-template-rows: minmax(0,1fr) max-content; container: game-column / inline-size; }
 .rc-game-viewport { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr) 152px; place-items: stretch; }
 .rc-game-fullscreen .rc-game-viewport { grid-row: 2; }
 .rc-game-fullscreen .rc-controller-band { grid-row: 3; height: auto; }
-.rc-controller-band { min-width: 0; min-height: 0; height: 152px; overflow: hidden; container: controller-band / inline-size; --guide-move: #87d1e8; --guide-b: #eaa8a0; --guide-a: #f5ba7f; --guide-system: #f7d99c; --menu-control: #242a31; --menu-text: #f7f0e4; --menu-border: #aa7542; padding: 4px; background: #080c10; color: #f7f0e4; cursor: default; }
-.rc-nes-controller { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 4px; width: min(100%,440px); height: 96px; margin: 0 auto; }
-.rc-nes-controller button { touch-action: none; user-select: none; border: 2px solid #aa7542; background: #242a31; color: #f7f0e4; font: 700 13px/1.2 ui-monospace,monospace; }
-.rc-nes-controller button[aria-pressed=true] { background: #dc761f; border-color: #ffd39a; }
+.rc-controller-band { min-width: 0; min-height: 0; height: 152px; overflow: hidden; container: controller-band / inline-size; --guide-move: #87d1e8; --guide-b: #eaa8a0; --guide-a: #f5ba7f; --guide-system: #f7d99c; --menu-control: #242a31; --menu-text: #f7f0e4; --menu-border: #aa7542; padding: 0; background: #080c10; color: #f7f0e4; cursor: default; }
+.rc-nes-controller { position: relative; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0; width: 100%; height: 100%; margin: 0; }
+.rc-nes-controller button { touch-action: none; user-select: none; color: #f7f0e4; font: 700 13px/1.2 ui-monospace,monospace; }
 .rc-nes-controller button[aria-disabled=true] { opacity: .6; }
-.rc-pad-art { position: absolute; inset: 0; pointer-events: none; }
-.rc-thumb-pad { position: relative; flex: 0 0 96px; height: 96px; }
+.rc-pad-art { position: absolute; inset: auto; left: 50%; top: 50%; width: min(96px,100%); aspect-ratio: 1; transform: translate(-50%,-50%); pointer-events: none; }
+.rc-thumb-pad { position: relative; width: 100%; height: 100%; min-width: 0; }
 .rc-direction { display: grid; place-items: center; color: #f7f0e4; background: #242a31; border: 2px solid #aa7542; font: 700 13px/1.2 ui-monospace,monospace; position: absolute; width: 44px; height: 32px; padding: 0; }
-.rc-direction-up { top: 0; left: 26px; }.rc-direction-down { bottom: 0; left: 26px; }.rc-direction-left { left: 0; top: 32px; }.rc-direction-right { right: 0; top: 32px; }
-.rc-nes-controller .rc-pad-drag { position: absolute; inset: 0; width: 96px; height: 96px; padding: 0; border: 0; background: transparent; }
-.rc-thumb-dot { position: absolute; z-index: 1; left: 26px; top: 26px; width: 44px; height: 44px; border-radius: 50%; border: 2px solid #87d1e8; background: #243f4dcc; pointer-events: none; }
-.rc-nes-system { display: flex; gap: 4px; }.rc-nes-system button { width: 44px; height: 44px; padding: 0; font-size: 11px; }
-.rc-nes-actions { display: flex; gap: 4px; }.rc-nes-actions button { width: 44px; height: 44px; padding: 0; font-size: 18px; border-color: #db654c; }
-.rc-controller-mappings { display: flex; align-items: center; gap: 4px; font: 12px/1.2 system-ui,sans-serif; }
-.rc-controller-mappings span { min-width: 0; overflow-wrap: anywhere; }.rc-controller-mappings button { flex: none; }
-/* Reserve action-label width; directional bindings use the remaining space. */
-.rc-connected-hints { display: grid; grid-template-columns: minmax(0,1fr) max-content max-content; align-items: center; flex: 1; gap: 4px; min-width: 0; }
-.rc-connected-hints span { display: flex; align-items: center; gap: 3px; overflow-wrap: anywhere; }
-.rc-connected-hints i { flex: 1; min-width: 5px; border-bottom: 1px solid currentColor; }
-.rc-connected-hints .rc-connected-move { display: block; }
+.rc-direction-up { top: 0; left: calc(50% - 22px); }.rc-direction-down { bottom: 0; left: calc(50% - 22px); }.rc-direction-left { left: 0; top: calc(50% - 16px); }.rc-direction-right { right: 0; top: calc(50% - 16px); }
+.rc-nes-controller .rc-pad-drag { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }
+.rc-thumb-dot { position: absolute; z-index: 1; left: calc(50% - 22px); top: calc(50% - 22px); width: 44px; height: 44px; border-radius: 50%; border: 2px solid #87d1e8; background: #243f4dcc; pointer-events: none; }
+.rc-nes-system { min-width: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-self: end; height: 50%; gap: 0; }
+.rc-nes-actions { min-width: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); height: 100%; gap: 0; }
+.rc-nes-controller .rc-nes-button { display: grid; place-items: center; width: 100%; height: 100%; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.rc-nes-system .rc-nes-button { font-size: 11px; }
+.rc-nes-controller button:focus-visible { outline-offset: -3px; }
+.rc-nes-button-art { display: grid; place-items: center; width: min(48px,100%); height: 32px; border: 2px solid currentColor; border-radius: 16px; background: #242a31; overflow-wrap: anywhere; pointer-events: none; }
+.rc-nes-actions .rc-nes-button-art { height: auto; aspect-ratio: 1; border-radius: 50%; font-size: clamp(13px,calc(100cqw / 6 - 8px),22px); }
+.rc-nes-button[aria-pressed=true] .rc-nes-button-art { background: #dc761f; border-color: #ffd39a; }
 @media (max-width:899px), (max-height:600px), (max-width:1000px) and (max-height:650px) {
  .rc-game-display:not(.rc-game-fullscreen) { grid-template-rows: minmax(0,1fr); }
  .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { display: none; }
@@ -615,76 +613,34 @@ button:disabled { cursor: default; opacity: .52; }
  .rc-game-display { grid-template-rows: minmax(0,1fr) max-content; margin-block: 0; }
  .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { height: 112px; }
 
- .rc-nes-controller { height: 64px; }
- .rc-thumb-pad, .rc-nes-controller .rc-pad-drag { flex-basis: 64px; width: 64px; height: 64px; }
- .rc-thumb-dot { left: 10px; top: 10px; }
- .rc-direction { width: 32px; height: 22px; }
- .rc-direction-up { left: 16px; }.rc-direction-down { left: 16px; }
- .rc-direction-left { top: 21px; }.rc-direction-right { top: 21px; }
- .rc-game-display.rc-game-fullscreen { grid-template-rows: 44px minmax(0,1fr) 152px; }
- .rc-game-fullscreen .rc-nes-controller { height: 96px; }
- .rc-game-fullscreen .rc-thumb-pad, .rc-game-fullscreen .rc-pad-drag { flex-basis: 96px; width: 96px; height: 96px; }
- .rc-game-fullscreen .rc-thumb-dot { left: 26px; top: 26px; }
- .rc-game-fullscreen .rc-direction { width: 44px; height: 32px; }
- .rc-game-fullscreen .rc-direction-up, .rc-game-fullscreen .rc-direction-down { left: 26px; }
- .rc-game-fullscreen .rc-direction-left, .rc-game-fullscreen .rc-direction-right { top: 32px; }
 }
 
 .rc-direction[data-pressed=true] { background: #dc761f; border-color: #ffd39a; }
 
-/* Keep the stacked system buttons and mapping row inside their reserved band. */
+/* Retain the ordinary small-column band height. */
 @container game-column (max-width:288px) {
  .rc-game-display:not(.rc-game-fullscreen) .rc-controller-band { height: 184px; }
 }
-@container controller-band (max-width: 288px) {
- .rc-connected-hints { grid-template-columns: repeat(2,minmax(0,1fr)); }
- .rc-connected-move { grid-column: 1 / -1; }
- .rc-nes-controller { height: 92px; }
- .rc-nes-controller .rc-nes-system { flex-direction: column; }
- .rc-thumb-pad, .rc-nes-controller .rc-pad-drag { flex-basis: 64px; width: 64px; height: 64px; }
- .rc-thumb-dot { left: 10px; top: 10px; }
- .rc-direction { width: 32px; height: 22px; }
- .rc-direction-up, .rc-direction-down { left: 16px; }
- .rc-direction-left, .rc-direction-right { top: 21px; }
-}
-
-/* Phone hit regions fill one rectangle; artwork never limits a target. */
+/* Only phone expansion changes band height; target geometry is shared. */
 .rc-game-display.rc-game-fullscreen:has(.rc-phone-controller) {
  --phone-usable-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
  --phone-controller-height: clamp(calc(var(--phone-usable-height) / 4),160px,calc(var(--phone-usable-height) / 2));
  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
  grid-template-rows: 44px minmax(0,1fr) var(--phone-controller-height);
 }
-.rc-game-fullscreen .rc-phone-controller { height: var(--phone-controller-height); padding: 0; pointer-events: none; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-controller {
- display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
- gap: 0; width: 100%; height: 100%; margin: 0;
-}
-.rc-game-fullscreen .rc-phone-controller .rc-thumb-pad { width: 100%; height: 100%; min-width: 0; }
-.rc-game-fullscreen .rc-phone-controller .rc-pad-drag { width: 100%; height: 100%; pointer-events: auto; }
-.rc-game-fullscreen .rc-phone-controller .rc-pad-art { inset: auto; left: 50%; top: 50%; width: min(96px,100%); aspect-ratio: 1; transform: translate(-50%,-50%); }
-.rc-game-fullscreen .rc-phone-controller .rc-thumb-dot { left: calc(50% - 22px); top: calc(50% - 22px); }
-.rc-game-fullscreen .rc-phone-controller .rc-direction-up, .rc-game-fullscreen .rc-phone-controller .rc-direction-down { left: calc(50% - 22px); }
-.rc-game-fullscreen .rc-phone-controller .rc-direction-left, .rc-game-fullscreen .rc-phone-controller .rc-direction-right { top: calc(50% - 16px); }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-system { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-self: end; height: 50%; gap: 0; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); height: 100%; gap: 0; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-button { display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: transparent; pointer-events: auto; }
-.rc-game-fullscreen .rc-phone-controller button:focus-visible { outline-offset: -3px; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-button-art { display: grid; place-items: center; width: min(48px,100%); height: 32px; border: 2px solid currentColor; border-radius: 16px; background: #242a31; pointer-events: none; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-actions .rc-nes-button-art { height: auto; aspect-ratio: 1; border-radius: 50%; font-size: 22px; }
-.rc-game-fullscreen .rc-phone-controller .rc-nes-button[aria-pressed=true] .rc-nes-button-art { background: #dc761f; border-color: #ffd39a; }
+.rc-game-fullscreen .rc-phone-controller { height: var(--phone-controller-height); }
 @media (orientation:landscape) and (max-height:500px) {
  .rc-game-display.rc-game-fullscreen:has(.rc-phone-controller) { grid-template-rows: 44px minmax(0,1fr); }
  .rc-game-fullscreen .rc-phone-controller { position: absolute; bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left); right: env(safe-area-inset-right); background: #080c1044; }
 }
 
-.rc-direction, .rc-connected-move { color: var(--guide-move); }
+.rc-direction { color: var(--guide-move); }
 .rc-direction { border-color: var(--guide-move); }
-.rc-nes-system button, .rc-connected-select, .rc-connected-start { color: var(--guide-system); }
+.rc-nes-system button { color: var(--guide-system); }
 .rc-nes-system button { border-color: var(--guide-system); }
-.rc-nes-controller .rc-nes-a, .rc-connected-a { color: var(--guide-a); }
+.rc-nes-controller .rc-nes-a { color: var(--guide-a); }
 .rc-nes-controller .rc-nes-a { border-color: var(--guide-a); }
-.rc-nes-controller .rc-nes-b, .rc-connected-b { color: var(--guide-b); }
+.rc-nes-controller .rc-nes-b { color: var(--guide-b); }
 .rc-nes-controller .rc-nes-b { border-color: var(--guide-b); }
 
 /* Complete bindings use the fixed Controls region; capture has one modal owner. */
@@ -789,7 +745,7 @@ button:disabled { cursor: default; opacity: .52; }
 
 /* One reserved row keeps expanded actions distinct when text needs to wrap. */
 .rc-game-stage-actions { display: contents; }
-.rc-expanded-actions { position: absolute; top: max(8px,env(safe-area-inset-top)); left: max(8px,env(safe-area-inset-left)); right: max(8px,env(safe-area-inset-right)); z-index: 3; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
-.rc-expanded-actions > button { position: static; min-width: 0; flex: 0 1 auto; white-space: normal; pointer-events: auto; }
+.rc-expanded-actions { position: absolute; top: env(safe-area-inset-top); left: env(safe-area-inset-left); right: env(safe-area-inset-right); height: 44px; z-index: 3; display: flex; justify-content: space-between; gap: 8px; background: #000; cursor: zoom-out; }
+.rc-expanded-actions > button { position: static; min-width: 0; flex: 0 1 auto; height: 44px; padding: 4px 8px; font-size: 14px; line-height: 1.2; white-space: normal; pointer-events: auto; }
 
 .rc-expanded-actions > .rc-expansion-action { margin-left: auto; }
