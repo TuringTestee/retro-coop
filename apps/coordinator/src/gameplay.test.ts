@@ -20,7 +20,7 @@ function setup(count=5){
   for(const type of ['peerAck','peerConnected'])for(const who of [i,j])act(who,{type,pairId:pair.pairId,epoch:pair.epoch});
  }
  const load=(who:number)=>{if(who===0)act(0,{type:'prepareHost',roomId:view().id,membership:members[0],fingerprint});else{act(who,{type:'file',fingerprint});act(who,{type:'memberAcquisition',roomId:view().id,membership:members[who],phase:'loaded'});}};
- const ready=(who:number,extra={})=>act(who,{type:'gameReady',revision:view().game.controllers.revision,roomRevision:view().revision,frame:0,fresh:true,hash,delay:who===0?3:8,...extra});
+ const ready=(who:number,extra={})=>act(who,{type:'gameReady',revision:view().game.controllers.revision,roomRevision:view().revision,frame:0,fresh:true,hash,protocol:2,...extra});
  const start=()=>act(0,{type:'startRoom',roomId:view().id,membership:members[0],fingerprint});
  const begin=()=>{for(let i=0;i<count;i++)load(i);for(let i=0;i<count;i++)ready(i);const epoch=start().room!.game.epoch!;for(const who of count>1?[0,1]:[0])act(who,{type:'gameAck',epoch,hash});assert.equal(view().game.status,'countdown');now+=3000;rooms.sweep();assert.equal(view().game.status,'playing');return epoch;};
  const role=(slotId:string,role:string)=>act(0,{type:'slotRole',roomId:view().id,expectedRevision:view().revision,slotId,role});
@@ -32,7 +32,7 @@ function setup(count=5){
 test('only controller owners are ready before initial Start; observers do not block',()=>{
  const t=setup();assert.throws(()=>t.ready(1),/game_prerequisites/);t.act(1,{type:'file',fingerprint:{...fingerprint,romSha256:otherHash}});assert.throws(()=>t.ready(1),/game_prerequisites/);
  t.load(0);t.load(1);t.ready(0);assert.throws(()=>t.start(),/game_prerequisites/);assert.equal(t.view().started,undefined);assert.equal(t.view().occupancy,5);
- t.ready(1);const epoch=t.start().room!.game.epoch!;assert.equal(t.view().game.delay,8);assert.equal(t.view().established,false);assert.equal(t.start().room!.game.epoch,epoch);
+ t.ready(1);const epoch=t.start().room!.game.epoch!;assert.equal(t.view().game.protocol,2);assert.equal(t.view().established,false);assert.equal(t.start().room!.game.epoch,epoch);
  assert.throws(()=>t.act(2,{type:'gameAck',epoch,hash}),/stale_game/);assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash:otherHash}),/stale_game/);
  t.act(0,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'starting');t.act(1,{type:'gameAck',epoch,hash});assert.equal(t.view().game.status,'countdown');assert.equal(t.view().established,false);assert.equal(t.view().game.startAt,4000);t.advance(2999);assert.equal(t.view().game.status,'countdown');t.advance(1);assert.equal(t.view().game.status,'playing');assert.equal(t.view().established,true);
  assert.equal(t.events[2].some(e=>e.type==='gamePrepare'),false);assert.equal(t.view().occupancy,5,'unprepared observers remain outside the owner acknowledgement barrier');
@@ -58,7 +58,7 @@ test('unready host or member cannot Start or silently remove anyone',()=>{
  const u=setup(2);u.load(0);u.ready(0);assert.throws(()=>u.start(),/game_prerequisites/);assert.equal(u.view().occupancy,2);assert.equal(u.events[1].some(e=>e.type==='ended'),false);
 });
 test('stalled host freezes exact completed state and resume needs authenticated checkpoint acknowledgement',()=>{
- const t=setup(3),epoch=t.begin();t.act(1,{type:'gamePause',epoch,frame:910,reason:'network'});assert.ok(t.events[0].some(e=>e.type==='gameFreeze'));
+ const t=setup(3),epoch=t.begin();t.act(0,{type:'gamePause',epoch,frame:910,reason:'network'});assert.ok(t.events[0].some(e=>e.type==='gameFreeze'));
  assert.throws(()=>t.act(1,{type:'gameFrozen',epoch,frame:917,hash}),/stale_game/);t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
  t.ready(0,{frame:917,fresh:false});t.ready(1,{frame:910,fresh:false,hash:otherHash});const transfer=t.captures().at(-1)!;assert.equal(transfer.recipient,t.members[1]);
  assert.throws(()=>t.act(0,{type:'gameResume',epoch}),/resume_not_ready/);const who=t.authorize(transfer);
@@ -77,13 +77,13 @@ test('host may become observer; role labels and controller mapping commit only a
  const second=t.authorize(transfers[1]);t.ack(transfers[1],second);assert.equal(t.view().game.pending,undefined);assert.equal(t.view().slots[0].role,'observer');assert.equal(t.view().hostMembership,t.members[0]);assert.deepEqual(t.view().game.controllers.owners,[t.members[2],t.members[1]]);assert.equal(t.view().game.frame,917);
  const next=t.view().game.epoch!;for(const who of [0,1,2])t.act(who,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');
 });
-test('departed stalled controller shifts the next member into P2 and synchronizes without the departed member',()=>{
- const t=setup(),epoch=t.begin(),old=t.view().game.controllers;
- t.act(0,{type:'memberRemove',roomId:t.view().id,membership:t.members[1],expectedRevision:t.view().revision});assert.equal(t.view().game.status,'pausing');assert.equal(t.view().slots[1].member?.id,t.members[2]);
- t.act(0,{type:'gameFrozen',epoch,frame:917,hash});assert.deepEqual(t.view().game.controllers,old);const transfer=t.captures().at(-1)!;assert.equal(transfer.recipient,t.members[2]);
- assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash}),/not_in_room/);t.ack(transfer,t.authorize(transfer));assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);assert.equal(t.view().game.frame,917);
- const next=t.view().game.epoch!;for(const who of [0,2])t.act(who,{type:'gameAck',epoch:next,hash});assert.equal(t.view().game.status,'countdown');t.advance(3000);assert.equal(t.view().game.status,'playing');
+test('departed controller compacts P2 immediately without a global freeze or a new epoch',()=>{
+ const t=setup(),epoch=t.begin(),before=t.events[0].filter(e=>e.type==='gameFreeze').length;
+ t.act(0,{type:'memberRemove',roomId:t.view().id,membership:t.members[1],expectedRevision:t.view().revision});
+ assert.equal(t.view().game.status,'playing');assert.equal(t.view().game.epoch,epoch);assert.equal(t.view().slots[1].member?.id,t.members[2]);assert.deepEqual(t.view().game.controllers.owners,[t.members[0],t.members[2]]);assert.equal(t.events[0].filter(e=>e.type==='gameFreeze').length,before);
+ t.act(0,{type:'gameResynchronize',epoch,revision:t.view().game.controllers.revision,recipient:t.members[2]});const transfer=t.captures().at(-1)!;assert.equal(transfer.purpose,'live');assert.throws(()=>t.act(1,{type:'gameAck',epoch,hash}),/not_in_room/);
 });
+
 test('controller departure replaces an in-flight role change with the new compacted roster',()=>{
  const t=setup(),epoch=t.begin();t.role('slot-3','player2');const old=t.view().game.pending!.id;
  t.act(0,{type:'memberRemove',roomId:t.view().id,membership:t.members[1],expectedRevision:t.view().revision});
@@ -376,7 +376,7 @@ test('Load supersedes observer catch-up without letting stale completion gate or
  assert.ok(load);assert.deepEqual(load.required,[t.members[0],t.members[1]]);
  assert.ok(t.events[2].some(event=>event.type==='gameSyncStop'&&event.transferId===transfer.transferId));
  assert.throws(()=>t.act(2,{type:'gameCheckpointAck',epoch,transferId:transfer.transferId,frame:917,hash}),/timeline_change_pending/);
- assert.throws(()=>t.act(2,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:917}),/timeline_change_pending/);
+ assert.throws(()=>t.act(2,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:917,hash}),/timeline_change_pending/);
  assert.equal(t.view().game.load!.phase,'freezing');
  t.act(0,{type:'gameFrozen',epoch,frame:917,hash});
  for(const who of [0,1])t.act(who,{type:'gameLoadBoundary',transactionId:load.id,frame:917,hash});
@@ -444,4 +444,17 @@ test('failed cartridge staging restores the old cartridge, roles and native boun
  const restored=t.view();assert.equal(restored.game.status,'paused');assert.equal(restored.game.frame,917);assert.equal(restored.game.load,undefined);assert.deepEqual(restored.fingerprint,old.fingerprint);assert.deepEqual(restored.slots,old.slots);
  t.act(0,{type:'cancelGameSelection',roomId:old.id,intent});assert.deepEqual(t.view().slots,old.slots);
  t.act(0,{type:'beginGameSelection',roomId:old.id,intent:randomUUID(),expectedRevision:restored.revision,fingerprint:candidate,title:entry.title});
+});
+
+test('live recovery fixes one acknowledged native boundary while host play continues and stale acknowledgments fail',()=>{
+ const t=setup(),epoch=t.begin(),revision=t.view().game.controllers.revision;
+ t.act(1,{type:'gamePause',epoch,frame:900,reason:'network'});assert.equal(t.view().game.status,'playing');
+ t.act(0,{type:'gameResynchronize',epoch,revision,recipient:t.members[1]});const transfer=t.captures().at(-1)!;
+ t.ack(transfer,t.authorize(transfer,917),917);assert.equal(t.view().game.status,'playing');
+ t.act(0,{type:'gameCatchupBoundary',epoch,transferId:transfer.transferId,frame:947,hash});
+ for(const wrong of [{frame:948,hash},{frame:947,hash:otherHash}])assert.throws(()=>t.act(1,{type:'gameObserved',epoch,transferId:transfer.transferId,...wrong}),/stale_checkpoint/);
+ t.act(1,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:947,hash});assert.equal(t.view().game.status,'playing');assert.equal(t.view().game.epoch,epoch);
+ assert.ok(t.events[0].some(event=>event.type==='gameLive'&&event.frame===947&&event.hash===hash));
+ assert.throws(()=>t.act(1,{type:'gameObserved',epoch,transferId:transfer.transferId,frame:947,hash}),/stale_checkpoint/);
+ t.act(0,{type:'gameResynchronize',epoch,revision,recipient:t.members[1]});assert.notEqual(t.captures().at(-1)!.transferId,transfer.transferId);
 });

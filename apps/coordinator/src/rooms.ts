@@ -1,6 +1,6 @@
 import {catalogEntry,catalogId,type CatalogId} from '../../../packages/contracts/src/catalog.ts';
 import {SLOT_IDS,controllerRoles,controllerOwners,type RoomSlot,type SlotId,type SlotRole,type AcquisitionPhase} from '../../../packages/contracts/src/slots.ts';
-import type {ControllerAssignment,RoleTransaction,GameCommand} from '../../../packages/contracts/src/gameplay.ts';
+import {gameplayProtocol,type ControllerAssignment,type RoleTransaction,type GameCommand} from '../../../packages/contracts/src/gameplay.ts';
 import {GameSession} from './gameplay.ts';
 import {RoomChat} from './chat.ts';
 import {CHAT_LIMITS} from '../../../packages/contracts/src/chat.ts';
@@ -13,7 +13,7 @@ import type { EmptyRoomPreview,Fingerprint,HumanRoomPreview, RoomCommand, RoomDa
 import { matchesFile, validRoomPassword, ROOM_COMMAND_BURST, ROOM_GAME_BURST } from '../../../packages/contracts/src/rooms.ts';
 
 export const limits = { rooms:20, sessions:1000, connections:100, reservation:120_000, heartbeat:10_000, missedHeartbeat:30_000, reconnect:60_000, sessionIdle:24*60*60*1000 } as const;
-type Session = { directory?:boolean; includeEmptyOffers?:boolean; previewInvite?:string; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
+type Session = { gameplayProtocol:number; directory?:boolean; includeEmptyOffers?:boolean; previewInvite?:string; token:string; policy:ConnectionPolicy; nickname:string; touched:number; heartbeat:number; room?:string; send?:Sender; disconnect?:()=>void; cancelled:Map<string,number>; rates:Map<string,number[]> };
 type Membership={id:string;session:Session;intent:string;file?:Fingerprint;acquisition:AcquisitionPhase;reservationStarted:number;reservationUntil?:number;reconnectUntil?:number;download?:{id:string;lastProgress:number}};
 type Slot={id:SlotId;role:SlotRole;open:boolean;revision:number;member?:Membership};
 type Room={game:GameSession;controllers:ControllerAssignment;revision:number;accessRevision:number;slots:Slot[];catalogId?:CatalogId;gameTitle?:string;hostReady?:boolean;started?:'shared';established?:boolean;chat:RoomChat;id:string;invite:string;code?:string;label:string;visibility:Visibility;host:Session;fingerprint?:Fingerprint;intent:string;confirmed:boolean;created:number;uploadAttempted?:boolean;upload?:{id:string;lastProgress:number};content?:string;pendingGame?:{intent:string;fingerprint:Fingerprint;title:string;created:number;content?:string};selectedIntent?:string;reconnectUntil?:number;kicked:Set<string>};
@@ -174,6 +174,7 @@ export class Rooms {
  }
  private publishRosterChange(room:Room,reason:string){
   const owners=controllerOwners(this.slotViews(room)),changed=owners.some((owner,index)=>owner!==room.controllers.owners[index]);
+  if(changed&&room.started&&room.game.view().status==='playing'&&!room.game.view().pending){room.controllers=this.assigned(room);this.publish(room);return;}
   if(changed&&room.started&&room.game.view().epoch){
    this.publish(room);
    room.game.abortRoles(reason);
@@ -220,16 +221,17 @@ export class Rooms {
  }
  downloadProgress(roomId:string,id:string){const room=this.rooms.get(roomId),now=this.now(),member=room&&this.members(room).find(member=>member.download?.id===id);if(!member||now-member.download!.lastProgress>=30_000||member.reservationUntil!==undefined&&(member.reservationUntil<=now||now-member.reservationStarted>=300_000))throw new RoomError('download_expired');member.download!.lastProgress=now;member.session.heartbeat=member.session.touched=now;if(member.session.send)member.reconnectUntil=undefined;if(member.reservationUntil!==undefined)member.reservationUntil=Math.min(member.reservationStarted+300_000,now+limits.reservation);}
  endDownload(roomId:string,id:string){const room=this.rooms.get(roomId),member=room&&this.members(room).find(member=>member.download?.id===id);if(member)member.download=undefined;}
- attach(token:string|undefined,send:Sender,disconnect:()=>void): {token:string;data:RoomData} {
+ attach(token:string|undefined,send:Sender,disconnect:()=>void,protocol:number=gameplayProtocol): {token:string;data:RoomData} {
+  if(protocol!==gameplayProtocol)throw new RoomError('gameplay_update_required');
   this.sweep();
   let session:Session;
   if(token) session = this.session(token);
   else {
    if(this.sessions.size >= limits.sessions) throw new RoomError('capacity');
-   const now = this.now(); session = {token:secret(),policy:'standard',nickname:`Guest ${pick(colors)} ${randomInt(10000)}`,touched:now,heartbeat:now,cancelled:new Map(),rates:new Map()};
+   const now = this.now(); session = {gameplayProtocol:protocol,token:secret(),policy:'standard',nickname:`Guest ${pick(colors)} ${randomInt(10000)}`,touched:now,heartbeat:now,cancelled:new Map(),rates:new Map()};
    this.sessions.set(session.token,session);
   }
-  session.disconnect?.(); session.send = send; session.disconnect = disconnect; session.includeEmptyOffers=false;session.touched = session.heartbeat = this.now();
+  session.disconnect?.(); session.gameplayProtocol=protocol;session.send = send; session.disconnect = disconnect; session.includeEmptyOffers=false;session.touched = session.heartbeat = this.now();
   let room = session.room && this.rooms.get(session.room);
   if(room && !room.confirmed) {this.close(room,'creation_cancelled');room = undefined;}
   if(room){if(room.host===session)room.reconnectUntil=undefined;this.member(room,session).reconnectUntil=undefined;this.publish(room);}
@@ -238,6 +240,7 @@ export class Rooms {
  detach(token:string,send:Sender) { const session = this.sessions.get(token); if(session?.send === send) {session.send = undefined;session.disconnect = undefined;const room=session.room && this.rooms.get(session.room);if(room && !room.confirmed && room.host===session)this.close(room,'creation_cancelled');else if(room)this.publish(room);} }
  handle(token:string,command:Exclude<RoomCommand,{type:'hello'}>,sender?:Sender,proof?:AccessProof): RoomData {
   this.sweep(); const session = this.session(token); if(sender && session.send!==sender) throw new RoomError('session_replaced');this.rate(session,'messages',session.room?ROOM_COMMAND_BURST:60,10_000); session.touched = this.now();
+  if((command.type.startsWith('game')||['create','createLobby','claimCode','join','joinCode','prepareHost','startRoom'].includes(command.type))&&session.gameplayProtocol!==gameplayProtocol)throw new RoomError('gameplay_update_required');
   if(command.type.startsWith('peer')) {
    const room=this.room(session);
    if(command.type==='peerRetry') this.rate(session,'peerRetry',5,60_000);

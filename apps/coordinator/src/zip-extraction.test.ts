@@ -35,7 +35,7 @@ async function setup(romLimits?:RomLimits) {
  const url=`http://127.0.0.1:${(server.address() as {port:number}).port}`;
  const socket=new WebSocket(url.replace('http:','ws:')+'/ws',{origin});await once(socket,'open');
  const hello=new Promise<Extract<RoomEvent,{type:'result'}>>(resolve=>socket.once('message',raw=>resolve(JSON.parse(String(raw)))));
- socket.send(JSON.stringify({type:'hello',requestId:randomUUID()}));const result=await hello;assert.equal(result.ok,true);const token=result.ok?result.data.session!.token:'';
+ socket.send(JSON.stringify({type:'hello',gameplayProtocol:2,requestId:randomUUID()}));const result=await hello;assert.equal(result.ok,true);const token=result.ok?result.data.session!.token:'';
  const post=(bytes:Buffer,headers:Record<string,string>={})=>fetch(url+'/rom-extractions',{method:'POST',headers:{Origin:origin,Authorization:`Bearer ${token}`,'Content-Type':'application/zip',...headers},body:new Uint8Array(bytes)});
  const scratch=()=>readdirSync(server.romStore.directory).filter(name=>/^(archive|extracted)-/.test(name));
  const clear=async()=>{for(let i=0;i<100&&scratch().length;i++)await new Promise(resolve=>setTimeout(resolve,5));assert.deepEqual(scratch(),[]);};

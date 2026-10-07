@@ -242,14 +242,14 @@ test('real WebSockets enforce origin/auth/schema and atomic reservations across 
   const rejected = new WebSocket(url,{origin:'https://evil.example'});rejected.on('error',()=>{});const rejection = await once(rejected,'unexpected-response');assert.equal(rejection[1].statusCode,403);rejection[1].destroy();rejected.terminate();
   const host = await connect(), a = await connect(), b = await connect();
   assert.equal((await request(a,{type:'close',roomId:randomUUID()})).ok,false);
-  for(const client of [host,a,b]) assert.equal((await request(client,{type:'hello'})).ok,true);
+  for(const client of [host,a,b]) assert.equal((await request(client,{type:'hello',gameplayProtocol:2})).ok,true);
   const intent = randomUUID();const created = await request(host,{type:'create',intent,visibility:'public',fingerprint});assert.ok(created.ok);
   await request(host,{type:'confirmCreate',intent});const invite = created.data.room!.invite;
-  for(let i=0;i<3;i++){const filler=await connect();await request(filler,{type:'hello'});await request(filler,{type:'join',invite,intent:randomUUID()});}
+  for(let i=0;i<3;i++){const filler=await connect();await request(filler,{type:'hello',gameplayProtocol:2});await request(filler,{type:'join',invite,intent:randomUUID()});}
   const race = await Promise.all([a,b].map(socket=>request(socket,{type:'join',intent:randomUUID(),invite})));assert.equal(race.filter(result=>result.ok).length,1);
   const attacker = await connect(), closed = once(attacker,'close');attacker.send(Buffer.from('binary ROM'));assert.equal((await closed)[0],1008);
-  const forged = await connect(), invalid = once(forged,'close');forged.send(JSON.stringify({type:'hello',requestId:randomUUID(),filename:'private.nes'}));assert.equal((await invalid)[0],1008);
-  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<=ROOM_WIRE_BURST;i++) flood.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
+  const forged = await connect(), invalid = once(forged,'close');forged.send(JSON.stringify({type:'hello',gameplayProtocol:2,requestId:randomUUID(),filename:'private.nes'}));assert.equal((await invalid)[0],1008);
+  const flood = await connect(), flooded = once(flood,'close');for(let i=0;i<=ROOM_WIRE_BURST;i++) flood.send(JSON.stringify({type:'hello',gameplayProtocol:2,requestId:randomUUID()}));assert.equal((await flooded)[0],1008);
   const large = await connect(), over = once(large,'close');large.send('x'.repeat(ROOM_METADATA_BYTES+1));assert.equal((await over)[0],1009);
   const padded=await connect(),paddingClosed=once(padded,'close');padded.send(JSON.stringify({type:'nickname',requestId:randomUUID(),nickname:'peerSignal'})+' '.repeat(ROOM_METADATA_BYTES+1));assert.equal((await paddingClosed)[0],1009);
  } finally {for(const client of clients) client.terminate();await shutdown(server);}
@@ -435,7 +435,7 @@ test('real WebSocket clients opt into offers and race for one first-host claim',
  const data=(result:Extract<RoomEvent,{type:'result'}>)=>{if(!result.ok)throw Error(result.error);return result.data;};
  try {
   const old=await connect(),a=await connect(),b=await connect();
-  for(const socket of [old,a,b])assert.equal((await request(socket,{type:'hello'})).ok,true);
+  for(const socket of [old,a,b])assert.equal((await request(socket,{type:'hello',gameplayProtocol:2})).ok,true);
   assert.deepEqual(data(await request(old,{type:'directory'})).directory,[]);
   const initial=data(await request(a,{type:'directory',includeEmptyOffers:true})).directory!;
   assert.equal(initial.length,1);assert.equal(initial[0].occupancy,0);
@@ -459,14 +459,14 @@ test('separate WebSocket browsers start with an unready observer, then admit a l
  const data=(result:Extract<RoomEvent,{type:'result'}>)=>{if(!result.ok)throw Error(result.error);return result.data;};
  try {
   const host=await connect(),guest=await connect(),watcher=await connect();
-  for(const socket of [host,guest,watcher])data(await request(socket,{type:'hello'}));
+  for(const socket of [host,guest,watcher])data(await request(socket,{type:'hello',gameplayProtocol:2}));
   const intent=randomUUID();data(await request(host,{type:'create',intent,visibility:'public',fingerprint}));
   const room=data(await request(host,{type:'confirmCreate',intent})).room!;
   const joined=data(await request(guest,{type:'joinCode',code:room.code!,intent:randomUUID()})).room!;
   assert.equal(joined.occupancy,2);
   const changed=data(await request(host,{type:'slotRole',roomId:room.id,slotId:'slot-2',role:'observer',expectedRevision:joined.revision})).room!;
   data(await request(host,{type:'prepareHost',roomId:room.id,membership:room.chatMembership,fingerprint}));
-  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),delay:6}));
+  data(await request(host,{type:'gameReady',revision:changed.game.controllers.revision,roomRevision:changed.revision,frame:0,fresh:true,hash:'c'.repeat(64),protocol:2 as const}));
   const started=data(await request(host,{type:'startRoom',roomId:room.id,membership:room.chatMembership,fingerprint})).room!;
   const epoch=started.game.epoch!;data(await request(host,{type:'gameAck',epoch,hash:'c'.repeat(64)}));
   assert.equal(started.started,'shared');assert.equal(started.occupancy,2,'Start never removes an unready observer');
@@ -487,4 +487,22 @@ test('five-member command headroom remains finite and expires at the existing wi
  for(let i=0;i<ROOM_COMMAND_BURST-2;i++)t.act(host.token,{type:'heartbeat'});
  assert.throws(()=>t.act(host.token,{type:'heartbeat'}),error=>error instanceof RoomError&&error.code==='rate_limited'&&error.retryAfterMs===10000);
  t.advance(10000);assert.doesNotThrow(()=>t.act(host.token,{type:'heartbeat'}));
+});
+
+test('unsupported reconnect is rejected before replacing a valid room transport or publishing membership',()=>{
+ const rooms=new Rooms(),events:RoomEvent[]=[],rejected:RoomEvent[]=[];let disconnected=0;
+ const supported=rooms.attach(undefined,event=>events.push(event),()=>{disconnected++;},2),intent=randomUUID();
+ const room=rooms.handle(supported.token,{type:'createLobby',requestId:randomUUID(),intent,label:'Current room',visibility:'public'}).room!;
+ const before=events.length;
+ for(const protocol of [0,1,3])assert.throws(()=>rooms.attach(supported.token,event=>rejected.push(event),()=>{},protocol),/gameplay_update_required/);
+ assert.equal(disconnected,0);assert.equal(events.length,before);assert.deepEqual(rejected,[]);
+ assert.equal(rooms.handle(supported.token,{type:'heartbeat',requestId:randomUUID()}).room?.id,room.id);
+});
+
+test('legacy hello receives a normal rejection without a session or room event on the real wire',async()=>{
+ const server=createCoordinator({origins:['http://127.0.0.1:5173']});server.listen(0,'127.0.0.1');await once(server,'listening');
+ const socket=new WebSocket(`ws://127.0.0.1:${(server.address() as {port:number}).port}/ws`,{origin:'http://127.0.0.1:5173'}),events:RoomEvent[]=[];
+ try{await once(socket,'open');socket.on('message',raw=>events.push(JSON.parse(raw.toString())));const result=once(socket,'message');socket.send(JSON.stringify({type:'hello',requestId:randomUUID()}));
+  const reply=JSON.parse((await result)[0].toString());assert.equal(reply.type,'result');assert.equal(reply.ok,false);assert.equal(reply.error,'gameplay_update_required');assert.equal(reply.data,undefined);assert.equal(events.some(event=>event.type==='room'||event.type==='peerPrepare'),false);
+ }finally{socket.terminate();await shutdown(server);}
 });

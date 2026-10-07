@@ -1,8 +1,8 @@
 import {randomBytes} from 'node:crypto';
-import {gameplayLimits,type GameCommand,type GameEvent,type GameView,type ControllerAssignment,type RoleTransaction,type CheckpointPurpose,type SaveLoadView,type CartridgeCandidate} from '../../../packages/contracts/src/gameplay.ts';
+import {gameplayProtocol,gameplayLimits,type GameCommand,type GameEvent,type GameView,type ControllerAssignment,type RoleTransaction,type CheckpointPurpose,type SaveLoadView,type CartridgeCandidate} from '../../../packages/contracts/src/gameplay.ts';
 type Offer=Extract<GameCommand,{type:'gameReady'}>;
 type Member={id:string;connected:boolean;loaded:boolean;hostTransport:boolean;allLinksReady:boolean};
-type Transfer={id:string;recipient:string;purpose:CheckpointPurpose;frame?:number;hash?:string;sending:boolean;deadline:number;catchingUp?:boolean};
+type Transfer={id:string;recipient:string;purpose:CheckpointPurpose;frame?:number;hash?:string;sending:boolean;deadline:number;catchingUp?:boolean;boundary?:{frame:number;hash:string}};
 const id=()=>randomBytes(24).toString('base64url');
 /** Room-owned authority and barriers. Controller owners gate initial Start; observers do not. */
 export class GameSession {
@@ -38,7 +38,7 @@ export class GameSession {
   for(const transfer of [...this.transfers.values()])if(!this.available(transfer.recipient))this.cancelTransfer(transfer,'Connection changed. Retry synchronization.');
   if((changed||revision!==undefined&&this.state.pending?.revision!==revision)&&this.state.pending)this.failTransaction('Players changed. Progress kept.');
   if(['starting','countdown'].includes(this.state.status)&&this.required.some(owner=>!this.available(owner)))this.stop('A prepared player disconnected. Previous progress is preserved; prepare again when everyone is connected.');
-  if(this.state.status==='playing'&&this.owners().some(owner=>!this.available(owner)))this.freeze(!this.members.get(this.host)?.connected?'The host disconnected. Reconnect to recover the shared game.':'A controller owner disconnected. Prepare again when connected.');
+  if(this.state.status==='playing'&&!this.available(this.host))this.freeze('The host disconnected. Reconnect to recover the shared game.');
   else if(hostLost&&!this.loadState&&!this.state.pending&&['paused','failed','resume_ready'].includes(this.state.status))this.freeze('The host disconnected. Reconnect to recover the shared game.');
  }
  private available(member:string){const value=this.members.get(member);return !!value?.connected&&value.loaded&&(this.hasPlayed?member===this.host||value.hostTransport:value.allLinksReady);}
@@ -71,8 +71,8 @@ export class GameSession {
  private begin(frame:number,hash:string,epoch=id()){
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Game epoch is changing. Synchronize again.');
   this.frame=frame;this.hash=hash;this.required=this.owners();this.acks.clear();this.deadline=this.now()+gameplayLimits.barrierMs;
-  this.state={...this.state,status:'starting',reason:undefined,epoch,delay:Math.max(gameplayLimits.delayDefault,...this.required.map(member=>this.offers.get(member)?.delay??gameplayLimits.delayDefault))};
-  const context={epoch:this.state.epoch!,authority:this.host,frame,hash,delay:this.state.delay!,controllers:this.state.controllers};
+  this.state={...this.state,status:'starting',reason:undefined,epoch,protocol:gameplayProtocol};
+  const context={epoch:this.state.epoch!,authority:this.host,frame,hash,protocol:gameplayProtocol,controllers:this.state.controllers};
   for(const member of this.required)this.send(member,{type:'gamePrepare',...context});
  }
  private freeze(reason:string){
@@ -130,15 +130,15 @@ export class GameSession {
    for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,'Host recovery replaced the interrupted timeline. Synchronize again.');
    this.hostInterruption=undefined;this.acks.clear();this.required=[];this.deadline=0;
    this.frame=command.frame;this.hash=command.hash;this.hasPlayed=true;this.restoredAwaitingResume=true;this.offers.clear();
-   this.state={...this.state,epoch:id(),status:'paused',startRequested:false,startAt:undefined,reason:recovery&&command.frame===0?'Previous host progress could not be recovered. Game restarted from the beginning. Prepare to resume together.':'Game restored. Prepare to resume together.',delay:gameplayLimits.delayDefault};return;
+   this.state={...this.state,epoch:id(),status:'paused',startRequested:false,startAt:undefined,reason:recovery&&command.frame===0?'Previous host progress could not be recovered. Game restarted from the beginning. Prepare to resume together.':'Game restored. Prepare to resume together.',protocol:gameplayProtocol};return;
   }
   if(command.type==='gameReady'){
-   this.checkRevision(command.revision);if(command.roomRevision!==(this.roomRevision??0))throw Error('room_changed');if(this.state.pending||['playing','starting','countdown','pausing'].includes(this.state.status)||!this.available(member))throw Error('game_prerequisites');
+   if(command.protocol!==gameplayProtocol)throw Error('gameplay_update_required');this.checkRevision(command.revision);if(command.roomRevision!==(this.roomRevision??0))throw Error('room_changed');if(this.state.pending||['playing','starting','countdown','pausing'].includes(this.state.status)||!this.available(member))throw Error('game_prerequisites');
    if(member===this.host&&this.hasPlayed&&command.fresh&&!this.restoredAwaitingResume)throw Error('host_recovery_required');
    this.offers.set(member,command);this.prepareIfReady();return;
   }
   if(command.type==='gameObserve'){
-   this.checkRevision(command.revision);if(this.state.status!=='playing'||this.owners().includes(member))throw Error('game_prerequisites');this.capture(member,'observer');return;
+   this.checkRevision(command.revision);if(member===this.host)throw Error('game_prerequisites');if(this.state.status==='playing')this.capture(member,'live');else if(this.state.status==='paused'&&this.owners().includes(member))this.capture(member,'controller');else throw Error('game_prerequisites');return;
   }
   if(command.type==='gameUnready'){
    this.checkRevision(command.revision);const transfers=[...this.transfers.values()].filter(transfer=>member===this.host||transfer.recipient===member);
@@ -151,13 +151,14 @@ export class GameSession {
    this.state.pending=undefined;this.proposed=undefined;this.stop('Change cancelled. Progress kept.');return;
   }
   if(!('epoch' in command)||command.epoch!==this.state.epoch)throw Error('stale_game');
+  if(command.type==='gameResynchronize'){if(member!==this.host)throw Error('host_only');this.checkRevision(command.revision);if(this.state.status!=='playing'||!this.members.has(command.recipient))throw Error('game_prerequisites');this.capture(command.recipient,'live');return;}
   if(command.type==='gamePause'){
-   if(!this.owners().includes(member))throw Error('controller_only');if(this.state.status==='playing')this.freeze(`Play paused (${command.reason}).`);return;
+   if(member!==this.host&&!this.owners().includes(member))throw Error('controller_only');if(command.reason!=='user'&&member!==this.host)return;if(this.state.status==='playing')this.freeze(`Play paused (${command.reason}).`);return;
   }
   if(command.type==='gameFrozen'){
    if(member!==this.host||this.state.status!=='pausing'||command.frame<this.frame)throw Error('stale_game');
    this.frame=command.frame;this.hash=command.hash;this.state.status='paused';
-   this.all({type:'gamePauseAt',epoch:command.epoch,frame:this.frame,reason:this.state.reason!});
+   this.all({type:'gamePauseAt',epoch:command.epoch,frame:this.frame,hash:this.hash!,reason:this.state.reason!});
    if(this.loadState){this.loadState.oldFrame=this.frame;this.loadState.oldHash=this.hash;this.loadState.view.priorFrame=this.frame;this.loadState.view.priorHash=this.hash;this.holdLoad();}
    if(this.state.pending){
     this.state.pending.status='synchronizing';
@@ -172,6 +173,7 @@ export class GameSession {
   if(command.type==='gameResume'){if(member!==this.host||this.state.status!=='resume_ready')throw Error('resume_not_ready');this.begin(this.frame,this.hash!);return;}
   if(command.type==='gamePaused')return;
   if(command.type==='gameAbort'){
+   if(member!==this.host&&this.state.status==='playing'){for(const transfer of [...this.transfers.values()])if(transfer.recipient===member)this.cancelTransfer(transfer,'Synchronization failed. Retry.');return;}
    if(!this.owners().includes(member)){for(const transfer of [...this.transfers.values()])if(transfer.recipient===member)this.cancelTransfer(transfer,'Observer synchronization failed. Retry.');return;}
    if(this.loadState){this.abortLoad('Game loading failed. Previous progress is preserved.');return;}
    this.stop(`Play paused (${command.reason}). Prepare again; game progress is preserved.`,'failed');return;
@@ -183,16 +185,17 @@ export class GameSession {
    transfer.frame=command.frame;transfer.hash=command.hash;
    const event:GameEvent={type:'gameCheckpoint',epoch:command.epoch,transferId:transfer.id,sender:this.host,recipient:transfer.recipient,purpose:transfer.purpose,frame:command.frame,hash:command.hash};this.send(this.host,event);this.send(transfer.recipient,event);return;
   }
+  if(command.type==='gameCatchupBoundary'){if(member!==this.host||!transfer.catchingUp||transfer.boundary||command.frame<transfer.frame!)throw Error('stale_checkpoint');transfer.boundary={frame:command.frame,hash:command.hash};return;}
   if(member!==transfer.recipient&&!(command.type==='gameCheckpointFailed'&&member===this.host))throw Error('stale_checkpoint');
   if(command.type==='gameCheckpointReady'){
    if(transfer.frame===undefined)throw Error('stale_checkpoint');if(!transfer.sending){transfer.sending=true;this.send(this.host,{type:'gameCheckpointSend',epoch:command.epoch,transferId:transfer.id,recipient:member});}return;
   }
   if(command.type==='gameCheckpointAck'){
    if(!transfer.sending||command.frame!==transfer.frame||command.hash!==transfer.hash)throw Error('stale_checkpoint');
-   if(transfer.purpose==='observer'){if(transfer.catchingUp)return;transfer.catchingUp=true;transfer.deadline=this.now()+gameplayLimits.catchupMs;this.send(this.host,{type:'gameCatchup',epoch:command.epoch,transferId:transfer.id,recipient:member,frame:command.frame});}
-   else {this.transfers.delete(transfer.id);const offer=this.offers.get(member);this.offers.set(member,{type:'gameReady',requestId:id(),revision:this.state.controllers.revision,roomRevision:this.roomRevision??0,delay:offer?.delay??gameplayLimits.delayDefault,frame:command.frame,hash:command.hash,fresh:false});if(this.state.pending)this.finishTransaction();else this.prepareIfReady();}return;
+   if(transfer.purpose==='live'){if(transfer.catchingUp)return;transfer.catchingUp=true;transfer.deadline=this.now()+gameplayLimits.catchupMs;this.send(this.host,{type:'gameCatchup',epoch:command.epoch,transferId:transfer.id,recipient:member,frame:command.frame});}
+   else {this.transfers.delete(transfer.id);const offer=this.offers.get(member);this.offers.set(member,{type:'gameReady',requestId:id(),revision:this.state.controllers.revision,roomRevision:this.roomRevision??0,protocol:gameplayProtocol,frame:command.frame,hash:command.hash,fresh:false});if(this.state.pending)this.finishTransaction();else this.prepareIfReady();}return;
   }
-  if(command.type==='gameObserved'){if(!transfer.catchingUp||command.frame<transfer.frame!)throw Error('stale_checkpoint');this.transfers.delete(transfer.id);return;}
+  if(command.type==='gameObserved'){if(!transfer.catchingUp||command.frame!==transfer.boundary?.frame||command.hash!==transfer.boundary.hash)throw Error('stale_checkpoint');this.transfers.delete(transfer.id);const event:GameEvent={type:'gameLive',epoch:command.epoch,transferId:transfer.id,recipient:member,frame:command.frame,hash:command.hash};this.send(this.host,event);this.send(member,event);return;}
   if(command.type==='gameCheckpointFailed'){this.cancelTransfer(transfer,'Synchronization failed. Progress is preserved; retry.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Game sync failed. Progress kept.');else this.stop('Synchronization failed. Progress is preserved; prepare again.','failed');}}
  }
  private holdLoad(){
@@ -205,9 +208,9 @@ export class GameSession {
   if(command.type==='gameLoadPropose'){
    if(member!==this.host)throw Error('host_only');this.checkRevision(command.revision);
    if(command.roomRevision!==this.roomRevision)throw Error('room_changed');
-   if(this.loadState||this.state.pending||[...this.transfers.values()].some(transfer=>transfer.purpose!=='observer'))throw Error('timeline_change_pending');
+   if(this.loadState||this.state.pending||[...this.transfers.values()].some(transfer=>transfer.purpose!=='live'))throw Error('timeline_change_pending');
    if(!['waiting','playing','paused','resume_ready','failed'].includes(this.state.status)||this.owners().some(owner=>!this.available(owner)))throw Error('game_prerequisites');
-   for(const transfer of [...this.transfers.values()])if(transfer.purpose==='observer')this.cancelTransfer(transfer,'Waiting for the game to finish changing.');
+   for(const transfer of [...this.transfers.values()])if(transfer.purpose==='live')this.cancelTransfer(transfer,'Waiting for the game to finish changing.');
    const initial=!this.state.epoch,view:SaveLoadView={id:id(),epoch:id(),phase:'freezing',frame:command.frame,hash:command.hash,identity:command.identity,savedAt:command.savedAt,required:candidate?this.owners(candidate.controllers):this.owners(),...(candidate?{replacement:candidate.replacement,freezeRequired:this.owners()}:{}),expiresAt:this.now()+gameplayLimits.barrierMs};
    this.replacementCommit=candidate?.commit;this.loadState={view,freezeRequired:this.owners(),initial,resume:this.state.status==='playing',revision:this.roomRevision??0,controllers:this.state.controllers.revision,oldEpoch:this.state.epoch,oldFrame:this.frame,oldHash:this.hash,boundaries:new Map(),prepared:new Set(),committed:new Set(),rolledBack:new Set()};
    this.offers.clear();
@@ -276,6 +279,6 @@ export class GameSession {
   for(const transfer of [...this.transfers.values()])this.cancelTransfer(transfer,reason);this.offers.clear();this.acks.clear();this.state={...this.state,status,reason,startRequested:false,startAt:undefined};this.all({type:'gameStop',epoch:this.state.epoch,reason});
  }
  sweep(){let changed=false;const load=this.loadState;if(load&&this.now()>=load.view.expiresAt){if(load.view.phase==='rolling_back'){this.finishLoadRollback(true);}else this.abortLoad('Game loading timed out. Previous progress is preserved.');changed=true;}for(const transfer of [...this.transfers.values()])if(this.now()>=transfer.deadline){this.cancelTransfer(transfer,'Synchronization timed out. Retry without leaving the room.');if(transfer.purpose==='load')this.abortLoad('Game synchronization timed out. Previous progress is preserved.');if(transfer.purpose==='controller'){if(this.state.pending)this.failTransaction('Game sync timed out. Progress kept.');else this.stop('Synchronization timed out. Prepare again.','failed');}changed=true;}
-  if(this.state.status==='countdown'&&this.state.startAt!==undefined&&this.now()>=this.state.startAt){this.hasPlayed=true;this.hostInterruption=undefined;this.restoredAwaitingResume=false;this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;this.state.startAt=undefined;for(const owner of this.required)this.send(owner,{type:'gameStart',epoch:this.state.epoch!,authority:this.host,frame:this.frame,hash:this.hash!,delay:this.state.delay!,controllers:this.state.controllers});changed=true;}
+  if(this.state.status==='countdown'&&this.state.startAt!==undefined&&this.now()>=this.state.startAt){this.hasPlayed=true;this.hostInterruption=undefined;this.restoredAwaitingResume=false;this.state.status='playing';this.state.reason=undefined;this.state.startRequested=false;this.state.startAt=undefined;for(const owner of this.required)this.send(owner,{type:'gameStart',epoch:this.state.epoch!,authority:this.host,frame:this.frame,hash:this.hash!,protocol:gameplayProtocol,controllers:this.state.controllers});changed=true;}
   if((this.state.startRequested||['starting','countdown','pausing'].includes(this.state.status))&&this.now()>=this.deadline){if(this.state.pending)this.failTransaction('Pause failed. Progress kept.');else {const missing=this.state.status==='pausing'?'The host did not provide a completed game state.':this.required.filter(member=>!this.acks.has(member)).length?'Waiting for player acknowledgements.':'Waiting for players to prepare.';this.stop(`Preparation timed out. ${missing} Retry preparation; saved progress is kept.`,'failed');}changed=true;}return changed;}
 }

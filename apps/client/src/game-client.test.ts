@@ -10,7 +10,7 @@ const fingerprint:Fingerprint={romSha256:'a'.repeat(64),coreSha256:'b'.repeat(64
 const room=(self=member):RoomView=>({id:'r'.repeat(22),label:'Room',visibility:'public',status:'waiting',host:'Host',occupancy:2,openSlots:3,hostReady:true,established:false,chatMembership:self,hostMembership:host,invite:'i'.repeat(22),role:self===host?'host':'member',slot:self===host?'slot-1':'slot-2',revision:1,accessRevision:0,controllerRoles:['player1','player2'],connectionPolicy:'standard',peers:[],reservationIntent:'j'.repeat(22),fingerprint,matches:true,game:{status:'waiting',controllers:{owners:[host,member],revision:1},ready:[],startRequested:false},slots:[{id:'slot-1',role:'player1',open:true,revision:0,member:{id:host,nickname:'Host',connected:true,matches:true,acquisition:'loaded'}},{id:'slot-2',role:'player2',open:true,revision:0,member:{id:member,nickname:'Member',connected:true,matches:true,acquisition:'loaded'}},...(['slot-3','slot-4','slot-5'] as const).map(id=>({id,role:'observer' as const,open:true,revision:0}))]});
 function setup(self=member,connected=true){
  const commands:{type:string;[key:string]:unknown}[]=[],updates:GameplayState[]=[],holds:Array<(value:{frame:number;hash:string;fresh:boolean})=>void>=[];let deferHold=false,holdError:Error|undefined,sendHook:((command:{type:string})=>Promise<void>)|undefined;
- const player={isLoaded:()=>true,frameRate:()=>60,holdForGame:()=>holdError?Promise.reject(holdError):deferHold?new Promise(resolve=>holds.push(resolve)):Promise.resolve({frame:0,hash,fresh:true}),cancelPeerCheckpoint(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){},releaseControllers(){}} as unknown as LocalPlayer;
+ const player={isLoaded:()=>true,frameRate:()=>60,holdForGame:()=>holdError?Promise.reject(holdError):deferHold?new Promise(resolve=>holds.push(resolve)):Promise.resolve({frame:0,hash,fresh:true}),cancelPeerCheckpoint(){},setGameInputOwner(){},sampleGameInput:()=>0,stopGame(){},allowLocalPlay(){},releaseControllers(){}} as unknown as LocalPlayer;
  const game=new GameClient(()=>player,async command=>{commands.push(command);await sendHook?.(command);},state=>updates.push(state));
  const channel={readyState:'open',bufferedAmount:0,send(){},onmessage:undefined} as unknown as RTCDataChannel;
  game.enter(room(self));game.selected(fingerprint);if(connected)game.ready(self===host?member:host,channel,peerEpoch);
@@ -98,8 +98,8 @@ test('room revision invalidates an unfinished Ready click until the member choos
   assert.equal(t.commands.at(-1)?.type,'gameReady');assert.equal(t.commands.at(-1)?.roomRevision,2);
  }finally{t.game.dispose();}
 });
-test('late configured controller offers readiness for activation rather than requesting observer sync',async()=>{
- const t=setup();try{const late=room();late.started='shared';late.established=true;late.game={...late.game,status:'playing',epoch,controllers:{owners:[host,null],revision:2}};t.game.enter(late);t.commands.length=0;t.game.playIntent();await tick();assert.equal(t.commands.some(c=>c.type==='gameObserve'),false);assert.ok(t.commands.some(c=>c.type==='gameReady'&&c.revision===2));}finally{t.game.dispose();}
+test('reconnected controller requests live synchronization before readiness or input',async()=>{
+ const t=setup();try{const late=room();late.started='shared';late.established=true;late.game={...late.game,status:'playing',epoch};late.peers=[{pairId:'q'.repeat(22),member:host,gameplay:true,status:'connected',policy:'standard',epoch:peerEpoch}];t.game.enter(late);await tick();assert.ok(t.commands.some(c=>c.type==='gameObserve'));assert.equal(t.commands.some(c=>c.type==='gameReady'),false);}finally{t.game.dispose();}
 });
 
 test('prepared timeline retains ordered peer packets arriving before the local Start event',async()=>{
@@ -107,10 +107,10 @@ test('prepared timeline retains ordered peer packets arriving before the local S
   const t=setup(self);let clock:Parameters<LocalPlayer['startGame']>[0]|undefined;
   t.player.bindGameEpoch=async()=>{};t.player.startGame=value=>{clock=value;};t.player.wakeGame=()=>{};
   try{
-   const controllers=room(self).game.controllers,context={epoch,authority:host,frame:0,hash,delay:6,controllers};
+   const controllers=room(self).game.controllers,context={epoch,authority:host,frame:0,hash,protocol:2 as const,controllers};
    t.game.handle({type:'gamePrepare',...context});await tick();assert.equal(t.commands.at(-1)?.type,'gameAck');
-   const packet=self===host?{kind:'input',epoch,frame:0,mask:0}:{kind:'frame',epoch,frame:0,p1:0,p2:0};
-   t.channel.onmessage!.call(t.channel,new MessageEvent('message',{data:JSON.stringify(packet)}));
+   const packet={kind:'frame',epoch,stream:epoch,revision:1,frame:0,p1:0,p2:0};
+   if(self!==host)t.channel.onmessage!.call(t.channel,new MessageEvent('message',{data:JSON.stringify(packet)}));
    assert.equal(clock,undefined,'early transport cannot execute a frame before Start');
    t.game.handle({type:'gameStart',...context});assert.ok(clock);assert.deepEqual((clock as Parameters<LocalPlayer['startGame']>[0]).next(0),{frame:0,p1:0,p2:0});
   }finally{t.game.dispose();}
