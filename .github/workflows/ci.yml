@@ -29,21 +29,25 @@ jobs:
           if [ "${{ github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'release-gate-proof') }}" = true ]; then
             python3 spikes/d02/ci_budget.py watch --gate preflight
           else
-            python3 spikes/d02/ci_budget.py watch \
-              --gate entrypoint-journey --gate entrypoint-controls \
-              --gate entrypoint-ui --gate entrypoint-layout --gate entrypoint-recovery --gate entrypoint-save-load --gate images
+            python3 spikes/d02/ci_budget.py watch --selected-gates
           fi
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
       deadline: ${{ steps.budget.outputs.deadline }}
+      product: ${{ steps.scope.outputs.product }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 1
         with:
           persist-credentials: false
           fetch-depth: 0
+      - id: scope
+        name: Select checks from the pull-request inputs
+        run: |
+          product=$(python3 spikes/d02/ci_budget.py select)
+          echo "product=$product" >> "$GITHUB_OUTPUT"
       - id: budget
         env:
           GH_TOKEN: ${{ github.token }}
@@ -86,6 +90,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   entrypoint:
+    if: needs.build.outputs.product == 'true'
     name: entrypoint-${{ matrix.suite }}
     needs: build
     runs-on: ubuntu-latest
@@ -129,6 +134,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: python3 spikes/d02/ci_budget.py check --deadline "$D02_DEADLINE"
   images:
+    if: needs.build.outputs.product == 'true'
     needs: build
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
