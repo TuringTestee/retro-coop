@@ -81,7 +81,22 @@ def cartridge_replacement(browser,url,output):
     from playwright.sync_api import expect
     start=time.monotonic();pages=[];contexts=[];page_errors=[]
     native_hook="const NativeCartridgeWorker=Worker;proof.native=[];window.Worker=class extends NativeCartridgeWorker{postMessage(data,...rest){if(data.type==='frame'&&data.epoch){(proof.cartridgeInputs??=[]).push({epoch:data.epoch,frame:data.frame,p1:data.p1,p2:data.p2});if(proof.cartridgeInputs.length>32)proof.cartridgeInputs.shift();}if(data.type==='peer-checkpoint-prepare'&&data.initial)this.cartridgeOperation=data.operationId;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,initial:data.initial});if(data.type==='peer-checkpoint-prepare'&&data.initial&&proof.rejectCandidatePrepare){proof.rejectCandidatePrepare=false;const bytes=data.bytes.slice(0),original=new Uint8Array(bytes)[0];new Uint8Array(bytes)[0]^=255;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,fault:'native candidate bytes corrupted',originalHeader:original,sentHeader:new Uint8Array(bytes)[0],bytes:bytes.byteLength});data={...data,bytes};}if(data.type==='peer-checkpoint-commit'&&proof.rejectCandidateCommit&&data.operationId===this.cartridgeOperation){proof.rejectCandidateCommit=false;proof.native.push({kind:'request',type:data.type,requestId:data.requestId,phase:proof.room?.game.load?.phase,fault:'actual stale operation sent after preparation'});data={...data,operationId:data.operationId+'_stale'};}return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type==='frame'&&data.epoch)proof.acceptedCartridgeWorker=this;if(data.type.startsWith('peer-checkpoint-'))proof.native.push({kind:'response',type:data.type,requestId:data.requestId,frame:data.frame,hash:data.hash,message:data.message});});}};"
-    observer_hook="const ObserverPeer=RTCPeerConnection;window.RTCPeerConnection=class extends ObserverPeer{constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>{channel.addEventListener('message',event=>{if(!proof.holdObserverFrames||typeof event.data!=='string')return;let packet;try{packet=JSON.parse(event.data)}catch{return}if(packet.kind==='frame'){proof.heldObserverFrames=(proof.heldObserverFrames??0)+1;event.stopImmediatePropagation();}},true);});}};"
+    observer_hook="""
+      const ObserverPeer=RTCPeerConnection;
+      const holdObserverChannel=channel=>channel.addEventListener('message',event=>{
+        if(!proof.holdObserverFrames||typeof event.data!=='string')return;
+        let packet;try{packet=JSON.parse(event.data)}catch{return}
+        if(packet.kind==='frame'){
+          proof.heldObserverFrames=(proof.heldObserverFrames??0)+1;
+          event.stopImmediatePropagation();
+        }
+      },true);
+      // Either member can create the channel; membership IDs determine the offerer.
+      window.RTCPeerConnection=class extends ObserverPeer{
+        constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>holdObserverChannel(channel));}
+        createDataChannel(...args){const channel=super.createDataChannel(...args);holdObserverChannel(channel);return channel;}
+      };
+    """
     boundary_hook="const boundarySend=WebSocket.prototype.send;WebSocket.prototype.send=function(raw){let value;try{value=JSON.parse(raw)}catch{}if(value?.type==='gameLoadBoundary'||value?.type==='gameLoadRolledBack')(proof.loadBoundaries??=[]).push({type:value.type,transactionId:value.transactionId,frame:value.frame,hash:value.hash});return boundarySend.call(this,raw);};"
     try:
         for i in range(3):
@@ -128,8 +143,9 @@ def cartridge_replacement(browser,url,output):
         h.screenshot(path=str(output/'replacement-one-controller-prepare.png'))
         h.get_by_role('button',name='Prepare',exact=True).click();h.get_by_role('button',name='Start →',exact=True).click();h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=3')
-        observer_frame=g.evaluate('proof.frames.at(-1).frame');g.evaluate('proof.holdObserverFrames=true')
+        observer_frame=g.evaluate('proof.frames.at(-1).frame');held_frames=g.evaluate('proof.heldObserverFrames??0');g.evaluate('proof.holdObserverFrames=true')
         h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=observer_frame)
+        g.wait_for_function('before=>proof.heldObserverFrames>before',arg=held_frames)
         native_boundary="()=>new Promise(resolve=>{const worker=currentWorker;const done=({data})=>{if(data.type==='state-hash'&&data.requestId===900009){worker.removeEventListener('message',done);resolve(data.info);}};worker.addEventListener('message',done);worker.postMessage({type:'state-hash',requestId:900009});})"
         observer_before=g.evaluate(native_boundary)
         assert observer_before['frame']!=h.evaluate('proof.frames.at(-1).frame'),observer_before
@@ -159,8 +175,9 @@ def cartridge_replacement(browser,url,output):
         h.get_by_role('button',name='Prepare to resume',exact=True).click();h.get_by_role('button',name='Resume together',exact=True).click()
         h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch')
-        retry_frame=g.evaluate('proof.frames.at(-1).frame');g.evaluate('proof.holdObserverFrames=true')
+        retry_frame=g.evaluate('proof.frames.at(-1).frame');held_frames=g.evaluate('proof.heldObserverFrames??0');g.evaluate('proof.holdObserverFrames=true')
         h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=retry_frame)
+        g.wait_for_function('before=>proof.heldObserverFrames>before',arg=held_frames)
         observer_retry=g.evaluate(native_boundary)
         assert observer_retry['frame']!=h.evaluate('proof.frames.at(-1).frame'),observer_retry
         print(json.dumps({'independent_observer_retry':observer_retry}),flush=True)
