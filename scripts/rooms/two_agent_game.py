@@ -1285,10 +1285,10 @@ def shared_load():
 
 
 HOST_INPUT_FIXTURE = r"""(()=>{
- proof.nativeCommands=[];proof.nativeReplies=[];proof.liveEvents=[];proof.heldObserved=[];proof.channels=[];proof.sentLeases=[];proof.delayedInputs=[];proof.heldCheckpointAcks=[];proof.pauseReceipts=[];proof.observedEvents=[];proof.workerEvents=[];proof.signalEvents=[];
+ proof.receivedInputs=[];proof.nativeCommands=[];proof.nativeReplies=[];proof.liveEvents=[];proof.heldObserved=[];proof.channels=[];proof.sentLeases=[];proof.delayedInputs=[];proof.heldCheckpointAcks=[];proof.pauseReceipts=[];proof.observedEvents=[];proof.workerEvents=[];proof.signalEvents=[];
  const receipt=(rows,value)=>{rows.push({at:performance.now(),...value});if(rows.length>128)rows.shift();};
  const Native=Worker;window.Worker=class extends Native{postMessage(data,...rest){if(data.type!=='frame')receipt(proof.workerEvents,{direction:'send',type:data.type,requestId:data.requestId,epoch:data.epoch,frame:data.frame,hash:data.hash,operationId:data.operationId});if(data.type==='frame'&&data.epoch){proof.nativeCommands.push({at:performance.now(),...data});if(proof.nativeCommands.length>4096)proof.nativeCommands.shift();}return super.postMessage(data,...rest);}constructor(...args){super(...args);this.addEventListener('message',({data})=>{if(data.type!=='frame')receipt(proof.workerEvents,{direction:'receive',type:data.type,requestId:data.requestId,frame:data.frame,hash:data.hash,message:data.message,code:data.code});if(data.type==='peer-checkpoint-imported')proof.nativeReplies.push({type:data.type,frame:data.frame,hash:data.hash});});}};
- const watch=channel=>{proof.channels.push(channel);channel.addEventListener('message',event=>{try{const packet=JSON.parse(event.data);if(packet.kind==='input'){proof.remoteInputChannel=channel;proof.lastReceivedInput={packet,latestLease:proof.sentLeases.at(-1)?.lease};}if(packet.kind==='lease'&&proof.ignoreLeases){event.stopImmediatePropagation();proof.ignoredLeases=(proof.ignoredLeases??0)+1;}}catch{}});};
+ const watch=channel=>{proof.channels.push(channel);channel.addEventListener('message',event=>{try{const packet=JSON.parse(event.data);if(packet.kind==='input'){proof.remoteInputChannel=channel;proof.receivedInputs.push({at:performance.now(),packet,latestLease:proof.sentLeases.at(-1)?.lease,dispatched:proof.nativeCommands.at(-1)});if(proof.receivedInputs.length>128)proof.receivedInputs.shift();}if(packet.kind==='lease'&&proof.ignoreLeases){event.stopImmediatePropagation();proof.ignoredLeases=(proof.ignoredLeases??0)+1;}}catch{}});};
  const Peer=RTCPeerConnection;window.RTCPeerConnection=class extends Peer{constructor(...args){super(...args);this.addEventListener('datachannel',({channel})=>watch(channel));}createDataChannel(...args){const channel=super.createDataChannel(...args);watch(channel);return channel;}};
  const send=RTCDataChannel.prototype.send;RTCDataChannel.prototype.send=function(data){try{const packet=JSON.parse(data);if(packet.kind==='lease'){proof.sentLeases.push(packet);if(proof.sentLeases.length>32)proof.sentLeases.shift();}if(packet.kind==='input'){proof.lastInput=packet;proof.inputChannel=this;if(proof.inputDelayMs){const row={packet,sampled:performance.now()};proof.delayedInputs.push(row);if(proof.delayedInputs.length>32)proof.delayedInputs.shift();setTimeout(()=>{if(this.readyState==='open'){row.delivered=performance.now();send.call(this,data);}},proof.inputDelayMs);return;}}}catch{}return send.call(this,data);};
  const Socket=WebSocket;window.WebSocket=class extends Socket{send(raw){const command=JSON.parse(raw);if(command.type.startsWith('game'))receipt(proof.signalEvents,{direction:'send',...command});if(command.type==='memberRemove')proof.compactionDispatch={command,dispatched:proof.nativeCommands.at(-1),completed:proof.frames.at(-1)};if(['gameFrozen','gamePaused'].includes(command.type))proof.pauseReceipts.push(command);if(command.type==='gameObserved')proof.observedEvents.push(command);if(command.type==='gameCheckpointAck'&&proof.holdCheckpointAck){proof.heldCheckpointAcks.push(command);return;}if(command.type==='gameObserved'&&proof.holdObserved){proof.heldObserved.push(command);return;}return super.send(raw);}constructor(...args){super(...args);proof.releaseCheckpointAck=()=>{const command=proof.heldCheckpointAcks.shift();if(command)super.send(JSON.stringify(command));return command;};proof.releaseObserved=()=>{const command=proof.heldObserved.shift();if(command)super.send(JSON.stringify(command));return command;};this.addEventListener('message',({data})=>{const event=JSON.parse(data);if(event.type.startsWith('game')||event.type==='result'&&!event.ok)receipt(proof.signalEvents,{direction:'receive',...event});if(event.type==='gameLive')proof.liveEvents.push(event);});}};
@@ -1344,8 +1344,31 @@ def host_input():
             # Delay genuine input beyond one renewal interval while the old lease
             # is still fresh. Both the press and release must reach native P2.
             guest.evaluate('delay=>proof.inputDelayMs=delay',limits['leaseRenewMs']+200)
-            renewed_press=p2_native();press_receipt=host.evaluate('proof.lastReceivedInput');assert press_receipt['packet']['mask']==2 and press_receipt['packet']['lease']!=press_receipt['latestLease'],press_receipt
-            renewed_release=p2_neutral_native();release_receipt=host.evaluate('proof.lastReceivedInput');assert release_receipt['packet']['mask']==0 and release_receipt['packet']['lease']!=release_receipt['latestLease'],release_receipt
+            before_input=guest.evaluate('proof.lastInput.sequence')
+            renewed_press=p2_native()
+            sampled_press=guest.evaluate('before=>proof.delayedInputs.find(row=>row.packet.sequence>before&&row.packet.mask===2)',before_input)
+            guest.wait_for_function('press=>proof.delayedInputs.some(row=>row.packet.sequence>press.packet.sequence&&row.packet.mask===0)',arg=sampled_press)
+            sampled_release=guest.evaluate('press=>proof.delayedInputs.find(row=>row.packet.sequence>press.packet.sequence&&row.packet.mask===0)',sampled_press)
+            def renewal_receipt(sample):
+                packet=sample['packet']
+                host.wait_for_function('packet=>proof.receivedInputs.some(row=>row.packet.epoch===packet.epoch&&row.packet.generation===packet.generation&&row.packet.sequence===packet.sequence)',arg=packet)
+                row=host.evaluate('packet=>proof.receivedInputs.find(row=>row.packet.epoch===packet.epoch&&row.packet.generation===packet.generation&&row.packet.sequence===packet.sequence)',packet)
+                assert row['packet']==packet and row['latestLease']!=packet['lease'],row
+                issued=host.evaluate('proof.sentLeases')
+                original=next(grant for grant in issued if grant['lease']==packet['lease'])
+                renewed=next(grant for grant in issued if grant['lease']==row['latestLease'])
+                assert original['expiresAt']>row['at'] and renewed['expiresAt']>original['expiresAt'],(row,original,renewed)
+                dispatch=host.evaluate('row=>proof.nativeCommands.find(command=>command.epoch===row.packet.epoch&&command.frame===row.dispatched.frame+1)',row)
+                completed=host.evaluate('proof.frames.at(-1)')
+                assert dispatch['p2']==packet['mask'] and completed['epoch']==packet['epoch'] and completed['frame']>=dispatch['frame'],(row,dispatch,completed)
+                return {**row,'sample':sample,'original_grant':original,'renewed_grant':renewed,'native_dispatch':dispatch,'native_completed':completed}
+            press_receipt=renewal_receipt(sampled_press)
+            renewed_release=p2_neutral_native()
+            release_receipt=renewal_receipt(sampled_release)
+            held=host.evaluate('row=>proof.receivedInputs.findLast(input=>input.packet.epoch===row.packet.epoch&&input.packet.generation===row.packet.generation&&input.packet.sequence<row.packet.sequence&&input.packet.mask===2)',release_receipt)
+            held_grant=next(grant for grant in host.evaluate('proof.sentLeases') if grant['lease']==held['packet']['lease'])
+            assert release_receipt['dispatched']['p2']==2 and held_grant['expiresAt']>release_receipt['native_dispatch']['at'],(held,held_grant,release_receipt)
+            release_receipt['held_input']=held;release_receipt['held_grant']=held_grant
             renewal={'delay_ms':limits['leaseRenewMs']+200,'press_ram':renewed_press,'release_ram':renewed_release,'press_receipt':press_receipt,'release_receipt':release_receipt}
             guest.evaluate('proof.inputDelayMs=0')
             # A real native checkpoint acknowledgment is held while the host
@@ -1436,7 +1459,7 @@ def host_input():
             save('host-input-result.json',{'result':'pass','five_slots':True,'automatic_compaction':compaction,'old_lease_neutral':True,'lease_renewal':renewal,'paused_multibatch_recovery':paused_recovery,'fixed_boundary':boundary,'recovered_p2_native_mask':2,'recovered_p2_native_ram':recovered_ram,'reconnected_p2_native_ram':reconnected_ram,'slow_observer_manual_retry':True,'host_epoch':epoch,'missing_hashes_isolated':True,'p2_worker_failure_recovered':True,'worker_failure_recovery':worker_recovery,'p2_delivery_backpressure_recovered':True,'slow_observer_isolated':True,'disconnected_p2_host_continues':True,'seconds':round(time.monotonic()-started,3)})
         except Exception:
             for i,page in enumerate(pages):
-                save(f'host-input-{i}-failure.json',{'buttons':page.locator('button:visible').all_text_contents(),'status':page.locator('.rc-status').all_inner_texts(),'room':page.evaluate('proof.room'),'native':page.evaluate('proof.nativeCommands.slice(-8)'),'live':page.evaluate('proof.liveEvents'),'held':page.evaluate('proof.heldObserved'),'native_replies':page.evaluate('proof.nativeReplies'),'worker_events':page.evaluate('proof.workerEvents'),'signal_events':page.evaluate('proof.signalEvents'),'frames':page.evaluate('proof.frames'),'worker_delay':page.evaluate('proof.workerDelay')})
+                save(f'host-input-{i}-failure.json',{'buttons':page.locator('button:visible').all_text_contents(),'status':page.locator('.rc-status').all_inner_texts(),'room':page.evaluate('proof.room'),'native':page.evaluate('proof.nativeCommands.slice(-8)'),'live':page.evaluate('proof.liveEvents'),'held':page.evaluate('proof.heldObserved'),'native_replies':page.evaluate('proof.nativeReplies'),'worker_events':page.evaluate('proof.workerEvents'),'signal_events':page.evaluate('proof.signalEvents'),'frames':page.evaluate('proof.frames'),'worker_delay':page.evaluate('proof.workerDelay'),'received_inputs':page.evaluate('proof.receivedInputs'),'sent_leases':page.evaluate('proof.sentLeases'),'delayed_inputs':page.evaluate('proof.delayedInputs')})
             raise
 
 if args.role == 'host-input':
