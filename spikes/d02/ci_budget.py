@@ -19,6 +19,46 @@ if not 60 <= BUDGET_SECONDS <= 1800:
     raise SystemExit('D02_BUDGET_SECONDS must be between 60 and 1800')
 
 
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def requires_product_checks(event, labels, paths):
+    # Only known prose inputs may omit product validation. Empty/unknown scope,
+    # workflow changes and the release gate retain the complete workload.
+    if event != 'pull_request' or 'release-gate-proof' in labels or not paths:
+        return True
+    return any(not (path in {'README.md', 'AGENTS.md'} or
+                        (path.startswith('docs/') and path.endswith('.md')))
+               for path in paths)
+
+
+def product_checks_selected():
+    if os.environ.get('GITHUB_EVENT_NAME') != 'pull_request':
+        return True
+    try:
+        event = json.loads(Path(os.environ['GITHUB_EVENT_PATH']).read_text())
+        pr = event['pull_request']
+        labels = [label['name'] for label in pr['labels']]
+        base, head = pr['base']['sha'], pr['head']['sha']
+        if not all(len(sha) == 40 and all(c in '0123456789abcdef' for c in sha)
+                   for sha in (base, head)):
+            raise ValueError('Invalid pull-request revisions')
+        paths = subprocess.check_output(
+            ['git', 'diff', '--no-renames', '--name-only', '-z', f'{base}...{head}'],
+            cwd=ROOT, stderr=subprocess.PIPE).decode().split('\0')
+        return requires_product_checks('pull_request', labels, [path for path in paths if path])
+    except (KeyError, ValueError, TypeError, OSError, subprocess.CalledProcessError) as error:
+        print(f'CI change scope unavailable; keeping full product checks: {error}', file=sys.stderr)
+        return True
+
+
+def selected_gates(product):
+    if not product:
+        return ['build']
+    return ['entrypoint-' + suite for suite in
+            ('journey', 'controls', 'ui', 'layout', 'recovery', 'save-load')] + ['images']
+
+
 def timestamp(value):
     parsed = datetime.datetime.fromisoformat(value.replace('Z', '+00:00'))
     if parsed.tzinfo is None:
@@ -136,6 +176,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='action', required=True)
     commands.add_parser('deadline')
+    commands.add_parser('select')
     for name in ['check', 'run']:
         child = commands.add_parser(name)
         child.add_argument('--deadline', required=True, type=float)
@@ -144,15 +185,20 @@ def main():
             child.add_argument('command', nargs=argparse.REMAINDER)
     child = commands.add_parser('watch')
     child.add_argument('--gate', action='append')
+    child.add_argument('--selected-gates', action='store_true')
     args = parser.parse_args()
     reject_retry()
+    if args.action == 'select':
+        print('true' if product_checks_selected() else 'false')
+        return 0
     if args.action == 'deadline':
         print(f'{run_deadline():.6f}')
         return 0
     if args.action == 'check':
         return 0 if remaining(args.deadline) > 0 else 124
     if args.action == 'watch':
-        return watch(args.gate or ['preflight'])
+        return watch(selected_gates(product_checks_selected()) if args.selected_gates
+                     else args.gate or ['preflight'])
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
     if args.namespace:
         command = namespace_command(command)

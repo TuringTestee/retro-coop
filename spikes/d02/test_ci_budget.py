@@ -1,6 +1,7 @@
 """Exercise shared time accounting, command termination and watchdog decisions."""
 import contextlib
 import io
+import json
 import os
 import signal
 import subprocess
@@ -17,6 +18,80 @@ class BudgetTests(unittest.TestCase):
         self.env = patch.dict(os.environ, {'GITHUB_RUN_ATTEMPT': '1'})
         self.env.start()
         self.addCleanup(self.env.stop)
+
+    def test_docs_selection_retains_unknown_and_product_coverage(self):
+        docs = ['docs/design/host-immediate-input.md',
+                'docs/implementation/browser-nes-platform.md', 'README.md']
+        self.assertFalse(budget.requires_product_checks('pull_request', [], docs))
+        for path in ['apps/client/src/main.ts', 'packages/contracts/src/index.ts',
+                     '.github/workflows/ci.yml', 'scripts/preflight.sh',
+                     'spikes/d02/ci_budget.py', 'package-lock.json',
+                     'docs/generated.js', 'new-area/README.md']:
+            with self.subTest(path=path):
+                self.assertTrue(budget.requires_product_checks('pull_request', [], docs + [path]))
+        for event, labels, paths in [('push', [], docs),
+                                     ('pull_request', ['release-gate-proof'], docs),
+                                     ('workflow_dispatch', [], docs),
+                                     ('pull_request', [], []),
+                                     ('pull_request', [], None)]:
+            self.assertTrue(budget.requires_product_checks(event, labels, paths))
+
+    def test_selection_uses_pr_merge_base_and_preserves_deleted_paths(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.check_output(['git', '-C', directory, *args], text=True).strip()
+            git('init', '-q')
+            git('config', 'user.name', 'CI policy test')
+            git('config', 'user.email', 'ci@example.invalid')
+            (root / 'product.ts').write_text('original')
+            (root / 'README.md').write_text('original')
+            git('add', '.')
+            git('commit', '-qm', 'base')
+            base = git('rev-parse', 'HEAD')
+            (root / 'README.md').write_text('updated docs')
+            git('commit', '-qam', 'docs')
+            head = git('rev-parse', 'HEAD')
+            event = root / 'event.json'
+            event.write_text(json.dumps({'pull_request': {
+                'base': {'sha': base}, 'head': {'sha': head}, 'labels': []}}))
+            with patch.dict(os.environ, {'GITHUB_EVENT_NAME': 'pull_request',
+                                        'GITHUB_EVENT_PATH': str(event)}):
+                with patch.object(budget, 'ROOT', root):
+                    self.assertFalse(budget.product_checks_selected())
+                    # Base advancement must not count unrelated changes on main.
+                    git('checkout', '-q', '-b', 'main-advanced', base)
+                    (root / 'product.ts').write_text('changed on main')
+                    git('commit', '-qam', 'main product change')
+                    data = json.loads(event.read_text())
+                    data['pull_request']['base']['sha'] = git('rev-parse', 'HEAD')
+                    event.write_text(json.dumps(data))
+                    git('checkout', '-q', '--detach', head)
+                    self.assertFalse(budget.product_checks_selected())
+                    # A product file renamed into the docs allowlist must retain coverage.
+                    (root / 'docs').mkdir()
+                    git('mv', 'product.ts', 'docs/converted.md')
+                    git('commit', '-qam', 'rename product')
+                    data = json.loads(event.read_text())
+                    data['pull_request']['head']['sha'] = git('rev-parse', 'HEAD')
+                    event.write_text(json.dumps(data))
+                    self.assertTrue(budget.product_checks_selected())
+                    data['pull_request']['base']['sha'] = 'f' * 40
+                    event.write_text(json.dumps(data))
+                    with contextlib.redirect_stderr(io.StringIO()):
+                        self.assertTrue(budget.product_checks_selected())
+                    event.write_text('{}')
+                    with contextlib.redirect_stderr(io.StringIO()):
+                        self.assertTrue(budget.product_checks_selected())
+
+    def test_watch_selection_matches_scheduled_jobs(self):
+        self.assertEqual(budget.selected_gates(False), ['build'])
+        gates = budget.selected_gates(True)
+        self.assertEqual(len(gates), 7)
+        self.assertIn('entrypoint-recovery', gates)
+        self.assertIn('images', gates)
 
     def test_api_start_includes_setup_and_queue(self):
         started = budget.timestamp('2026-09-13T00:00:00Z')
