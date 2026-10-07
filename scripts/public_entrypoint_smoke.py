@@ -152,8 +152,15 @@ def cartridge_replacement(browser,url,output):
         h.get_by_role('button',name='Resume together',exact=True).click()
         h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         print(json.dumps({'actual_native_preparation_rejection':prepare_fault}),flush=True)
+        # Candidate acquisition must preserve a valid periodic hash owned by the
+        # retained native emulator, even when its response arrives after selection.
+        interval=h.evaluate('async path=>(await import(path)).gameplayLimits.hashInterval','/@fs'+str(ROOT/'packages/contracts/src/gameplay.ts'))
+        h.evaluate('interval=>proof.finalHashDelay={frame:Math.ceil((proof.frames.at(-1).frame+2)/interval)*interval,delayMs:2500}',interval)
+        h.wait_for_function('proof.finalHashDelay.response!==undefined')
+        print(json.dumps({'held_active_periodic_hash':h.evaluate('proof.finalHashDelay')}),flush=True)
         h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='From Below',exact=True).click()
         h.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&!proof.room.started',timeout=35000)
+        assert not h.evaluate('proof.events.some(row=>row.kind==="send"&&row.type==="gameAbort")'),'candidate acquisition aborted a valid active native hash'
         for p in pages:p.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&proof.room.matches',timeout=15000)
         assert h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))')==roster
         assert h.get_by_text('Saved progress loaded.',exact=True).count()==0

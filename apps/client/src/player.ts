@@ -36,7 +36,8 @@ export class LocalPlayer {
  private pagehide=()=>{void this.persistBattery();};
  private nextRequest = 0;
  private pending = new Map<number,{worker:Worker;resolve:(value:WorkerResponse)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
- private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(new DOMException(message,'AbortError'));}this.pending.clear();}
+ // Candidate changes retain requests owned by the active emulator until it is retired.
+ private rejectPending(message:string,retainedWorker?:Worker) {for(const [id,request] of this.pending){if(request.worker===retainedWorker)continue;clearTimeout(request.timer);this.pending.delete(id);request.reject(new DOMException(message,'AbortError'));}}
  private fileRequest(message:FileCommand,target?:Worker):Promise<WorkerResponse> {
   const worker=target ?? this.active;
   if(!worker || this.disposed || !target && this.state.loading && !this.shared || worker!==this.active && worker!==this.candidate && worker!==this.cartridgeTransaction?.previous?.worker)return Promise.reject(Error('Wait for a game to finish loading.'));
@@ -197,7 +198,7 @@ export class LocalPlayer {
   if(cartridge){
    if(!current()||this.cartridgeOwner!==transactionId)return this.stateHash();
    const old=cartridge.previous;if(old){this.active=old.worker;this.selectedRom=old.rom;this.batterySession=old.battery;this.fps=old.fps;this.state=old.state;}
-   cartridge.worker.terminate();this.candidate=undefined;
+   this.rejectPending('Game change rolled back.',this.active);cartridge.worker.terminate();this.candidate=undefined;
    // Keep the selection lease until the retained machine proves its boundary.
    // Revoking it sooner lets the UI cancel this very rollback hash request.
    const info=await this.stateHash();if(!current()||this.cartridgeTransaction!==cartridge)return info;
@@ -207,7 +208,7 @@ export class LocalPlayer {
   }
   const reply=await this.fileRequest({type:'peer-checkpoint-rollback',operationId:transactionId});if(reply.type!=='peer-checkpoint-rolled-back')throw Error('Unexpected rollback response');if(!current())return reply;this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Previous progress preserved. Prepare to resume.'});return reply;
  }
- async finishSharedSave(transactionId:string,current:()=>boolean=()=>true){const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');if(cartridge){if(!current()||this.cartridgeTransaction!==cartridge||this.cartridgeOwner!==transactionId)return;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;cartridge.previous?.worker.terminate();this.preparedSelection=undefined;this.selectionLock=false;this.cartridgeCompletion=undefined;cartridge.prepared.publishCommit();cartridge.complete?.({ok:true});}}
+ async finishSharedSave(transactionId:string,current:()=>boolean=()=>true){const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');if(cartridge){if(!current()||this.cartridgeTransaction!==cartridge||this.cartridgeOwner!==transactionId)return;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;this.rejectPending('Game replaced.',this.active);cartridge.previous?.worker.terminate();this.preparedSelection=undefined;this.selectionLock=false;this.cartridgeCompletion=undefined;cartridge.prepared.publishCommit();cartridge.complete?.({ok:true});}}
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
   if(this.shared)throw Error('Shared rewind is not available yet. Leave the lobby before rewinding locally.');
@@ -340,7 +341,7 @@ export class LocalPlayer {
   const cartridge=this.cartridgeTransaction,complete=this.cartridgeCompletion;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;this.cartridgeCompletion=undefined;
   if(cartridge){const previous=cartridge.previous;if(previous&&!terminal&&this.active===cartridge.worker){this.active=previous.worker;this.selectedRom=previous.rom;this.batterySession=previous.battery;this.state=previous.state;this.fps=previous.fps;}else previous?.worker.terminate();if(this.active===cartridge.worker){cartridge.worker.terminate();this.active=undefined;}else cartridge.worker.terminate();}
   complete?.({ok:false,message:'Game selection cancelled.'});
-  this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
+  this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.',terminal?undefined:this.active); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
  rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,selectionPhase:'failed',status:message}); }
  cancel() {
   if(this.selectionLock)return;
@@ -474,7 +475,7 @@ export class LocalPlayer {
      const publishCommit=()=>{this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,status:startPaused?'Game loaded. Resume whenever you’re ready.':'Playing locally. The game runs in this browser.',fingerprint,previewImage});committed?.(fingerprint);if(!startPaused)this.canvas.focus();};
      const commit=()=>{if(committedWorker)return;committedWorker=true;
      const cartridge=this.cartridgeTransaction?.worker===worker?this.cartridgeTransaction:undefined;
-     if(cartridge&&this.active)cartridge.previous={worker:this.active,rom:this.selectedRom,battery:this.batterySession,state:{...this.state},fps:this.fps};else this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
+     if(cartridge&&this.active)cartridge.previous={worker:this.active,rom:this.selectedRom,battery:this.batterySession,state:{...this.state},fps:this.fps};else {this.rejectPending('Game replaced.',worker);this.active?.terminate();} this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      if(!cartridge)publishCommit();
      };

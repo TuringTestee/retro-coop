@@ -177,3 +177,17 @@ test('an old hash stream after successful live retry cannot disturb current host
   h.data.receive(JSON.stringify({kind:'hash',epoch,stream:transferId,frame:120,hash:'0'.repeat(64)}));await flush();assert.equal(h.commands.filter(command=>command.type==='gameResynchronize').length,before+1);
  }finally{h.game.dispose();}
 });
+
+test('Pause transfers periodic native hash ownership while active failures still interrupt play',async()=>{
+ for(const paused of [false,true])for(const failure of [false,true]){
+  const h=await setup('host',119);let resolve!:(value:{frame:number;hash:string;fresh:boolean})=>void,reject!:(error:Error)=>void;
+  try{h.setHash(()=>new Promise((done,fail)=>{resolve=done;reject=fail;}));assert.equal(h.driver.next(0)?.frame,119);h.complete(119);
+   if(paused){h.game.handle({type:'gamePauseAt',epoch,frame:120,hash,reason:'Preparing to change game.'});await flush();assert.ok(h.commands.some(command=>command.type==='gamePaused'&&command.frame===120));}
+   const wakes=h.stats().wakes;
+   if(failure)reject(new DOMException('The old native worker was retired.','AbortError'));else resolve({frame:120,hash,fresh:false});await flush();
+   assert.equal(h.commands.some(command=>command.type==='gameAbort'),!paused&&failure,'only the current running timeline owns periodic hash failures');
+   assert.equal(h.data.sent.some(raw=>JSON.parse(raw as string).kind==='hash'),!paused&&!failure,'closed play cannot publish a late hash');
+   if(paused)assert.equal(h.stats().wakes,wakes,'closed periodic work cannot wake the paused emulator');
+  }finally{h.game.dispose();}
+ }
+});
