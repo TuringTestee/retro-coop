@@ -3,6 +3,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import http from 'node:http';
 import {crc32,deflateRawSync} from 'node:zlib';
 import {ZIP_ARCHIVE_LIMIT} from '../../packages/contracts/src/game-file.ts';
+import {gameplayProtocol} from '@retro-coop/contracts/src/gameplay.ts';
 
 const base = process.argv[2];
 if (!base || !base.startsWith('http://')) throw Error('Pass the local HTTP edge URL.');
@@ -104,8 +105,8 @@ const host = await connect('127.0.2.1', '203.0.113.1');
 const guest = await connect('127.0.2.2', '203.0.113.2');
 let progressingUploadSeconds = 0;
 try {
-  const hostToken = (await command(host, {type:'hello'})).session.token;
-  const guestToken = (await command(guest, {type:'hello'})).session.token;
+  const hostToken = (await command(host, {type:'hello',gameplayProtocol})).session.token;
+  const guestToken = (await command(guest, {type:'hello',gameplayProtocol})).session.token;
   // An original NES fixture in a deflated archive reaches the production proxy route.
   const name=Buffer.from('folder/Edge game.nes'),data=deflateRawSync(rom),crc=crc32(rom);
   const local=Buffer.alloc(30);local.writeUInt32LE(0x04034b50);local.writeUInt16LE(20,4);local.writeUInt16LE(8,8);local.writeUInt32LE(crc,14);local.writeUInt32LE(data.length,18);local.writeUInt32LE(rom.length,22);local.writeUInt16LE(name.length,26);
