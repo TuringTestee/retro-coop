@@ -4,6 +4,8 @@ Audience: Human
 
 # Lobby wireframe v6 critique
 
+This critique evaluates initial guest cartridge acquisition and reservation release, not preparation of an already selected shared game. The latter follows the [current preparation rule](mobile-controller-direction.md#safe-expansion-and-return), without a visible Cancel preparation action.
+
 Review of [v6](lobby-wireframe-v6.md) against [approved transfer behavior](room-rom-transfer.md) and the shared six rules. Each row names the visible evidence; runtime results remain separate.
 
 | Page/state | Journeys | Feature support | Just in time | One route | Concise/consistent | Borrow before inventing | Remaining runtime check |

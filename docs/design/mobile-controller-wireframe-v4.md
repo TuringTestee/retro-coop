@@ -4,7 +4,7 @@ Audience: Human
 
 # Mobile controller wireframe v4 — approved design
 
-Historical approved baseline, superseded for Settings, name placement, editing and feedback by [gameplay controls](gameplay-controls.md). The original approval below remains a historical record; it does not require retaining the replaced routes.
+Historical approved baseline, superseded for Settings, name placement, editing and feedback by [gameplay controls](gameplay-controls.md), and for hit areas and expansion/Return gestures by the [current controller direction](mobile-controller-direction.md). The original approval below remains a historical record; it does not require retaining the replaced routes.
 
 At the baseline revision: one phone panel at a time, full names/editing in Settings → Profile, and automatic expanded view on first usable phone play entry. Desktop remains manual. Canvas-click and the top-right control activate the same presentation state; Return preserves live play and the previous panel. v1–v3 remain historical proposals.
 
