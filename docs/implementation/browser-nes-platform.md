@@ -4,6 +4,8 @@ Audience: Agent
 
 # Browser NES platform delivery plan
 
+Planned gameplay amendment: [host input without network waiting](host-immediate-input.md) replaces shared input-delay scheduling when delivered. The released behavior remains delayed-input synchronization until that implementation passes its integrated gate.
+
 The later [room access and automatic routing plan](room-access-and-routing.md) supersedes Public/Unlisted and user-selected Standard/Relay-only obligations below. Public and listed password-protected rooms use one reservation gate; other release and verification duties remain.
 
 The [five-slot lobby amendment](five-slot-lobby.md) supersedes this document’s two-person room ceiling, single Guest place, observer deferral, and post-Start admission restriction wherever they occur. It preserves game-specific controller limits and uses local emulation with progress-preserving role changes. Governing PR #160 is merged. Five-slot execution and integrated acceptance are tracked in [feature #157](https://github.com/TuringTestee/retro-coop/issues/157); the historical two-person evidence below does not prove those journeys. The amendment also owns observer isolation, ten voice pairs, per-member acquisition and membership, and current checkpoint limits. Unaffected requirements and historical evidence remain.
