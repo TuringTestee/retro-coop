@@ -27,7 +27,7 @@ export type RoomView = HumanRoomPreview & {game:GameView;hostReady:boolean;start
 export type SessionInfo = { token:string; nickname:string; expiresInMs:number };
 export type ReservationRequest = {requestId:string;intent:string};
 export type RoomCommand = GameCommand | ChatCommand | PeerCommand | DirectoryCommand
- | { type:'hello'; requestId:string; token?:string }
+ | { type:'hello'; requestId:string; token?:string; gameplayProtocol?:number }
  | { type:'heartbeat'; requestId:string }
  | { type:'preview'; requestId:string; invite:string }
  | { type:'create'; requestId:string; intent:string; visibility:NewVisibility; fingerprint:Fingerprint; password?:string }
@@ -68,7 +68,7 @@ export function parseRoomCommand(value:unknown): RoomCommand | undefined {
  let valid = false;
  switch(value.type) {
   case 'chat': valid=keys(value,[...base,'roomId','membership','clientId','text']) && token(value.roomId) && token(value.membership) && token(value.clientId) && validChatText(value.text);break;
-  case 'hello': valid = keys(value,base,['token']) && (value.token === undefined || token(value.token)); break;
+  case 'hello': valid = keys(value,base,['token','gameplayProtocol']) && (value.gameplayProtocol===undefined||Number.isSafeInteger(value.gameplayProtocol)&&Number(value.gameplayProtocol)>=0) && (value.token === undefined || token(value.token)); break;
   case 'directory': valid = keys(value,base,['includeEmptyOffers']) && (value.includeEmptyOffers===undefined || typeof value.includeEmptyOffers==='boolean'); break;
   case 'heartbeat': valid = keys(value,base); break;
   case 'close': valid=keys(value,[...base,'roomId']) && token(value.roomId);break;

@@ -55,7 +55,7 @@ test('operator listener requires private owned directory and has no public HTTP 
 test('confirmed operator removal closes exact room and directory entry without disclosing private content',async()=>{
  await fixture(async t=>{
   const host=await t.open('192.0.2.1'),guest=await t.open('192.0.2.2'),viewer=await t.open('192.0.2.3');
-  const auth=await host.command({type:'hello'});await guest.command({type:'hello'});await viewer.command({type:'hello'});await viewer.command({type:'directory'});
+  const auth=await host.command({type:'hello',gameplayProtocol:2});await guest.command({type:'hello',gameplayProtocol:2});await viewer.command({type:'hello',gameplayProtocol:2});await viewer.command({type:'directory'});
   const intent=randomUUID(),created=await host.command({type:'create',intent,visibility:'public',fingerprint}),room=created.data.room;
   await host.command({type:'confirmCreate',intent});await guest.command({type:'join',intent:randomUUID(),invite:room.invite});
   const listed=await operatorRequest(t.directory,{type:'list'});assert.ok('rooms' in listed);assert.equal(listed.rooms.length,1);
@@ -73,25 +73,25 @@ test('confirmed operator removal closes exact room and directory entry without d
 test('address block revokes old token, targets canonical proxy client, rejects fresh connections and expires',async()=>{
  await fixture(async t=>{
   const blocked=await t.open('::ffff:c000:201'),other=await t.open('192.0.2.2');
-  const token=(await blocked.command({type:'hello'})).data.session.token;await other.command({type:'hello'});
+  const token=(await blocked.command({type:'hello',gameplayProtocol:2})).data.session.token;await other.command({type:'hello',gameplayProtocol:2});
   const list=await operatorRequest(t.directory,{type:'list'});assert.ok('subjects' in list);const subject=list.subjects.find(s=>s.address==='192.0.2.1')!;assert.ok(subject);
   const preview=await operatorRequest(t.directory,{type:'block-address',subjectId:subject.id,seconds:60});
   const detached=t.detached(token),closed=once(blocked.ws,'close');await operatorRequest(t.directory,{type:'confirm',confirmation:confirmation(preview)});assert.equal((await closed)[0],4003);await detached;
   assert.equal((await other.command({type:'heartbeat'})).ok,true);
   const retry=await t.open('192.0.2.1'),denied=once(retry.ws,'close');
-  retry.ws.send(JSON.stringify({type:'hello',requestId:randomUUID()}));assert.equal((await denied)[0],4003);assert.deepEqual(retry.events,[]);
+  retry.ws.send(JSON.stringify({type:'hello',gameplayProtocol:2,requestId:randomUUID()}));assert.equal((await denied)[0],4003);assert.deepEqual(retry.events,[]);
   const subjects=await operatorRequest(t.directory,{type:'list'});assert.ok('subjects' in subjects);assert.equal(subjects.subjects.find(s=>s.id===subject.id)?.connections,0);
   t.advance(60_001);
-  const after=await t.open('192.0.2.1');assert.equal((await after.command({type:'hello',token})).error,'session_expired');
-  assert.equal((await after.command({type:'hello'})).ok,true);
+  const after=await t.open('192.0.2.1');assert.equal((await after.command({type:'hello',gameplayProtocol:2,token})).error,'session_expired');
+  assert.equal((await after.command({type:'hello',gameplayProtocol:2})).ok,true);
  });
 });
 test('changed admission membership invalidates prepared block and malformed commands cannot mutate',async()=>{
  await fixture(async t=>{
-  const first=await t.open('192.0.2.1');await first.command({type:'hello'});
+  const first=await t.open('192.0.2.1');await first.command({type:'hello',gameplayProtocol:2});
   const list=await operatorRequest(t.directory,{type:'list'});assert.ok('subjects' in list);const id=list.subjects[0].id;
   const preview=await operatorRequest(t.directory,{type:'block-address',subjectId:id,seconds:60});
-  const second=await t.open('192.0.2.1');await second.command({type:'hello'});
+  const second=await t.open('192.0.2.1');await second.command({type:'hello',gameplayProtocol:2});
   await assert.rejects(operatorRequest(t.directory,{type:'confirm',confirmation:confirmation(preview)}),/changed/);
   for(const command of [{type:'block-address',subjectId:id,seconds:3601},{type:'block-address',subjectId:id,seconds:0},{type:'block-address',subjectId:id,seconds:60,address:'192.0.2.2'},{type:'confirm',confirmation:'x'.repeat(32)}])await assert.rejects(operatorRequest(t.directory,command));
   assert.equal((await first.command({type:'heartbeat'})).ok,true);assert.equal((await second.command({type:'heartbeat'})).ok,true);
@@ -113,7 +113,7 @@ test('a stale transport cannot revoke a session that moved to another connection
 });
 test('CLI presents exact action and cancellation leaves target connected',async()=>{
  await fixture(async t=>{
-  const client=await t.open('192.0.2.1');await client.command({type:'hello'});
+  const client=await t.open('192.0.2.1');await client.command({type:'hello',gameplayProtocol:2});
   const list=await operatorRequest(t.directory,{type:'list'});assert.ok('subjects' in list);
   const child=spawn(process.execPath,['apps/coordinator/src/operator-cli.ts',t.directory,'block-address',list.subjects[0].id,'60'],{stdio:['pipe','pipe','pipe']});
   let stdout='',stderr='';child.stdout.on('data',data=>{stdout+=data;if(stdout.includes('Type CONFIRM'))child.stdin.end('cancel\n');});child.stderr.on('data',data=>{stderr+=data;});
@@ -135,7 +135,7 @@ test('actual coordinator entry point enables only private operator socket and sh
 });
 test('CLI escapes terminal direction controls in untrusted room labels',async()=>{
  await fixture(async t=>{
-  const host=await t.open('192.0.2.1');await host.command({type:'hello'});
+  const host=await t.open('192.0.2.1');await host.command({type:'hello',gameplayProtocol:2});
   const intent=randomUUID(),room=(await host.command({type:'create',intent,visibility:'public',fingerprint})).data.room;
   await host.command({type:'confirmCreate',intent});await host.command({type:'rename',roomId:room.id,label:'Room\u061c\u200e\u200f\u202e reversed'});
   const {stdout}=await promisify(execFile)(process.execPath,['apps/coordinator/src/operator-cli.ts',t.directory,'list'],{timeout:5000});

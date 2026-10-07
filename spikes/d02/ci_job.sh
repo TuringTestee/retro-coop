@@ -65,6 +65,7 @@ if [[ "$D02_JOB" == entrypoint-* ]]; then
       done
       ;;
     entrypoint-save-load)
+      timeout --foreground 60s python3 scripts/rooms/two_agent_game.py --role host-input --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/host-input
       timeout --foreground 120s python3 scripts/rooms/two_agent_game.py --role shared-load --expect-controller-ram 0,64 --rom spikes/d02/fixture.local.nes --session-dir spikes/d02/public-entrypoint.local/shared-load
       ;;
     entrypoint-recovery)

@@ -12,7 +12,7 @@ type BatterySession={worker:Worker;info:LocalFileInfo;generation:number;record?:
 const disconnectedMessage = 'Controller unavailable. Keyboard and on-screen controls are ready.';
 
 export type {Fingerprint as LocalFingerprint} from '../../../packages/contracts/src/fingerprint.ts';
-export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;silent?:()=>boolean};
+export type GameDriver={epoch:string;next:(mask:number)=>{frame:number;p1:number;p2:number}|undefined;committed:(frame:number)=>void;pause:(reason:GameReason)=>void;draining:()=>boolean;ownsInput?:boolean;sample?:(mask:number,release?:boolean)=>void;silent?:()=>boolean};
 export type GameSelectionResult={ok:boolean;uncertain?:boolean;message?:string};
 type PreparedSelection={worker:Worker;current:()=>boolean;commit:()=>void;publishCommit:()=>void;fail:(message:string)=>void};
 export type PlayerState = { shared?:boolean; status: string; loading: boolean; selectionVersion?:number; selectionPhase?:'loading'|'uncertain'|'loaded'|'failed'|'cancelled'; running: boolean; loaded: boolean; frames: number; previewImage?:string; audioIssue?: string; audioState?: AudioContextState; inputIssue?: string; rewind?:RewindInfo; storageIssue?:string; batteryAvailable?:boolean; fingerprint?: LocalFingerprint };
@@ -26,7 +26,7 @@ export class LocalPlayer {
  private game?:GameDriver;
  private gameTimer?:ReturnType<typeof setTimeout>;
  private gameProgressAt=0;
- private gameLastPumpAt=0;
+ private gameLastPumpAt=0;private gameInputAt=0;
  private gameStarted=0;private gameFrames=0;
  private shared=false;
  private expectedFrame?:{epoch:string;frame:number};
@@ -36,7 +36,8 @@ export class LocalPlayer {
  private pagehide=()=>{void this.persistBattery();};
  private nextRequest = 0;
  private pending = new Map<number,{worker:Worker;resolve:(value:WorkerResponse)=>void;reject:(error:Error)=>void;timer:ReturnType<typeof setTimeout>}>();
- private rejectPending(message:string) {for(const request of this.pending.values()){clearTimeout(request.timer);request.reject(new DOMException(message,'AbortError'));}this.pending.clear();}
+ // Candidate changes retain requests owned by the active emulator until it is retired.
+ private rejectPending(message:string,retainedWorker?:Worker) {for(const [id,request] of this.pending){if(request.worker===retainedWorker)continue;clearTimeout(request.timer);this.pending.delete(id);request.reject(new DOMException(message,'AbortError'));}}
  private fileRequest(message:FileCommand,target?:Worker):Promise<WorkerResponse> {
   const worker=target ?? this.active;
   if(!worker || this.disposed || !target && this.state.loading && !this.shared || worker!==this.active && worker!==this.candidate && worker!==this.cartridgeTransaction?.previous?.worker)return Promise.reject(Error('Wait for a game to finish loading.'));
@@ -140,6 +141,7 @@ export class LocalPlayer {
   if(running)this.resume();
  }
 
+ setGameInputOwner(ownsInput:boolean){if(this.game){this.game.ownsInput=ownsInput;if(!ownsInput)this.release();}}
  sampleGameInput(){return this.controllerMask(this.inputDevice().pressed);}
  async bindGameEpoch(epoch:string,frame:number,hash:string){
   if(!this.shared||this.state.running||this.busy)throw Error('Pause before preparing shared play.');
@@ -196,7 +198,7 @@ export class LocalPlayer {
   if(cartridge){
    if(!current()||this.cartridgeOwner!==transactionId)return this.stateHash();
    const old=cartridge.previous;if(old){this.active=old.worker;this.selectedRom=old.rom;this.batterySession=old.battery;this.fps=old.fps;this.state=old.state;}
-   cartridge.worker.terminate();this.candidate=undefined;
+   this.rejectPending('Game change rolled back.',this.active);cartridge.worker.terminate();this.candidate=undefined;
    // Keep the selection lease until the retained machine proves its boundary.
    // Revoking it sooner lets the UI cancel this very rollback hash request.
    const info=await this.stateHash();if(!current()||this.cartridgeTransaction!==cartridge)return info;
@@ -206,7 +208,7 @@ export class LocalPlayer {
   }
   const reply=await this.fileRequest({type:'peer-checkpoint-rollback',operationId:transactionId});if(reply.type!=='peer-checkpoint-rolled-back')throw Error('Unexpected rollback response');if(!current())return reply;this.audio.flush();this.release();this.expectedFrame=undefined;this.publish({frames:reply.frame,rewind:undefined,status:'Previous progress preserved. Prepare to resume.'});return reply;
  }
- async finishSharedSave(transactionId:string,current:()=>boolean=()=>true){const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');if(cartridge){if(!current()||this.cartridgeTransaction!==cartridge||this.cartridgeOwner!==transactionId)return;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;cartridge.previous?.worker.terminate();this.preparedSelection=undefined;this.selectionLock=false;this.cartridgeCompletion=undefined;cartridge.prepared.publishCommit();cartridge.complete?.({ok:true});}}
+ async finishSharedSave(transactionId:string,current:()=>boolean=()=>true){const cartridge=this.cartridgeTransaction?.id===transactionId?this.cartridgeTransaction:undefined;const reply=await this.fileRequest({type:'peer-checkpoint-finish',operationId:transactionId});if(reply.type!=='peer-checkpoint-finished')throw Error('Unexpected save commit response');if(cartridge){if(!current()||this.cartridgeTransaction!==cartridge||this.cartridgeOwner!==transactionId)return;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;this.rejectPending('Game replaced.',this.active);cartridge.previous?.worker.terminate();this.preparedSelection=undefined;this.selectionLock=false;this.cartridgeCompletion=undefined;cartridge.prepared.publishCommit();cartridge.complete?.({ok:true});}}
  async history():Promise<RewindInfo> {const reply=await this.fileRequest({type:'state-history'});if(reply.type!=='state-history')throw Error('Unexpected history response');return reply.info;}
  async rewind(seconds:number) {
   if(this.shared)throw Error('Shared rewind is not available yet. Leave the lobby before rewinding locally.');
@@ -264,16 +266,16 @@ export class LocalPlayer {
  private inputBlocked=false;
  blockGameInput(blocked:boolean){this.inputBlocked=blocked;if(blocked)this.release();}
  private inputFocused(){const active=document.activeElement;return !this.inputBlocked&&(active===this.canvas || !!active?.closest('[data-game-input] button, [data-game-input] [tabindex]'));}
- setVirtualInput(mask:number){this.virtualMask=this.state.running&&!document.hidden&&this.inputFocused()&&this.game?.ownsInput!==false?mask&255:0;}
- private release = () => { this.virtualMask=0;this.keys.clear();this.rapidStarted.clear();this.gamepadInput.release(this.controls.device); };
+ setVirtualInput(mask:number){this.virtualMask=this.state.running&&!document.hidden&&this.inputFocused()&&this.game?.ownsInput!==false?mask&255:0;this.game?.sample?.(this.sampleGameInput());}
+ private release = () => { this.virtualMask=0;this.keys.clear();this.rapidStarted.clear();this.gamepadInput.release(this.controls.device);this.game?.sample?.(0,true); };
  releaseControllers(){this.release();}
  private down = (event: KeyboardEvent) => {
   if(!event.repeat && this.inputFocused() && this.state.running && !((event.target as Element)?.closest('[data-game-input] button')&&['Enter','Space'].includes(event.code))) {
    const mapped=Object.values(this.controls.keyboard).some(bindings=>bindings.includes(event.code));
-   if(mapped){event.preventDefault();this.keys.add(event.code);if(this.controls.keyboard.rapidA.includes(event.code)||this.controls.keyboard.rapidB.includes(event.code))this.rapidStarted.set(event.code,performance.now());}
+   if(mapped){event.preventDefault();this.keys.add(event.code);if(this.controls.keyboard.rapidA.includes(event.code)||this.controls.keyboard.rapidB.includes(event.code))this.rapidStarted.set(event.code,performance.now());this.game?.sample?.(this.sampleGameInput());}
   }
  };
- private up = (event: KeyboardEvent) => { this.keys.delete(event.code);this.rapidStarted.delete(event.code); };
+ private up = (event: KeyboardEvent) => { this.keys.delete(event.code);this.rapidStarted.delete(event.code);this.game?.sample?.(this.sampleGameInput()); };
  configureControls(controls: Controls) { this.controls = controls; this.release(); this.publish({inputIssue:undefined}); }
  setVolume(value:number) { if(!Number.isFinite(value) || value<0 || value>1) throw Error('Volume must be between 0 and 1'); this.volume=value; if(this.gain) this.gain.gain.value=this.muted ? 0 : value; }
  private focusChanged = () => {if(!this.inputFocused())this.release();};
@@ -307,15 +309,15 @@ export class LocalPlayer {
   this.busy=true;this.send(this.active,{type:'frame',p1:mask,p2:0});
  }
  // As in the qualified D02 scheduler, wall time sets an absolute target. Input
- // waits retain debt; each worker request still commits exactly one known frame.
+ // delivery retains debt; each worker request still commits one immutable command.
  private pumpGame = () => {
   clearTimeout(this.gameTimer);
   if(!this.game||this.disposed)return;
   this.gameTimer=setTimeout(this.pumpGame,2);
   if(!this.active||!this.state.running)return;
+  const now=performance.now(),{pressed}=this.inputDevice();if(now-this.gameInputAt>=1000/this.fps){this.gameInputAt=now;this.game.sample?.(this.game.ownsInput===false?0:this.controllerMask(pressed));}
   if(this.game.draining()){this.drainGame();return;}
-  const {pressed}=this.inputDevice();
-  const now=performance.now(),gap=now-this.gameLastPumpAt;
+  const gap=now-this.gameLastPumpAt;
   this.gameLastPumpAt=now;
   // A suspended tab resumes with wall-time debt, not evidence of lost input.
   // Missing peer input is timed by GameClient; only a worker that remains busy
@@ -339,7 +341,7 @@ export class LocalPlayer {
   const cartridge=this.cartridgeTransaction,complete=this.cartridgeCompletion;this.cartridgeTransaction=undefined;this.cartridgeOwner=undefined;this.cartridgeCompletion=undefined;
   if(cartridge){const previous=cartridge.previous;if(previous&&!terminal&&this.active===cartridge.worker){this.active=previous.worker;this.selectedRom=previous.rom;this.batterySession=previous.battery;this.state=previous.state;this.fps=previous.fps;}else previous?.worker.terminate();if(this.active===cartridge.worker){cartridge.worker.terminate();this.active=undefined;}else cartridge.worker.terminate();}
   complete?.({ok:false,message:'Game selection cancelled.'});
-  this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.'); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
+  this.selectionLock=false;this.preparedSelection=undefined; this.rejectPending('Game selection changed. Try again for the current game.',terminal?undefined:this.active); ++this.generation; this.reader?.abort(); this.reader = undefined; this.candidate?.terminate(); this.candidate = undefined; }
  rejectSelection(message: string) { this.abandonCandidate(); this.publish({loading:false,selectionPhase:'failed',status:message}); }
  cancel() {
   if(this.selectionLock)return;
@@ -473,7 +475,7 @@ export class LocalPlayer {
      const publishCommit=()=>{this.publish({loading:false,selectionPhase:'loaded',loaded:true,running:!startPaused,frames:0,rewind:undefined,storageIssue:battery.issue,batteryAvailable:data.battery,status:startPaused?'Game loaded. Resume whenever you’re ready.':'Playing locally. The game runs in this browser.',fingerprint,previewImage});committed?.(fingerprint);if(!startPaused)this.canvas.focus();};
      const commit=()=>{if(committedWorker)return;committedWorker=true;
      const cartridge=this.cartridgeTransaction?.worker===worker?this.cartridgeTransaction:undefined;
-     if(cartridge&&this.active)cartridge.previous={worker:this.active,rom:this.selectedRom,battery:this.batterySession,state:{...this.state},fps:this.fps};else this.active?.terminate(); this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
+     if(cartridge&&this.active)cartridge.previous={worker:this.active,rom:this.selectedRom,battery:this.batterySession,state:{...this.state},fps:this.fps};else {this.rejectPending('Game replaced.',worker);this.active?.terminate();} this.batterySession=battery.session; this.active = worker; this.candidate = undefined;this.selectedRom=rom;
      this.audio.flush(); this.release(); this.busy = false; this.last = 0; this.fps = data.fps;
      if(!cartridge)publishCommit();
      };

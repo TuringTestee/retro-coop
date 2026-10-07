@@ -35,7 +35,19 @@ def migrated_default_preferences(browser, url, output):
     from rooms.ui_helpers import choose_section, capture_binding
     rows=[]
     context=browser.new_context(viewport={'width':1280,'height':800})
-    context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"addEventListener('DOMContentLoaded',()=>releaseFrames());")
+    context.add_init_script((ROOT/'scripts/gameplay/fixture.js').read_text()+"""
+      const PreferenceWorker=Worker;proof.preferenceInputs=[];
+      window.Worker=class extends PreferenceWorker{
+        postMessage(data,...rest){
+          if(data.type==='frame'&&data.epoch){
+            proof.preferenceInputs.push({epoch:data.epoch,frame:data.frame,p1:data.p1});
+            if(proof.preferenceInputs.length>32)proof.preferenceInputs.shift();
+          }
+          return super.postMessage(data,...rest);
+        }
+      };
+      addEventListener('DOMContentLoaded',()=>releaseFrames());
+    """)
     page=context.new_page()
     def load_game():
         page.get_by_role('button',name='Load NES game').click();page.get_by_role('button',name='Add game file').click();page.get_by_label('NES cartridge file').set_input_files(str(ROOT/'spikes/d02/fixture.local.nes'))
@@ -63,13 +75,15 @@ def migrated_default_preferences(browser, url, output):
             if count==15:
                 page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
         page.get_by_role('button',name='Prepare',exact=True).click();page.get_by_role('button',name='Start →').click();page.wait_for_function('proof.frameCount>10')
-        def native(key,expected):
-            before=page.evaluate('proof.frameCount');page.keyboard.down(key)
-            page.wait_for_function('before=>proof.frameCount>before+proof.room.game.delay+3',arg=before)
+        def native(key,expected,mask):
+            page.evaluate('proof.preferenceInputs=[]');page.keyboard.down(key)
+            page.wait_for_function('mask=>proof.preferenceInputs.some(row=>row.epoch===proof.room.game.epoch&&row.p1===mask)',arg=mask)
+            command=page.evaluate('mask=>proof.preferenceInputs.find(row=>row.epoch===proof.room.game.epoch&&row.p1===mask)',mask)
+            page.wait_for_function('command=>proof.frames.at(-1)?.epoch===command.epoch&&proof.frames.at(-1).frame>=command.frame',arg=command)
             page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
             page.wait_for_function('proof.controllerRam!==undefined');ram=page.evaluate('proof.controllerRam');assert ram==[expected,0],(count,key,ram)
             page.keyboard.up(key);return ram
-        b=native('z',64);save=native('c',0)
+        b=native('z',64,2);save=native('c',0,0)
         page.get_by_text('Saved to quick slot 1.',exact=True).wait_for()
         rows[-1].update(native_b_ram=b,native_save_ram=save,save_notice=True)
         page.get_by_role('button',name='Back to Main Page',exact=True).click();page.get_by_role('button',name='Close lobby',exact=True).click();page.locator('.rc-listing').wait_for()
@@ -84,9 +98,12 @@ def cartridge_replacement(browser,url,output):
     observer_hook="""
       const ObserverPeer=RTCPeerConnection;
       const holdObserverChannel=channel=>channel.addEventListener('message',event=>{
-        if(!proof.holdObserverFrames||typeof event.data!=='string')return;
+        if(typeof event.data!=='string')return;
         let packet;try{packet=JSON.parse(event.data)}catch{return}
+        // Delayed confirmed frames also delay their later interval hashes.
+        if(proof.holdObserverFrames&&packet.kind==='hash'){event.stopImmediatePropagation();return;}
         if(packet.kind==='frame'){
+          if(!proof.holdObserverFrames){proof.observerFrameHead=packet;return;}
           proof.heldObserverFrames=(proof.heldObserverFrames??0)+1;
           event.stopImmediatePropagation();
         }
@@ -135,19 +152,37 @@ def cartridge_replacement(browser,url,output):
         h.get_by_role('button',name='Resume together',exact=True).click()
         h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         print(json.dumps({'actual_native_preparation_rejection':prepare_fault}),flush=True)
+        # Candidate acquisition must preserve a valid periodic hash owned by the
+        # retained native emulator, even when its response arrives after selection.
+        interval=h.evaluate('async path=>(await import(path)).gameplayLimits.hashInterval','/@fs'+str(ROOT/'packages/contracts/src/gameplay.ts'))
+        h.evaluate('interval=>proof.finalHashDelay={frame:Math.ceil((proof.frames.at(-1).frame+2)/interval)*interval,delayMs:2500}',interval)
+        h.wait_for_function('proof.finalHashDelay.response!==undefined')
+        print(json.dumps({'held_active_periodic_hash':h.evaluate('proof.finalHashDelay')}),flush=True)
         h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='From Below',exact=True).click()
         h.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&!proof.room.started',timeout=35000)
+        assert not h.evaluate('proof.events.some(row=>row.kind==="send"&&row.type==="gameAbort")'),'candidate acquisition aborted a valid active native hash'
         for p in pages:p.wait_for_function('proof.room?.catalogId==="from-below-1.0"&&proof.room.matches',timeout=15000)
         assert h.evaluate('proof.room.slots.map(s=>({id:s.id,open:s.open,member:s.member?.id}))')==roster
         assert h.get_by_text('Saved progress loaded.',exact=True).count()==0
         h.screenshot(path=str(output/'replacement-one-controller-prepare.png'))
         h.get_by_role('button',name='Prepare',exact=True).click();h.get_by_role('button',name='Start →',exact=True).click();h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=3')
-        observer_frame=g.evaluate('proof.frames.at(-1).frame');held_frames=g.evaluate('proof.heldObserverFrames??0');g.evaluate('proof.holdObserverFrames=true')
-        h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=observer_frame)
-        g.wait_for_function('before=>proof.heldObserverFrames>before',arg=held_frames)
+        def hold_observer():
+            # Create a real queued replay, then wait for every admitted native
+            # frame to complete before treating its state as a rollback boundary.
+            g.evaluate('window.workerFloorMs=200')
+            g.wait_for_function('proof.observerFrameHead?.epoch===proof.room.game.epoch&&proof.observerFrameHead.frame>proof.frames.at(-1).frame+2')
+            observer_frame=g.evaluate('proof.frames.at(-1).frame');held_frames=g.evaluate('proof.heldObserverFrames??0');g.evaluate('proof.holdObserverFrames=true')
+            h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=observer_frame)
+            g.wait_for_function('before=>proof.heldObserverFrames>before',arg=held_frames)
+            admitted=g.evaluate('proof.observerFrameHead')
+            g.wait_for_function('head=>proof.frames.at(-1)?.epoch===head.epoch&&proof.frames.at(-1).frame===head.frame',arg=admitted)
+            g.evaluate('window.workerFloorMs=0')
+            return admitted
+        admitted=hold_observer()
         native_boundary="()=>new Promise(resolve=>{const worker=currentWorker;const done=({data})=>{if(data.type==='state-hash'&&data.requestId===900009){worker.removeEventListener('message',done);resolve(data.info);}};worker.addEventListener('message',done);worker.postMessage({type:'state-hash',requestId:900009});})"
         observer_before=g.evaluate(native_boundary)
+        assert observer_before['frame']==admitted['frame']+1,(admitted,observer_before)
         assert observer_before['frame']!=h.evaluate('proof.frames.at(-1).frame'),observer_before
         print(json.dumps({'independent_observer_before':observer_before}),flush=True)
         g.evaluate('proof.rejectCandidateCommit=true')
@@ -175,10 +210,9 @@ def cartridge_replacement(browser,url,output):
         h.get_by_role('button',name='Prepare to resume',exact=True).click();h.get_by_role('button',name='Resume together',exact=True).click()
         h.wait_for_function('proof.room.game.status==="playing"&&proof.frames.at(-1)?.epoch===proof.room.game.epoch')
         g.wait_for_function('proof.frames.at(-1)?.epoch===proof.room.game.epoch')
-        retry_frame=g.evaluate('proof.frames.at(-1).frame');held_frames=g.evaluate('proof.heldObserverFrames??0');g.evaluate('proof.holdObserverFrames=true')
-        h.wait_for_function('frame=>proof.frames.at(-1)?.epoch===proof.room.game.epoch&&proof.frames.at(-1).frame>=frame+30',arg=retry_frame)
-        g.wait_for_function('before=>proof.heldObserverFrames>before',arg=held_frames)
+        admitted=hold_observer()
         observer_retry=g.evaluate(native_boundary)
+        assert observer_retry['frame']==admitted['frame']+1,(admitted,observer_retry)
         assert observer_retry['frame']!=h.evaluate('proof.frames.at(-1).frame'),observer_retry
         print(json.dumps({'independent_observer_retry':observer_retry}),flush=True)
         h.get_by_role('button',name='Change game',exact=True).click();h.get_by_role('button',name='Super Tilt Bro',exact=True).click()

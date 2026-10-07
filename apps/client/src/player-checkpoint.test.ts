@@ -206,3 +206,23 @@ test('leaving a provisional cartridge commit releases both machines and cannot p
  await t.player.quit();assert.equal(t.oldStopped,1);assert.equal(t.candidateStopped,1);
  t.resolve({ok:true});await t.handled;assert.equal(t.remembered,0);assert.equal(t.active,undefined);
 });
+
+
+test('abandoning a candidate preserves pending requests on the retained active native worker',async()=>{
+ const active={terminate(){}},candidate={terminated:false,terminate(){this.terminated=true;}},sent:unknown[]=[];
+ const player=Object.assign(Object.create(LocalPlayer.prototype),{active,candidate,pending:new Map(),nextRequest:0,generation:0,disposed:false,shared:true,state:{loaded:true,loading:true},selectionListeners:new Set(),send(_worker:unknown,command:unknown){sent.push(command);},publish(){}}) as LocalPlayer;
+ const owned=player as unknown as {pending:Map<number,{worker:unknown;resolve:(reply:unknown)=>void}>;fileRequest(command:unknown,target:unknown):Promise<unknown>;rejectPending(message:string):void};
+ const activeHash=player.stateHash(),candidateHash=owned.fileRequest({type:'state-hash'},candidate);
+ const cancelled=assert.rejects(candidateHash,{name:'AbortError'});
+ // Attach a rejection handler before cancelling so the red run retains its cause.
+ let activeError:unknown;const result=activeHash.catch(error=>{activeError=error;return undefined;});
+ player.cancel();await cancelled;
+ assert.equal(candidate.terminated,true);
+ const retained=[...owned.pending.entries()].find(([,request])=>request.worker===active);
+ try{assert.ok(retained,'candidate cancellation rejected the active native hash');retained[1].resolve({type:'state-hash',info:{frame:120,hash:'native-boundary'}});assert.deepEqual(await result,{frame:120,hash:'native-boundary'});assert.equal(activeError,undefined);}
+ finally{owned.rejectPending('Test finished.');await result;}
+ assert.equal(sent.length,2);
+ Object.assign(player,{pause(){},persistBattery:async()=>{},audio:{flush(){}},release(){},canvas:{getContext(){return null;}}});
+ const closingHash=player.stateHash(),closed=assert.rejects(closingHash,{name:'AbortError'});
+ await player.quit();await closed;assert.equal(owned.pending.size,0,'closing the active game must reject its remaining requests');
+});

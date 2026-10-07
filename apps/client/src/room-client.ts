@@ -1,3 +1,4 @@
+import {gameplayProtocol} from '../../../packages/contracts/src/gameplay.ts';
 import {GameClient,type GameplayState} from './game-client.ts';
 import {downloadCatalogEntry} from './catalog-download.ts';
 import {acquireMemberRom} from './member-rom.ts';
@@ -28,7 +29,7 @@ const messages:Record<string,string> = {
  room_unavailable:'This lobby is closed, unavailable, or the invitation has expired.',session_expired:'Your guest session expired. Reconnect to continue.',
  room_changed:'That lobby has changed. Review the current lobby before trying again.',membership_changed:'That member has left or rejoined. Review the current slot before trying again.',
  timeline_change_pending:'Finish or cancel the current game change, then try again.',slot_occupied:'Remove the member before closing this slot.',slot_empty:'That player has left. Check the slot and try again.',slot_closed:'Open the destination slot before moving someone there.',controller_occupied:'An empty slot cannot take an occupied controller role.',role_change_pending:'Finish or cancel the current player change first.',game_not_playing:'Finish initial preparation before changing roles. If preparation fails, use Retry shared play.',stale_controllers:'The players changed. Review the current slots and retry.',game_prerequisites:'Wait until every player has the game, is connected, and is Ready before starting.',unsupported_role:'This game does not support that controller role.',
- host_only:'Only the host can change this lobby.',host_recovery_required:'The host lost its game state. Recover automatic progress before preparing.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
+ gameplay_update_required:'This lobby uses an updated game protocol. Refresh to reconnect; your local game and saves are preserved.',host_only:'Only the host can change this lobby.',host_recovery_required:'The host lost its game state. Recover automatic progress before preparing.',host_reconnecting:'The host is reconnecting. Try joining again later.',reservation_expired:'Your 120-second reservation expired. Retry join to claim a new place.',
  host_expired:'The host did not return. This lobby has closed.',host_closed:'The host closed the lobby.',removed:'The host removed you from this lobby.',left:'You left the lobby. Your local game is still available.',
  operator_removed:'An operator closed this lobby. Your local game is preserved.',admission_blocked:'Access is temporarily restricted by an operator. Retry later. Your local game is preserved.',
  service_restarted:'The service restarted. Ephemeral lobbies have closed.',creation_cancelled:'Lobby creation cancelled. Your game stays local.',creation_expired:'Upload timed out. Retry upload to create a fresh lobby.',upload_expired:'Upload timed out. Retry upload to create a fresh lobby.',cancelled:'Lobby creation cancelled.',
@@ -47,7 +48,7 @@ export class RoomClient {
  private peerEvent(event:PeerEvent){
   let peer=this.peers.get(event.pairId);
   if(event.type==='peerPrepare'&&!peer){
-   const member=event.member;peer=new PeerConnection(command=>this.request(command),connection=>{this.peerStates.set(event.pairId,connection);const states=[...this.peerStates.values()],routes=states.map(value=>value.route);this.publish({connection:{status:connection.status,route:routes.includes('relay')?'relay':routes.every(route=>route==='direct')?'direct':undefined,pingMs:Math.max(...states.map(value=>value.pingMs??0))}});},{media:this.voice.forPeer(event.pairId),...(event.gameplay?{checkpoint:(channel:RTCDataChannel,epoch:string)=>this.game.checkpointChannel(member,channel,epoch),ready:(channel:RTCDataChannel,epoch:string,roundTripMs:number)=>this.game.ready(member,channel,epoch,roundTripMs),closed:(epoch:string|undefined)=>this.game.closed(member,epoch)}:{})});this.peers.set(event.pairId,peer);
+   const member=event.member;peer=new PeerConnection(command=>this.request(command),connection=>{this.peerStates.set(event.pairId,connection);const states=[...this.peerStates.values()],routes=states.map(value=>value.route);this.publish({connection:{status:connection.status,route:routes.includes('relay')?'relay':routes.every(route=>route==='direct')?'direct':undefined,pingMs:Math.max(...states.map(value=>value.pingMs??0))}});},{media:this.voice.forPeer(event.pairId),...(event.gameplay?{checkpoint:(channel:RTCDataChannel,epoch:string)=>this.game.checkpointChannel(member,channel,epoch),ready:(channel:RTCDataChannel,epoch:string)=>this.game.ready(member,channel,epoch),closed:(epoch:string|undefined)=>this.game.closed(member,epoch)}:{})});this.peers.set(event.pairId,peer);
   }
   peer?.handle(event);if(event.type==='peerStop')this.peerStates.delete(event.pairId);
  }
@@ -169,7 +170,7 @@ export class RoomClient {
       this.publish({busy:false,uploading:false,status:'Lobby creation expired. Retry hosting.',releaseNotice:undefined});
      }else this.publish({busy:false,status:voluntaryExit&&event.reason==='host_closed'?'Lobby closed.':status,releaseNotice:voluntaryExit||event.reason==='left'||event.reason==='host_closed'&&priorRoom?.role==='host'?undefined:status});}
    };
-   socket.onopen = () => {void this.request({type:'hello',...(this.token ? {token:this.token}:{})}).then(async data=>{
+   socket.onopen = () => {void this.request({type:'hello',gameplayProtocol,...(this.token ? {token:this.token}:{})}).then(async data=>{
     clearTimeout(deadline);if(this.disposed) {socket.close();return;}if(data.session&&!await this.tabSession.claim(data.session.token,!this.token))throw Error('This browser cannot reserve a separate lobby session. Close the other tab or retry in a supported browser.');if(this.state.admissionBlocked && !data.room)this.closePeers('No peer connection.');this.setRoom(data.room);this.apply(data);await this.restoreName();this.publish({connected:true,admissionBlocked:false,...(this.state.admissionBlocked?{status:'Access restored. You can host or join a lobby.'}:{})});
     if(this.watchingDirectory) void this.refreshDirectory();
     this.heartbeat = setInterval(()=>{void this.request({type:'heartbeat'}).catch(()=>{if(this.socket===socket) socket.close();});},10_000);resolve();

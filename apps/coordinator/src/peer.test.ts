@@ -43,7 +43,7 @@ test('negotiation timeouts and signaling schema are bounded independently of roo
  const t=setup(),{host,peer,room}=t.pair();t.advance(15_000);assert.ok(host.events.some(event=>event.type==='peerStop' && event.reason.includes('timed out')));
  assert.equal(t.act(peer.token,{type:'file',fingerprint}).room!.reservationUntil,room.reservationUntil);
  const base={type:'peerSignal',requestId:randomUUID(),pairId:randomUUID(),epoch:randomUUID(),signal:{kind:'description',description:{type:'offer',sdp:'v=0\r\n'}}};assert.ok(parseRoomCommand(base));
- for(const bad of [{...base,target:'forged'},{...base,signal:{kind:'description',description:{type:'offer',sdp:'v=0'+'x'.repeat(12_000)}}},{...base,epoch:'short'},{type:'peerPolicy',requestId:randomUUID(),policy:'relay'},{type:'hello',requestId:randomUUID(),policy:'relay'}]) assert.equal(parseRoomCommand(bad),undefined);
+ for(const bad of [{...base,target:'forged'},{...base,signal:{kind:'description',description:{type:'offer',sdp:'v=0'+'x'.repeat(12_000)}}},{...base,epoch:'short'},{type:'peerPolicy',requestId:randomUUID(),policy:'relay'},{type:'hello',gameplayProtocol:2,requestId:randomUUID(),policy:'relay'}]) assert.equal(parseRoomCommand(bad),undefined);
  assert.throws(()=>relayConfig({TURN_URLS:'https://bad',TURN_SECRET:'x'.repeat(32),TURN_ROOM_LIMIT:'1'}));
 });
 

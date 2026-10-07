@@ -406,7 +406,7 @@ def controller_input(browser, url, output):
     records = []
     def observe(label, expected):
         before = page.evaluate('proof.frameCount')
-        page.wait_for_function('({before,mask})=>proof.frameCount>before+proof.room.game.delay+2&&proof.masks.slice(-3).every(value=>value[0]===mask&&value[1]===0)',
+        page.wait_for_function('({before,mask})=>proof.frameCount>before+2&&proof.masks.slice(-3).every(value=>value[0]===mask&&value[1]===0)',
                                arg={'before': before, 'mask': expected})
         page.evaluate("delete proof.controllerRam;currentWorker.postMessage({type:'state-export',requestId:900000})")
         page.wait_for_function('proof.controllerRam!==undefined')
