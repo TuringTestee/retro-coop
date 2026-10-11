@@ -7,7 +7,7 @@ import {gameplayProtocol} from '@retro-coop/contracts/src/gameplay.ts';
 
 const base = process.argv[2];
 if (!base || !base.startsWith('http://')) throw Error('Pass the local HTTP edge URL.');
-const origin = process.argv[3] ?? 'https://retro-coop.atobot.cloud';
+const origin = process.argv[3] ?? 'https://coop.ato.bot';
 const websocket = new URL('/coordinator/ws', base);
 websocket.protocol = 'ws:';
 

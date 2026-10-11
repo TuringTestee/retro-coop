@@ -22,19 +22,22 @@ assert settings["aws:autoscaling:launchconfiguration", "InstanceType"] == "t4g.m
 assert settings["aws:autoscaling:launchconfiguration", "DisableIMDSv1"] == "true"
 assert settings["aws:autoscaling:launchconfiguration", "SecurityGroups"] == "sg-app"
 assert settings["aws:elasticbeanstalk:application:environmentsecrets", "TURN_SECRET"] == "arn:turn-secret"
-assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://retro-coop.atobot.cloud"
-assert settings["aws:elasticbeanstalk:application:environment", "TURN_URLS"] == "turn:retro-coop.atobot.cloud:3478?transport=udp"
+assert settings["aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"] == "https://coop.ato.bot"
+assert settings["aws:elasticbeanstalk:application:environment", "TURN_URLS"] == "turn:coop.ato.bot:3478?transport=udp"
 assert "8787" not in str(settings) and "LoadBalancer" not in str(settings)
 assert {(row["Namespace"], row["OptionName"]): row["Value"] for row in website.connection_options()} == {
-    ("aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"): "https://retro-coop.atobot.cloud",
-    ("aws:elasticbeanstalk:application:environment", "TURN_URLS"): "turn:retro-coop.atobot.cloud:3478?transport=udp"}
+    ("aws:elasticbeanstalk:application:environment", "COORDINATOR_ORIGINS"): "https://coop.ato.bot",
+    ("aws:elasticbeanstalk:application:environment", "TURN_URLS"): "turn:coop.ato.bot:3478?transport=udp"}
 
 original_aws, original_run = website.aws, website.subprocess.run
 nameservers = ["ns-1.example", "ns-2.example"]
-website.aws = lambda *args: ({"HostedZone": {"Name": "atobot.cloud.", "Config": {"PrivateZone": False}},
-                              "DelegationSet": {"NameServers": nameservers}}
-                             if args[:2] == ("route53", "get-hosted-zone") else
-                             {"Nameservers": [{"Name": name} for name in nameservers]})
+def public_zone_only(*args):
+    assert args[:2] == ("route53", "get-hosted-zone"), "Delegation must support external registrars"
+    return {"HostedZone": {"Name": "ato.bot.", "Config": {"PrivateZone": False}},
+            "DelegationSet": {"NameServers": nameservers}}
+
+
+website.aws = public_zone_only
 website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="ns-1.example.\nns-2.example.\n")
 website.verify_delegation("Z1")
 website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="")
@@ -46,8 +49,8 @@ except ValueError:
 website.aws, website.subprocess.run = original_aws, original_run
 
 original_wait, original_command, original_environment = website.wait_for_environment, website.command, website.environment
-old_values = {"COORDINATOR_ORIGINS": "https://retro-coop.1001.page",
-              "TURN_URLS": "turn:retro-coop.1001.page:3478?transport=udp"}
+old_values = {"COORDINATOR_ORIGINS": "https://retro-coop.atobot.cloud",
+              "TURN_URLS": "turn:retro-coop.atobot.cloud:3478?transport=udp"}
 new_values = {row["OptionName"]: row["Value"] for row in website.connection_options()}
 migration = {"values": dict(old_values), "version": "main-old", "events": [], "failVersion": False}
 

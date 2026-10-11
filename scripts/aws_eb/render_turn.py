@@ -54,7 +54,7 @@ external-ip={args.public_ip}/{args.private_ip}
 listening-port={args.listen_port}
 min-port={RELAY_MIN_PORT}
 max-port={RELAY_MAX_PORT}
-realm=retro-coop.atobot.cloud
+realm=coop.ato.bot
 use-auth-secret
 static-auth-secret={secret}
 user-quota=4
