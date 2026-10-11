@@ -31,10 +31,13 @@ assert {(row["Namespace"], row["OptionName"]): row["Value"] for row in website.c
 
 original_aws, original_run = website.aws, website.subprocess.run
 nameservers = ["ns-1.example", "ns-2.example"]
-website.aws = lambda *args: ({"HostedZone": {"Name": "ato.bot.", "Config": {"PrivateZone": False}},
-                              "DelegationSet": {"NameServers": nameservers}}
-                             if args[:2] == ("route53", "get-hosted-zone") else
-                             {"Nameservers": [{"Name": name} for name in nameservers]})
+def public_zone_only(*args):
+    assert args[:2] == ("route53", "get-hosted-zone"), "Delegation must support external registrars"
+    return {"HostedZone": {"Name": "ato.bot.", "Config": {"PrivateZone": False}},
+            "DelegationSet": {"NameServers": nameservers}}
+
+
+website.aws = public_zone_only
 website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="ns-1.example.\nns-2.example.\n")
 website.verify_delegation("Z1")
 website.subprocess.run = lambda *args, **kwargs: Namespace(stdout="")

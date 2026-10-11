@@ -114,12 +114,10 @@ def verify_delegation(zone: str) -> None:
             hosted["HostedZone"]["Config"].get("PrivateZone"):
         raise ValueError("Expected the public ato.bot hosted zone")
     expected = {name.lower().rstrip(".") for name in hosted["DelegationSet"]["NameServers"]}
-    registered = aws("route53domains", "get-domain-detail", "--domain-name", PARENT_DOMAIN)
-    registrar = {row["Name"].lower().rstrip(".") for row in registered["Nameservers"]}
     public = subprocess.run(["dig", "+short", "NS", PARENT_DOMAIN, "@8.8.8.8"],
                             capture_output=True, text=True, check=True)
     resolved = {name.lower().rstrip(".") for name in public.stdout.splitlines()}
-    if not expected or registrar != expected or resolved != expected:
+    if not expected or resolved != expected:
         raise ValueError("ato.bot is not publicly delegated to the reviewed Route 53 zone")
 
 
