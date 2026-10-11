@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import http from 'node:http';
 import {gameplayProtocol} from '@retro-coop/contracts/src/gameplay.ts';
 
-const origin = 'https://retro-coop.atobot.cloud';
+const origin = 'https://coop.ato.bot';
 const rom = Buffer.alloc(16 + 16384);
 rom.set([0x4e, 0x45, 0x53, 0x1a, 1, 0]);
 const fingerprint = {

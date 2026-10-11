@@ -21,8 +21,8 @@ from release_recovery import restore_release
 
 ACCOUNT = os.environ.get("RETRO_AWS_ACCOUNT_ID")
 REGION = "us-east-1"
-HOST = "retro-coop.atobot.cloud"
-PARENT_DOMAIN = "atobot.cloud"
+HOST = "coop.ato.bot"
+PARENT_DOMAIN = "ato.bot"
 APP = "retro-coop"
 ENV = "retro-coop-web"
 STACK = "retro-coop-website-foundation"
@@ -112,7 +112,7 @@ def verify_delegation(zone: str) -> None:
     hosted = aws("route53", "get-hosted-zone", "--id", zone)
     if hosted["HostedZone"]["Name"].rstrip(".") != PARENT_DOMAIN or \
             hosted["HostedZone"]["Config"].get("PrivateZone"):
-        raise ValueError("Expected the public atobot.cloud hosted zone")
+        raise ValueError("Expected the public ato.bot hosted zone")
     expected = {name.lower().rstrip(".") for name in hosted["DelegationSet"]["NameServers"]}
     registered = aws("route53domains", "get-domain-detail", "--domain-name", PARENT_DOMAIN)
     registrar = {row["Name"].lower().rstrip(".") for row in registered["Nameservers"]}
@@ -120,7 +120,7 @@ def verify_delegation(zone: str) -> None:
                             capture_output=True, text=True, check=True)
     resolved = {name.lower().rstrip(".") for name in public.stdout.splitlines()}
     if not expected or registrar != expected or resolved != expected:
-        raise ValueError("atobot.cloud is not publicly delegated to the reviewed Route 53 zone")
+        raise ValueError("ato.bot is not publicly delegated to the reviewed Route 53 zone")
 
 
 def public_subnet(subnet_id: str, vpc_id: str) -> bool:

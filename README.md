@@ -4,6 +4,8 @@ Retro Coop plays NES games in your browser, with keyboard/gamepad controls, soun
 
 ## Play
 
+Open [coop.ato.bot](https://coop.ato.bot/) for the deployed website.
+
 Install Node.js 24.13.1, npm 11.8.0, Python 3, and Rust 1.95.0 with the `wasm32-unknown-unknown` target. From a clean checkout, run:
 
 ```sh

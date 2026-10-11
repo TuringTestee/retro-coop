@@ -11,7 +11,7 @@ ACCOUNT = os.environ.get("ACCOUNT_ID")
 BUDGET = "retro-coop-website-monthly"
 APP = "retro-coop"
 ENV = "retro-coop-web"
-HOST = "retro-coop.atobot.cloud"
+HOST = "coop.ato.bot"
 LIMIT = Decimal("100")
 
 
